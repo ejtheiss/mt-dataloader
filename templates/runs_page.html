@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block nav_runs %}active{% endblock %}
+{% block title %}Runs — MT Dataloader{% endblock %}
+
+{% block content %}
+<div class="runs-container">
+    <h2>Past Runs</h2>
+
+    <details class="cleanup-credentials">
+        <summary>API Credentials (required for cleanup)</summary>
+        <div style="margin-top: 12px;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cleanup-api-key">API Key</label>
+                    <input type="password" id="cleanup-api-key" name="api_key"
+                           placeholder="sk_test_..." autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="cleanup-org-id">Organization ID</label>
+                    <input type="text" id="cleanup-org-id" name="org_id"
+                           placeholder="org_..." autocomplete="off">
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <div id="runs-list"
+         hx-get="/api/runs"
+         hx-trigger="load"
+         hx-target="#runs-list"
+         hx-swap="innerHTML"
+         hx-indicator="#runs-spinner">
+        <div id="runs-spinner" class="htmx-indicator" style="text-align: center; padding: 24px;">
+            <div class="spinner" style="margin: 0 auto;"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

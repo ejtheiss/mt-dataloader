@@ -1,0 +1,89 @@
+{
+    "connections": [
+        {
+            "ref": "demo_bank",
+            "entity_id": "example1",
+            "nickname": "Payments Demo Bank"
+        }
+    ],
+
+    "counterparties": [
+        {
+            "ref": "vendor_cloudhost",
+            "name": "CloudHost Inc",
+            "accounts": [
+                {
+                    "account_type": "checking",
+                    "party_name": "CloudHost Inc",
+                    "party_type": "business",
+                    "sandbox_behavior": "success"
+                }
+            ],
+            "metadata": {
+                "vendor_type": "saas",
+                "cost_center": "ENGINEERING"
+            }
+        }
+    ],
+
+    "internal_accounts": [
+        {
+            "ref": "ops_checking",
+            "connection_id": "$ref:connection.demo_bank",
+            "name": "Operations Checking",
+            "party_name": "Demo Corp",
+            "currency": "USD",
+            "metadata": {
+                "account_purpose": "operating"
+            }
+        }
+    ],
+
+    "expected_payments": [
+        {
+            "ref": "ep_incoming_wire",
+            "description": "Expected wire transfer from client — invoice WR-2026-0015",
+            "reconciliation_rule_variables": [
+                {
+                    "internal_account_id": "$ref:internal_account.ops_checking",
+                    "direction": "credit",
+                    "amount_lower_bound": 250000,
+                    "amount_upper_bound": 250000,
+                    "type": "ach"
+                }
+            ],
+            "metadata": {
+                "ar_invoice_id": "WR-2026-0015",
+                "customer_name": "GlobalTech Partners"
+            }
+        }
+    ],
+
+    "payment_orders": [
+        {
+            "ref": "po_vendor_payment",
+            "type": "ach",
+            "amount": 95000,
+            "direction": "credit",
+            "originating_account_id": "$ref:internal_account.ops_checking",
+            "receiving_account_id": "$ref:counterparty.vendor_cloudhost.account[0]",
+            "description": "Vendor payment — monthly SaaS subscription",
+            "metadata": {
+                "vendor_name": "CloudHost Inc",
+                "invoice_ref": "CH-INV-2026-03",
+                "cost_center": "ENGINEERING"
+            }
+        }
+    ],
+
+    "incoming_payment_details": [
+        {
+            "ref": "ipd_client_wire",
+            "type": "ach",
+            "direction": "credit",
+            "amount": 250000,
+            "internal_account_id": "$ref:internal_account.ops_checking",
+            "description": "Wire from GlobalTech Partners for WR-2026-0015"
+        }
+    ]
+}

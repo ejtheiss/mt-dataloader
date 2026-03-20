@@ -1,0 +1,72 @@
+<div class="discovery-summary">
+    <h3>Org Discovery
+        <a href="{{ mt_docs.sandbox }}" target="_blank" rel="noopener" class="info-icon" title="Building in Sandbox docs">&#9432;</a>
+    </h3>
+
+    {% if discovery.warnings %}
+    <div class="discovery-warnings">
+        {% for warning in discovery.warnings %}
+        <div class="warning-badge">&#9888; {{ warning }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="discovered-resources">
+        {% if discovery.connections %}
+        <div class="discovered-group">
+            <h4>Connections ({{ discovery.connections|length }})</h4>
+            <table class="mini-table">
+                <thead><tr><th>Auto Ref</th><th>Vendor</th></tr></thead>
+                <tbody>
+                {% for c in discovery.connections %}
+                <tr>
+                    <td><code>{{ c.auto_ref }}</code></td>
+                    <td>{{ c.vendor_name }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if discovery.internal_accounts %}
+        <div class="discovered-group">
+            <h4>Internal Accounts ({{ discovery.internal_accounts|length }})</h4>
+            <table class="mini-table">
+                <thead><tr><th>Auto Ref</th><th>Name</th><th>Currency</th><th>Connection</th></tr></thead>
+                <tbody>
+                {% for ia in discovery.internal_accounts %}
+                <tr>
+                    <td><code>{{ ia.auto_ref }}</code></td>
+                    <td>{{ ia.name or "(unnamed)" }}</td>
+                    <td>{{ ia.currency }}</td>
+                    <td><code>{{ ia.connection_ref or "—" }}</code></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if discovery.ledgers %}
+        <div class="discovered-group">
+            <h4>Ledgers ({{ discovery.ledgers|length }})</h4>
+            <table class="mini-table">
+                <thead><tr><th>Auto Ref</th><th>Name</th></tr></thead>
+                <tbody>
+                {% for lg in discovery.ledgers %}
+                <tr>
+                    <td><code>{{ lg.auto_ref }}</code></td>
+                    <td>{{ lg.name }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if not discovery.connections and not discovery.internal_accounts and not discovery.ledgers %}
+        <p class="empty-state">No pre-existing resources discovered. All resources will be created from config.</p>
+        {% endif %}
+    </div>
+</div>

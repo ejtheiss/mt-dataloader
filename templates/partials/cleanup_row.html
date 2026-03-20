@@ -1,0 +1,21 @@
+{% set row_id = "cleanup-" + entry.typed_ref|replace(".", "-")|replace("[", "_")|replace("]", "") %}
+<div id="{{ row_id }}" class="cleanup-row {{ action }}" hx-swap-oob="true">
+    <span class="type-badge type-{{ entry.resource_type }}">{{ entry.resource_type }}</span>
+    <span class="ref-name">{{ entry.typed_ref }}</span>
+    <span class="status-indicator">
+        {% if action == "deleted" %}
+            <span class="status-dot created"></span>
+            <span class="status-text">Deleted</span>
+        {% elif action == "archived" %}
+            <span class="status-text">Archived</span>
+        {% elif action == "removed" %}
+            <span class="status-dot created"></span>
+            <span class="status-text">Removed</span>
+        {% elif action == "skipped" %}
+            <span class="status-text">Skipped — {{ status }}</span>
+        {% elif action == "failed" %}
+            <span class="status-dot error"></span>
+            <span class="status-text error-detail">{{ status }}</span>
+        {% endif %}
+    </span>
+</div>

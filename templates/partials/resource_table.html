@@ -1,0 +1,75 @@
+<div class="resource-table">
+    {% for phase_value, phase_name in [(1, "Setup"), (2, "Business"), (3, "Lifecycle"), (4, "Mutations")] %}
+        {% set phase_items = preview_items|selectattr("display_phase", "eq", phase_value)|list %}
+        {% if phase_items %}
+        <div class="phase-group">
+            <h3 class="phase-header">
+                {{ phase_name }}
+                <span class="phase-count">{{ phase_items|length }}</span>
+            </h3>
+            <table class="preview-table">
+                <thead>
+                    <tr>
+                        <th>Batch</th>
+                        <th>Type</th>
+                        <th>Ref</th>
+                        <th>Dependencies</th>
+                        <th>Metadata</th>
+                        <th>Sandbox</th>
+                        <th>Cleanup</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for item in phase_items %}
+                <tr>
+                    <td><span class="batch-badge">B{{ item.batch }}</span></td>
+                    <td>
+                        {% if item.resource_type in mt_docs %}
+                        <a href="{{ mt_docs[item.resource_type] }}" target="_blank" rel="noopener" class="doc-link">
+                            <span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span>
+                        </a>
+                        {% else %}
+                        <span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span>
+                        {% endif %}
+                    </td>
+                    <td><code>{{ item.typed_ref }}</code></td>
+                    <td>
+                        {% for dep in item.deps %}
+                        <code class="dep-ref">{{ dep }}</code>
+                        {% endfor %}
+                        {% if not item.deps %}&mdash;{% endif %}
+                    </td>
+                    <td>
+                        {% if item.has_metadata %}
+                        <details class="metadata-expand">
+                            <summary>{{ item.metadata|length }} key(s)</summary>
+                            <dl class="metadata-list">
+                            {% for k, v in item.metadata.items() %}
+                                <dt>{{ k }}</dt><dd>{{ v }}</dd>
+                            {% endfor %}
+                            </dl>
+                        </details>
+                        {% else %}&mdash;{% endif %}
+                    </td>
+                    <td>
+                        {% if item.sandbox_info %}
+                        <a href="{{ mt_docs.test_counterparties }}" target="_blank" rel="noopener" class="doc-link">
+                            <span class="sandbox-badge">{{ item.sandbox_info }}</span>
+                        </a>
+                        {% else %}&mdash;{% endif %}
+                    </td>
+                    <td>
+                        {% if item.deletable %}
+                        <span class="deletable-badge">deletable</span>
+                        {% else %}
+                        <span class="persistent-badge">persistent</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    {% endfor %}
+</div>

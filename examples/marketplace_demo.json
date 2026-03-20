@@ -1,0 +1,353 @@
+{
+    "connections": [
+        {
+            "ref": "boats_group_bank",
+            "entity_id": "example1",
+            "nickname": "Boats Group Banking Partner"
+        }
+    ],
+
+    "legal_entities": [
+        {
+            "ref": "boats_group_inc",
+            "legal_entity_type": "business",
+            "business_name": "Boats Group Inc",
+            "date_formed": "2015-06-01",
+            "legal_structure": "corporation",
+            "country_of_incorporation": "US",
+            "website": "https://www.boatsgroup.com",
+            "email": "treasury@boatsgroup.com",
+            "identifications": [
+                {
+                    "id_number": "830712456",
+                    "id_type": "us_ein",
+                    "issuing_country": "US"
+                }
+            ],
+            "addresses": [
+                {
+                    "address_types": ["business"],
+                    "line1": "1691 Michigan Ave",
+                    "line2": "Suite 600",
+                    "locality": "Miami Beach",
+                    "region": "FL",
+                    "postal_code": "33139",
+                    "country": "US"
+                }
+            ],
+            "metadata": {
+                "platform_role": "marketplace_operator",
+                "industry": "marine_marketplace"
+            }
+        },
+        {
+            "ref": "buyer_john_smith",
+            "legal_entity_type": "individual",
+            "first_name": "John",
+            "last_name": "Smith",
+            "date_of_birth": "1985-03-15",
+            "email": "john.smith@email.com",
+            "citizenship_country": "US",
+            "identifications": [
+                {
+                    "id_number": "412789035",
+                    "id_type": "us_ssn",
+                    "issuing_country": "US"
+                }
+            ],
+            "addresses": [
+                {
+                    "address_types": ["residential"],
+                    "line1": "2201 Collins Ave",
+                    "line2": "Apt 1204",
+                    "locality": "Miami Beach",
+                    "region": "FL",
+                    "postal_code": "33139",
+                    "country": "US"
+                }
+            ],
+            "metadata": {
+                "user_type": "buyer",
+                "marketplace_role": "consumer",
+                "listing_interest": "BOAT-2026-0847"
+            }
+        },
+        {
+            "ref": "seller_jacks_marina",
+            "legal_entity_type": "business",
+            "business_name": "Captain Jack's Marine Sales LLC",
+            "date_formed": "2018-09-20",
+            "legal_structure": "llc",
+            "country_of_incorporation": "US",
+            "website": "https://www.captainjacksmarine.com",
+            "email": "finance@captainjacksmarine.com",
+            "identifications": [
+                {
+                    "id_number": "593841027",
+                    "id_type": "us_ein",
+                    "issuing_country": "US"
+                }
+            ],
+            "addresses": [
+                {
+                    "address_types": ["business"],
+                    "line1": "4200 Bayshore Blvd",
+                    "locality": "Tampa",
+                    "region": "FL",
+                    "postal_code": "33611",
+                    "country": "US"
+                }
+            ],
+            "metadata": {
+                "user_type": "seller",
+                "marketplace_role": "professional_dealer",
+                "seller_tier": "premium",
+                "active_listings": "23"
+            }
+        },
+        {
+            "ref": "buyer_mike_nsf",
+            "legal_entity_type": "individual",
+            "first_name": "Mike",
+            "last_name": "Johnson",
+            "date_of_birth": "1990-11-08",
+            "email": "mike.johnson@email.com",
+            "citizenship_country": "US",
+            "identifications": [
+                {
+                    "id_number": "265140893",
+                    "id_type": "us_ssn",
+                    "issuing_country": "US"
+                }
+            ],
+            "addresses": [
+                {
+                    "address_types": ["residential"],
+                    "line1": "7320 Sand Lake Rd",
+                    "locality": "Orlando",
+                    "region": "FL",
+                    "postal_code": "32819",
+                    "country": "US"
+                }
+            ],
+            "metadata": {
+                "user_type": "buyer",
+                "marketplace_role": "consumer",
+                "demo_purpose": "nsf_return_simulation"
+            }
+        }
+    ],
+
+    "counterparties": [
+        {
+            "ref": "buyer_john_cp",
+            "name": "John Smith",
+            "legal_entity_id": "$ref:legal_entity.buyer_john_smith",
+            "accounts": [
+                {
+                    "account_type": "checking",
+                    "party_name": "John Smith",
+                    "party_type": "individual",
+                    "sandbox_behavior": "success"
+                }
+            ],
+            "metadata": {
+                "user_id": "USR-BUYER-10042",
+                "kyc_status": "approved",
+                "verification_method": "persona_idv"
+            }
+        },
+        {
+            "ref": "seller_jacks_cp",
+            "name": "Captain Jack's Marine Sales LLC",
+            "legal_entity_id": "$ref:legal_entity.seller_jacks_marina",
+            "accounts": [
+                {
+                    "account_type": "checking",
+                    "party_name": "Captain Jack's Marine Sales LLC",
+                    "party_type": "business",
+                    "sandbox_behavior": "success"
+                }
+            ],
+            "metadata": {
+                "user_id": "USR-SELLER-20089",
+                "kyc_status": "approved",
+                "dealer_license": "FL-MDB-2018-4420"
+            }
+        },
+        {
+            "ref": "buyer_mike_cp",
+            "name": "Mike Johnson (NSF Demo)",
+            "legal_entity_id": "$ref:legal_entity.buyer_mike_nsf",
+            "accounts": [
+                {
+                    "account_type": "checking",
+                    "party_name": "Mike Johnson",
+                    "party_type": "individual",
+                    "sandbox_behavior": "return",
+                    "sandbox_return_code": "R01"
+                }
+            ],
+            "metadata": {
+                "user_id": "USR-BUYER-10099",
+                "demo_purpose": "nsf_return_simulation",
+                "expected_return_code": "R01"
+            }
+        }
+    ],
+
+    "internal_accounts": [
+        {
+            "ref": "boats_group_revenue",
+            "connection_id": "$ref:connection.boats_group_bank",
+            "name": "Boats Group Platform Revenue",
+            "party_name": "Boats Group Inc",
+            "currency": "USD",
+            "legal_entity_id": "$ref:legal_entity.boats_group_inc",
+            "metadata": {
+                "account_purpose": "platform_fee_collection",
+                "owner_type": "platform"
+            }
+        },
+        {
+            "ref": "buyer_john_wallet",
+            "connection_id": "$ref:connection.boats_group_bank",
+            "name": "John Smith — Buyer Wallet",
+            "party_name": "John Smith",
+            "currency": "USD",
+            "legal_entity_id": "$ref:legal_entity.buyer_john_smith",
+            "metadata": {
+                "account_purpose": "buyer_sub_account",
+                "user_id": "USR-BUYER-10042",
+                "linked_listing": "BOAT-2026-0847"
+            }
+        },
+        {
+            "ref": "seller_jacks_wallet",
+            "connection_id": "$ref:connection.boats_group_bank",
+            "name": "Captain Jack's — Seller Wallet",
+            "party_name": "Captain Jack's Marine Sales LLC",
+            "currency": "USD",
+            "legal_entity_id": "$ref:legal_entity.seller_jacks_marina",
+            "metadata": {
+                "account_purpose": "seller_sub_account",
+                "user_id": "USR-SELLER-20089",
+                "dealer_id": "DLR-4420"
+            }
+        },
+        {
+            "ref": "buyer_mike_wallet",
+            "connection_id": "$ref:connection.boats_group_bank",
+            "name": "Mike Johnson — Buyer Wallet",
+            "party_name": "Mike Johnson",
+            "currency": "USD",
+            "legal_entity_id": "$ref:legal_entity.buyer_mike_nsf",
+            "metadata": {
+                "account_purpose": "buyer_sub_account",
+                "user_id": "USR-BUYER-10099",
+                "demo_purpose": "nsf_return_target"
+            }
+        }
+    ],
+
+    "expected_payments": [
+        {
+            "ref": "ep_buyer_deposit",
+            "description": "Expected deposit from John Smith for 2026 Sea Ray 320 Sundancer",
+            "reconciliation_rule_variables": [
+                {
+                    "internal_account_id": "$ref:internal_account.buyer_john_wallet",
+                    "direction": "credit",
+                    "amount_lower_bound": 10500000,
+                    "amount_upper_bound": 10500000,
+                    "type": "ach"
+                }
+            ],
+            "metadata": {
+                "listing_id": "BOAT-2026-0847",
+                "boat_description": "2026 Sea Ray 320 Sundancer",
+                "boat_price_usd": "105000",
+                "buyer_user_id": "USR-BUYER-10042",
+                "expected_by": "2026-04-01"
+            }
+        }
+    ],
+
+    "incoming_payment_details": [
+        {
+            "ref": "ipd_buyer_deposit",
+            "type": "ach",
+            "direction": "credit",
+            "amount": 10500000,
+            "internal_account_id": "$ref:internal_account.buyer_john_wallet",
+            "description": "Buyer deposit — 2026 Sea Ray 320 Sundancer (BOAT-2026-0847)"
+        }
+    ],
+
+    "payment_orders": [
+        {
+            "ref": "po_settle_to_seller",
+            "type": "book",
+            "direction": "credit",
+            "amount": 10185000,
+            "originating_account_id": "$ref:internal_account.buyer_john_wallet",
+            "receiving_account_id": "$ref:internal_account.seller_jacks_wallet",
+            "description": "Marketplace settlement — net to seller for BOAT-2026-0847",
+            "metadata": {
+                "transaction_type": "marketplace_settlement",
+                "listing_id": "BOAT-2026-0847",
+                "boat_description": "2026 Sea Ray 320 Sundancer",
+                "gross_amount_cents": "10500000",
+                "fee_amount_cents": "315000",
+                "fee_rate_pct": "3.0",
+                "source_deposit": "$ref:incoming_payment_detail.ipd_buyer_deposit"
+            }
+        },
+        {
+            "ref": "po_platform_fee",
+            "type": "book",
+            "direction": "credit",
+            "amount": 315000,
+            "originating_account_id": "$ref:internal_account.buyer_john_wallet",
+            "receiving_account_id": "$ref:internal_account.boats_group_revenue",
+            "description": "Platform fee — 3% commission on BOAT-2026-0847 sale",
+            "metadata": {
+                "transaction_type": "platform_fee",
+                "listing_id": "BOAT-2026-0847",
+                "fee_type": "marketplace_commission",
+                "fee_rate_pct": "3.0",
+                "source_deposit": "$ref:incoming_payment_detail.ipd_buyer_deposit"
+            }
+        },
+        {
+            "ref": "po_seller_payout",
+            "type": "ach",
+            "direction": "credit",
+            "amount": 10185000,
+            "originating_account_id": "$ref:internal_account.seller_jacks_wallet",
+            "receiving_account_id": "$ref:counterparty.seller_jacks_cp.account[0]",
+            "description": "Seller payout — Captain Jack's Marine Sales for BOAT-2026-0847",
+            "metadata": {
+                "transaction_type": "seller_payout",
+                "listing_id": "BOAT-2026-0847",
+                "settlement_ref": "$ref:payment_order.po_settle_to_seller",
+                "seller_user_id": "USR-SELLER-20089"
+            }
+        },
+        {
+            "ref": "po_nsf_debit",
+            "type": "ach",
+            "direction": "debit",
+            "amount": 1500000,
+            "originating_account_id": "$ref:internal_account.buyer_mike_wallet",
+            "receiving_account_id": "$ref:counterparty.buyer_mike_cp.account[0]",
+            "description": "ACH debit — Mike Johnson deposit for BOAT-2026-1122 (will auto-return R01)",
+            "metadata": {
+                "transaction_type": "buyer_drawdown",
+                "listing_id": "BOAT-2026-1122",
+                "demo_purpose": "nsf_return_simulation",
+                "expected_outcome": "R01_insufficient_funds"
+            }
+        }
+    ]
+}

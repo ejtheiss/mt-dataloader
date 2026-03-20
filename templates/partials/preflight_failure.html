@@ -1,0 +1,17 @@
+<div class="preflight-failure">
+    <h2>Preflight Validation Failed</h2>
+    <p class="subtitle">The baseline resources do not match the live org. Fix the issues below and re-validate.</p>
+
+    {% for issue in preflight.issues %}
+    <div class="issue-row issue-{{ issue.level.value }}">
+        <span class="issue-level">{{ issue.level.value|upper }}</span>
+        <span class="type-badge">{{ issue.resource_type }}</span>
+        <code class="issue-ref">{{ issue.ref }}</code>
+        <span class="issue-message">{{ issue.message }}</span>
+    </div>
+    {% endfor %}
+
+    <div style="margin-top: 16px;">
+        <a href="/setup" class="btn btn-secondary">Back to Setup</a>
+    </div>
+</div>

@@ -1,0 +1,14 @@
+<div id="run-result" class="run-complete" hx-swap-oob="true">
+    <h3>Run Complete</h3>
+    <div class="run-summary">
+        <span class="stat">{{ manifest.resources_created|length }} created</span>
+        {% if manifest.resources_failed %}
+        <span class="stat stat-error">{{ manifest.resources_failed|length }} failed</span>
+        {% endif %}
+        <span class="stat">Run ID: <code>{{ run_id }}</code></span>
+    </div>
+    <div class="run-actions" style="margin-top: 12px;">
+        <a href="/runs" class="btn btn-secondary">View Runs</a>
+        <a href="/setup" class="btn btn-primary">New Run</a>
+    </div>
+</div>

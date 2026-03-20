@@ -1,0 +1,59 @@
+<div class="execute-container"
+     hx-ext="sse"
+     sse-connect="/api/execute/stream?session_token={{ session_token }}"
+     sse-close="close">
+
+    <h2>Executing</h2>
+    <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill"></div>
+    </div>
+    <p class="progress-text">
+        <span id="progress-count">0</span> / {{ resource_count }} resources created
+    </p>
+
+    <div sse-swap="creating" hx-swap="none"></div>
+    <div sse-swap="created" hx-swap="none"></div>
+    <div sse-swap="waiting" hx-swap="none"></div>
+    <div sse-swap="error" hx-swap="innerHTML" hx-target="#run-result"></div>
+    <div sse-swap="run_complete" hx-swap="innerHTML" hx-target="#run-result"></div>
+
+    <div id="resource-list">
+        {% for phase_value, phase_name in [(1, "Setup"), (2, "Business"), (3, "Lifecycle"), (4, "Mutations")] %}
+            {% set phase_items = preview_items|selectattr("display_phase", "eq", phase_value)|list %}
+            {% if phase_items %}
+            <div class="phase-group">
+                <h3 class="phase-header">{{ phase_name }}</h3>
+                {% for item in phase_items %}
+                {% set row_id = "row-" + item.typed_ref|replace(".", "-")|replace("[", "_")|replace("]", "") %}
+                <div id="{{ row_id }}" class="resource-row pending">
+                    <span class="batch-badge">B{{ item.batch }}</span>
+                    {% if item.resource_type in mt_docs %}
+                    <a href="{{ mt_docs[item.resource_type] }}" target="_blank" rel="noopener" class="doc-link">
+                        <span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span>
+                    </a>
+                    {% else %}
+                    <span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span>
+                    {% endif %}
+                    <span class="ref-name">{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</span>
+                    <span class="status-indicator">
+                        <span class="status-dot pending"></span>
+                        <span class="status-text">Pending</span>
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <div id="run-result"></div>
+</div>
+
+<script>
+document.body.addEventListener("htmx:oobAfterSwap", function() {
+    var count = document.querySelectorAll(".resource-row.created").length;
+    var total = {{ resource_count }};
+    document.getElementById("progress-count").textContent = count;
+    document.getElementById("progress-fill").style.width = (count / total * 100) + "%";
+});
+</script>

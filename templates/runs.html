@@ -1,0 +1,29 @@
+{% if manifests %}
+    {% for m in manifests %}
+    <div class="run-card">
+        <div class="run-header">
+            <span class="run-id">{{ m.run_id }}</span>
+            <span class="run-status status-{{ m.status.value }}">{{ m.status.value }}</span>
+        </div>
+        <div class="run-meta">
+            <span>Config: <code>{{ m.config_hash[:12] }}</code></span>
+            <span>Created: {{ m.resources_created|length }} resource(s)</span>
+            {% if m.resources_failed %}
+            <span class="failed-count">{{ m.resources_failed|length }} failed</span>
+            {% endif %}
+        </div>
+        <div class="run-actions">
+            <button class="btn btn-sm btn-danger"
+                    hx-post="/api/cleanup/{{ m.run_id }}"
+                    hx-target="#content"
+                    hx-swap="innerHTML"
+                    hx-include="[name=api_key],[name=org_id]"
+                    hx-disabled-elt="this">
+                Cleanup
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <p class="empty-state">No runs found. Execute a config to create a run.</p>
+{% endif %}

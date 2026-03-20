@@ -1,0 +1,34 @@
+<div class="cleanup-container"
+     hx-ext="sse"
+     sse-connect="/api/cleanup/stream/{{ cleanup_token }}"
+     sse-close="close">
+
+    <h2>Cleaning Up Run: <code>{{ run_id }}</code></h2>
+    <p class="subtitle">Resources are cleaned up in reverse creation order.</p>
+
+    <div sse-swap="cleanup_progress" hx-swap="none"></div>
+    <div sse-swap="cleanup_complete" hx-swap="innerHTML" hx-target="#cleanup-result"></div>
+
+    <div id="cleanup-list">
+        {% for entry in resources %}
+        {% set row_id = "cleanup-" + entry.typed_ref|replace(".", "-")|replace("[", "_")|replace("]", "") %}
+        <div id="{{ row_id }}" class="cleanup-row pending">
+            <span class="type-badge type-{{ entry.resource_type }}">{{ entry.resource_type }}</span>
+            <span class="ref-name">{{ entry.typed_ref }}</span>
+            <span class="status-indicator">
+                {% if entry.resource_type == "ledger_transaction" %}
+                    <span class="status-text">Will archive</span>
+                {% elif entry.resource_type in ["category_membership", "nested_category"] %}
+                    <span class="status-text">Will remove</span>
+                {% elif entry.deletable %}
+                    <span class="status-text">Will delete</span>
+                {% else %}
+                    <span class="status-text">Will skip (not deletable)</span>
+                {% endif %}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="cleanup-result"></div>
+</div>

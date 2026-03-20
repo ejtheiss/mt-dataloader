@@ -1,0 +1,419 @@
+{
+    "connections": [
+        {
+            "ref": "demo_bank",
+            "entity_id": "example1",
+            "nickname": "Modern Treasury"
+        }
+    ],
+
+    "legal_entities": [
+        {
+            "ref": "acme_corp",
+            "legal_entity_type": "business",
+            "business_name": "Acme Corporation",
+            "date_formed": "2019-03-15",
+            "legal_structure": "corporation",
+            "country_of_incorporation": "US",
+            "website": "https://acme-corp.example.com",
+            "identifications": [
+                {
+                    "id_number": "123456789",
+                    "id_type": "us_ein",
+                    "issuing_country": "US"
+                }
+            ],
+            "addresses": [
+                {
+                    "line1": "100 Main Street",
+                    "line2": "Suite 400",
+                    "locality": "San Francisco",
+                    "region": "CA",
+                    "postal_code": "94105",
+                    "country": "US"
+                }
+            ],
+            "metadata": {
+                "erp_entity_id": "ENT-001",
+                "tax_jurisdiction": "US-CA",
+                "industry": "fintech"
+            }
+        },
+        {
+            "ref": "alice_johnson",
+            "legal_entity_type": "individual",
+            "first_name": "Alice",
+            "last_name": "Johnson",
+            "date_of_birth": "1988-07-22",
+            "email": "alice@emporium.example.com",
+            "identifications": [
+                {
+                    "id_number": "078051120",
+                    "id_type": "us_ssn",
+                    "issuing_country": "US"
+                }
+            ],
+            "addresses": [
+                {
+                    "line1": "742 Evergreen Terrace",
+                    "locality": "Portland",
+                    "region": "OR",
+                    "postal_code": "97201",
+                    "country": "US"
+                }
+            ],
+            "metadata": {
+                "crm_contact_id": "CONT-8821",
+                "customer_segment": "enterprise"
+            }
+        }
+    ],
+
+    "ledgers": [
+        {
+            "ref": "main",
+            "name": "Primary USD Ledger",
+            "description": "Main double-entry ledger for all USD transactions",
+            "metadata": {
+                "gl_system": "netsuite",
+                "fiscal_year_start": "2026-01-01"
+            }
+        }
+    ],
+
+    "counterparties": [
+        {
+            "ref": "vendor_bob",
+            "name": "Bob's Widgets LLC",
+            "legal_entity_id": "$ref:legal_entity.acme_corp",
+            "accounts": [
+                {
+                    "account_type": "checking",
+                    "party_name": "Bob's Widgets LLC",
+                    "party_type": "business",
+                    "sandbox_behavior": "success",
+                    "metadata": {
+                        "bank_name": "Wells Fargo",
+                        "account_alias": "primary_operating"
+                    }
+                }
+            ],
+            "metadata": {
+                "erp_vendor_id": "V-00482",
+                "cost_center": "ENGOPS",
+                "region": "us-west-2",
+                "onboarding_tier": "standard"
+            }
+        },
+        {
+            "ref": "customer_alice",
+            "name": "Alice's Emporium Inc",
+            "legal_entity_id": "$ref:legal_entity.alice_johnson",
+            "accounts": [
+                {
+                    "account_type": "checking",
+                    "party_name": "Alice's Emporium Inc",
+                    "party_type": "business",
+                    "sandbox_behavior": "success"
+                }
+            ],
+            "metadata": {
+                "crm_customer_id": "CUST-8821",
+                "customer_segment": "enterprise",
+                "region": "us-east-1"
+            }
+        },
+        {
+            "ref": "return_test_vendor",
+            "name": "Return Demo Vendor (auto R01)",
+            "accounts": [
+                {
+                    "account_type": "checking",
+                    "party_name": "Return Demo Vendor",
+                    "party_type": "business",
+                    "sandbox_behavior": "return",
+                    "sandbox_return_code": "R01"
+                }
+            ],
+            "metadata": {
+                "demo_purpose": "sandbox_return_simulation",
+                "expected_return_code": "R01"
+            }
+        }
+    ],
+
+    "ledger_accounts": [
+        {
+            "ref": "cash",
+            "name": "Cash",
+            "ledger_id": "$ref:ledger.main",
+            "normal_balance": "debit",
+            "currency": "USD",
+            "metadata": {
+                "gl_code": "1000",
+                "department": "treasury"
+            }
+        },
+        {
+            "ref": "accounts_payable",
+            "name": "Accounts Payable",
+            "ledger_id": "$ref:ledger.main",
+            "normal_balance": "credit",
+            "currency": "USD",
+            "metadata": {
+                "gl_code": "2000",
+                "department": "finance"
+            }
+        },
+        {
+            "ref": "accounts_receivable",
+            "name": "Accounts Receivable",
+            "ledger_id": "$ref:ledger.main",
+            "normal_balance": "debit",
+            "currency": "USD",
+            "metadata": {
+                "gl_code": "1200",
+                "department": "finance"
+            }
+        },
+        {
+            "ref": "revenue",
+            "name": "Revenue",
+            "ledger_id": "$ref:ledger.main",
+            "normal_balance": "credit",
+            "currency": "USD",
+            "metadata": {
+                "gl_code": "4000",
+                "department": "finance"
+            }
+        },
+        {
+            "ref": "refunds",
+            "name": "Refunds & Returns",
+            "ledger_id": "$ref:ledger.main",
+            "normal_balance": "debit",
+            "currency": "USD",
+            "metadata": {
+                "gl_code": "4100",
+                "department": "finance"
+            }
+        }
+    ],
+
+    "internal_accounts": [
+        {
+            "ref": "ops_checking",
+            "connection_id": "$ref:connection.demo_bank",
+            "name": "Operations Checking",
+            "party_name": "Acme Corporation",
+            "currency": "USD",
+            "legal_entity_id": "$ref:legal_entity.acme_corp",
+            "metadata": {
+                "account_purpose": "operating",
+                "cost_center": "TREASURY"
+            }
+        }
+    ],
+
+    "external_accounts": [
+        {
+            "ref": "alice_secondary",
+            "counterparty_id": "$ref:counterparty.customer_alice",
+            "account_type": "savings",
+            "party_name": "Alice's Emporium Inc",
+            "party_type": "business",
+            "account_details": [
+                {
+                    "account_number": "5566778899"
+                }
+            ],
+            "routing_details": [
+                {
+                    "routing_number": "021000021",
+                    "routing_number_type": "aba",
+                    "payment_type": "ach"
+                }
+            ],
+            "metadata": {
+                "account_alias": "savings_reserve",
+                "bank_name": "JPMorgan Chase"
+            }
+        }
+    ],
+
+    "ledger_account_categories": [
+        {
+            "ref": "assets",
+            "name": "Assets",
+            "ledger_id": "$ref:ledger.main",
+            "normal_balance": "debit",
+            "currency": "USD",
+            "description": "All asset accounts",
+            "metadata": {
+                "category_level": "top"
+            }
+        },
+        {
+            "ref": "liabilities",
+            "name": "Liabilities",
+            "ledger_id": "$ref:ledger.main",
+            "normal_balance": "credit",
+            "currency": "USD",
+            "description": "All liability accounts",
+            "metadata": {
+                "category_level": "top"
+            }
+        }
+    ],
+
+    "virtual_accounts": [
+        {
+            "ref": "alice_va",
+            "name": "Alice Emporium Virtual Account",
+            "internal_account_id": "$ref:internal_account.ops_checking",
+            "counterparty_id": "$ref:counterparty.customer_alice",
+            "description": "Virtual sub-account for Alice's Emporium receivables",
+            "metadata": {
+                "customer_id": "CUST-8821",
+                "purpose": "receivables_segregation"
+            }
+        }
+    ],
+
+    "expected_payments": [
+        {
+            "ref": "ep_alice_payment",
+            "description": "Expected payment from Alice's Emporium for invoice INV-2026-0042",
+            "reconciliation_rule_variables": [
+                {
+                    "internal_account_id": "$ref:internal_account.ops_checking",
+                    "direction": "credit",
+                    "amount_lower_bound": 50000,
+                    "amount_upper_bound": 50000,
+                    "type": "ach"
+                }
+            ],
+            "metadata": {
+                "ar_invoice_id": "INV-2026-0042",
+                "customer_segment": "enterprise",
+                "expected_by": "2026-04-15"
+            }
+        }
+    ],
+
+    "payment_orders": [
+        {
+            "ref": "po_pay_bob",
+            "type": "ach",
+            "amount": 75000,
+            "direction": "credit",
+            "originating_account_id": "$ref:internal_account.ops_checking",
+            "receiving_account_id": "$ref:counterparty.vendor_bob.account[0]",
+            "description": "Payment to Bob's Widgets for PO-2026-0108",
+            "ledger_transaction": {
+                "ledger_entries": [
+                    {
+                        "amount": 75000,
+                        "direction": "debit",
+                        "ledger_account_id": "$ref:ledger_account.accounts_payable"
+                    },
+                    {
+                        "amount": 75000,
+                        "direction": "credit",
+                        "ledger_account_id": "$ref:ledger_account.cash"
+                    }
+                ],
+                "description": "AP disbursement for PO-2026-0108"
+            },
+            "metadata": {
+                "invoice_ref": "INV-BOB-2026-0108",
+                "po_number": "PO-2026-0108",
+                "approval_status": "approved",
+                "approver": "jane.doe@acme.com"
+            }
+        },
+        {
+            "ref": "po_refund_alice",
+            "type": "ach",
+            "amount": 12500,
+            "direction": "credit",
+            "originating_account_id": "$ref:internal_account.ops_checking",
+            "receiving_account_id": "$ref:external_account.alice_secondary",
+            "description": "Refund to Alice's Emporium — order ORD-2026-0033",
+            "metadata": {
+                "refund_reason": "partial_return",
+                "original_order_id": "ORD-2026-0033",
+                "support_ticket": "TKT-44291"
+            }
+        },
+        {
+            "ref": "po_return_demo",
+            "type": "ach",
+            "amount": 25000,
+            "direction": "credit",
+            "originating_account_id": "$ref:internal_account.ops_checking",
+            "receiving_account_id": "$ref:counterparty.return_test_vendor.account[0]",
+            "description": "Payment that will auto-return with R01 (sandbox test counterparty)",
+            "metadata": {
+                "demo_purpose": "sandbox_auto_return",
+                "expected_outcome": "R01_return"
+            }
+        }
+    ],
+
+    "incoming_payment_details": [
+        {
+            "ref": "ipd_from_alice",
+            "type": "ach",
+            "direction": "credit",
+            "amount": 50000,
+            "internal_account_id": "$ref:internal_account.ops_checking",
+            "description": "Payment from Alice's Emporium for INV-2026-0042"
+        }
+    ],
+
+    "ledger_transactions": [
+        {
+            "ref": "lt_revenue_recognition",
+            "ledger_entries": [
+                {
+                    "amount": 50000,
+                    "direction": "debit",
+                    "ledger_account_id": "$ref:ledger_account.accounts_receivable"
+                },
+                {
+                    "amount": 50000,
+                    "direction": "credit",
+                    "ledger_account_id": "$ref:ledger_account.revenue"
+                }
+            ],
+            "description": "Revenue recognition for INV-2026-0042",
+            "metadata": {
+                "event_type": "revenue_recognition",
+                "invoice_id": "INV-2026-0042",
+                "accounting_period": "2026-Q1"
+            }
+        }
+    ],
+
+    "category_memberships": [
+        {
+            "ref": "cash_in_assets",
+            "category_id": "$ref:ledger_account_category.assets",
+            "ledger_account_id": "$ref:ledger_account.cash"
+        },
+        {
+            "ref": "ar_in_assets",
+            "category_id": "$ref:ledger_account_category.assets",
+            "ledger_account_id": "$ref:ledger_account.accounts_receivable"
+        }
+    ],
+
+    "nested_categories": [
+        {
+            "ref": "liabilities_under_assets",
+            "parent_category_id": "$ref:ledger_account_category.assets",
+            "sub_category_id": "$ref:ledger_account_category.liabilities"
+        }
+    ]
+}

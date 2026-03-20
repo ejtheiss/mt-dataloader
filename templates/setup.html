@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block nav_setup %}active{% endblock %}
+{% block title %}Setup — MT Dataloader{% endblock %}
+
+{% block content %}
+<div class="setup-container">
+    <h2>Configure Dataloader</h2>
+    <p class="subtitle">
+        Connect to your <a href="{{ mt_docs.sandbox }}" target="_blank" rel="noopener" class="doc-link-inline">Modern Treasury sandbox</a>
+        and upload a JSON config.
+    </p>
+
+    <form hx-post="/api/validate"
+          hx-target="#content"
+          hx-swap="innerHTML"
+          hx-indicator="#validate-spinner"
+          hx-disabled-elt="button[type=submit]"
+          enctype="multipart/form-data">
+
+        <div class="form-group">
+            <label for="api_key">API Key</label>
+            <input type="password" id="api_key" name="api_key" required
+                   placeholder="sk_test_..." autocomplete="off">
+        </div>
+
+        <div class="form-group">
+            <label for="org_id">Organization ID</label>
+            <input type="text" id="org_id" name="org_id" required
+                   placeholder="org_..." autocomplete="off">
+        </div>
+
+        <div class="form-group">
+            <label for="config_file">JSON Config File</label>
+            <input type="file" id="config_file" name="config_file"
+                   accept=".json,application/json" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            <span class="btn-text">Validate &amp; Preview</span>
+            <span id="validate-spinner" class="htmx-indicator spinner"></span>
+        </button>
+    </form>
+</div>
+{% endblock %}

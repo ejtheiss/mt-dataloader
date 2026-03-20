@@ -1,0 +1,14 @@
+# baseline.yaml
+# Static fallback for when org discovery fails (network timeouts).
+# Discovery is the primary path — this file is only used as a backup.
+#
+# If your sandbox has pre-existing resources you want configs to
+# reference, list them here with their MT UUIDs and typed refs.
+# Otherwise, leave sections empty and let configs bootstrap from
+# scratch using the connections section.
+
+connections: []
+internal_accounts: []
+ledgers: []
+legal_entities: []
+counterparties: []

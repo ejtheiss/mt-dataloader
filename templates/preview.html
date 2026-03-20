@@ -1,0 +1,46 @@
+<div class="preview-container">
+    <h2>Execution Plan</h2>
+
+    {% if discovery %}
+        {% include "partials/discovery_summary.html" %}
+    {% endif %}
+
+    <div class="stats-bar">
+        <div class="stat">
+            <span class="stat-value">{{ resource_count }}</span>
+            <span class="stat-label">resources</span>
+        </div>
+        <div class="stat">
+            <span class="stat-value">{{ batches|length }}</span>
+            <span class="stat-label">batches</span>
+        </div>
+        <div class="stat stat-deletable">
+            <span class="stat-value">{{ deletable_count }}</span>
+            <span class="stat-label">deletable</span>
+        </div>
+        <div class="stat stat-persistent">
+            <span class="stat-value">{{ non_deletable_count }}</span>
+            <span class="stat-label">persistent</span>
+        </div>
+    </div>
+
+    {% include "partials/resource_table.html" %}
+
+    <form class="execute-form"
+          hx-post="/api/execute"
+          hx-target="#content"
+          hx-swap="innerHTML"
+          hx-indicator="#execute-spinner"
+          hx-disabled-elt="button[type=submit]">
+        <input type="hidden" name="session_token" value="{{ session_token }}">
+        <p class="cleanup-note">
+            <strong>{{ non_deletable_count }}</strong> resource(s) are <em>persistent</em> &mdash; they cannot be deleted
+            via the API after creation (payment orders, internal accounts, legal entities, returns, reversals).
+            <a href="{{ mt_docs.sandbox }}" target="_blank" rel="noopener" class="doc-link-inline">Sandbox docs &rarr;</a>
+        </p>
+        <button type="submit" class="btn btn-primary btn-execute">
+            <span class="btn-text">Execute ({{ resource_count }} resources)</span>
+            <span id="execute-spinner" class="htmx-indicator spinner"></span>
+        </button>
+    </form>
+</div>
