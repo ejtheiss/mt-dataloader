@@ -125,14 +125,28 @@
 (function() {
     var tabs = document.querySelectorAll('.tab-btn');
     var panels = document.querySelectorAll('.tab-panel');
+
+    function activateTab(name) {
+        tabs.forEach(function(t) { t.classList.remove('active'); });
+        panels.forEach(function(p) { p.classList.remove('active'); });
+        var btn = document.querySelector('.tab-btn[data-tab="' + name + '"]');
+        if (btn) {
+            btn.classList.add('active');
+            document.getElementById('tab-' + name).classList.add('active');
+        }
+    }
+
     tabs.forEach(function(btn) {
         btn.addEventListener('click', function() {
-            tabs.forEach(function(t) { t.classList.remove('active'); });
-            panels.forEach(function(p) { p.classList.remove('active'); });
-            btn.classList.add('active');
-            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            activateTab(btn.dataset.tab);
+            history.replaceState(null, '', '#' + btn.dataset.tab);
         });
     });
+
+    var hash = location.hash.replace('#', '');
+    if (hash && document.getElementById('tab-' + hash)) {
+        activateTab(hash);
+    }
 })();
 </script>
 {% endblock %}

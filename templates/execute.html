@@ -8,11 +8,13 @@
         <div id="progress-fill" class="progress-fill"></div>
     </div>
     <p class="progress-text">
-        <span id="progress-count">0</span> / {{ resource_count }} resources created
+        <span id="progress-count">0</span> / {{ resource_count }} resources
+        <span id="progress-detail"></span>
     </p>
 
     <div sse-swap="creating" hx-swap="none"></div>
     <div sse-swap="created" hx-swap="none"></div>
+    <div sse-swap="staged" hx-swap="none"></div>
     <div sse-swap="waiting" hx-swap="none"></div>
     <div sse-swap="error" hx-swap="innerHTML" hx-target="#run-result"></div>
     <div sse-swap="run_complete" hx-swap="innerHTML" hx-target="#run-result"></div>
@@ -51,9 +53,14 @@
 
 <script>
 document.body.addEventListener("htmx:oobAfterSwap", function() {
-    var count = document.querySelectorAll(".resource-row.created").length;
+    var created = document.querySelectorAll(".resource-row.created").length;
+    var staged = document.querySelectorAll(".resource-row.staged").length;
     var total = {{ resource_count }};
-    document.getElementById("progress-count").textContent = count;
-    document.getElementById("progress-fill").style.width = (count / total * 100) + "%";
+    document.getElementById("progress-count").textContent = created + staged;
+    document.getElementById("progress-fill").style.width = ((created + staged) / total * 100) + "%";
+    var parts = [];
+    if (created) parts.push(created + " created");
+    if (staged) parts.push(staged + " staged");
+    document.getElementById("progress-detail").textContent = parts.length ? "(" + parts.join(", ") + ")" : "";
 });
 </script>

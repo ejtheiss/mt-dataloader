@@ -2,13 +2,24 @@
     <h3>Run Complete</h3>
     <div class="run-summary">
         <span class="stat">{{ manifest.resources_created|length }} created</span>
+        {% if manifest.resources_staged %}
+        <span class="stat stat-staged">{{ manifest.resources_staged|length }} staged</span>
+        {% endif %}
         {% if manifest.resources_failed %}
         <span class="stat stat-error">{{ manifest.resources_failed|length }} failed</span>
         {% endif %}
         <span class="stat">Run ID: <code>{{ run_id }}</code></span>
     </div>
+    {% if manifest.resources_staged %}
+    <p class="staged-prompt">
+        Staged resources are ready to fire. Open the run detail page to trigger them one-by-one.
+    </p>
+    {% endif %}
     <div class="run-actions" style="margin-top: 12px;">
-        <a href="/runs/{{ run_id }}" class="btn btn-outline">Details</a>
+        {% if manifest.resources_staged %}
+        <a href="/runs/{{ run_id }}#staged" class="btn btn-primary" id="go-staged">Fire Staged Resources</a>
+        {% endif %}
+        <a href="/runs/{{ run_id }}" class="btn btn-outline">Run Details</a>
         <a href="/runs" class="btn btn-secondary">View Runs</a>
         <a href="/setup" class="btn btn-primary">New Run</a>
     </div>

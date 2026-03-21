@@ -683,13 +683,22 @@ a.doc-link:hover .sandbox-badge {
 
 /* --- Webhook rows --- */
 .webhook-row {
-    display: flex; align-items: center; gap: 12px; padding: 6px 12px;
-    border-bottom: 1px solid var(--border); font-size: 0.85rem;
+    padding: 6px 12px; border-bottom: 1px solid var(--border); font-size: 0.85rem;
+}
+.wh-summary {
+    display: flex; align-items: center; gap: 12px;
 }
 .wh-time { color: var(--text-muted); font-family: monospace; font-size: 0.8rem; min-width: 64px; }
 .wh-event { font-weight: 500; min-width: 180px; }
 .wh-ref { color: var(--text-muted); flex: 1; }
 .wh-run-link { font-size: 0.8rem; color: var(--primary); }
+.wh-body { margin-top: 4px; }
+.wh-body summary { cursor: pointer; font-size: 0.8rem; color: var(--text-muted); }
+.wh-json {
+    font-size: 0.75rem; max-height: 300px; overflow-y: auto;
+    background: var(--bg); padding: 8px; border-radius: 4px; margin-top: 4px;
+    white-space: pre-wrap; word-break: break-all;
+}
 
 /* --- Tunnel banner --- */
 .tunnel-banner {
@@ -708,6 +717,14 @@ a.doc-link:hover .sandbox-badge {
 /* --- Staged resource row status (execute page) --- */
 .resource-row.staged { opacity: 0.6; }
 .status-dot.staged { background-color: var(--status-staged); }
+
+/* --- Run complete staged prompt --- */
+.stat-staged { color: var(--status-staged); font-weight: 600; }
+.staged-prompt {
+    margin: 12px 0 0; padding: 10px 14px; border-radius: var(--radius);
+    background: color-mix(in srgb, var(--status-staged) 12%, transparent);
+    border-left: 3px solid var(--status-staged); font-size: 0.9rem;
+}
 
 /* --- Responsive --- */
 @media (max-width: 768px) {

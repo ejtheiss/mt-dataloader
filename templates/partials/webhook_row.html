@@ -1,8 +1,16 @@
 <div class="webhook-row" id="wh-{{ wh.webhook_id }}">
-    <span class="wh-time">{{ wh.received_at.split("T")[1][:8] if "T" in wh.received_at else wh.received_at }}</span>
-    <span class="wh-event">{{ wh.event_type }}</span>
-    <span class="wh-ref">{{ wh.typed_ref or ((wh.resource_id[:12] ~ '&hellip;') if wh.resource_id else '?') }}</span>
-    {% if wh.run_id %}
-    <a href="/runs/{{ wh.run_id }}" class="wh-run-link" title="View run">{{ wh.run_id[:16] }}</a>
+    <div class="wh-summary">
+        <span class="wh-time">{{ wh.received_at.split("T")[1][:8] if "T" in wh.received_at else wh.received_at }}</span>
+        <span class="wh-event">{{ wh.event_type }}</span>
+        <span class="wh-ref">{{ wh.typed_ref or ((wh.resource_id[:12] ~ '&hellip;') if wh.resource_id else '?') }}</span>
+        {% if wh.run_id %}
+        <a href="/runs/{{ wh.run_id }}" class="wh-run-link" title="View run">{{ wh.run_id[:16] }}</a>
+        {% endif %}
+    </div>
+    {% if wh.raw %}
+    <details class="wh-body">
+        <summary>Payload</summary>
+        <pre class="wh-json">{{ wh.raw | tojson(indent=2) }}</pre>
+    </details>
     {% endif %}
 </div>
