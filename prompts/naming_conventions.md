@@ -21,10 +21,10 @@ All resource `ref` values must follow these patterns. Consistent naming makes
 
 | Resource type | Pattern | Good examples | Bad examples |
 |--------------|---------|---------------|-------------|
-| `connection` | `<bank>_bank` | `gringotts_bank`, `iron_bank` | `conn1`, `my_connection` |
+| `connection` | `<bank>_bank` | `modern_treasury_bank`, `gringotts_bank`, `iron_bank` | `conn1`, `my_connection` |
 | `legal_entity` | `<company_or_person>` | `acme_corp`, `alice_johnson`, `boats_group_inc` | `le_1`, `entity` |
-| `counterparty` | `<role>_<name>_cp` or `<role>_<name>` | `vendor_cloudhost`, `buyer_john_cp`, `seller_jacks_cp` | `cp1`, `counterparty_a` |
-| `internal_account` | `<owner>_wallet` or `<purpose>` | `buyer_john_wallet`, `platform_revenue`, `main_checking` | `ia_1`, `account` |
+| `counterparty` | `<role>_<name>_cp` or `<role>_<name>` | `vendor_cloudhost`, `buyer_owen_cp`, `seller_bluewater_cp` | `cp1`, `counterparty_a` |
+| `internal_account` | `<owner>_wallet` or `<purpose>` | `buyer_owen_wallet`, `seller_bluewater_wallet`, `boats_group_revenue`, `main_checking` | `ia_1`, `account` |
 | `external_account` | `<owner>_<bank_or_purpose>` | `alice_secondary`, `vendor_chase_acct` | `ea1` |
 | `ledger` | `<scope>` or `main` | `main`, `marketplace_ledger` | `ledger1` |
 | `ledger_account` | `<accounting_concept>` | `cash`, `accounts_payable`, `revenue`, `refunds` | `la_1` |
@@ -52,6 +52,7 @@ $ref:<resource_type>.<ref_key>
 ### Direct resource refs
 
 ```
+$ref:connection.modern_treasury_bank
 $ref:connection.gringotts_bank
 $ref:legal_entity.acme_corp
 $ref:counterparty.vendor_cloudhost

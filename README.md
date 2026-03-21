@@ -50,7 +50,7 @@ See **`prompts/`** — start with **`prompts/README.md`** (what each file is for
 
 | File | What it shows |
 |------|----------------|
-| `examples/marketplace_demo.json` | Full PSP marketplace: legal entities, counterparties, wallet internal accounts, sandbox **IPD** (inbound simulation), **book** settle + fee + **ACH** payout, plus an **ACH debit** + `sandbox_behavior: "return"` NSF demo. No ledger, no expected payment, no virtual account. |
+| `examples/marketplace_demo.json` | Full PSP marketplace: `modern_treasury_bank` + `example1`, legal entities, counterparties, internal accounts (`*_wallet` refs, **Payment Account** MT names), sandbox **IPD**, **book** fee + settle + **ACH** payout, **ACH debit** NSF demo (`sandbox_behavior`). No ledger / EP / VA. |
 | `examples/psp_minimal.json` | Smallest useful **book** transfer between two internal accounts. |
 
 Validate examples locally:

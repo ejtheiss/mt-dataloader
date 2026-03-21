@@ -123,7 +123,7 @@ Paste from repo (trim only if size-constrained):
 
 | File | Use when |
 |------|----------|
-| `examples/marketplace_demo.json` | **Primary.** PSP marketplace: minimal LEs (auto-mock fills compliance), CPs, IAs as wallets, IPD simulates buyer **push**, book settle + fee + seller payout, ACH **debit pull** for NSF demo (`sandbox_behavior`). No EP, no VA, no ledger. |
+| `examples/marketplace_demo.json` | **Primary.** PSP marketplace: connection `modern_treasury_bank` + `example1`, minimal LEs (auto-mock compliance), CPs, IAs (`*_wallet` refs, **Payment Account** display names), IPD buyer **push**, book fee + settle + ACH payout, ACH **debit** NSF demo. No EP, no VA, no ledger. |
 | `examples/psp_minimal.json` | Smallest PSP slice: two IAs + one `book` transfer (no counterparties, no LEs). |
 
 <PASTE_EXAMPLES_HERE>
@@ -134,7 +134,10 @@ Paste from repo (trim only if size-constrained):
 
 1. **Self-bootstrap when demo needs it** -- Include `connections` and
    `internal_accounts` the config actually uses. Do not assume undiscovered
-   baseline refs exist unless the user said so.
+   baseline refs exist unless the user said so. **Use `entity_id: "example1"`**
+   with a descriptive ref like `modern_treasury_bank` and nickname e.g.
+   `"Modern Treasury PSP"` — full payment capabilities on new IAs. Do NOT use
+   `modern_treasury` unless the demo only needs `book` transfers.
 
 2. **`sandbox_behavior` on counterparties** -- If the config includes
    `counterparties` with inline `accounts[]` used for PO demos, set
@@ -154,42 +157,39 @@ Paste from repo (trim only if size-constrained):
 
 6. **Credit POs** -- Require `receiving_account_id` (validator enforces).
 
-7. **Legal entities -- keep them simple** -- The dataloader **auto-fills** all
-   compliance fields (address, identifications, dates, legal structure) with
-   sandbox-safe mock data when omitted. For a **business**: just `ref`,
-   `legal_entity_type`, `business_name`. For an **individual**: just `ref`,
-   `legal_entity_type`, `first_name`, `last_name`. Add `metadata` for demo
-   context. **Do not** generate EINs, SSNs, addresses, or dates unless the
-   narrative specifically requires them (e.g. a particular city or structure).
-   See `marketplace_demo.json` for examples of minimal legal entities.
+7. **Legal entities -- compliance is auto-managed** -- The dataloader **always
+   overwrites** `identifications`, `addresses`, `documents`, and date/country
+   defaults with sandbox-safe mock data. **Never include** these fields in
+   your JSON -- they will be silently replaced. For a **business**: just `ref`,
+   `legal_entity_type`, `business_name` (optional `legal_structure`). For an
+   **individual**: just `ref`, `legal_entity_type`, `first_name`, `last_name`
+   (optional `email`). Add `metadata` for demo context.
 
-8. **Expected payments** -- Require `reconciliation_rule_variables` with
+8. **Internal accounts need `legal_entity_id`** -- Every internal account
+   **must** include a `legal_entity_id` ref. For per-user wallets, reference
+   the user's LE. For platform-owned accounts (revenue, operating, fee),
+   reference the **platform's** legal entity.
+
+9. **Expected payments** -- Require `reconciliation_rule_variables` with
    `internal_account_id`, `direction`, `amount_lower_bound`,
    `amount_upper_bound` (per schema).
 
-9. **Metadata values must be strings** -- `"250000"` not `250000`.
+10. **Metadata values must be strings** -- `"250000"` not `250000`.
 
-10. **No `$ref:` strings inside metadata** -- Ordering uses `depends_on` and
+11. **No `$ref:` strings inside metadata** -- Ordering uses `depends_on` and
     structural refs use normal fields.
 
-11. **PSP marketplace default** -- Omit `expected_payments`, `virtual_accounts`,
+12. **PSP marketplace default** -- Omit `expected_payments`, `virtual_accounts`,
     and `ledger*` unless the user asked for recon, VA, or accounting.
 
-12. **IPD vs PO** -- IPD simulates **inbound** to an IA. `sandbox_behavior` on
+13. **IPD vs PO** -- IPD simulates **inbound** to an IA. `sandbox_behavior` on
     CP accounts affects **POs** to that bank account, not IPD behavior.
 
-13. **EP + IPD recon** -- If both exist, order so EP precedes IPD in the DAG
+14. **EP + IPD recon** -- If both exist, order so EP precedes IPD in the DAG
     (e.g. `depends_on` on IPD pointing to EP).
 
-14. **Same-wallet debits** -- Sequence POs that debit the same IA (e.g. fee
+15. **Same-wallet debits** -- Sequence POs that debit the same IA (e.g. fee
     after settle) using `depends_on` when needed.
-
-15. **Legal entity overrides (rare)** -- If you explicitly set `addresses` or
-    `identifications` instead of letting auto-mock fill them: `address_types`
-    must be exactly one value from `business | mailing | other | po_box |
-    residential` (never `"registered"`); `id_number` for US tax IDs must be
-    9 digits only (no dashes). Normally **just omit these** and let the
-    dataloader fill them.
 
 16. **Counterparty `accounts[]`** -- No `name` field on inline accounts. Use
     `party_name` or `metadata` (e.g. `account_label`) for labels. The parent
@@ -226,8 +226,7 @@ Common fixes:
 - `ref` / `value_error` -- `ref` must be a simple key, not dotted or `$ref:`-prefixed
 - `extra_forbidden` -- typo or unknown field (check schema); **remove `name` from
   `counterparties[].accounts[]`**, use `party_name` / `metadata`
-- `address_types` enum errors -- probably overriding when you should not be;
-  remove the `addresses` field and let auto-mock handle it
-- MT **422** on `identifications.*.id_number` -- remove `identifications` and
-  let auto-mock handle it, or ensure 9 digits with no dashes
+- `address_types` / `identifications` / `documents` errors on legal entities --
+  **remove** these fields from your JSON entirely; the dataloader always
+  overwrites them with compliant mock data
 - `string_type` in metadata -- string values only
