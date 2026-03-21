@@ -1,94 +1,111 @@
-# Generation Profiles
+# Config scope (for the LLM)
 
-Three profiles control how much detail to include in a generated config.
-**For Modern Treasury PSP / marketplace demos, treat the canonical reference
-as `examples/marketplace_demo.json`:** wallets (IAs), book settlement, optional
-sandbox IPD for inbound simulation, **no ledgers, no expected payments, no
-virtual accounts** unless the user explicitly asks.
+**What this document is for:** Decide **how large** the config should be and **which
+sections to include**—*before* you write JSON. It does **not** replace
+`decision_rubrics.md` (which MT object to use) or `ordering_rules.md` (DAG /
+`depends_on`). Use those after you know the scope.
 
----
-
-## Minimal
-
-**Purpose:** Smallest runnable slice — often a **book transfer between two
-wallets** (`examples/psp_minimal.json`).
-
-**Include:**
-- 1 connection
-- 2 internal accounts (wallets) **or** 1 IA + 1 counterparty for a single ACH PO
-- `payment_order` with required fields
-
-**Exclude by default:**
-- Legal entities (optional on minimal ACH+CP-only configs)
-- Ledgers, ledger accounts, ledger transactions
-- Virtual accounts, expected payments
-- IPDs (unless testing inbound simulation)
-- `depends_on` unless timing requires it
+**What this document is not:** JSON Schema, field-level rules, or naming—those
+come from `/api/schema`, `naming_conventions.md`, and `system_prompt.md` rules.
 
 ---
 
-## Demo-Rich (Default)
+## Procedure (do this in order)
 
-**Purpose:** Customer-facing PSP / marketplace onboarding + money movement.
+1. **Classify the ask** using the triggers below (one primary scope).
+2. **List sections** you will include (use the scope ladder).
+3. **Pick a structural template:** mirror `examples/psp_minimal.json` or
+   `examples/marketplace_demo.json`—do not invent a third architecture unless
+   the user clearly needs something neither file covers.
+4. **Add extras** only if the user explicitly asked (second step of the ladder).
 
-**Include:**
-- Connection(s), legal entities, counterparties with `sandbox_behavior`,
-  internal accounts (buyer/seller/platform revenue wallets)
-- Payment orders: `book` for settlement and fees, `ach` for payout (and
-  optionally ACH **debit collection** when demonstrating `sandbox_behavior`
-  returns — describe as **pull / collection**, not buyer-push deposit)
-- Rich metadata (listing, user_id, transaction_type)
-- **`depends_on`** where book payouts follow simulated inbound IPD or prior book transfer
-
-**Do not add unless the user explicitly wants that story:**
-- `ledger*`, inline `ledger_transaction` on POs
-- `expected_payment` (reconciliation-only; see decision rubrics)
-- `virtual_account` (rare; not for wallet balances)
+If the user’s request is vague, **ask one short question**: *“Smallest possible
+demo (one internal transfer), or full marketplace-style onboarding + flows?”*
 
 ---
 
-## Lifecycle
+## Scope levels (pick one primary)
 
-**Purpose:** Broader platform story — may include reconciliation, ledgering, or
-explicit returns **when the user asks**.
+### A — Minimal slice
 
-**May include (only on request):**
-- Expected payments + IPDs with **EP before IPD** in the DAG if demonstrating
-  reconciliation matching
-- Ledgers and ledger transactions
-- Virtual accounts for inbound attribution demos
-- Explicit `return` resources on IPDs
-- Reversals (sandbox limitations apply)
+**Use when the user wants:** the smallest thing that runs; “hello world”; one
+movement of money inside the platform; no parties, no KYB story.
 
-**PSP marketplace default remains:** wallets + POs + optional IPD; no EP/VA/ledger
-unless specified.
+**Structural template:** `examples/psp_minimal.json`  
+**Typical sections:** `connections`, `internal_accounts`, `payment_orders` (often
+one `book` PO).
+
+**Usually omit:** legal entities, counterparties, IPDs, fees, ACH—unless the user
+asked for any of those.
 
 ---
 
-## Profile Selection Guide
+### B — Demo-rich (default when unclear)
 
-| Question | Minimal | Demo-Rich | Lifecycle |
-|----------|---------|-----------|-----------|
-| Smallest internal transfer | **Yes** (`psp_minimal`) | | |
-| Boats-style marketplace PSP | | **Yes** (`marketplace_demo`) | |
-| Show reconciliation matching | | | **Yes** |
-| Show ledgering | | | **Yes** |
-| Show VA inbound attribution | | | **Yes** |
+**Use when the user wants:** a **customer-facing** PSP / marketplace story:
+onboarded parties, wallets, settlement, fees, maybe sandbox ACH / returns.
+
+**Structural template:** `examples/marketplace_demo.json`  
+**Typical sections:** connections, legal entities, counterparties (with
+`sandbox_behavior` where relevant), internal accounts as wallets (+ platform
+revenue IA), payment orders (`book` + `ach` as the story needs), optional IPD
+only for **simulated inbound** when the script calls for it.
+
+**Do not add by default:** `expected_payments`, `virtual_accounts`, ledger
+sections—see decision rubrics; only if the user explicitly wants recon / VA /
+accounting demos.
 
 ---
 
-## Field Inclusion Matrix (PSP Marketplace Default)
+### C — Extended (explicit user request only)
 
-| Field / feature | Default PSP demo |
-|----------------|------------------|
-| `connections` | 1 |
-| `legal_entities` | Yes (buyers/sellers/platform) |
-| `counterparties` | Yes |
-| `internal_accounts` | Wallets + platform revenue |
-| `payment_orders` | book + ach |
-| `incoming_payment_details` | Optional: simulate buyer **push** deposit |
-| `expected_payments` | **No** unless recon demo |
-| `virtual_accounts` | **No** unless VA demo |
-| `ledgers` / `ledger_accounts` / `ledger_transactions` | **No** unless accounting demo |
-| `sandbox_behavior` | On CP accounts; understand PO-only constraint |
-| `depends_on` | IPD → settle; settle → fee/payout as needed |
+**Use when the user clearly asks for:** reconciliation matching, ledgering,
+virtual-account attribution, or IPD return objects—not because “more is better.”
+
+**Do not use the word “lifecycle” with the user**—say **extended** or **full-platform
+extras** so it isn’t confused with payment order lifecycle.
+
+**May add (on request):** `expected_payments`, `ledgers` / `ledger_accounts` /
+`ledger_transactions`, `virtual_accounts`, explicit `return` on IPDs, etc., in
+line with `decision_rubrics.md`.
+
+---
+
+## Quick mapping (user language → scope)
+
+| User intent (examples) | Scope | Template |
+|------------------------|-------|----------|
+| “Smallest”, “one transfer”, “minimal PSP” | A | `psp_minimal.json` |
+| “Marketplace”, “buyer/seller”, “wallets”, “settle”, “fee”, “Boats-style” | B | `marketplace_demo.json` |
+| “Reconciliation”, “expected payment”, “match inbound” | C | B + EP/IPD per rubrics |
+| “Ledger”, “double-entry”, “GL” | C | B + ledger sections per rubrics |
+| “Per-payer routing”, “VA”, “sub-accounts for attribution” | C | B + VA per rubrics |
+
+If two rows apply, use the **highest** scope they need (e.g. marketplace + recon → C).
+
+---
+
+## Scope ladder (PSP / marketplace default)
+
+Start at **B** unless the user chose **A** or **C**.
+
+| Layer | Include in B (default demo) | Add only in C (explicit ask) |
+|-------|-----------------------------|--------------------------------|
+| Connections + IAs as wallets | Yes | — |
+| LEs + CPs + sandbox_behavior | Yes | — |
+| Book settle / fee / ACH payout | Yes | — |
+| IPD (sandbox inbound simulation) | If the story needs it | — |
+| `expected_payments` | No | Yes |
+| `virtual_accounts` | No | Yes |
+| Ledgers / categories / ledger TXNs | No | Yes |
+
+---
+
+## After you pick scope
+
+1. Generate **complete** `DataLoaderConfig` JSON (no placeholders).
+2. Validate mentally against **self-bootstrap** (connection + resources in-file).
+3. Run **`POST /api/validate-json`** (or user does); fix errors by path.
+
+If scope and rubrics conflict, **rubrics win** on object choice; **this doc** only
+limits how much you build.

@@ -12,8 +12,8 @@ document explains the rare cases where you do.
 ## Automatic Ordering (Default — No Action Required)
 
 Any `$ref:` in a data field automatically creates a DAG edge. The engine
-scans every field value in `model_dump()` for `$ref:` strings and adds
-dependency edges.
+scans field values on each resource for `$ref:` strings and adds dependency
+edges.
 
 **Child ref expansion:** If you reference a child ref like
 `$ref:counterparty.vendor_bob.account[0]`, the engine automatically adds

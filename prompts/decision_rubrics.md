@@ -92,9 +92,10 @@ When `sandbox_behavior` is set, `account_details` and `routing_details`
 are auto-populated — you do not need to specify them. Set
 `sandbox_return_code` alongside `return` (e.g. `"R01"` for NSF).
 
-**Always set `sandbox_behavior` on counterparty accounts in demo configs.**
-Without it, the sandbox uses a random account number and payment outcomes
-are unpredictable.
+**When the config includes `counterparties`, set `sandbox_behavior` on every
+inline account used for outbound PO demos.** Without it, the sandbox may use
+unpredictable outcomes. Configs with **no** counterparties (e.g. internal-only
+`book` transfers) do not need this.
 
 ---
 

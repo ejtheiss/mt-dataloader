@@ -42,7 +42,7 @@ Other knobs (`DATALOADER_LOG_LEVEL`, `DATALOADER_MAX_CONCURRENT_REQUESTS`, etc.)
 
 Resources reference each other with **`$ref:<resource_type>.<ref>`** (e.g. `$ref:internal_account.buyer_wallet`). The `ref` field on each object is a short key; the engine builds the typed name. Child refs include selectors like `$ref:counterparty.vendor_cp.account[0]`.
 
-See **`prompts/`** (rubrics, naming, ordering, metadata) and the two files under **`examples/`** for the intended PSP shapes.
+See **`prompts/`** — start with **`prompts/README.md`** (what each file is for) and **`prompts/system_prompt.md`** (output format + paste order). Use the two files under **`examples/`** as structural templates for PSP shapes.
 
 ---
 
