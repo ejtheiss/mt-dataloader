@@ -26,6 +26,30 @@
 
     {% include "partials/resource_table.html" %}
 
+    <details class="json-editor-panel">
+        <summary>View / Edit JSON Config</summary>
+        <form id="revalidate-form"
+              hx-post="/api/revalidate"
+              hx-target="#content"
+              hx-swap="innerHTML"
+              hx-indicator="#revalidate-spinner"
+              hx-disabled-elt="button[type=submit]">
+            <input type="hidden" name="session_token" value="{{ session_token }}">
+            <textarea id="preview-json-editor" name="config_json"
+                      class="json-editor" rows="24"
+                      spellcheck="false">{{ config_json_text }}</textarea>
+            <div id="preview-json-status" class="json-parse-status"></div>
+            <div class="json-editor-actions">
+                <button type="submit" class="btn btn-secondary btn-sm">
+                    <span class="btn-text">Re-validate</span>
+                    <span id="revalidate-spinner" class="htmx-indicator spinner-sm"></span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline" id="btn-format-json">Format</button>
+                <button type="button" class="btn btn-sm btn-outline" id="btn-copy-json">Copy</button>
+            </div>
+        </form>
+    </details>
+
     <form class="execute-form"
           hx-post="/api/execute"
           hx-target="#content"
@@ -44,3 +68,51 @@
         </button>
     </form>
 </div>
+
+<script>
+(function() {
+    var editor = document.getElementById("preview-json-editor");
+    var status = document.getElementById("preview-json-status");
+    if (!editor) return;
+
+    // Live parse check
+    var debounce;
+    editor.addEventListener("input", function() {
+        clearTimeout(debounce);
+        debounce = setTimeout(function() {
+            var val = editor.value.trim();
+            if (!val) { status.textContent = ""; status.className = "json-parse-status"; return; }
+            try {
+                JSON.parse(val);
+                status.textContent = "Valid JSON";
+                status.className = "json-parse-status valid";
+            } catch(e) {
+                status.textContent = e.message;
+                status.className = "json-parse-status invalid";
+            }
+        }, 300);
+    });
+
+    // Format button
+    document.getElementById("btn-format-json").addEventListener("click", function() {
+        try {
+            var obj = JSON.parse(editor.value);
+            editor.value = JSON.stringify(obj, null, 2);
+            status.textContent = "Formatted";
+            status.className = "json-parse-status valid";
+        } catch(e) {
+            status.textContent = e.message;
+            status.className = "json-parse-status invalid";
+        }
+    });
+
+    // Copy button
+    document.getElementById("btn-copy-json").addEventListener("click", function() {
+        navigator.clipboard.writeText(editor.value).then(function() {
+            var btn = document.getElementById("btn-copy-json");
+            btn.textContent = "Copied!";
+            setTimeout(function() { btn.textContent = "Copy"; }, 1500);
+        });
+    });
+})();
+</script>

@@ -1,5 +1,5 @@
 :root {
-    --bg: #f8f9fa;
+    --bg: #f0f2f5;
     --surface: #ffffff;
     --border: #dee2e6;
     --text: #212529;
@@ -24,8 +24,8 @@
     --type-lifecycle: #fd7e14;
     --type-mutation: #6c757d;
 
-    --radius: 6px;
-    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -41,11 +41,14 @@ body {
 header {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    padding: 0 24px;
+    padding: 0 32px;
     display: flex;
     align-items: center;
     gap: 32px;
     height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 .logo {
@@ -55,7 +58,16 @@ header {
     letter-spacing: -0.02em;
 }
 
-nav { display: flex; gap: 4px; }
+nav { display: flex; gap: 4px; flex: 1; }
+
+.cred-status {
+    font-size: 0.75rem;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    color: var(--text-muted);
+    white-space: nowrap;
+    opacity: 0.6;
+}
+.cred-status:empty { display: none; }
 
 .nav-tab {
     padding: 8px 16px;
@@ -70,7 +82,7 @@ nav { display: flex; gap: 4px; }
 .nav-tab.active { background: var(--bg); color: var(--primary); }
 
 #content {
-    max-width: 960px;
+    max-width: 1140px;
     margin: 32px auto;
     padding: 0 24px;
 }
@@ -218,8 +230,18 @@ nav { display: flex; gap: 4px; }
     padding: 2px 6px; border-radius: 3px; white-space: nowrap;
     letter-spacing: 0.02em;
 }
-.deletable-badge { font-size: 0.75rem; color: var(--status-created); }
-.persistent-badge { font-size: 0.75rem; color: var(--status-waiting); }
+/* Cleanup icons inline on ref */
+.cleanup-icon {
+    font-size: 0.7rem;
+    margin-left: 4px;
+    vertical-align: middle;
+    cursor: help;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+}
+.cleanup-icon:hover { opacity: 1; }
+.cleanup-icon.deletable { opacity: 0.35; }
+.cleanup-icon.persistent { opacity: 0.6; }
 
 /* Type badge colors by resource family */
 .type-badge.type-connection { background: var(--type-connection); color: white; }
@@ -254,26 +276,53 @@ nav { display: flex; gap: 4px; }
     border-radius: 10px; color: var(--text-muted);
 }
 
+/* --- Table toolbar --- */
+.table-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+
 /* --- Preview table --- */
-.preview-table { width: 100%; border-collapse: collapse; font-size: 0.825rem; }
+.preview-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
 .preview-table th {
-    text-align: left; font-size: 0.7rem; text-transform: uppercase;
+    text-align: left; font-size: 0.68rem; text-transform: uppercase;
     color: var(--text-muted); padding: 6px 8px;
     letter-spacing: 0.04em; border-bottom: 1px solid var(--border);
+    white-space: nowrap;
 }
-.preview-table td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.preview-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.preview-table td code { word-break: break-all; }
+
+/* Simple view: hide advanced columns */
+.resource-table:not(.advanced) .col-adv { display: none; }
+
+/* Advanced view: table uses natural width, page scrolls horizontally */
+.resource-table.advanced .preview-table { width: auto; min-width: 100%; }
+.resource-table.advanced .preview-table td { white-space: nowrap; }
+.resource-table.advanced .preview-table .col-adv { white-space: nowrap; }
+
 .dep-ref {
-    font-size: 0.75rem; display: inline-block; margin: 1px 2px;
-    padding: 0 4px; background: var(--bg); border-radius: 3px;
+    font-size: 0.72rem; display: inline-block; margin: 1px 2px;
+    padding: 1px 5px; background: var(--bg); border-radius: 3px;
+    white-space: nowrap;
 }
 
 /* --- Metadata expand --- */
 .metadata-expand summary {
     cursor: pointer; font-size: 0.8rem; color: var(--primary);
+    white-space: nowrap;
 }
-.metadata-list { margin: 4px 0 0; font-size: 0.8rem; }
+.metadata-expand[open] { white-space: normal; }
+.metadata-list {
+    margin: 4px 0 0; font-size: 0.78rem;
+    max-width: 280px;
+}
 .metadata-list dt { font-weight: 600; display: inline; }
-.metadata-list dd { display: inline; margin: 0 12px 0 4px; color: var(--text-muted); }
+.metadata-list dd {
+    display: inline; margin: 0 8px 0 2px;
+    color: var(--text-muted); word-break: break-word;
+}
 
 /* --- Progress bar --- */
 .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin: 16px 0 8px; }
@@ -426,4 +475,163 @@ a.doc-link-inline:hover { border-bottom-style: solid; }
 a.doc-link:hover .sandbox-badge {
     outline: 2px solid var(--status-waiting);
     outline-offset: 1px;
+}
+
+/* --- Input tabs --- */
+.input-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 0;
+    border-bottom: 2px solid var(--border);
+}
+.input-tab {
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+.input-tab:hover { color: var(--text); }
+.input-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+.input-tab-panel { display: none; padding-top: 12px; }
+.input-tab-panel.active { display: block; }
+
+/* --- JSON editor textarea --- */
+.json-editor {
+    width: 100%;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #1e1e2e;
+    color: #cdd6f4;
+    resize: vertical;
+    tab-size: 2;
+}
+.json-editor:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(13,110,253,0.15);
+}
+.json-parse-status {
+    font-size: 0.78rem;
+    min-height: 1.4em;
+    margin-top: 4px;
+    padding: 0 2px;
+}
+.json-parse-status.valid { color: var(--status-created); }
+.json-parse-status.invalid { color: var(--status-error); }
+
+/* --- JSON editor panel (preview page) --- */
+.json-editor-panel {
+    margin: 24px 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+.json-editor-panel summary {
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 12px 16px;
+    background: var(--bg);
+    transition: background 0.15s;
+}
+.json-editor-panel summary:hover { background: var(--border); }
+.json-editor-panel form { padding: 0 16px 16px; }
+.json-editor-panel .json-editor { margin-top: 12px; }
+.json-editor-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+}
+.btn-outline {
+    background: var(--bg) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+}
+.btn-outline:hover {
+    background: var(--border) !important;
+}
+
+/* --- File drop zone --- */
+.file-drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+}
+.file-drop-zone:hover,
+.file-drop-zone.dragover {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 4%, transparent);
+}
+.file-drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+}
+.file-drop-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+.file-drop-label strong { color: var(--primary); }
+.file-drop-filename {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--status-created);
+    display: none;
+}
+.file-drop-filename.visible { display: block; }
+
+/* --- Setup form layout --- */
+.setup-container { max-width: 540px; margin: 0 auto; }
+.setup-container h2 { margin-top: 0; }
+.setup-container .form-actions { margin-top: 24px; }
+
+/* --- Subtle table row hover --- */
+.preview-table tbody tr:hover { background: color-mix(in srgb, var(--primary) 3%, transparent); }
+
+/* --- Monospace ref in preview --- */
+.preview-table code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 0.78rem;
+}
+
+/* --- Footer / version --- */
+.app-footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+    #content { padding: 0 12px; margin: 16px auto; }
+    header { padding: 0 12px; gap: 16px; }
+    .setup-container, .preview-container, .execute-container,
+    .runs-container, .cleanup-container { padding: 20px; }
+    .stats-bar { flex-wrap: wrap; gap: 16px; }
+    .form-row { flex-direction: column; gap: 0; }
 }

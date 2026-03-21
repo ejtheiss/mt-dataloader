@@ -1,4 +1,10 @@
-<div class="resource-table">
+<div class="resource-table" id="resource-table">
+    <div class="table-toolbar">
+        <button type="button" class="btn btn-sm btn-outline" id="btn-toggle-view">
+            Show Advanced
+        </button>
+    </div>
+
     {% for phase_value, phase_name in [(1, "Setup"), (2, "Business"), (3, "Lifecycle"), (4, "Mutations")] %}
         {% set phase_items = preview_items|selectattr("display_phase", "eq", phase_value)|list %}
         {% if phase_items %}
@@ -13,10 +19,9 @@
                         <th>Batch</th>
                         <th>Type</th>
                         <th>Ref</th>
-                        <th>Dependencies</th>
                         <th>Metadata</th>
-                        <th>Sandbox</th>
-                        <th>Cleanup</th>
+                        <th class="col-adv">Dependencies</th>
+                        <th class="col-adv">Sandbox</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -32,12 +37,13 @@
                         <span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span>
                         {% endif %}
                     </td>
-                    <td><code>{{ item.typed_ref }}</code></td>
                     <td>
-                        {% for dep in item.deps %}
-                        <code class="dep-ref">{{ dep }}</code>
-                        {% endfor %}
-                        {% if not item.deps %}&mdash;{% endif %}
+                        <code>{{ item.typed_ref }}</code>
+                        {% if item.deletable %}
+                        <span class="cleanup-icon deletable" title="Deletable after run">&#x1f5d1;</span>
+                        {% else %}
+                        <span class="cleanup-icon persistent" title="Persistent — cannot be deleted via API">&#x1f512;</span>
+                        {% endif %}
                     </td>
                     <td>
                         {% if item.has_metadata %}
@@ -45,25 +51,24 @@
                             <summary>{{ item.metadata|length }} key(s)</summary>
                             <dl class="metadata-list">
                             {% for k, v in item.metadata.items() %}
-                                <dt>{{ k }}</dt><dd>{{ v }}</dd>
+                                <dt>{{ k }}:</dt> <dd>{{ v }}</dd>
                             {% endfor %}
                             </dl>
                         </details>
                         {% else %}&mdash;{% endif %}
                     </td>
-                    <td>
+                    <td class="col-adv">
+                        {% for dep in item.deps %}
+                        <code class="dep-ref">{{ dep }}</code>
+                        {% endfor %}
+                        {% if not item.deps %}&mdash;{% endif %}
+                    </td>
+                    <td class="col-adv">
                         {% if item.sandbox_info %}
                         <a href="{{ mt_docs.test_counterparties }}" target="_blank" rel="noopener" class="doc-link">
                             <span class="sandbox-badge">{{ item.sandbox_info }}</span>
                         </a>
                         {% else %}&mdash;{% endif %}
-                    </td>
-                    <td>
-                        {% if item.deletable %}
-                        <span class="deletable-badge">deletable</span>
-                        {% else %}
-                        <span class="persistent-badge">persistent</span>
-                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -73,3 +78,15 @@
         {% endif %}
     {% endfor %}
 </div>
+
+<script>
+(function() {
+    var table = document.getElementById("resource-table");
+    var btn = document.getElementById("btn-toggle-view");
+    btn.addEventListener("click", function() {
+        table.classList.toggle("advanced");
+        var isAdv = table.classList.contains("advanced");
+        btn.textContent = isAdv ? "Show Simple" : "Show Advanced";
+    });
+})();
+</script>

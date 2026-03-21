@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}MT Dataloader{% endblock %}</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v={{ css_version }}">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
     <script>
@@ -15,6 +15,29 @@
             evt.detail.isError = false;
         }
     });
+
+    /* --- Credential persistence via sessionStorage --- */
+    var _creds = {
+        save: function() {
+            var k = document.querySelector('[name="api_key"]');
+            var o = document.querySelector('[name="org_id"]');
+            if (k && k.value) sessionStorage.setItem("mt_api_key", k.value);
+            if (o && o.value) sessionStorage.setItem("mt_org_id", o.value);
+        },
+        restore: function() {
+            var key = sessionStorage.getItem("mt_api_key");
+            var org = sessionStorage.getItem("mt_org_id");
+            document.querySelectorAll('[name="api_key"]').forEach(function(el) {
+                if (!el.value && key) el.value = key;
+            });
+            document.querySelectorAll('[name="org_id"]').forEach(function(el) {
+                if (!el.value && org) el.value = org;
+            });
+        }
+    };
+    document.addEventListener("DOMContentLoaded", _creds.restore);
+    document.addEventListener("htmx:afterSettle", _creds.restore);
+    document.addEventListener("htmx:configRequest", function() { _creds.save(); });
     </script>
 </head>
 <body>
@@ -24,9 +47,20 @@
             <a href="/setup" class="nav-tab {% block nav_setup %}{% endblock %}">Setup</a>
             <a href="/runs" class="nav-tab {% block nav_runs %}{% endblock %}">Runs</a>
         </nav>
+        <span class="cred-status" id="cred-status"></span>
     </header>
     <main id="content">
         {% block content %}{% endblock %}
     </main>
+    <script>
+    (function() {
+        var el = document.getElementById("cred-status");
+        var org = sessionStorage.getItem("mt_org_id");
+        if (org) {
+            el.textContent = org;
+            el.title = "Org ID stored for this session";
+        }
+    })();
+    </script>
 </body>
 </html>

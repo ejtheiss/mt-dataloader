@@ -8,6 +8,7 @@ real-time execution progress to an HTMX frontend via Server-Sent Events.
 from __future__ import annotations
 
 import asyncio
+import json
 import secrets
 import sys
 import time
@@ -85,6 +86,18 @@ MT_DOCS: dict[str, str] = {
 }
 templates.env.globals["mt_docs"] = MT_DOCS
 
+_css_path = Path("static/style.css")
+
+
+def _css_version() -> str:
+    try:
+        return str(int(_css_path.stat().st_mtime))
+    except OSError:
+        return "1"
+
+
+templates.env.globals["css_version"] = _css_version()
+
 # ---------------------------------------------------------------------------
 # Server-side session cache
 # ---------------------------------------------------------------------------
@@ -100,6 +113,7 @@ class _SessionState:
     api_key: str
     org_id: str
     config: DataLoaderConfig
+    config_json_text: str
     registry: RefRegistry
     baseline_refs: set[str]
     preflight: PreflightResult
@@ -355,13 +369,20 @@ async def validate(
     request: Request,
     api_key: str = Form(...),
     org_id: str = Form(...),
-    config_file: UploadFile = File(...),
+    config_file: UploadFile | None = File(None),
+    config_json: str | None = Form(None),
 ):
     """Validate API key, run preflight, parse config, compute DAG, cache state."""
     _prune_expired_sessions()
 
-    # 1. Parse JSON config
-    raw_json = await config_file.read()
+    # 1. Parse JSON config — accept file upload or raw JSON text
+    if config_json and config_json.strip():
+        raw_json = config_json.strip().encode()
+    elif config_file and config_file.size:
+        raw_json = await config_file.read()
+    else:
+        return _error_response("Missing Config", "Upload a JSON file or paste JSON directly.")
+
     try:
         config = DataLoaderConfig.model_validate_json(raw_json)
     except ValidationError as e:
@@ -424,13 +445,19 @@ async def validate(
     resource_map = {typed_ref_for(r): r for r in all_resources(config)}
     preview_items = _build_preview(batches, resource_map)
 
-    # 6. Cache session state
+    # 6. Pretty-print the config JSON for the editor
+    config_json_text = json.dumps(
+        json.loads(raw_json), indent=2, ensure_ascii=False
+    )
+
+    # 7. Cache session state
     token = secrets.token_urlsafe(32)
     _sessions[token] = _SessionState(
         session_token=token,
         api_key=api_key,
         org_id=org_id,
         config=config,
+        config_json_text=config_json_text,
         registry=registry,
         baseline_refs=baseline_refs,
         preflight=preflight,
@@ -461,6 +488,109 @@ async def validate(
             ),
             "display_phases": DisplayPhase,
             "discovery": discovery,
+            "config_json_text": config_json_text,
+        },
+    )
+
+
+@app.post("/api/revalidate")
+async def revalidate(
+    request: Request,
+    session_token: str = Form(...),
+    config_json: str = Form(...),
+):
+    """Re-validate edited JSON using credentials from an existing session."""
+    session = _sessions.get(session_token)
+    if not session:
+        return _error_response("Session Expired", "Please start over from Setup.")
+
+    raw_json = config_json.strip().encode()
+    try:
+        config = DataLoaderConfig.model_validate_json(raw_json)
+    except ValidationError as e:
+        structured = _format_validation_errors(e)
+        detail_lines = [f"• {err['path']}: {err['message']}" for err in structured]
+        return _error_response(
+            "Config Validation Error",
+            "\n".join(detail_lines) or str(e),
+        )
+
+    async with AsyncModernTreasury(
+        api_key=session.api_key, organization_id=session.org_id
+    ) as client:
+        discovery: DiscoveryResult | None = None
+        try:
+            discovery = await discover_org(client)
+            baseline = baseline_from_discovery(discovery)
+        except (APIConnectionError, APITimeoutError) as exc:
+            logger.warning("Discovery failed during revalidate: {}", str(exc))
+            baseline = load_baseline(request.app.state.baseline_path)
+
+        registry = RefRegistry()
+        baseline_refs = seed_registry(baseline, registry)
+
+        if discovery is not None:
+            preflight = PreflightResult()
+        else:
+            preflight = await run_preflight(client, baseline)
+
+    if not preflight.passed:
+        return templates.TemplateResponse(
+            request,
+            "partials/preflight_failure.html",
+            {"preflight": preflight},
+        )
+
+    try:
+        batches = dry_run(config, baseline_refs)
+    except CycleError as e:
+        return _error_response("Cycle Error", f"Circular dependency: {e}")
+    except KeyError as e:
+        return _error_response("Reference Error", str(e))
+
+    resource_map = {typed_ref_for(r): r for r in all_resources(config)}
+    preview_items = _build_preview(batches, resource_map)
+
+    config_json_text = json.dumps(
+        json.loads(raw_json), indent=2, ensure_ascii=False
+    )
+
+    new_token = secrets.token_urlsafe(32)
+    _sessions[new_token] = _SessionState(
+        session_token=new_token,
+        api_key=session.api_key,
+        org_id=session.org_id,
+        config=config,
+        config_json_text=config_json_text,
+        registry=registry,
+        baseline_refs=baseline_refs,
+        preflight=preflight,
+        batches=batches,
+        preview_items=preview_items,
+        discovery=discovery,
+    )
+
+    del _sessions[session_token]
+
+    return templates.TemplateResponse(
+        request,
+        "preview.html",
+        {
+            "session_token": new_token,
+            "batches": batches,
+            "preview_items": preview_items,
+            "preflight": preflight,
+            "config_hash": config_hash(config),
+            "resource_count": sum(len(b) for b in batches),
+            "deletable_count": sum(
+                1 for item in preview_items if item["deletable"]
+            ),
+            "non_deletable_count": sum(
+                1 for item in preview_items if not item["deletable"]
+            ),
+            "display_phases": DisplayPhase,
+            "discovery": discovery,
+            "config_json_text": config_json_text,
         },
     )
 

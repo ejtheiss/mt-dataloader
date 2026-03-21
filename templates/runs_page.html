@@ -6,8 +6,8 @@
 <div class="runs-container">
     <h2>Past Runs</h2>
 
-    <details class="cleanup-credentials">
-        <summary>API Credentials (required for cleanup)</summary>
+    <details class="cleanup-credentials" id="cleanup-creds">
+        <summary id="cleanup-creds-summary">API Credentials (required for cleanup)</summary>
         <div style="margin-top: 12px;">
             <div class="form-row">
                 <div class="form-group">
@@ -35,4 +35,13 @@
         </div>
     </div>
 </div>
+<script>
+(function() {
+    var has = sessionStorage.getItem("mt_api_key") && sessionStorage.getItem("mt_org_id");
+    if (has) {
+        document.getElementById("cleanup-creds-summary").textContent =
+            "API Credentials (stored from session)";
+    }
+})();
+</script>
 {% endblock %}
