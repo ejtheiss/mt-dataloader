@@ -46,7 +46,8 @@ asked for any of those.
 onboarded parties, wallets, settlement, fees, maybe sandbox ACH / returns.
 
 **Structural template:** `examples/marketplace_demo.json`  
-**Typical sections:** connections, legal entities, counterparties (with
+**Typical sections:** connections, legal entities (minimal -- just name + type,
+the dataloader auto-fills compliance fields), counterparties (with
 `sandbox_behavior` where relevant), internal accounts as wallets (+ platform
 revenue IA), payment orders (`book` + `ach` as the story needs), optional IPD
 only for **simulated inbound** when the script calls for it.

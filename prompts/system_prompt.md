@@ -8,7 +8,7 @@ sent to `POST /api/validate-json` without editing.
 
 ## Your workflow
 
-1. **Understand the demo** — Default mental model: **PSP / marketplace**
+1. **Understand the demo** -- Default mental model: **PSP / marketplace**
    (internal accounts as wallets, book + ACH). Ask:
    - Vertical / business type?
    - Money flows (inbound to wallet, settle to seller, platform fee, payout)?
@@ -16,21 +16,21 @@ sent to `POST /api/validate-json` without editing.
    - **Only if they ask:** reconciliation (`expected_payment` + IPD),
      ledgering, virtual accounts, explicit IPD returns.
 
-2. **Pick scope first** — Use `generation_profiles.md` (minimal / demo-rich /
+2. **Pick scope first** -- Use `generation_profiles.md` (minimal / demo-rich /
    extended). If the ask is vague, ask **one** clarifying question before
    generating.
 
-3. **Clarify when needed** — Especially if:
+3. **Clarify when needed** -- Especially if:
    - Flows are ambiguous
-   - They want NSF / return simulation — choose **PO + `sandbox_behavior`**
+   - They want NSF / return simulation -- choose **PO + `sandbox_behavior`**
      (ACH pull to counterparty) vs **IPD + explicit `return`** (inbound story)
    - Do **not** assume they want EPs, VAs, or ledgers
 
-4. **Generate the full config** — Complete JSON only (see **Output format**
+4. **Generate the full config** -- Complete JSON only (see **Output format**
    below). Prefer self-bootstrapping configs (own `connections` and
    `internal_accounts` unless the user relies on discovered baseline).
 
-5. **Validate** — User or tool calls `POST /api/validate-json` on your JSON;
+5. **Validate** -- User or tool calls `POST /api/validate-json` on your JSON;
    repair using the `errors` array (see **Validation loop**).
 
 ---
@@ -40,27 +40,27 @@ sent to `POST /api/validate-json` without editing.
 The dataloader accepts **only** a JSON object. Your final answer must make that
 object easy to copy:
 
-1. **Deliver one root object** — Top-level keys must match `DataLoaderConfig`
-   (see schema): e.g. `connections`, `internal_accounts`, `payment_orders`, …
+1. **Deliver one root object** -- Top-level keys must match `DataLoaderConfig`
+   (see schema): e.g. `connections`, `internal_accounts`, `payment_orders`, ...
    Omit empty sections or use empty arrays `[]` per schema; do not invent
    top-level keys.
 
-2. **Wrapping** — Put the config in a single ` ```json ` … ` ``` ` fenced
+2. **Wrapping** -- Put the config in a single ` ```json ` ... ` ``` ` fenced
    block, **or** output raw JSON with **no** characters before `{` or after
    `}`. Do not bury the config inside long prose.
 
-3. **JSON rules** — No comments (`//` or `/* */`), no trailing commas, no
+3. **JSON rules** -- No comments (`//` or `/* */`), no trailing commas, no
    `undefined`. Use double-quoted strings. Numbers where the schema expects
    numbers; **metadata values must be strings** (see rule 10 below).
 
-4. **No alternate envelope** — Unless the user’s workflow explicitly requires
+4. **No alternate envelope** -- Unless the user's workflow explicitly requires
    it, do **not** wrap the config in `{ "config": { ... } }` or add an
    `assumptions` sibling the app will not strip. The executor expects the
    config object itself.
 
-5. **Secrets** — Never put API keys or org IDs in the JSON.
+5. **Secrets** -- Never put API keys or org IDs in the JSON.
 
-6. **`ref` fields** — Each resource’s `ref` is a **short key** (snake_case, no
+6. **`ref` fields** -- Each resource's `ref` is a **short key** (snake_case, no
    dots). Typed names like `payment_order.po_foo` are built by the engine, not
    written as `ref`.
 
@@ -123,8 +123,8 @@ Paste from repo (trim only if size-constrained):
 
 | File | Use when |
 |------|----------|
-| `examples/marketplace_demo.json` | **Primary.** PSP marketplace: LEs, CPs, IAs as wallets, IPD simulates buyer **push**, book settle + fee + seller payout, ACH **debit pull** for NSF demo (`sandbox_behavior`). No EP, no VA, no ledger. |
-| `examples/psp_minimal.json` | Smallest PSP slice: two IAs + one `book` transfer (no counterparties). |
+| `examples/marketplace_demo.json` | **Primary.** PSP marketplace: minimal LEs (auto-mock fills compliance), CPs, IAs as wallets, IPD simulates buyer **push**, book settle + fee + seller payout, ACH **debit pull** for NSF demo (`sandbox_behavior`). No EP, no VA, no ledger. |
+| `examples/psp_minimal.json` | Smallest PSP slice: two IAs + one `book` transfer (no counterparties, no LEs). |
 
 <PASTE_EXAMPLES_HERE>
 
@@ -132,62 +132,66 @@ Paste from repo (trim only if size-constrained):
 
 ## Generation rules
 
-1. **Self-bootstrap when demo needs it** — Include `connections` and
+1. **Self-bootstrap when demo needs it** -- Include `connections` and
    `internal_accounts` the config actually uses. Do not assume undiscovered
    baseline refs exist unless the user said so.
 
-2. **`sandbox_behavior` on counterparties** — If the config includes
+2. **`sandbox_behavior` on counterparties** -- If the config includes
    `counterparties` with inline `accounts[]` used for PO demos, set
    `sandbox_behavior` on each (`success`, `return`, or `failure`) so sandbox
    outcomes are deterministic. **Skip** for configs with no counterparties
    (e.g. `psp_minimal.json`).
 
-3. **Use `depends_on` only for business timing** — Field refs (`$ref:` in
+3. **Use `depends_on` only for business timing** -- Field refs (`$ref:` in
    payload fields) create DAG edges. Add `depends_on` only when a resource must
    wait for another it does **not** reference in any field (e.g. book PO after
    IPD).
 
-4. **Amounts are in cents** — `10000` = $100.00.
+4. **Amounts are in cents** -- `10000` = $100.00.
 
-5. **Book transfers** — `type: book`, `direction: credit`; both accounts are
+5. **Book transfers** -- `type: book`, `direction: credit`; both accounts are
    internal account refs.
 
-6. **Credit POs** — Require `receiving_account_id` (validator enforces).
+6. **Credit POs** -- Require `receiving_account_id` (validator enforces).
 
-7. **Business legal entities** — `business_name`, `date_formed`,
-   `legal_structure`, `country_of_incorporation`, `identifications` (≥1),
-   `addresses` with `address_types`.
+7. **Legal entities -- keep them simple** -- The dataloader **auto-fills** all
+   compliance fields (address, identifications, dates, legal structure) with
+   sandbox-safe mock data when omitted. For a **business**: just `ref`,
+   `legal_entity_type`, `business_name`. For an **individual**: just `ref`,
+   `legal_entity_type`, `first_name`, `last_name`. Add `metadata` for demo
+   context. **Do not** generate EINs, SSNs, addresses, or dates unless the
+   narrative specifically requires them (e.g. a particular city or structure).
+   See `marketplace_demo.json` for examples of minimal legal entities.
 
-8. **Individual legal entities** — `first_name`, `last_name`, `date_of_birth`,
-   `citizenship_country`, `identifications` (≥1), `addresses`.
-
-9. **Expected payments** — Require `reconciliation_rule_variables` with
+8. **Expected payments** -- Require `reconciliation_rule_variables` with
    `internal_account_id`, `direction`, `amount_lower_bound`,
    `amount_upper_bound` (per schema).
 
-10. **Metadata values must be strings** — `"250000"` not `250000`.
+9. **Metadata values must be strings** -- `"250000"` not `250000`.
 
-11. **No `$ref:` strings inside metadata** — Ordering uses `depends_on` and
+10. **No `$ref:` strings inside metadata** -- Ordering uses `depends_on` and
     structural refs use normal fields.
 
-12. **PSP marketplace default** — Omit `expected_payments`, `virtual_accounts`,
+11. **PSP marketplace default** -- Omit `expected_payments`, `virtual_accounts`,
     and `ledger*` unless the user asked for recon, VA, or accounting.
 
-13. **IPD vs PO** — IPD simulates **inbound** to an IA. `sandbox_behavior` on
+12. **IPD vs PO** -- IPD simulates **inbound** to an IA. `sandbox_behavior` on
     CP accounts affects **POs** to that bank account, not IPD behavior.
 
-14. **EP + IPD recon** — If both exist, order so EP precedes IPD in the DAG
-    (e.g. `depends_on` on IPD → EP).
+13. **EP + IPD recon** -- If both exist, order so EP precedes IPD in the DAG
+    (e.g. `depends_on` on IPD pointing to EP).
 
-15. **Same-wallet debits** — Sequence POs that debit the same IA (e.g. fee
+14. **Same-wallet debits** -- Sequence POs that debit the same IA (e.g. fee
     after settle) using `depends_on` when needed.
 
-16. **Legal entity `addresses[].address_types`** — Only these literals (exactly):
-    `business`, `mailing`, `other`, `po_box`, `residential`. Use **`business`**
-    for a company’s registered / principal office. **Never** `"registered"` or
-    `"headquarters"` — they are invalid in this schema.
+15. **Legal entity overrides (rare)** -- If you explicitly set `addresses` or
+    `identifications` instead of letting auto-mock fill them: `address_types`
+    must be exactly one value from `business | mailing | other | po_box |
+    residential` (never `"registered"`); `id_number` for US tax IDs must be
+    9 digits only (no dashes). Normally **just omit these** and let the
+    dataloader fill them.
 
-17. **Counterparty `accounts[]`** — No `name` field on inline accounts. Use
+16. **Counterparty `accounts[]`** -- No `name` field on inline accounts. Use
     `party_name` or `metadata` (e.g. `account_label`) for labels. The parent
     counterparty has `name`.
 
@@ -217,11 +221,13 @@ For each error: locate `path`, fix using `type` + `message`, return a **full**
 replaced JSON document (same output format rules as above).
 
 Common fixes:
-- `missing` on `receiving_account_id` → add receiving account ref for credit POs
-- `missing` on `reconciliation_rule_variables` → add EP rule variables
-- `ref` / `value_error` → `ref` must be a simple key, not dotted or `$ref:`-prefixed
-- `extra_forbidden` → typo or unknown field (check schema); **remove `name` from
+- `missing` on `receiving_account_id` -- add receiving account ref for credit POs
+- `missing` on `reconciliation_rule_variables` -- add EP rule variables
+- `ref` / `value_error` -- `ref` must be a simple key, not dotted or `$ref:`-prefixed
+- `extra_forbidden` -- typo or unknown field (check schema); **remove `name` from
   `counterparties[].accounts[]`**, use `party_name` / `metadata`
-- `address_types` enum errors → replace `registered` / `headquarters` with `business`
-  (or `residential` for individuals)
-- `string_type` in metadata → string values only
+- `address_types` enum errors -- probably overriding when you should not be;
+  remove the `addresses` field and let auto-mock handle it
+- MT **422** on `identifications.*.id_number` -- remove `identifications` and
+  let auto-mock handle it, or ensure 9 digits with no dashes
+- `string_type` in metadata -- string values only

@@ -332,7 +332,25 @@ class IdentificationConfig(BaseModel):
     issuing_country: str | None = None
 
 
+def _mock_nine_digits(seed: str, offset: int = 0) -> str:
+    """Deterministic 9-digit number from a seed string. Never starts with 0."""
+    h = hash(seed) + offset
+    n = abs(h) % 900_000_000 + 100_000_000
+    return str(n)
+
+
 class LegalEntityConfig(MetadataMixin, _BaseResourceConfig):
+    """Legal entity config with **automatic mock data** for sandbox demos.
+
+    For a business, provide only ``legal_entity_type`` and ``business_name``.
+    For an individual, provide ``legal_entity_type``, ``first_name``, and
+    ``last_name``.  The model validator fills in all remaining KYB/KYC fields
+    (address, identifications, dates, structure) with compliant mock values
+    so the MT sandbox accepts them.
+
+    Any field you *do* set explicitly is kept as-is.
+    """
+
     display_phase: ClassVar[int] = DisplayPhase.SETUP
     resource_type: ClassVar[str] = "legal_entity"
 
@@ -359,6 +377,63 @@ class LegalEntityConfig(MetadataMixin, _BaseResourceConfig):
     addresses: list[AddressConfig] | None = None
     identifications: list[IdentificationConfig] | None = None
 
+    @model_validator(mode="after")
+    def _fill_mock_compliance_data(self) -> LegalEntityConfig:
+        """Auto-populate required KYB/KYC fields with sandbox-safe mock data."""
+        seed = self.ref
+
+        if self.legal_entity_type == "business":
+            if self.date_formed is None:
+                self.date_formed = "2020-01-15"
+            if self.legal_structure is None:
+                self.legal_structure = "llc"
+            if self.country_of_incorporation is None:
+                self.country_of_incorporation = "US"
+            if not self.identifications:
+                self.identifications = [
+                    IdentificationConfig(
+                        id_number=_mock_nine_digits(seed),
+                        id_type="us_ein",
+                    )
+                ]
+            if not self.addresses:
+                self.addresses = [
+                    AddressConfig(
+                        address_types=["business"],
+                        line1="100 Main Street",
+                        locality="New York",
+                        region="NY",
+                        postal_code="10001",
+                        country="US",
+                    )
+                ]
+
+        elif self.legal_entity_type == "individual":
+            if self.date_of_birth is None:
+                self.date_of_birth = "1990-06-15"
+            if self.citizenship_country is None:
+                self.citizenship_country = "US"
+            if not self.identifications:
+                self.identifications = [
+                    IdentificationConfig(
+                        id_number=_mock_nine_digits(seed, offset=1),
+                        id_type="us_ssn",
+                    )
+                ]
+            if not self.addresses:
+                self.addresses = [
+                    AddressConfig(
+                        address_types=["residential"],
+                        line1="200 Oak Avenue",
+                        locality="Austin",
+                        region="TX",
+                        postal_code="73301",
+                        country="US",
+                    )
+                ]
+
+        return self
+
 
 class LedgerConfig(MetadataMixin, _BaseResourceConfig):
     display_phase: ClassVar[int] = DisplayPhase.SETUP
@@ -376,8 +451,7 @@ class LedgerConfig(MetadataMixin, _BaseResourceConfig):
 class CounterpartyAccountConfig(BaseModel):
     """Inline external account created with the counterparty.
 
-    There is no ``name`` field on this object (use ``party_name`` or a label in
-    ``metadata``). Separate from ``ExternalAccountConfig`` because the SDK shape differs:
+    Separate from ``ExternalAccountConfig`` because the SDK shape differs:
     no ``counterparty_id`` (implicit), distinct TypedDict for account/routing
     details.
 

@@ -16,7 +16,7 @@ funds in **internal accounts as wallets**:
   `payment_order` (`book` for wallet-to-wallet / fees, `ach` for bank payout
   or ACH collection).
 - **Inbound buyer funds (sandbox):** `incoming_payment_detail` simulates an
-  external **push** into a wallet — not something you “do” in production the
+  external **push** into a wallet — not something you "do" in production the
   same way; it is sandbox simulation.
 - **Do not add by default:** `ledger`, `ledger_account`, `ledger_transaction`,
   `virtual_account`, `expected_payment` — only if the demo is explicitly about
@@ -46,34 +46,59 @@ Connections cannot be deleted.
 
 A legal entity is a person or business. Required for KYC/KYB onboarding.
 
-| Intent | `legal_entity_type` | Required fields |
-|--------|-------------------|-----------------|
-| Represent a business | `business` | `business_name`, `date_formed`, `legal_structure`, `country_of_incorporation`, `identifications` (at least one, e.g. `us_ein`), `addresses` (with `address_types`) |
-| Represent an individual | `individual` | `first_name`, `last_name`, `date_of_birth`, `citizenship_country`, `identifications` (at least one, e.g. `us_ssn`), `addresses` |
+### Auto-mock compliance data (recommended for demos)
 
-Legal entities cannot be deleted. Always include `identifications` — the MT
-API will reject businesses without a tax ID and individuals without an SSN
-or equivalent.
+The dataloader **automatically fills** all compliance fields (address,
+identifications, dates, legal structure) with sandbox-safe mock values when
+they are omitted. For demos, **keep legal entities simple:**
+
+| `legal_entity_type` | Minimum config fields |
+|---------------------|----------------------|
+| `business` | `ref`, `legal_entity_type`, `business_name` |
+| `individual` | `ref`, `legal_entity_type`, `first_name`, `last_name` |
+
+Any field you set explicitly overrides the mock default. For most demos, the
+minimal form is all you need:
+
+```json
+{
+    "ref": "acme_corp",
+    "legal_entity_type": "business",
+    "business_name": "Acme Corp",
+    "metadata": { "platform_role": "marketplace_operator" }
+}
+```
+
+```json
+{
+    "ref": "buyer_alice",
+    "legal_entity_type": "individual",
+    "first_name": "Alice",
+    "last_name": "Jones",
+    "metadata": { "user_type": "buyer" }
+}
+```
+
+The model auto-populates: `date_formed` / `date_of_birth`,
+`legal_structure` / `citizenship_country`, a US address with correct
+`address_types`, and a valid 9-digit `us_ein` / `us_ssn` identification.
+
+**Do not** generate EINs, SSNs, addresses, or dates unless the demo story
+requires specific values (e.g. a particular city for the narrative).
+
+Legal entities cannot be deleted.
+
+### Optional overrides (only if the demo needs specifics)
 
 `legal_structure` values: `corporation`, `llc`, `non_profit`, `partnership`,
 `sole_proprietorship`, `trust`.
 
-### Addresses and `address_types` (strict enum)
+If you override `addresses`, each `address_types` array must contain **exactly
+one** value from: `business`, `mailing`, `other`, `po_box`, `residential`.
+Never use `"registered"` or `"headquarters"` — use `"business"`.
 
-Each `addresses[]` object **must** use only these `address_types` values (exact
-strings — no synonyms):
-
-| Allowed value   | Typical use |
-|-----------------|-------------|
-| `business`      | Company registered office, HQ, or place of business |
-| `mailing`       | Mailing / correspondence address |
-| `residential`   | Individual home address |
-| `po_box`        | P.O. box |
-| `other`         | Fallback when none of the above fit |
-
-**Common LLM mistake:** using `"registered"` or `"headquarters"`. Those are
-**invalid** in this config — use **`business`** for a business’s registered
-or principal address.
+If you override `identifications`, US tax IDs (`us_ein`, `us_ssn`, `us_itin`)
+must be **9 digits only** — no dashes or spaces.
 
 ---
 
@@ -207,7 +232,7 @@ move money. MT matches incoming items (e.g. IPDs) to EP rules.
 
 | Intent | Config section | Key fields |
 |--------|---------------|------------|
-| Reconciliation / “we expect this inbound” | `expected_payments` | `reconciliation_rule_variables` (required), `description` |
+| Reconciliation / "we expect this inbound" | `expected_payments` | `reconciliation_rule_variables` (required), `description` |
 
 **PSP / marketplace:** Do **not** add EPs unless the demo explicitly shows
 reconciliation status or matching. Sandbox IPD `create_async()` completes
@@ -230,7 +255,7 @@ receive them; you do not originate them like a PO.
 **Sandbox:** `incoming_payment_detail` + `create_async()` **simulates** an
 external party sending money **into** an internal account (e.g. buyer push
 to wallet). Treat it as **inbound deposit simulation**, not a generic
-“workflow step” interchangeable with payment orders.
+"workflow step" interchangeable with payment orders.
 
 | Intent | Config section | Key fields |
 |--------|---------------|------------|
@@ -295,7 +320,7 @@ does not apply to IPDs** — only to POs sent to counterparty accounts.
 
 **Returns do not support metadata.**
 
-For **outbound** PO failures / NSF demos to a buyer’s bank, use
+For **outbound** PO failures / NSF demos to a buyer's bank, use
 `sandbox_behavior: "return"` on the counterparty **and** an ACH PO — that is
 not the same as an IPD return.
 

@@ -12,29 +12,7 @@
             "ref": "boats_group_inc",
             "legal_entity_type": "business",
             "business_name": "Boats Group Inc",
-            "date_formed": "2015-06-01",
             "legal_structure": "corporation",
-            "country_of_incorporation": "US",
-            "website": "https://www.boatsgroup.com",
-            "email": "treasury@boatsgroup.com",
-            "identifications": [
-                {
-                    "id_number": "830712456",
-                    "id_type": "us_ein",
-                    "issuing_country": "US"
-                }
-            ],
-            "addresses": [
-                {
-                    "address_types": ["business"],
-                    "line1": "1691 Michigan Ave",
-                    "line2": "Suite 600",
-                    "locality": "Miami Beach",
-                    "region": "FL",
-                    "postal_code": "33139",
-                    "country": "US"
-                }
-            ],
             "metadata": {
                 "platform_role": "marketplace_operator",
                 "industry": "marine_marketplace"
@@ -45,27 +23,7 @@
             "legal_entity_type": "individual",
             "first_name": "John",
             "last_name": "Smith",
-            "date_of_birth": "1985-03-15",
             "email": "john.smith@email.com",
-            "citizenship_country": "US",
-            "identifications": [
-                {
-                    "id_number": "412789035",
-                    "id_type": "us_ssn",
-                    "issuing_country": "US"
-                }
-            ],
-            "addresses": [
-                {
-                    "address_types": ["residential"],
-                    "line1": "2201 Collins Ave",
-                    "line2": "Apt 1204",
-                    "locality": "Miami Beach",
-                    "region": "FL",
-                    "postal_code": "33139",
-                    "country": "US"
-                }
-            ],
             "metadata": {
                 "user_type": "buyer",
                 "marketplace_role": "consumer",
@@ -76,28 +34,6 @@
             "ref": "seller_jacks_marina",
             "legal_entity_type": "business",
             "business_name": "Captain Jack's Marine Sales LLC",
-            "date_formed": "2018-09-20",
-            "legal_structure": "llc",
-            "country_of_incorporation": "US",
-            "website": "https://www.captainjacksmarine.com",
-            "email": "finance@captainjacksmarine.com",
-            "identifications": [
-                {
-                    "id_number": "593841027",
-                    "id_type": "us_ein",
-                    "issuing_country": "US"
-                }
-            ],
-            "addresses": [
-                {
-                    "address_types": ["business"],
-                    "line1": "4200 Bayshore Blvd",
-                    "locality": "Tampa",
-                    "region": "FL",
-                    "postal_code": "33611",
-                    "country": "US"
-                }
-            ],
             "metadata": {
                 "user_type": "seller",
                 "marketplace_role": "professional_dealer",
@@ -110,26 +46,7 @@
             "legal_entity_type": "individual",
             "first_name": "Mike",
             "last_name": "Johnson",
-            "date_of_birth": "1990-11-08",
             "email": "mike.johnson@email.com",
-            "citizenship_country": "US",
-            "identifications": [
-                {
-                    "id_number": "265140893",
-                    "id_type": "us_ssn",
-                    "issuing_country": "US"
-                }
-            ],
-            "addresses": [
-                {
-                    "address_types": ["residential"],
-                    "line1": "7320 Sand Lake Rd",
-                    "locality": "Orlando",
-                    "region": "FL",
-                    "postal_code": "32819",
-                    "country": "US"
-                }
-            ],
             "metadata": {
                 "user_type": "buyer",
                 "marketplace_role": "consumer",
