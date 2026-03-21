@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block nav_runs %}active{% endblock %}
+{% block title %}Run {{ run_id }} — MT Dataloader{% endblock %}
+
+{% block content %}
+<div class="run-detail-container">
+    <div class="run-detail-header">
+        <h2>Run <code>{{ run_id }}</code></h2>
+        <span class="run-status status-{{ manifest.status }}">{{ manifest.status }}</span>
+    </div>
+
+    <div class="tab-strip">
+        <button class="tab-btn active" data-tab="config">Config</button>
+        <button class="tab-btn" data-tab="resources">Resources ({{ manifest.resources_created|length }})</button>
+        <button class="tab-btn" data-tab="staged">Staged ({{ manifest.resources_staged|length }})</button>
+        <button class="tab-btn" data-tab="webhooks">Webhooks</button>
+    </div>
+
+    <!-- Config tab -->
+    <div class="tab-panel active" id="tab-config">
+        <div class="config-viewer">
+            <div class="config-actions">
+                <button class="btn btn-sm btn-outline"
+                        onclick="navigator.clipboard.writeText(document.getElementById('config-json').textContent)">
+                    Copy JSON
+                </button>
+            </div>
+            <pre id="config-json" class="config-json">{{ config_json }}</pre>
+        </div>
+    </div>
+
+    <!-- Resources tab -->
+    <div class="tab-panel" id="tab-resources">
+        {% if manifest.resources_created %}
+        <table class="detail-table">
+            <thead>
+                <tr>
+                    <th>Batch</th>
+                    <th>Type</th>
+                    <th>Ref</th>
+                    <th>Created ID</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in manifest.resources_created %}
+                <tr>
+                    <td><span class="batch-badge">{% if e.batch >= 0 %}B{{ e.batch }}{% else %}Fired{% endif %}</span></td>
+                    <td><span class="type-badge type-{{ e.resource_type }}">{{ e.resource_type }}</span></td>
+                    <td>{{ e.typed_ref }}</td>
+                    <td><code title="{{ e.created_id }}">{{ e.created_id[:12] }}&hellip;</code></td>
+                    <td>{{ e.created_at.split("T")[1][:8] if "T" in e.created_at else e.created_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">No resources created.</p>
+        {% endif %}
+
+        {% if manifest.resources_failed %}
+        <h4 style="margin-top: 16px; color: var(--danger);">Failed</h4>
+        {% for f in manifest.resources_failed %}
+        <div class="failed-entry">
+            <code>{{ f.typed_ref }}</code>
+            <span class="error-detail">{{ f.error }}</span>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Staged tab -->
+    <div class="tab-panel" id="tab-staged">
+        <details class="fire-credentials" id="fire-creds">
+            <summary>API Credentials (required to fire)</summary>
+            <div style="margin-top: 8px;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fire-api-key">API Key</label>
+                        <input type="password" id="fire-api-key" name="api_key"
+                               placeholder="sk_test_..." autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="fire-org-id">Org ID</label>
+                        <input type="text" id="fire-org-id" name="org_id"
+                               placeholder="org_..." autocomplete="off">
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <div id="staged-list">
+            {% if manifest.resources_staged %}
+                {% for s in manifest.resources_staged %}
+                {% set payload = staged_payloads.get(s.typed_ref, {}) %}
+                {% include "partials/staged_row.html" %}
+                {% endfor %}
+            {% else %}
+                <p class="empty-state">No staged resources in this run.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Webhooks tab -->
+    <div class="tab-panel" id="tab-webhooks"
+         hx-ext="sse"
+         sse-connect="/webhooks/stream?run_id={{ run_id }}&no_replay=true"
+         sse-swap="webhook"
+         hx-swap="beforeend"
+         hx-target="#webhook-list">
+
+        <div id="webhook-list">
+            {% if webhook_history %}
+                {% for wh in webhook_history %}
+                {% include "partials/webhook_row.html" %}
+                {% endfor %}
+            {% else %}
+                <p class="empty-state webhook-empty" id="webhook-empty">No webhooks received yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var tabs = document.querySelectorAll('.tab-btn');
+    var panels = document.querySelectorAll('.tab-panel');
+    tabs.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            tabs.forEach(function(t) { t.classList.remove('active'); });
+            panels.forEach(function(p) { p.classList.remove('active'); });
+            btn.classList.add('active');
+            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        });
+    });
+})();
+</script>
+{% endblock %}

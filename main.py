@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import secrets
 import sys
 import time
@@ -191,6 +192,7 @@ if static_dir.exists():
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(webhook_router)
+app.state.templates = templates
 
 # ---------------------------------------------------------------------------
 # SSE helpers
@@ -712,6 +714,9 @@ async def runs_page(request: Request):
     return templates.TemplateResponse(request, "runs_page.html", {"title": "Runs"})
 
 
+_MANIFEST_RE = re.compile(r"^\d{8}T\d{6}_[0-9a-f]{8}\.json$")
+
+
 @app.get("/api/runs")
 async def list_runs(request: Request):
     """List past run manifests."""
@@ -719,6 +724,8 @@ async def list_runs(request: Request):
     manifests: list[RunManifest] = []
     if runs_dir.exists():
         for path in sorted(runs_dir.glob("*.json"), reverse=True):
+            if not _MANIFEST_RE.match(path.name):
+                continue
             try:
                 manifests.append(RunManifest.load(path))
             except Exception as e:

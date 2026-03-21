@@ -16,6 +16,10 @@
     --status-error: #dc3545;
     --status-archived: #6f42c1;
     --status-skipped: #6c757d;
+    --status-staged: #6c757d;
+    --status-fired: #198754;
+    --tunnel-ok: #d1e7dd;
+    --tunnel-warn: #fff3cd;
 
     --type-connection: #6610f2;
     --type-entity: #d63384;
@@ -626,12 +630,92 @@ a.doc-link:hover .sandbox-badge {
     color: var(--text-muted);
 }
 
+/* --- Tab strip --- */
+.tab-strip { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+.tab-btn {
+    background: none; border: none; padding: 8px 16px; cursor: pointer;
+    color: var(--text-muted); font-size: 0.9rem;
+    border-bottom: 2px solid transparent; margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* --- Run detail --- */
+.run-detail-container { max-width: 960px; margin: 0 auto; padding: 24px; }
+.run-detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.run-detail-header h2 { margin: 0; }
+
+/* --- Config viewer --- */
+.config-viewer { position: relative; }
+.config-actions { position: absolute; top: 8px; right: 8px; }
+.config-json {
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; overflow-x: auto; font-size: 0.85rem; max-height: 500px; overflow-y: auto;
+}
+
+/* --- Detail table (resources tab) --- */
+.detail-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.detail-table th, .detail-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+.detail-table th {
+    background: var(--bg); font-weight: 600; color: var(--text-muted);
+    font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.failed-entry { padding: 8px 0; border-bottom: 1px solid var(--border); }
+
+/* --- Staged rows --- */
+.staged-row {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    margin-bottom: 8px; background: var(--surface);
+}
+.staged-row.fired { opacity: 0.7; border-color: var(--status-created); }
+.staged-payload { flex: 1; }
+.staged-payload pre {
+    font-size: 0.8rem; max-height: 200px; overflow-y: auto;
+    background: var(--bg); padding: 8px; border-radius: 4px; margin-top: 4px;
+}
+.btn-fire { white-space: nowrap; }
+.fire-credentials { margin-bottom: 16px; padding: 12px; background: var(--bg); border-radius: var(--radius); }
+.staged-count { color: var(--status-staged); font-size: 0.85rem; }
+
+/* --- Webhook rows --- */
+.webhook-row {
+    display: flex; align-items: center; gap: 12px; padding: 6px 12px;
+    border-bottom: 1px solid var(--border); font-size: 0.85rem;
+}
+.wh-time { color: var(--text-muted); font-family: monospace; font-size: 0.8rem; min-width: 64px; }
+.wh-event { font-weight: 500; min-width: 180px; }
+.wh-ref { color: var(--text-muted); flex: 1; }
+.wh-run-link { font-size: 0.8rem; color: var(--primary); }
+
+/* --- Tunnel banner --- */
+.tunnel-banner {
+    padding: 12px 16px; border-radius: var(--radius); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.tunnel-ok { background: var(--tunnel-ok); border: 1px solid #a3cfbb; }
+.tunnel-warn { background: var(--tunnel-warn); border: 1px solid #ffc107; }
+
+/* --- Listen page --- */
+.listen-container { max-width: 800px; margin: 0 auto; padding: 24px; }
+.listen-actions { margin-bottom: 16px; }
+.webhook-feed { margin-top: 16px; }
+.text-muted { color: var(--text-muted); }
+
+/* --- Staged resource row status (execute page) --- */
+.resource-row.staged { opacity: 0.6; }
+.status-dot.staged { background-color: var(--status-staged); }
+
 /* --- Responsive --- */
 @media (max-width: 768px) {
     #content { padding: 0 12px; margin: 16px auto; }
     header { padding: 0 12px; gap: 16px; }
     .setup-container, .preview-container, .execute-container,
-    .runs-container, .cleanup-container { padding: 20px; }
+    .runs-container, .cleanup-container, .run-detail-container,
+    .listen-container { padding: 20px; }
     .stats-bar { flex-wrap: wrap; gap: 16px; }
     .form-row { flex-direction: column; gap: 0; }
 }

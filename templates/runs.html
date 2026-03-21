@@ -11,8 +11,12 @@
             {% if m.resources_failed %}
             <span class="failed-count">{{ m.resources_failed|length }} failed</span>
             {% endif %}
+            {% if m.resources_staged %}
+            <span class="staged-count">{{ m.resources_staged|length }} staged</span>
+            {% endif %}
         </div>
         <div class="run-actions">
+            <a href="/runs/{{ m.run_id }}" class="btn btn-sm btn-outline">Details</a>
             <button class="btn btn-sm btn-danger"
                     hx-post="/api/cleanup/{{ m.run_id }}"
                     hx-target="#content"

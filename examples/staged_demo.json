@@ -1,0 +1,124 @@
+{
+    "connections": [
+        {
+            "ref": "mt_bank",
+            "entity_id": "example1",
+            "nickname": "Demo PSP"
+        }
+    ],
+
+    "legal_entities": [
+        {
+            "ref": "platform_corp",
+            "legal_entity_type": "business",
+            "business_name": "Acme Payments Inc.",
+            "legal_structure": "corporation"
+        },
+        {
+            "ref": "buyer_alice",
+            "legal_entity_type": "individual",
+            "first_name": "Alice",
+            "last_name": "Chen"
+        },
+        {
+            "ref": "seller_bob",
+            "legal_entity_type": "individual",
+            "first_name": "Bob",
+            "last_name": "Rivera"
+        }
+    ],
+
+    "counterparties": [
+        {
+            "ref": "seller_bob_cp",
+            "name": "Bob Rivera",
+            "legal_entity_id": "$ref:legal_entity.seller_bob",
+            "accounts": [
+                {
+                    "party_name": "Bob Rivera",
+                    "party_type": "individual",
+                    "account_type": "checking",
+                    "sandbox_behavior": "success",
+                    "metadata": {
+                        "account_purpose": "seller_payout"
+                    }
+                }
+            ]
+        }
+    ],
+
+    "internal_accounts": [
+        {
+            "ref": "buyer_wallet",
+            "connection_id": "$ref:connection.mt_bank",
+            "legal_entity_id": "$ref:legal_entity.buyer_alice",
+            "name": "Alice Buyer Wallet",
+            "party_name": "Alice Chen",
+            "currency": "USD"
+        },
+        {
+            "ref": "seller_wallet",
+            "connection_id": "$ref:connection.mt_bank",
+            "legal_entity_id": "$ref:legal_entity.seller_bob",
+            "name": "Bob Seller Wallet",
+            "party_name": "Bob Rivera",
+            "currency": "USD"
+        },
+        {
+            "ref": "platform_revenue",
+            "connection_id": "$ref:connection.mt_bank",
+            "legal_entity_id": "$ref:legal_entity.platform_corp",
+            "name": "Acme Revenue Account",
+            "party_name": "Acme Payments Inc.",
+            "currency": "USD"
+        }
+    ],
+
+    "incoming_payment_details": [
+        {
+            "ref": "ipd_buyer_deposit",
+            "type": "ach",
+            "direction": "credit",
+            "amount": 5000000,
+            "internal_account_id": "$ref:internal_account.buyer_wallet",
+            "description": "Buyer deposits $50,000 via ACH",
+            "staged": true
+        }
+    ],
+
+    "payment_orders": [
+        {
+            "ref": "po_platform_fee",
+            "type": "book",
+            "direction": "credit",
+            "amount": 150000,
+            "originating_account_id": "$ref:internal_account.buyer_wallet",
+            "receiving_account_id": "$ref:internal_account.platform_revenue",
+            "depends_on": ["$ref:incoming_payment_detail.ipd_buyer_deposit"],
+            "description": "Platform takes 3% fee ($1,500)",
+            "staged": true
+        },
+        {
+            "ref": "po_settle_seller",
+            "type": "book",
+            "direction": "credit",
+            "amount": 4850000,
+            "originating_account_id": "$ref:internal_account.buyer_wallet",
+            "receiving_account_id": "$ref:internal_account.seller_wallet",
+            "depends_on": ["$ref:payment_order.po_platform_fee"],
+            "description": "Net proceeds ($48,500) to seller wallet",
+            "staged": true
+        },
+        {
+            "ref": "po_payout_seller",
+            "type": "ach",
+            "direction": "credit",
+            "amount": 4850000,
+            "originating_account_id": "$ref:internal_account.seller_wallet",
+            "receiving_account_id": "$ref:counterparty.seller_bob_cp.account[0]",
+            "depends_on": ["$ref:payment_order.po_settle_seller"],
+            "description": "ACH payout to seller bank account",
+            "staged": true
+        }
+    ]
+}

@@ -47,6 +47,12 @@
             <span class="status-text">Waiting{% if attempt %} (attempt {{ attempt }}){% endif %}{% if detail %} &mdash; {{ detail }}{% endif %}</span>
         </span>
 
+    {% elif status == "staged" %}
+        <span class="status-indicator">
+            <span class="status-dot staged"></span>
+            <span class="status-text">Staged</span>
+        </span>
+
     {% elif status == "error" %}
         <span class="status-indicator">
             <span class="status-dot error"></span>

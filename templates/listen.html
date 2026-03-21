@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block nav_listen %}active{% endblock %}
+{% block title %}Webhook Listener — MT Dataloader{% endblock %}
+
+{% block content %}
+<div class="listen-container">
+    <h2>Webhook Listener</h2>
+
+    {% if tunnel_url %}
+    <div class="tunnel-banner tunnel-ok">
+        <strong>Tunnel detected:</strong>
+        <code>{{ tunnel_url }}{{ webhook_path }}</code>
+        <button class="btn btn-sm btn-outline"
+                onclick="navigator.clipboard.writeText('{{ tunnel_url }}{{ webhook_path }}')">
+            Copy
+        </button>
+    </div>
+    {% else %}
+    <div class="tunnel-banner tunnel-warn">
+        <strong>No tunnel detected.</strong>
+        Start ngrok to receive webhooks from MT:
+        <code>ngrok http 8000</code>
+    </div>
+    {% endif %}
+
+    <p class="text-muted">
+        Configure this URL in
+        <a href="https://app.moderntreasury.com/developers/webhooks"
+           target="_blank" rel="noopener">MT Dashboard &rarr; Webhooks</a>.
+    </p>
+
+    <div class="listen-actions">
+        <button class="btn btn-sm btn-outline"
+                onclick="fetch('/api/webhooks/test', {method:'POST'}).then(function(){
+                    var el = document.getElementById('webhook-empty');
+                    if (el) el.remove();
+                })">
+            Send Test Webhook
+        </button>
+    </div>
+
+    <div class="webhook-feed"
+         hx-ext="sse"
+         sse-connect="/webhooks/stream"
+         sse-swap="webhook"
+         hx-swap="beforeend"
+         hx-target="#live-webhooks">
+
+        <h3>Live Feed</h3>
+        <div id="live-webhooks">
+            <p class="empty-state" id="webhook-empty">Waiting for webhooks&hellip;</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

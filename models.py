@@ -76,6 +76,7 @@ __all__ = [
     "HandlerResult",
     "ManifestEntry",
     "FailedEntry",
+    "StagedEntry",
     # App settings
     "AppSettings",
 ]
@@ -1104,6 +1105,15 @@ class FailedEntry:
     typed_ref: str
     error: str
     failed_at: str
+
+
+@dataclass(frozen=True)
+class StagedEntry:
+    """Resource resolved but not sent to API — staged for manual fire during demo."""
+
+    resource_type: str
+    typed_ref: str
+    staged_at: str
 
 
 # ---------------------------------------------------------------------------

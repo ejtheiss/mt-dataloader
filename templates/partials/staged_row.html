@@ -1,0 +1,27 @@
+{% set row_id = "staged-" + s.typed_ref|replace(".", "-")|replace("[", "_")|replace("]", "") %}
+{% set resource_type = s.typed_ref.split(".")[0] %}
+{% set ref_name = s.typed_ref.split(".", 1)[1] if "." in s.typed_ref else s.typed_ref %}
+
+<div id="{{ row_id }}" class="staged-row">
+    <span class="type-badge type-{{ resource_type }}">{{ resource_type }}</span>
+    <span class="ref-name">{{ ref_name }}</span>
+    <span class="staged-at">{{ s.staged_at.split("T")[1][:8] if "T" in s.staged_at else s.staged_at }}</span>
+
+    {% if payload %}
+    <details class="staged-payload">
+        <summary>Payload</summary>
+        <pre>{{ payload|tojson(indent=2) }}</pre>
+    </details>
+    {% endif %}
+
+    <button class="btn btn-sm btn-primary btn-fire"
+            hx-post="/api/runs/{{ run_id }}/fire/{{ s.typed_ref }}"
+            hx-target="#{{ row_id }}"
+            hx-swap="outerHTML"
+            hx-include="#fire-creds [name=api_key], #fire-creds [name=org_id]"
+            hx-disabled-elt="this"
+            hx-indicator="#{{ row_id }}-spinner">
+        Fire
+        <span id="{{ row_id }}-spinner" class="htmx-indicator spinner-sm"></span>
+    </button>
+</div>

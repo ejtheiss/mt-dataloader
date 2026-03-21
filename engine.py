@@ -27,6 +27,7 @@ from models import (
     FailedEntry,
     HandlerResult,
     ManifestEntry,
+    StagedEntry,
     _BaseResourceConfig,
 )
 
@@ -282,6 +283,50 @@ def dry_run(
                         f"config or baseline."
                     )
 
+    staged_refs = {
+        ref
+        for ref, resource in resource_map.items()
+        if getattr(resource, "staged", False)
+    }
+    if staged_refs:
+
+        def _dep_hits_staged(dep: str) -> str | None:
+            if dep in staged_refs:
+                return dep
+            parts = dep.split(".")
+            if len(parts) >= 3:
+                parent = f"{parts[0]}.{parts[1]}"
+                if parent in staged_refs:
+                    return parent
+            return None
+
+        for ref, resource in resource_map.items():
+            if ref in staged_refs:
+                for dep in extract_ref_dependencies(resource):
+                    hit = _dep_hits_staged(dep)
+                    if hit:
+                        raise ValueError(
+                            f"Staged resource '{ref}' has a data-field "
+                            f"$ref to staged resource '{hit}' (via "
+                            f"'{dep}'). Data-field refs between staged "
+                            f"resources cannot resolve at execution time "
+                            f"because staged resources have no created_id. "
+                            f"Either un-stage '{hit}' or remove the $ref."
+                        )
+            else:
+                all_deps = extract_ref_dependencies(resource)
+                for dep_str in resource.depends_on:
+                    if dep_str.startswith("$ref:"):
+                        all_deps.add(dep_str[5:])
+                for dep in all_deps:
+                    hit = _dep_hits_staged(dep)
+                    if hit:
+                        raise ValueError(
+                            f"Resource '{ref}' depends on staged resource "
+                            f"'{hit}' (via '{dep}'). Either un-stage "
+                            f"'{hit}' or also stage '{ref}'."
+                        )
+
     batches: list[list[str]] = []
     while ts.is_active():
         ready = ts.get_ready()
@@ -334,6 +379,7 @@ class RunManifest:
     status: str = "running"
     resources_created: list[ManifestEntry] = field(default_factory=list)
     resources_failed: list[FailedEntry] = field(default_factory=list)
+    resources_staged: list[StagedEntry] = field(default_factory=list)
 
     def record(self, entry: ManifestEntry) -> None:
         self.resources_created.append(entry)
@@ -341,6 +387,15 @@ class RunManifest:
     def record_failure(self, typed_ref: str, error: str) -> None:
         self.resources_failed.append(
             FailedEntry(typed_ref=typed_ref, error=error, failed_at=_now_iso())
+        )
+
+    def record_staged(self, typed_ref: str, resource_type: str) -> None:
+        self.resources_staged.append(
+            StagedEntry(
+                resource_type=resource_type,
+                typed_ref=typed_ref,
+                staged_at=_now_iso(),
+            )
         )
 
     def finalize(self, status: str) -> None:
@@ -377,6 +432,8 @@ class RunManifest:
             manifest.resources_created.append(ManifestEntry(**entry_data))
         for fail_data in data.get("resources_failed", []):
             manifest.resources_failed.append(FailedEntry(**fail_data))
+        for staged_data in data.get("resources_staged", []):
+            manifest.resources_staged.append(StagedEntry(**staged_data))
         return manifest
 
     def _to_dict(self) -> dict:
@@ -405,6 +462,14 @@ class RunManifest:
                     "failed_at": f.failed_at,
                 }
                 for f in self.resources_failed
+            ],
+            "resources_staged": [
+                {
+                    "resource_type": s.resource_type,
+                    "typed_ref": s.typed_ref,
+                    "staged_at": s.staged_at,
+                }
+                for s in self.resources_staged
             ],
         }
 
@@ -438,6 +503,7 @@ async def execute(
         run_id=run_id,
         config_hash=config_hash(config),
     )
+    staged_payloads: dict[str, dict] = {}
 
     batch_index = 0
 
@@ -464,6 +530,14 @@ async def execute(
 
                 async with semaphore:
                     resolved = resolve_refs(resource, registry)
+
+                    if getattr(resource, "staged", False):
+                        staged_payloads[typed_ref] = resolved
+                        manifest.record_staged(typed_ref, resource.resource_type)
+                        manifest.write(runs_dir)
+                        await emit_sse("staged", typed_ref, {})
+                        return
+
                     handler = handler_dispatch[resource.resource_type]
                     result = await handler(
                         resolved,
@@ -518,11 +592,26 @@ async def execute(
     except asyncio.CancelledError:
         manifest.finalize("disconnected")
         manifest.write(runs_dir)
+        _write_staged_payloads(staged_payloads, runs_dir, run_id)
         return manifest
 
     manifest.finalize("completed")
     manifest.write(runs_dir)
+    _write_staged_payloads(staged_payloads, runs_dir, run_id)
+
     return manifest
+
+
+def _write_staged_payloads(
+    staged_payloads: dict[str, dict], runs_dir: str, run_id: str
+) -> None:
+    if not staged_payloads:
+        return
+    staged_path = Path(runs_dir) / f"{run_id}_staged.json"
+    staged_path.write_text(
+        json.dumps(staged_payloads, indent=2, default=str),
+        encoding="utf-8",
+    )
 
 
 def _guess_failed_ref(

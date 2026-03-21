@@ -1,8 +1,12 @@
-"""Webhook receiver, SSE stream, and correlation for MT Dataloader.
+"""Webhook receiver, SSE stream, run detail, staged fire, and listener.
 
 Provides:
-- POST /webhooks/mt        — inbound webhook receiver
-- GET  /webhooks/stream    — SSE fan-out for live webhook events
+- POST /webhooks/mt           — inbound webhook receiver
+- GET  /webhooks/stream       — SSE fan-out for live webhook events
+- GET  /runs/{run_id}         — four-tab run detail page
+- POST /api/runs/{run_id}/fire/{typed_ref} — fire a staged resource
+- GET  /listen                — standalone webhook listener with tunnel detection
+- POST /api/webhooks/test     — inject synthetic test webhook (bypasses sig check)
 - Correlation index mapping MT resource IDs to run_id + typed_ref
 - In-memory ring buffer for recent webhooks
 - JSONL persistence per run
@@ -12,17 +16,24 @@ from __future__ import annotations
 
 import asyncio
 import json
+import secrets
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+import httpx
+from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from loguru import logger
 from modern_treasury import AsyncModernTreasury
 from sse_starlette import EventSourceResponse, ServerSentEvent
+from tenacity import RetryError, retry, retry_if_result, stop_after_delay, wait_exponential
+
+from engine import RunManifest, _now_iso
+from handlers import DELETABILITY
+from models import ManifestEntry
 
 router = APIRouter()
 
@@ -43,6 +54,7 @@ class WebhookEntry:
     run_id: str | None
     typed_ref: str | None
     raw: dict
+    html: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -174,24 +186,9 @@ async def _fanout(entry: WebhookEntry) -> None:
         _webhook_listeners.pop(i)
 
 
-def _render_webhook_row(entry: WebhookEntry) -> str:
-    """Render a webhook entry as an HTML snippet for SSE push.
-
-    Temporary inline rendering — Step 3 replaces with Jinja2 template.
-    """
-    time_str = (
-        entry.received_at.split("T")[1][:8]
-        if "T" in entry.received_at
-        else entry.received_at
-    )
-    ref_display = entry.typed_ref or f"{entry.resource_id[:12]}..."
-    return (
-        f'<div class="webhook-row" id="wh-{entry.webhook_id}">'
-        f'<span class="wh-time">{time_str}</span> '
-        f'<span class="wh-event">{entry.event_type}</span> '
-        f'<span class="wh-ref">{ref_display}</span>'
-        f"</div>"
-    )
+def _render_webhook_html(entry: WebhookEntry, templates: Any) -> str:
+    """Render a webhook entry as an HTML snippet using the Jinja2 partial."""
+    return templates.get_template("partials/webhook_row.html").render(wh=entry)
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +255,8 @@ async def receive_webhook(request: Request):
         raw=body,
     )
 
+    entry.html = _render_webhook_html(entry, request.app.state.templates)
+
     _persist_webhook(entry, settings.runs_dir)
     _webhook_buffer.append(entry)
     await _fanout(entry)
@@ -292,13 +291,11 @@ async def webhook_stream(
             if not no_replay:
                 for entry in list(_webhook_buffer):
                     if run_id is None or entry.run_id == run_id:
-                        html = _render_webhook_row(entry)
-                        yield ServerSentEvent(data=html, event="webhook")
+                        yield ServerSentEvent(data=entry.html, event="webhook")
 
             while True:
                 entry = await q.get()
-                html = _render_webhook_row(entry)
-                yield ServerSentEvent(data=html, event="webhook")
+                yield ServerSentEvent(data=entry.html, event="webhook")
 
         except asyncio.CancelledError:
             pass
@@ -309,3 +306,265 @@ async def webhook_stream(
                 pass
 
     return EventSourceResponse(event_generator(), ping=15)
+
+
+# ---------------------------------------------------------------------------
+# Run detail page
+# ---------------------------------------------------------------------------
+
+
+@router.get("/runs/{run_id}", include_in_schema=False)
+async def run_detail_page(request: Request, run_id: str):
+    """Four-tab run detail page: Config, Resources, Staged, Webhooks."""
+    settings = request.app.state.settings
+    runs_dir = Path(settings.runs_dir)
+    templates = request.app.state.templates
+
+    manifest_path = runs_dir / f"{run_id}.json"
+    if not manifest_path.exists():
+        raise HTTPException(404, f"Run '{run_id}' not found")
+
+    manifest = RunManifest.load(manifest_path)
+    ensure_run_indexed(run_id, manifest)
+
+    config_path = runs_dir / f"{run_id}_config.json"
+    config_json = config_path.read_text("utf-8") if config_path.exists() else "{}"
+
+    staged_path = runs_dir / f"{run_id}_staged.json"
+    staged_payloads: dict[str, dict] = {}
+    if staged_path.exists():
+        try:
+            staged_payloads = json.loads(staged_path.read_text("utf-8"))
+        except json.JSONDecodeError:
+            pass
+
+    webhooks_path = runs_dir / f"{run_id}_webhooks.jsonl"
+    webhook_history = load_webhooks(webhooks_path)
+
+    return templates.TemplateResponse(
+        request,
+        "run_detail.html",
+        {
+            "run_id": run_id,
+            "manifest": manifest,
+            "config_json": config_json,
+            "staged_payloads": staged_payloads,
+            "webhook_history": webhook_history,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Fire staged resources
+# ---------------------------------------------------------------------------
+
+_IPD_TERMINAL = {"completed", "returned", "failed"}
+
+_fire_locks: dict[str, asyncio.Lock] = {}
+
+
+async def _fire_payment_order(
+    client: AsyncModernTreasury, resolved: dict, *, idempotency_key: str,
+) -> dict:
+    result = await client.payment_orders.create(
+        **resolved, idempotency_key=idempotency_key,
+    )
+    return {"created_id": result.id}
+
+
+async def _fire_expected_payment(
+    client: AsyncModernTreasury, resolved: dict, *, idempotency_key: str,
+) -> dict:
+    result = await client.expected_payments.create(
+        **resolved, idempotency_key=idempotency_key,
+    )
+    return {"created_id": result.id}
+
+
+async def _fire_ledger_transaction(
+    client: AsyncModernTreasury, resolved: dict, *, idempotency_key: str,
+) -> dict:
+    result = await client.ledger_transactions.create(
+        **resolved, idempotency_key=idempotency_key,
+    )
+    return {"created_id": result.id}
+
+
+async def _fire_incoming_payment_detail(
+    client: AsyncModernTreasury, resolved: dict, *, idempotency_key: str,
+) -> dict:
+    result = await client.incoming_payment_details.create_async(
+        **resolved, idempotency_key=idempotency_key,
+    )
+
+    @retry(
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        stop=stop_after_delay(30),
+        retry=retry_if_result(lambda r: r.status not in _IPD_TERMINAL),
+    )
+    async def _poll():
+        return await client.incoming_payment_details.retrieve(result.id)
+
+    try:
+        ipd = await _poll()
+    except RetryError as e:
+        last = e.last_attempt.result()
+        raise HTTPException(
+            504, f"IPD did not complete within 30s (status: {last.status})"
+        )
+
+    if ipd.status != "completed":
+        raise HTTPException(
+            502,
+            f"IPD reached terminal state '{ipd.status}', not 'completed'",
+        )
+
+    child_refs: dict[str, str] = {}
+    if ipd.transaction_id:
+        child_refs["transaction"] = ipd.transaction_id
+    if ipd.ledger_transaction_id:
+        child_refs["ledger_transaction"] = ipd.ledger_transaction_id
+
+    return {"created_id": result.id, "child_refs": child_refs}
+
+
+_FIRE_DISPATCH = {
+    "payment_order": _fire_payment_order,
+    "expected_payment": _fire_expected_payment,
+    "ledger_transaction": _fire_ledger_transaction,
+    "incoming_payment_detail": _fire_incoming_payment_detail,
+}
+
+
+@router.post("/api/runs/{run_id}/fire/{typed_ref:path}")
+async def fire_staged(
+    request: Request,
+    run_id: str,
+    typed_ref: str,
+    api_key: str = Form(...),
+    org_id: str = Form(...),
+):
+    """Fire a staged resource — sends the resolved payload to the MT API."""
+    settings = request.app.state.settings
+    runs_dir = Path(settings.runs_dir)
+    templates = request.app.state.templates
+
+    lock = _fire_locks.setdefault(run_id, asyncio.Lock())
+    async with lock:
+        staged_path = runs_dir / f"{run_id}_staged.json"
+        if not staged_path.exists():
+            raise HTTPException(404, "No staged payloads for this run")
+
+        staged_payloads = json.loads(staged_path.read_text("utf-8"))
+        if typed_ref not in staged_payloads:
+            raise HTTPException(404, f"Staged payload not found: {typed_ref}")
+
+        resolved = staged_payloads[typed_ref]
+        resource_type = typed_ref.split(".")[0]
+
+        handler = _FIRE_DISPATCH.get(resource_type)
+        if not handler:
+            raise HTTPException(400, f"Unsupported staged type: {resource_type}")
+
+        async with AsyncModernTreasury(
+            api_key=api_key, organization_id=org_id
+        ) as client:
+            result = await handler(
+                client, resolved,
+                idempotency_key=f"{run_id}:staged:{typed_ref}",
+            )
+
+        manifest_path = runs_dir / f"{run_id}.json"
+        manifest = RunManifest.load(manifest_path)
+        manifest.resources_created.append(
+            ManifestEntry(
+                batch=-1,
+                resource_type=resource_type,
+                typed_ref=typed_ref,
+                created_id=result["created_id"],
+                created_at=_now_iso(),
+                deletable=DELETABILITY.get(resource_type, False),
+            )
+        )
+        manifest.resources_staged = [
+            s for s in manifest.resources_staged if s.typed_ref != typed_ref
+        ]
+        manifest.write(settings.runs_dir)
+
+        del staged_payloads[typed_ref]
+        if staged_payloads:
+            staged_path.write_text(
+                json.dumps(staged_payloads, indent=2, default=str), "utf-8"
+            )
+        else:
+            staged_path.unlink(missing_ok=True)
+
+    index_resource(run_id, result["created_id"], typed_ref)
+    for child_key, child_id in result.get("child_refs", {}).items():
+        index_resource(run_id, child_id, f"{typed_ref}.{child_key}")
+
+    html = templates.get_template("partials/staged_row_fired.html").render(
+        s_typed_ref=typed_ref,
+        resource_type=resource_type,
+        created_id=result["created_id"],
+        child_refs=result.get("child_refs", {}),
+    )
+    return HTMLResponse(html)
+
+
+# ---------------------------------------------------------------------------
+# Standalone listener + tunnel detection
+# ---------------------------------------------------------------------------
+
+
+async def _detect_tunnel() -> str | None:
+    """Probe ngrok local API for a public tunnel URL."""
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as http:
+            resp = await http.get("http://127.0.0.1:4040/api/tunnels")
+            if resp.status_code == 200:
+                data = resp.json()
+                for tunnel in data.get("tunnels", []):
+                    public_url = tunnel.get("public_url", "")
+                    if public_url.startswith("https://"):
+                        return public_url
+    except (httpx.ConnectError, httpx.TimeoutException, Exception):
+        pass
+    return None
+
+
+@router.get("/listen", include_in_schema=False)
+async def listen_page(request: Request):
+    """Standalone webhook listener with tunnel auto-detection."""
+    tunnel_url = await _detect_tunnel()
+    templates = request.app.state.templates
+
+    return templates.TemplateResponse(
+        request,
+        "listen.html",
+        {
+            "tunnel_url": tunnel_url,
+            "webhook_path": "/webhooks/mt",
+        },
+    )
+
+
+@router.post("/api/webhooks/test", include_in_schema=False)
+async def send_test_webhook(request: Request):
+    """Inject a synthetic webhook for testing — bypasses signature verification."""
+    entry = WebhookEntry(
+        received_at=datetime.now(timezone.utc).isoformat(),
+        event_type="test.manual",
+        resource_type="test",
+        resource_id=f"test-{secrets.token_hex(4)}",
+        webhook_id=f"test-{int(datetime.now(timezone.utc).timestamp() * 1000)}",
+        run_id=None,
+        typed_ref=None,
+        raw={"event": "test", "data": {"id": "test-manual", "object": "test"}},
+    )
+    entry.html = _render_webhook_html(entry, request.app.state.templates)
+
+    _persist_webhook(entry, request.app.state.settings.runs_dir)
+    _webhook_buffer.append(entry)
+    await _fanout(entry)
+    return {"ok": True}
