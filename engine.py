@@ -54,6 +54,7 @@ __all__ = [
 HandlerFn = Callable[..., Awaitable[HandlerResult]]
 EmitFn = Callable[[str, str, dict[str, Any]], Awaitable[None]]
 DisconnectCheckFn = Callable[[], bool]
+ResourceCreatedFn = Callable[[str, str, str], None]
 
 # ---------------------------------------------------------------------------
 # RefRegistry
@@ -422,6 +423,7 @@ async def execute(
     emit_sse: EmitFn,
     is_disconnected: DisconnectCheckFn,
     runs_dir: str = "runs",
+    on_resource_created: ResourceCreatedFn | None = None,
 ) -> RunManifest:
     """Execute the DAG with intra-batch concurrency.
 
@@ -472,6 +474,13 @@ async def execute(
                 registry.register(typed_ref, result.created_id)
                 for child_key, child_id in result.child_refs.items():
                     registry.register(f"{typed_ref}.{child_key}", child_id)
+
+                if on_resource_created:
+                    on_resource_created(run_id, result.created_id, typed_ref)
+                    for child_key, child_id in result.child_refs.items():
+                        on_resource_created(
+                            run_id, child_id, f"{typed_ref}.{child_key}"
+                        )
 
                 manifest.record(
                     ManifestEntry(

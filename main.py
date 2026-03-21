@@ -55,6 +55,7 @@ from engine import (
 )
 from handlers import DELETABILITY, build_handler_dispatch
 from models import AppSettings, DataLoaderConfig, DisplayPhase
+from webhooks import router as webhook_router, index_resource
 
 # ---------------------------------------------------------------------------
 # Template engine (module-level — Jinja2 needs no async setup)
@@ -188,6 +189,8 @@ app = FastAPI(title="MT Dataloader", lifespan=lifespan)
 static_dir = Path("static")
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.include_router(webhook_router)
 
 # ---------------------------------------------------------------------------
 # SSE helpers
@@ -642,6 +645,10 @@ async def execute_stream(
         settings = request.app.state.settings
         semaphore = asyncio.Semaphore(settings.max_concurrent_requests)
 
+        config_path = Path(settings.runs_dir) / f"{run_id}_config.json"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(session.config_json_text, encoding="utf-8")
+
         disconnected = False
 
         async def run_engine():
@@ -661,6 +668,7 @@ async def execute_stream(
                         emit_sse=emit_sse,
                         is_disconnected=lambda: disconnected,
                         runs_dir=settings.runs_dir,
+                        on_resource_created=index_resource,
                     )
                     html = templates.get_template(
                         "partials/run_complete.html"

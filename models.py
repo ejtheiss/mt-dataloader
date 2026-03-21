@@ -1133,3 +1133,4 @@ class AppSettings(BaseSettings):
         le=20,
         description="Max concurrent MT API calls within a batch",
     )
+    webhook_secret: str = ""
