@@ -1,0 +1,131 @@
+# Consolidated seed catalog — all sections in one file.
+# Split a section out only when it exceeds ~500 lines.
+version: "1"
+default_locale: "en_US"
+
+defaults:
+  currency: "USD"
+  timezone: "America/New_York"
+  deterministic_seed: 424242
+  max_scale_instances: 5000
+
+business_profiles:
+  - name: "Acme Global Trading"
+    industry: "finance"
+    country: "US"
+  - name: "Emerald City Exports"
+    industry: "merchant_wholesale"
+    country: "US"
+  - name: "Pinnacle Payments Inc"
+    industry: "finance"
+    country: "US"
+
+individual_profiles:
+  - first_name: "Jordan"
+    last_name: "Mitchell"
+  - first_name: "Taylor"
+    last_name: "Chen"
+  - first_name: "Morgan"
+    last_name: "Okafor"
+
+patterns:
+  - ref: "deposit_settle"
+    pattern_type: "deposit_settle"
+    trace_key: "deal_id"
+    trace_value_template: "deal-{ref}-{instance}"
+    actors:
+      ops_account: "$ref:internal_account.__ops__"
+      cash_ledger: "$ref:ledger_account.__cash__"
+      revenue_ledger: "$ref:ledger_account.__revenue__"
+    steps:
+      - step_id: "deposit"
+        type: "incoming_payment_detail"
+        direction: "credit"
+        amount: 50000
+        internal_account_id: "@actor:ops_account"
+      - step_id: "settle"
+        type: "ledger_transaction"
+        depends_on: ["deposit"]
+        description: "Book the settled deposit"
+        ledger_entries:
+          - ledger_account_id: "@actor:cash_ledger"
+            amount: 50000
+            direction: "debit"
+          - ledger_account_id: "@actor:revenue_ledger"
+            amount: 50000
+            direction: "credit"
+
+  - ref: "marketplace_settlement_v2"
+    pattern_type: "marketplace_settlement"
+    trace_key: "deal_id"
+    trace_value_template: "deal-{ref}-{instance}"
+    actors:
+      buyer_account: "$ref:internal_account.__buyer__"
+      seller_account: "$ref:internal_account.__seller__"
+    steps:
+      - step_id: "buyer_pay_in"
+        type: "payment_order"
+        direction: "debit"
+        amount: 100000
+      - step_id: "hold_entry"
+        type: "ledger_transaction"
+        depends_on: ["buyer_pay_in"]
+        description: "Record platform hold"
+      - step_id: "seller_payout"
+        type: "payment_order"
+        direction: "credit"
+        depends_on: ["hold_entry"]
+        amount: 95000
+
+mutations:
+  - name: "none"
+    description: "No mutations applied"
+    mutations: {}
+
+  - name: "light_variance"
+    description: "Small amount and timing variance"
+    mutations:
+      amount:
+        type: "jitter_pct"
+        pct: 5
+      timing.settlement_lag_days:
+        type: "uniform_choice"
+        values: [0, 1]
+
+  - name: "high_variance"
+    description: "Large variance for stress testing"
+    mutations:
+      amount:
+        type: "jitter_pct"
+        pct: 20
+      timing.settlement_lag_days:
+        type: "uniform_choice"
+        values: [1, 2, 3, 4, 5]
+
+edge_cases:
+  - name: "returns_and_failures_sparse"
+    description: "5% ACH returns, 1% failures"
+    injection_rate: 0.05
+    return_codes: ["R01", "R02", "R03"]
+    failure_rate: 0.01
+
+  - name: "aggressive_edge_injection"
+    description: "15% returns, 5% failures, duplicate POs"
+    injection_rate: 0.15
+    return_codes: ["R01", "R02", "R03", "R10", "R29"]
+    failure_rate: 0.05
+    inject_duplicates: true  # same payload, different ref (<ref>__dup_<n>)
+
+recommended_compositions:
+  - name: "low_risk_demo"
+    pattern: "deposit_settle"
+    mutation_profile: "none"
+    edge_case_profile: "none"
+  - name: "realistic_ops_mix"
+    pattern: "marketplace_settlement_v2"
+    mutation_profile: "light_variance"
+    edge_case_profile: "returns_and_failures_sparse"
+  - name: "stress_test"
+    pattern: "marketplace_settlement_v2"
+    mutation_profile: "high_variance"
+    edge_case_profile: "aggressive_edge_injection"
