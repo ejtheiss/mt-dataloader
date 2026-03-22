@@ -326,8 +326,9 @@ def _build_discovered_by_type(
         return {}
     result: dict[str, list[dict]] = {}
     for dc in discovery.connections:
+        currencies_str = ", ".join(dc.currencies) if dc.currencies else "no IAs"
         result.setdefault("connection", []).append(
-            {"id": dc.id, "name": dc.vendor_name, "detail": f"vendor_id={dc.vendor_id}"}
+            {"id": dc.id, "name": dc.vendor_name, "detail": f"{currencies_str}"}
         )
     for dia in discovery.internal_accounts:
         result.setdefault("internal_account", []).append(
@@ -336,6 +337,14 @@ def _build_discovered_by_type(
     for dl in discovery.ledgers:
         result.setdefault("ledger", []).append(
             {"id": dl.id, "name": dl.name, "detail": ""}
+        )
+    for dla in discovery.ledger_accounts:
+        result.setdefault("ledger_account", []).append(
+            {"id": dla.id, "name": dla.name, "detail": f"{dla.currency}"}
+        )
+    for dlac in discovery.ledger_account_categories:
+        result.setdefault("ledger_account_category", []).append(
+            {"id": dlac.id, "name": dlac.name, "detail": f"{dlac.currency}"}
         )
     for dle in discovery.legal_entities:
         result.setdefault("legal_entity", []).append(
@@ -359,6 +368,10 @@ def _build_discovered_id_lookup(
         lookup[dia.id] = {"name": dia.name or dia.id[:12], "type": "internal_account"}
     for dl in discovery.ledgers:
         lookup[dl.id] = {"name": dl.name, "type": "ledger"}
+    for dla in discovery.ledger_accounts:
+        lookup[dla.id] = {"name": dla.name, "type": "ledger_account"}
+    for dlac in discovery.ledger_account_categories:
+        lookup[dlac.id] = {"name": dlac.name, "type": "ledger_account_category"}
     for dle in discovery.legal_entities:
         lookup[dle.id] = {"name": _le_display_name(dle), "type": "legal_entity"}
     for dcp in discovery.counterparties:

@@ -77,7 +77,7 @@
         source.addEventListener('webhook', function(e) {
             var empty = document.getElementById('webhook-empty');
             if (empty) empty.remove();
-            container.insertAdjacentHTML('beforeend', e.data);
+            container.insertAdjacentHTML('afterbegin', e.data);
         });
     }
 

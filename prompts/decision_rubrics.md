@@ -157,6 +157,10 @@ models, each user gets their own internal account as a "wallet."
 connection requires it. For platform-owned accounts (revenue, operating, fee),
 reference the platform's own legal entity.
 
+Supported `currency` values: `USD`, `CAD`, `USDC`, `USDG`. Use `USD` unless
+the demo explicitly involves stablecoin rails (`USDG`, `USDC`) or Canadian
+dollar flows (`CAD`).
+
 Internal accounts cannot be deleted. They require a `connection_id` ref.
 A child ref `$ref:internal_account.<key>.ledger_account` is auto-registered
 if the banking partner auto-creates a ledger account.

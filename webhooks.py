@@ -107,7 +107,7 @@ def ensure_run_indexed(run_id: str, manifest: Any) -> None:
 
 
 def load_webhooks(path: Path) -> list[dict]:
-    """Load webhook entries from a JSONL file."""
+    """Load webhook entries from a JSONL file, newest first."""
     entries: list[dict] = []
     if not path.exists():
         return entries
@@ -118,6 +118,7 @@ def load_webhooks(path: Path) -> list[dict]:
                 entries.append(json.loads(line))
             except json.JSONDecodeError:
                 pass
+    entries.reverse()
     return entries
 
 

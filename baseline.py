@@ -43,6 +43,8 @@ __all__ = [
     "DiscoveredConnection",
     "DiscoveredInternalAccount",
     "DiscoveredLedger",
+    "DiscoveredLedgerAccount",
+    "DiscoveredLedgerAccountCategory",
     "DiscoveredLegalEntity",
     "DiscoveredCounterparty",
     "DiscoveryResult",
@@ -490,6 +492,7 @@ class DiscoveredConnection:
     vendor_name: str
     vendor_id: str
     auto_ref: str = ""
+    currencies: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -506,6 +509,28 @@ class DiscoveredInternalAccount:
 class DiscoveredLedger:
     id: str
     name: str
+    auto_ref: str = ""
+
+
+@dataclass
+class DiscoveredLedgerAccount:
+    id: str
+    name: str
+    currency: str
+    ledger_id: str
+    ledger_ref: str
+    normal_balance: str
+    auto_ref: str = ""
+
+
+@dataclass
+class DiscoveredLedgerAccountCategory:
+    id: str
+    name: str
+    currency: str
+    ledger_id: str
+    ledger_ref: str
+    normal_balance: str
     auto_ref: str = ""
 
 
@@ -534,6 +559,8 @@ class DiscoveryResult:
     connections: list[DiscoveredConnection] = field(default_factory=list)
     internal_accounts: list[DiscoveredInternalAccount] = field(default_factory=list)
     ledgers: list[DiscoveredLedger] = field(default_factory=list)
+    ledger_accounts: list[DiscoveredLedgerAccount] = field(default_factory=list)
+    ledger_account_categories: list[DiscoveredLedgerAccountCategory] = field(default_factory=list)
     legal_entities: list[DiscoveredLegalEntity] = field(default_factory=list)
     counterparties: list[DiscoveredCounterparty] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -613,6 +640,14 @@ async def discover_org(
             "Your config will need to create one (requires a connection)."
         )
 
+    # Enrich connections with the currencies of their associated IAs
+    conn_currencies: dict[str, set[str]] = {}
+    for dia in result.internal_accounts:
+        if dia.connection_id:
+            conn_currencies.setdefault(dia.connection_id, set()).add(dia.currency.upper())
+    for dc in result.connections:
+        dc.currencies = sorted(conn_currencies.get(dc.id, set()))
+
     # --- Ledgers ---
     ledger_objects: list[Any] = []
     ledger_names: list[str] = []
@@ -629,6 +664,56 @@ async def discover_org(
                 auto_ref=ref,
             )
         )
+
+    ledger_id_to_ref: dict[str, str] = {
+        dl.id: dl.auto_ref for dl in result.ledgers
+    }
+
+    # --- Ledger Accounts (conditional) ---
+    if "ledger_account" in config_types:
+        la_objects: list[Any] = []
+        la_names: list[str] = []
+        for dl in result.ledgers:
+            async for la in client.ledger_accounts.list(ledger_id=dl.id):
+                la_objects.append(la)
+                la_names.append(la.name or f"la_{la.id[:8]}")
+
+        la_refs = _assign_unique_refs("ledger_account", la_names)
+        for la, ref in zip(la_objects, la_refs):
+            result.ledger_accounts.append(
+                DiscoveredLedgerAccount(
+                    id=la.id,
+                    name=la.name or "",
+                    currency=la.currency or "USD",
+                    ledger_id=la.ledger_id,
+                    ledger_ref=ledger_id_to_ref.get(la.ledger_id, ""),
+                    normal_balance=la.normal_balance or "credit",
+                    auto_ref=ref,
+                )
+            )
+
+    # --- Ledger Account Categories (conditional) ---
+    if "ledger_account_category" in config_types:
+        lac_objects: list[Any] = []
+        lac_names: list[str] = []
+        for dl in result.ledgers:
+            async for lac in client.ledger_account_categories.list(ledger_id=dl.id):
+                lac_objects.append(lac)
+                lac_names.append(lac.name or f"lac_{lac.id[:8]}")
+
+        lac_refs = _assign_unique_refs("ledger_account_category", lac_names)
+        for lac, ref in zip(lac_objects, lac_refs):
+            result.ledger_account_categories.append(
+                DiscoveredLedgerAccountCategory(
+                    id=lac.id,
+                    name=lac.name or "",
+                    currency=lac.currency or "USD",
+                    ledger_id=lac.ledger_id,
+                    ledger_ref=ledger_id_to_ref.get(lac.ledger_id, ""),
+                    normal_balance=lac.normal_balance or "credit",
+                    auto_ref=ref,
+                )
+            )
 
     # --- Legal Entities (conditional) ---
     if "legal_entity" in config_types:
@@ -676,6 +761,8 @@ async def discover_org(
         connections=len(result.connections),
         internal_accounts=len(result.internal_accounts),
         ledgers=len(result.ledgers),
+        ledger_accounts=len(result.ledger_accounts),
+        ledger_account_categories=len(result.ledger_account_categories),
         legal_entities=len(result.legal_entities),
         counterparties=len(result.counterparties),
         warnings=len(result.warnings),
@@ -777,6 +864,8 @@ from models import (
     CounterpartyConfig,
     DataLoaderConfig,
     InternalAccountConfig,
+    LedgerAccountCategoryConfig,
+    LedgerAccountConfig,
     LedgerConfig,
     LegalEntityConfig,
     _BaseResourceConfig,
@@ -820,33 +909,55 @@ def reconcile_config(
     matched_discovered_ids: set[str] = set()
 
     # ---------------------------------------------------------------
-    # 1. Connections: match entity_id ↔ vendor_id
+    # 1. Connections: match entity_id ↔ vendor_id + currency overlap
     # ---------------------------------------------------------------
     vendor_id_to_conns: dict[str, list[DiscoveredConnection]] = {}
     for dc in discovery.connections:
         vendor_id_to_conns.setdefault(dc.vendor_id, []).append(dc)
 
+    # Pre-compute expected currencies per config connection from config IAs
+    config_conn_expected_currencies: dict[str, set[str]] = {}
+    for ia in config.internal_accounts or []:
+        if ia.connection_id.startswith("$ref:"):
+            conn_tref = ia.connection_id[5:]
+            config_conn_expected_currencies.setdefault(conn_tref, set()).add(
+                ia.currency.upper()
+            )
+
     config_conn_to_discovered: dict[str, str] = {}
+
+    all_conn_options = [
+        {
+            "id": c.id,
+            "name": c.vendor_name,
+            "detail": ", ".join(c.currencies) or "no IAs",
+        }
+        for c in discovery.connections
+    ]
 
     for conn in config.connections or []:
         tref = typed_ref_for(conn)
         candidates = vendor_id_to_conns.get(conn.entity_id, [])
         if candidates:
-            match = candidates[0]
-            dups = None
-            if len(candidates) > 1:
-                dups = [
-                    {"id": c.id, "name": c.vendor_name, "detail": f"vendor_id={c.vendor_id}"}
-                    for c in candidates
-                ]
+            expected = config_conn_expected_currencies.get(tref, set())
+            if len(candidates) > 1 and expected:
+                match = max(
+                    candidates,
+                    key=lambda c: len(set(c.currencies) & expected),
+                )
+            else:
+                match = candidates[0]
+            match_reason = f"entity_id={conn.entity_id}"
+            if match.currencies:
+                match_reason += f", currencies={','.join(match.currencies)}"
             result.matches.append(
                 ReconciledResource(
                     config_ref=tref,
                     config_resource=conn,
                     discovered_id=match.id,
                     discovered_name=match.vendor_name,
-                    match_reason=f"entity_id={conn.entity_id}",
-                    duplicates=dups,
+                    match_reason=match_reason,
+                    duplicates=all_conn_options,
                 )
             )
             config_conn_to_discovered[tref] = match.id
@@ -883,7 +994,11 @@ def reconcile_config(
             dups = None
             if len(candidates) > 1:
                 dups = [
-                    {"id": c.id, "name": c.name or c.id[:12], "detail": c.currency}
+                    {
+                        "id": c.id,
+                        "name": c.name or c.id[:12],
+                        "detail": f"{c.currency}, conn={c.connection_ref or c.connection_id[:12]}",
+                    }
                     for c in candidates
                 ]
             result.matches.append(
@@ -925,6 +1040,104 @@ def reconcile_config(
                     discovered_id=match.id,
                     discovered_name=match.name,
                     match_reason=f"name={ledger.name}",
+                    duplicates=dups,
+                )
+            )
+            matched_discovered_ids.add(match.id)
+        else:
+            result.unmatched_config.append(tref)
+
+    config_ledger_to_discovered: dict[str, str] = {
+        m.config_ref: m.discovered_id
+        for m in result.matches
+        if m.config_ref.startswith("ledger.")
+    }
+
+    # ---------------------------------------------------------------
+    # 3b. Ledger Accounts: match name + currency + ledger
+    # ---------------------------------------------------------------
+    disc_la_by_key: dict[tuple[str, str, str], list[DiscoveredLedgerAccount]] = {}
+    for dla in discovery.ledger_accounts:
+        key = (dla.name.strip().lower(), dla.currency.upper(), dla.ledger_id)
+        disc_la_by_key.setdefault(key, []).append(dla)
+
+    for la_cfg in config.ledger_accounts or []:
+        tref = typed_ref_for(la_cfg)
+        resolved_ledger_id = ""
+        if la_cfg.ledger_id.startswith("$ref:"):
+            resolved_ledger_id = config_ledger_to_discovered.get(
+                la_cfg.ledger_id[5:], ""
+            )
+        else:
+            resolved_ledger_id = la_cfg.ledger_id
+
+        key = (la_cfg.name.strip().lower(), la_cfg.currency.upper(), resolved_ledger_id)
+        candidates = disc_la_by_key.get(key, [])
+        if candidates:
+            match = candidates[0]
+            dups = None
+            if len(candidates) > 1:
+                dups = [
+                    {
+                        "id": c.id,
+                        "name": c.name,
+                        "detail": f"{c.currency}, ledger={c.ledger_ref or c.ledger_id[:12]}",
+                    }
+                    for c in candidates
+                ]
+            result.matches.append(
+                ReconciledResource(
+                    config_ref=tref,
+                    config_resource=la_cfg,
+                    discovered_id=match.id,
+                    discovered_name=match.name,
+                    match_reason=f"name+currency+ledger ({la_cfg.name}, {la_cfg.currency})",
+                    duplicates=dups,
+                )
+            )
+            matched_discovered_ids.add(match.id)
+        else:
+            result.unmatched_config.append(tref)
+
+    # ---------------------------------------------------------------
+    # 3c. Ledger Account Categories: match name + currency + ledger
+    # ---------------------------------------------------------------
+    disc_lac_by_key: dict[tuple[str, str, str], list[DiscoveredLedgerAccountCategory]] = {}
+    for dlac in discovery.ledger_account_categories:
+        key = (dlac.name.strip().lower(), dlac.currency.upper(), dlac.ledger_id)
+        disc_lac_by_key.setdefault(key, []).append(dlac)
+
+    for lac_cfg in config.ledger_account_categories or []:
+        tref = typed_ref_for(lac_cfg)
+        resolved_ledger_id = ""
+        if lac_cfg.ledger_id.startswith("$ref:"):
+            resolved_ledger_id = config_ledger_to_discovered.get(
+                lac_cfg.ledger_id[5:], ""
+            )
+        else:
+            resolved_ledger_id = lac_cfg.ledger_id
+
+        key = (lac_cfg.name.strip().lower(), lac_cfg.currency.upper(), resolved_ledger_id)
+        candidates = disc_lac_by_key.get(key, [])
+        if candidates:
+            match = candidates[0]
+            dups = None
+            if len(candidates) > 1:
+                dups = [
+                    {
+                        "id": c.id,
+                        "name": c.name,
+                        "detail": f"{c.currency}, ledger={c.ledger_ref or c.ledger_id[:12]}",
+                    }
+                    for c in candidates
+                ]
+            result.matches.append(
+                ReconciledResource(
+                    config_ref=tref,
+                    config_resource=lac_cfg,
+                    discovered_id=match.id,
+                    discovered_name=match.name,
+                    match_reason=f"name+currency+ledger ({lac_cfg.name}, {lac_cfg.currency})",
                     duplicates=dups,
                 )
             )
@@ -1020,7 +1233,11 @@ def reconcile_config(
     # ---------------------------------------------------------------
     # Catch-all for reconcilable config resources not yet processed
     # ---------------------------------------------------------------
-    reconcilable_types = {"connection", "internal_account", "ledger", "legal_entity", "counterparty"}
+    reconcilable_types = {
+        "connection", "internal_account", "ledger",
+        "ledger_account", "ledger_account_category",
+        "legal_entity", "counterparty",
+    }
     matched_refs = {m.config_ref for m in result.matches}
     unmatched_set = set(result.unmatched_config)
     for res in all_resources(config):
@@ -1043,6 +1260,12 @@ def reconcile_config(
     for dl in discovery.ledgers:
         if dl.id not in matched_discovered_ids:
             result.unmatched_discovered.append(dl.auto_ref)
+    for dla in discovery.ledger_accounts:
+        if dla.id not in matched_discovered_ids:
+            result.unmatched_discovered.append(dla.auto_ref)
+    for dlac in discovery.ledger_account_categories:
+        if dlac.id not in matched_discovered_ids:
+            result.unmatched_discovered.append(dlac.auto_ref)
     for dle in discovery.legal_entities:
         if dle.id not in matched_discovered_ids:
             result.unmatched_discovered.append(dle.auto_ref)

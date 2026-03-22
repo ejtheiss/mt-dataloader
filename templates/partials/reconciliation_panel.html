@@ -13,7 +13,7 @@
                 <span class="type-badge type-{{ m.config_ref.split('.')[0] }}">{{ m.config_ref.split('.')[0] }}</span>
                 <code class="recon-config-ref">{{ m.config_ref }}</code>
                 {% if m.duplicates %}
-                <span class="recon-dup-badge">{{ m.duplicates|length }} duplicates</span>
+                <span class="recon-dup-badge">{{ m.duplicates|length }} option{{ 's' if m.duplicates|length != 1 }}</span>
                 {% endif %}
             </div>
             <div class="recon-card-body">

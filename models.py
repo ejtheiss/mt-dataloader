@@ -680,7 +680,12 @@ class CounterpartyAccountConfig(BaseModel):
                 routing_number="121141822",
                 routing_number_type="aba",
                 payment_type="ach",
-            )
+            ),
+            RoutingDetailConfig(
+                routing_number="121141822",
+                routing_number_type="aba",
+                payment_type="wire",
+            ),
         ]
         return self
 
@@ -717,7 +722,7 @@ class InternalAccountConfig(MetadataMixin, _BaseResourceConfig):
     connection_id: RefStr
     name: str
     party_name: str
-    currency: Literal["USD", "CAD"]
+    currency: Literal["USD", "CAD", "USDC", "USDG"]
     counterparty_id: RefStr | None = None
     legal_entity_id: RefStr | None = None
     party_address: AddressConfig | None = None

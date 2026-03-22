@@ -1,0 +1,2215 @@
+{
+  "connections": [
+    {
+      "ref": "tradeify_psp_usd",
+      "entity_id": "example1",
+      "nickname": "Modern Treasury PSP USD"
+    },
+    {
+      "ref": "tradeify_psp_usdg",
+      "entity_id": "example1",
+      "nickname": "Modern Treasury PSP USDG"
+    }
+  ],
+  "ledgers": [
+    {
+      "ref": "tradeify_wallet_ledger",
+      "name": "Tradeify Wallet Ledger",
+      "description": "Tradeify rewards wallet ledger with pooled USDG liquidity and per-user USD/USDG balances"
+    }
+  ],
+  "ledger_accounts": [
+    {
+      "ref": "platform_rewards_expense",
+      "name": "Platform Rewards Expense",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "debit",
+      "currency": "USD"
+    },
+    {
+      "ref": "platform_usd_reserve",
+      "name": "Platform USD Reserve",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "debit",
+      "currency": "USD"
+    },
+    {
+      "ref": "platform_usdg_pool",
+      "name": "Platform USDG Pool",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "debit",
+      "currency": "USDG"
+    },
+    {
+      "ref": "ava_mitchell_usd_balance",
+      "name": "Ava Mitchell USD Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "ava_mitchell_usdg_balance",
+      "name": "Ava Mitchell USDG Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USDG"
+    },
+    {
+      "ref": "ethan_reed_usd_balance",
+      "name": "Ethan Reed USD Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "ethan_reed_usdg_balance",
+      "name": "Ethan Reed USDG Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USDG"
+    },
+    {
+      "ref": "maya_patel_usd_balance",
+      "name": "Maya Patel USD Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "maya_patel_usdg_balance",
+      "name": "Maya Patel USDG Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USDG"
+    },
+    {
+      "ref": "noah_brooks_usd_balance",
+      "name": "Noah Brooks USD Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "noah_brooks_usdg_balance",
+      "name": "Noah Brooks USDG Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USDG"
+    },
+    {
+      "ref": "sophia_nguyen_usd_balance",
+      "name": "Sophia Nguyen USD Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "sophia_nguyen_usdg_balance",
+      "name": "Sophia Nguyen USDG Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USDG"
+    },
+    {
+      "ref": "liam_turner_usd_balance",
+      "name": "Liam Turner USD Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "liam_turner_usdg_balance",
+      "name": "Liam Turner USDG Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USDG"
+    },
+    {
+      "ref": "emma_ross_usd_balance",
+      "name": "Emma Ross USD Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "emma_ross_usdg_balance",
+      "name": "Emma Ross USDG Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USDG"
+    },
+    {
+      "ref": "mason_lee_usd_balance",
+      "name": "Mason Lee USD Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "mason_lee_usdg_balance",
+      "name": "Mason Lee USDG Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USDG"
+    },
+    {
+      "ref": "olivia_foster_usd_balance",
+      "name": "Olivia Foster USD Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "olivia_foster_usdg_balance",
+      "name": "Olivia Foster USDG Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USDG"
+    },
+    {
+      "ref": "jacob_hayes_usd_balance",
+      "name": "Jacob Hayes USD Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "jacob_hayes_usdg_balance",
+      "name": "Jacob Hayes USDG Balance",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USDG"
+    }
+  ],
+  "ledger_account_categories": [
+    {
+      "ref": "user_wallets_usd",
+      "name": "User Wallets USD",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "user_wallets_usdg",
+      "name": "User Wallets USDG",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "credit",
+      "currency": "USDG"
+    },
+    {
+      "ref": "platform_balances_usd",
+      "name": "Platform Balances USD",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "debit",
+      "currency": "USD"
+    },
+    {
+      "ref": "platform_balances_usdg",
+      "name": "Platform Balances USDG",
+      "ledger_id": "$ref:ledger.tradeify_wallet_ledger",
+      "normal_balance": "debit",
+      "currency": "USDG"
+    }
+  ],
+  "legal_entities": [
+    {
+      "ref": "tradeify_holdings",
+      "legal_entity_type": "business",
+      "business_name": "Tradeify Holdings"
+    },
+    {
+      "ref": "ninjatrader_group",
+      "legal_entity_type": "business",
+      "business_name": "NinjaTrader Group"
+    },
+    {
+      "ref": "ava_mitchell",
+      "legal_entity_type": "individual",
+      "first_name": "Ava",
+      "last_name": "Mitchell"
+    },
+    {
+      "ref": "ethan_reed",
+      "legal_entity_type": "individual",
+      "first_name": "Ethan",
+      "last_name": "Reed"
+    },
+    {
+      "ref": "maya_patel",
+      "legal_entity_type": "individual",
+      "first_name": "Maya",
+      "last_name": "Patel"
+    },
+    {
+      "ref": "noah_brooks",
+      "legal_entity_type": "individual",
+      "first_name": "Noah",
+      "last_name": "Brooks"
+    },
+    {
+      "ref": "sophia_nguyen",
+      "legal_entity_type": "individual",
+      "first_name": "Sophia",
+      "last_name": "Nguyen"
+    },
+    {
+      "ref": "liam_turner",
+      "legal_entity_type": "individual",
+      "first_name": "Liam",
+      "last_name": "Turner"
+    },
+    {
+      "ref": "emma_ross",
+      "legal_entity_type": "individual",
+      "first_name": "Emma",
+      "last_name": "Ross"
+    },
+    {
+      "ref": "mason_lee",
+      "legal_entity_type": "individual",
+      "first_name": "Mason",
+      "last_name": "Lee"
+    },
+    {
+      "ref": "olivia_foster",
+      "legal_entity_type": "individual",
+      "first_name": "Olivia",
+      "last_name": "Foster"
+    },
+    {
+      "ref": "jacob_hayes",
+      "legal_entity_type": "individual",
+      "first_name": "Jacob",
+      "last_name": "Hayes"
+    }
+  ],
+  "counterparties": [
+    {
+      "ref": "ninjatrader_bmo_cp",
+      "name": "NinjaTrader BMO",
+      "legal_entity_id": "$ref:legal_entity.ninjatrader_group",
+      "accounts": [
+        {
+          "party_name": "NinjaTrader BMO Funding",
+          "party_type": "business",
+          "account_type": "checking",
+          "sandbox_behavior": "success",
+          "metadata": {
+            "account_label": "ninjatrader_bmo_funding",
+            "rail_profile": "wire_credit"
+          }
+        },
+        {
+          "party_name": "NinjaTrader BMO Return Source",
+          "party_type": "business",
+          "account_type": "checking",
+          "sandbox_behavior": "success",
+          "metadata": {
+            "account_label": "ninjatrader_bmo_return_source",
+            "rail_profile": "ach_debit_pull"
+          }
+        }
+      ],
+      "metadata": {
+        "partner_name": "ninjatrader",
+        "partner_type": "brokerage"
+      }
+    },
+    {
+      "ref": "ava_mitchell_bank_cp",
+      "name": "Ava Mitchell External Bank",
+      "legal_entity_id": "$ref:legal_entity.ava_mitchell",
+      "accounts": [
+        {
+          "party_name": "Ava Mitchell",
+          "party_type": "individual",
+          "account_type": "checking",
+          "sandbox_behavior": "success",
+          "metadata": {
+            "account_label": "primary_cashout_bank",
+            "user_id": "USR-1001"
+          }
+        }
+      ],
+      "metadata": {
+        "counterparty_role": "cashout_destination",
+        "user_id": "USR-1001"
+      }
+    },
+    {
+      "ref": "ethan_reed_bank_cp",
+      "name": "Ethan Reed External Bank",
+      "legal_entity_id": "$ref:legal_entity.ethan_reed",
+      "accounts": [
+        {
+          "party_name": "Ethan Reed",
+          "party_type": "individual",
+          "account_type": "checking",
+          "sandbox_behavior": "success",
+          "metadata": {
+            "account_label": "primary_cashout_bank",
+            "user_id": "USR-1002"
+          }
+        }
+      ],
+      "metadata": {
+        "counterparty_role": "cashout_destination",
+        "user_id": "USR-1002"
+      }
+    },
+    {
+      "ref": "maya_patel_bank_cp",
+      "name": "Maya Patel External Bank",
+      "legal_entity_id": "$ref:legal_entity.maya_patel",
+      "accounts": [
+        {
+          "party_name": "Maya Patel",
+          "party_type": "individual",
+          "account_type": "checking",
+          "sandbox_behavior": "success",
+          "metadata": {
+            "account_label": "primary_cashout_bank",
+            "user_id": "USR-1003"
+          }
+        }
+      ],
+      "metadata": {
+        "counterparty_role": "cashout_destination",
+        "user_id": "USR-1003"
+      }
+    },
+    {
+      "ref": "noah_brooks_bank_cp",
+      "name": "Noah Brooks External Bank",
+      "legal_entity_id": "$ref:legal_entity.noah_brooks",
+      "accounts": [
+        {
+          "party_name": "Noah Brooks",
+          "party_type": "individual",
+          "account_type": "checking",
+          "sandbox_behavior": "success",
+          "metadata": {
+            "account_label": "primary_cashout_bank",
+            "user_id": "USR-1004"
+          }
+        }
+      ],
+      "metadata": {
+        "counterparty_role": "cashout_destination",
+        "user_id": "USR-1004"
+      }
+    },
+    {
+      "ref": "sophia_nguyen_bank_cp",
+      "name": "Sophia Nguyen External Bank",
+      "legal_entity_id": "$ref:legal_entity.sophia_nguyen",
+      "accounts": [
+        {
+          "party_name": "Sophia Nguyen",
+          "party_type": "individual",
+          "account_type": "checking",
+          "sandbox_behavior": "success",
+          "metadata": {
+            "account_label": "primary_cashout_bank",
+            "user_id": "USR-1005"
+          }
+        }
+      ],
+      "metadata": {
+        "counterparty_role": "cashout_destination",
+        "user_id": "USR-1005"
+      }
+    }
+  ],
+  "internal_accounts": [
+    {
+      "ref": "tradeify_c_payment",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.tradeify_holdings",
+      "name": "Tradeify C! Payment Account",
+      "party_name": "Tradeify Holdings",
+      "currency": "USD",
+      "metadata": {
+        "account_role": "reward_funding_source",
+        "product_scope": "psp_rewards"
+      }
+    },
+    {
+      "ref": "tradeify_usd_treasury",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.tradeify_holdings",
+      "name": "Tradeify USD Treasury Account",
+      "party_name": "Tradeify Holdings",
+      "currency": "USD",
+      "metadata": {
+        "account_role": "usd_treasury",
+        "product_scope": "psp_rewards"
+      }
+    },
+    {
+      "ref": "tradeify_usdg_pool",
+      "connection_id": "$ref:connection.tradeify_psp_usdg",
+      "legal_entity_id": "$ref:legal_entity.tradeify_holdings",
+      "name": "Tradeify USDG Payment Account",
+      "party_name": "Tradeify Holdings",
+      "currency": "USD",
+      "metadata": {
+        "account_role": "usdg_pool",
+        "product_scope": "psp_rewards"
+      }
+    },
+    {
+      "ref": "ava_mitchell_usd_wallet",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.ava_mitchell",
+      "name": "Ava Mitchell USD Wallet",
+      "party_name": "Ava Mitchell",
+      "currency": "USD",
+      "metadata": {
+        "wallet_currency": "USD",
+        "user_id": "USR-1001"
+      }
+    },
+    {
+      "ref": "ethan_reed_usd_wallet",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.ethan_reed",
+      "name": "Ethan Reed USD Wallet",
+      "party_name": "Ethan Reed",
+      "currency": "USD",
+      "metadata": {
+        "wallet_currency": "USD",
+        "user_id": "USR-1002"
+      }
+    },
+    {
+      "ref": "maya_patel_usd_wallet",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.maya_patel",
+      "name": "Maya Patel USD Wallet",
+      "party_name": "Maya Patel",
+      "currency": "USD",
+      "metadata": {
+        "wallet_currency": "USD",
+        "user_id": "USR-1003"
+      }
+    },
+    {
+      "ref": "noah_brooks_usd_wallet",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.noah_brooks",
+      "name": "Noah Brooks USD Wallet",
+      "party_name": "Noah Brooks",
+      "currency": "USD",
+      "metadata": {
+        "wallet_currency": "USD",
+        "user_id": "USR-1004"
+      }
+    },
+    {
+      "ref": "sophia_nguyen_usd_wallet",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.sophia_nguyen",
+      "name": "Sophia Nguyen USD Wallet",
+      "party_name": "Sophia Nguyen",
+      "currency": "USD",
+      "metadata": {
+        "wallet_currency": "USD",
+        "user_id": "USR-1005"
+      }
+    },
+    {
+      "ref": "liam_turner_usd_wallet",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.liam_turner",
+      "name": "Liam Turner USD Wallet",
+      "party_name": "Liam Turner",
+      "currency": "USD",
+      "metadata": {
+        "wallet_currency": "USD",
+        "user_id": "USR-1006"
+      }
+    },
+    {
+      "ref": "emma_ross_usd_wallet",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.emma_ross",
+      "name": "Emma Ross USD Wallet",
+      "party_name": "Emma Ross",
+      "currency": "USD",
+      "metadata": {
+        "wallet_currency": "USD",
+        "user_id": "USR-1007"
+      }
+    },
+    {
+      "ref": "mason_lee_usd_wallet",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.mason_lee",
+      "name": "Mason Lee USD Wallet",
+      "party_name": "Mason Lee",
+      "currency": "USD",
+      "metadata": {
+        "wallet_currency": "USD",
+        "user_id": "USR-1008"
+      }
+    },
+    {
+      "ref": "olivia_foster_usd_wallet",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.olivia_foster",
+      "name": "Olivia Foster USD Wallet",
+      "party_name": "Olivia Foster",
+      "currency": "USD",
+      "metadata": {
+        "wallet_currency": "USD",
+        "user_id": "USR-1009"
+      }
+    },
+    {
+      "ref": "jacob_hayes_usd_wallet",
+      "connection_id": "$ref:connection.tradeify_psp_usd",
+      "legal_entity_id": "$ref:legal_entity.jacob_hayes",
+      "name": "Jacob Hayes USD Wallet",
+      "party_name": "Jacob Hayes",
+      "currency": "USD",
+      "metadata": {
+        "wallet_currency": "USD",
+        "user_id": "USR-1010"
+      }
+    }
+  ],
+  "payment_orders": [
+    {
+      "ref": "po_reward_fund_ava_mitchell",
+      "type": "book",
+      "direction": "credit",
+      "amount": 120000,
+      "originating_account_id": "$ref:internal_account.tradeify_c_payment",
+      "receiving_account_id": "$ref:internal_account.ava_mitchell_usd_wallet",
+      "description": "Tradeify reward funding to Ava Mitchell USD wallet",
+      "metadata": {
+        "flow_type": "reward_funding",
+        "user_id": "USR-1001"
+      }
+    },
+    {
+      "ref": "po_reward_fund_ethan_reed",
+      "type": "book",
+      "direction": "credit",
+      "amount": 95000,
+      "originating_account_id": "$ref:internal_account.tradeify_c_payment",
+      "receiving_account_id": "$ref:internal_account.ethan_reed_usd_wallet",
+      "description": "Tradeify reward funding to Ethan Reed USD wallet",
+      "metadata": {
+        "flow_type": "reward_funding",
+        "user_id": "USR-1002"
+      }
+    },
+    {
+      "ref": "po_reward_fund_maya_patel",
+      "type": "book",
+      "direction": "credit",
+      "amount": 143500,
+      "originating_account_id": "$ref:internal_account.tradeify_c_payment",
+      "receiving_account_id": "$ref:internal_account.maya_patel_usd_wallet",
+      "description": "Tradeify reward funding to Maya Patel USD wallet",
+      "metadata": {
+        "flow_type": "reward_funding",
+        "user_id": "USR-1003"
+      }
+    },
+    {
+      "ref": "po_reward_fund_noah_brooks",
+      "type": "book",
+      "direction": "credit",
+      "amount": 88000,
+      "originating_account_id": "$ref:internal_account.tradeify_c_payment",
+      "receiving_account_id": "$ref:internal_account.noah_brooks_usd_wallet",
+      "description": "Tradeify reward funding to Noah Brooks USD wallet",
+      "metadata": {
+        "flow_type": "reward_funding",
+        "user_id": "USR-1004"
+      }
+    },
+    {
+      "ref": "po_reward_fund_sophia_nguyen",
+      "type": "book",
+      "direction": "credit",
+      "amount": 110000,
+      "originating_account_id": "$ref:internal_account.tradeify_c_payment",
+      "receiving_account_id": "$ref:internal_account.sophia_nguyen_usd_wallet",
+      "description": "Tradeify reward funding to Sophia Nguyen USD wallet",
+      "metadata": {
+        "flow_type": "reward_funding",
+        "user_id": "USR-1005"
+      }
+    },
+    {
+      "ref": "po_reward_fund_liam_turner",
+      "type": "book",
+      "direction": "credit",
+      "amount": 76000,
+      "originating_account_id": "$ref:internal_account.tradeify_c_payment",
+      "receiving_account_id": "$ref:internal_account.liam_turner_usd_wallet",
+      "description": "Tradeify reward funding to Liam Turner USD wallet",
+      "metadata": {
+        "flow_type": "reward_funding",
+        "user_id": "USR-1006"
+      }
+    },
+    {
+      "ref": "po_reward_fund_emma_ross",
+      "type": "book",
+      "direction": "credit",
+      "amount": 132000,
+      "originating_account_id": "$ref:internal_account.tradeify_c_payment",
+      "receiving_account_id": "$ref:internal_account.emma_ross_usd_wallet",
+      "description": "Tradeify reward funding to Emma Ross USD wallet",
+      "metadata": {
+        "flow_type": "reward_funding",
+        "user_id": "USR-1007"
+      }
+    },
+    {
+      "ref": "po_reward_fund_mason_lee",
+      "type": "book",
+      "direction": "credit",
+      "amount": 101500,
+      "originating_account_id": "$ref:internal_account.tradeify_c_payment",
+      "receiving_account_id": "$ref:internal_account.mason_lee_usd_wallet",
+      "description": "Tradeify reward funding to Mason Lee USD wallet",
+      "metadata": {
+        "flow_type": "reward_funding",
+        "user_id": "USR-1008"
+      }
+    },
+    {
+      "ref": "po_reward_fund_olivia_foster",
+      "type": "book",
+      "direction": "credit",
+      "amount": 99000,
+      "originating_account_id": "$ref:internal_account.tradeify_c_payment",
+      "receiving_account_id": "$ref:internal_account.olivia_foster_usd_wallet",
+      "description": "Tradeify reward funding to Olivia Foster USD wallet",
+      "metadata": {
+        "flow_type": "reward_funding",
+        "user_id": "USR-1009"
+      }
+    },
+    {
+      "ref": "po_reward_fund_jacob_hayes",
+      "type": "book",
+      "direction": "credit",
+      "amount": 150000,
+      "originating_account_id": "$ref:internal_account.tradeify_c_payment",
+      "receiving_account_id": "$ref:internal_account.jacob_hayes_usd_wallet",
+      "description": "Tradeify reward funding to Jacob Hayes USD wallet",
+      "metadata": {
+        "flow_type": "reward_funding",
+        "user_id": "USR-1010"
+      }
+    },
+    {
+      "ref": "po_mint_usdg_ava_mitchell",
+      "type": "book",
+      "direction": "credit",
+      "amount": 120000,
+      "originating_account_id": "$ref:internal_account.ava_mitchell_usd_wallet",
+      "receiving_account_id": "$ref:internal_account.tradeify_usdg_pool",
+      "depends_on": [
+        "$ref:incoming_payment_detail.ipd_onramp_ava_mitchell"
+      ],
+      "description": "Mint Ava Mitchell USD to USDG via book transfer to USDG pool",
+      "ledger_transaction": {
+        "description": "Convert Ava Mitchell USD wallet balance to USDG",
+        "ledger_entries": [
+          {
+            "amount": 120000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          },
+          {
+            "amount": 120000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+          },
+          {
+            "amount": 120000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.ava_mitchell_usd_balance"
+          },
+          {
+            "amount": 120000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.ava_mitchell_usdg_balance"
+          }
+        ],
+        "metadata": {
+          "flow_type": "usd_to_usdg_mint",
+          "user_id": "USR-1001"
+        }
+      },
+      "metadata": {
+        "flow_type": "usd_to_usdg_mint",
+        "user_id": "USR-1001"
+      }
+    },
+    {
+      "ref": "po_mint_usdg_ethan_reed",
+      "type": "book",
+      "direction": "credit",
+      "amount": 95000,
+      "originating_account_id": "$ref:internal_account.ethan_reed_usd_wallet",
+      "receiving_account_id": "$ref:internal_account.tradeify_usdg_pool",
+      "depends_on": [
+        "$ref:incoming_payment_detail.ipd_onramp_ethan_reed"
+      ],
+      "description": "Mint Ethan Reed USD to USDG via book transfer to USDG pool",
+      "ledger_transaction": {
+        "description": "Convert Ethan Reed USD wallet balance to USDG",
+        "ledger_entries": [
+          {
+            "amount": 95000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          },
+          {
+            "amount": 95000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+          },
+          {
+            "amount": 95000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.ethan_reed_usd_balance"
+          },
+          {
+            "amount": 95000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.ethan_reed_usdg_balance"
+          }
+        ],
+        "metadata": {
+          "flow_type": "usd_to_usdg_mint",
+          "user_id": "USR-1002"
+        }
+      },
+      "metadata": {
+        "flow_type": "usd_to_usdg_mint",
+        "user_id": "USR-1002"
+      }
+    },
+    {
+      "ref": "po_mint_usdg_maya_patel",
+      "type": "book",
+      "direction": "credit",
+      "amount": 143500,
+      "originating_account_id": "$ref:internal_account.maya_patel_usd_wallet",
+      "receiving_account_id": "$ref:internal_account.tradeify_usdg_pool",
+      "depends_on": [
+        "$ref:incoming_payment_detail.ipd_onramp_maya_patel"
+      ],
+      "description": "Mint Maya Patel USD to USDG via book transfer to USDG pool",
+      "ledger_transaction": {
+        "description": "Convert Maya Patel USD wallet balance to USDG",
+        "ledger_entries": [
+          {
+            "amount": 143500,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          },
+          {
+            "amount": 143500,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+          },
+          {
+            "amount": 143500,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.maya_patel_usd_balance"
+          },
+          {
+            "amount": 143500,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.maya_patel_usdg_balance"
+          }
+        ],
+        "metadata": {
+          "flow_type": "usd_to_usdg_mint",
+          "user_id": "USR-1003"
+        }
+      },
+      "metadata": {
+        "flow_type": "usd_to_usdg_mint",
+        "user_id": "USR-1003"
+      }
+    },
+    {
+      "ref": "po_cashout_ava_mitchell",
+      "type": "ach",
+      "direction": "credit",
+      "amount": 30000,
+      "originating_account_id": "$ref:internal_account.ava_mitchell_usd_wallet",
+      "receiving_account_id": "$ref:counterparty.ava_mitchell_bank_cp.account[0]",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_ava_mitchell_usdg_to_usd_cashout"
+      ],
+      "description": "Ava Mitchell cashout to external bank",
+      "ledger_transaction": {
+        "description": "Clear Ava Mitchell USD wallet balance for ACH cashout",
+        "ledger_entries": [
+          {
+            "amount": 30000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.ava_mitchell_usd_balance"
+          },
+          {
+            "amount": 30000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          }
+        ],
+        "metadata": {
+          "flow_type": "cashout",
+          "user_id": "USR-1001"
+        }
+      },
+      "metadata": {
+        "flow_type": "cashout",
+        "user_id": "USR-1001"
+      }
+    },
+    {
+      "ref": "po_cashout_ethan_reed",
+      "type": "ach",
+      "direction": "credit",
+      "amount": 25000,
+      "originating_account_id": "$ref:internal_account.ethan_reed_usd_wallet",
+      "receiving_account_id": "$ref:counterparty.ethan_reed_bank_cp.account[0]",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_ethan_reed_usdg_to_usd_cashout"
+      ],
+      "description": "Ethan Reed cashout to external bank",
+      "ledger_transaction": {
+        "description": "Clear Ethan Reed USD wallet balance for ACH cashout",
+        "ledger_entries": [
+          {
+            "amount": 25000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.ethan_reed_usd_balance"
+          },
+          {
+            "amount": 25000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          }
+        ],
+        "metadata": {
+          "flow_type": "cashout",
+          "user_id": "USR-1002"
+        }
+      },
+      "metadata": {
+        "flow_type": "cashout",
+        "user_id": "USR-1002"
+      }
+    },
+    {
+      "ref": "po_cashout_maya_patel",
+      "type": "ach",
+      "direction": "credit",
+      "amount": 40000,
+      "originating_account_id": "$ref:internal_account.maya_patel_usd_wallet",
+      "receiving_account_id": "$ref:counterparty.maya_patel_bank_cp.account[0]",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_maya_patel_usdg_to_usd_cashout"
+      ],
+      "description": "Maya Patel cashout to external bank",
+      "ledger_transaction": {
+        "description": "Clear Maya Patel USD wallet balance for ACH cashout",
+        "ledger_entries": [
+          {
+            "amount": 40000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.maya_patel_usd_balance"
+          },
+          {
+            "amount": 40000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          }
+        ],
+        "metadata": {
+          "flow_type": "cashout",
+          "user_id": "USR-1003"
+        }
+      },
+      "metadata": {
+        "flow_type": "cashout",
+        "user_id": "USR-1003"
+      }
+    },
+    {
+      "ref": "po_cashout_noah_brooks",
+      "type": "ach",
+      "direction": "credit",
+      "amount": 20000,
+      "originating_account_id": "$ref:internal_account.noah_brooks_usd_wallet",
+      "receiving_account_id": "$ref:counterparty.noah_brooks_bank_cp.account[0]",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_noah_brooks_usdg_to_usd_cashout"
+      ],
+      "description": "Noah Brooks cashout to external bank",
+      "ledger_transaction": {
+        "description": "Clear Noah Brooks USD wallet balance for ACH cashout",
+        "ledger_entries": [
+          {
+            "amount": 20000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.noah_brooks_usd_balance"
+          },
+          {
+            "amount": 20000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          }
+        ],
+        "metadata": {
+          "flow_type": "cashout",
+          "user_id": "USR-1004"
+        }
+      },
+      "metadata": {
+        "flow_type": "cashout",
+        "user_id": "USR-1004"
+      }
+    },
+    {
+      "ref": "po_cashout_sophia_nguyen",
+      "type": "ach",
+      "direction": "credit",
+      "amount": 35000,
+      "originating_account_id": "$ref:internal_account.sophia_nguyen_usd_wallet",
+      "receiving_account_id": "$ref:counterparty.sophia_nguyen_bank_cp.account[0]",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_sophia_nguyen_usdg_to_usd_cashout"
+      ],
+      "description": "Sophia Nguyen cashout to external bank",
+      "ledger_transaction": {
+        "description": "Clear Sophia Nguyen USD wallet balance for ACH cashout",
+        "ledger_entries": [
+          {
+            "amount": 35000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.sophia_nguyen_usd_balance"
+          },
+          {
+            "amount": 35000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          }
+        ],
+        "metadata": {
+          "flow_type": "cashout",
+          "user_id": "USR-1005"
+        }
+      },
+      "metadata": {
+        "flow_type": "cashout",
+        "user_id": "USR-1005"
+      }
+    },
+    {
+      "ref": "po_fund_nt_liam_turner",
+      "type": "wire",
+      "direction": "credit",
+      "amount": 25000,
+      "originating_account_id": "$ref:internal_account.liam_turner_usd_wallet",
+      "receiving_account_id": "$ref:counterparty.ninjatrader_bmo_cp.account[0]",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_liam_turner_usdg_to_usd_nt_funding"
+      ],
+      "description": "Liam Turner funds NinjaTrader brokerage account",
+      "ledger_transaction": {
+        "description": "Clear Liam Turner USD wallet balance for NinjaTrader funding",
+        "ledger_entries": [
+          {
+            "amount": 25000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.liam_turner_usd_balance"
+          },
+          {
+            "amount": 25000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          }
+        ],
+        "metadata": {
+          "flow_type": "ninjatrader_funding",
+          "user_id": "USR-1006"
+        }
+      },
+      "metadata": {
+        "flow_type": "ninjatrader_funding",
+        "user_id": "USR-1006"
+      }
+    },
+    {
+      "ref": "po_fund_nt_emma_ross",
+      "type": "wire",
+      "direction": "credit",
+      "amount": 50000,
+      "originating_account_id": "$ref:internal_account.emma_ross_usd_wallet",
+      "receiving_account_id": "$ref:counterparty.ninjatrader_bmo_cp.account[0]",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_emma_ross_usdg_to_usd_nt_funding"
+      ],
+      "description": "Emma Ross funds NinjaTrader brokerage account",
+      "ledger_transaction": {
+        "description": "Clear Emma Ross USD wallet balance for NinjaTrader funding",
+        "ledger_entries": [
+          {
+            "amount": 50000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.emma_ross_usd_balance"
+          },
+          {
+            "amount": 50000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          }
+        ],
+        "metadata": {
+          "flow_type": "ninjatrader_funding",
+          "user_id": "USR-1007"
+        }
+      },
+      "metadata": {
+        "flow_type": "ninjatrader_funding",
+        "user_id": "USR-1007"
+      }
+    },
+    {
+      "ref": "po_fund_nt_mason_lee",
+      "type": "wire",
+      "direction": "credit",
+      "amount": 45000,
+      "originating_account_id": "$ref:internal_account.mason_lee_usd_wallet",
+      "receiving_account_id": "$ref:counterparty.ninjatrader_bmo_cp.account[0]",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_mason_lee_usdg_to_usd_nt_funding"
+      ],
+      "description": "Mason Lee funds NinjaTrader brokerage account",
+      "ledger_transaction": {
+        "description": "Clear Mason Lee USD wallet balance for NinjaTrader funding",
+        "ledger_entries": [
+          {
+            "amount": 45000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.mason_lee_usd_balance"
+          },
+          {
+            "amount": 45000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          }
+        ],
+        "metadata": {
+          "flow_type": "ninjatrader_funding",
+          "user_id": "USR-1008"
+        }
+      },
+      "metadata": {
+        "flow_type": "ninjatrader_funding",
+        "user_id": "USR-1008"
+      }
+    },
+    {
+      "ref": "po_fund_nt_olivia_foster",
+      "type": "wire",
+      "direction": "credit",
+      "amount": 60000,
+      "originating_account_id": "$ref:internal_account.olivia_foster_usd_wallet",
+      "receiving_account_id": "$ref:counterparty.ninjatrader_bmo_cp.account[0]",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_olivia_foster_usdg_to_usd_nt_funding"
+      ],
+      "description": "Olivia Foster funds NinjaTrader brokerage account",
+      "ledger_transaction": {
+        "description": "Clear Olivia Foster USD wallet balance for NinjaTrader funding",
+        "ledger_entries": [
+          {
+            "amount": 60000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.olivia_foster_usd_balance"
+          },
+          {
+            "amount": 60000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          }
+        ],
+        "metadata": {
+          "flow_type": "ninjatrader_funding",
+          "user_id": "USR-1009"
+        }
+      },
+      "metadata": {
+        "flow_type": "ninjatrader_funding",
+        "user_id": "USR-1009"
+      }
+    },
+    {
+      "ref": "po_fund_nt_jacob_hayes_staged",
+      "type": "wire",
+      "direction": "credit",
+      "amount": 70000,
+      "originating_account_id": "$ref:internal_account.jacob_hayes_usd_wallet",
+      "receiving_account_id": "$ref:counterparty.ninjatrader_bmo_cp.account[0]",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_jacob_hayes_usdg_to_usd_nt_funding"
+      ],
+      "description": "Staged Tradeify to NinjaTrader funding for Jacob Hayes",
+      "staged": true,
+      "ledger_transaction": {
+        "description": "Clear Jacob Hayes USD wallet balance for staged NinjaTrader funding",
+        "ledger_entries": [
+          {
+            "amount": 70000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.jacob_hayes_usd_balance"
+          },
+          {
+            "amount": 70000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          }
+        ],
+        "metadata": {
+          "flow_type": "staged_ninjatrader_funding",
+          "user_id": "USR-1010"
+        }
+      },
+      "metadata": {
+        "flow_type": "staged_ninjatrader_funding",
+        "user_id": "USR-1010"
+      }
+    },
+    {
+      "ref": "po_nt_back_to_tradeify_jacob_hayes_staged",
+      "type": "ach",
+      "direction": "debit",
+      "amount": 25000,
+      "originating_account_id": "$ref:internal_account.jacob_hayes_usd_wallet",
+      "receiving_account_id": "$ref:counterparty.ninjatrader_bmo_cp.account[1]",
+      "depends_on": [
+        "$ref:payment_order.po_fund_nt_jacob_hayes_staged"
+      ],
+      "description": "Staged NinjaTrader to Tradeify wallet backflow for Jacob Hayes",
+      "staged": true,
+      "ledger_transaction": {
+        "description": "Record Jacob Hayes USD wallet reloaded from NinjaTrader return",
+        "ledger_entries": [
+          {
+            "amount": 25000,
+            "direction": "debit",
+            "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+          },
+          {
+            "amount": 25000,
+            "direction": "credit",
+            "ledger_account_id": "$ref:ledger_account.jacob_hayes_usd_balance"
+          }
+        ],
+        "metadata": {
+          "flow_type": "staged_nt_backflow",
+          "user_id": "USR-1010"
+        }
+      },
+      "metadata": {
+        "flow_type": "staged_nt_backflow",
+        "user_id": "USR-1010"
+      }
+    }
+  ],
+  "incoming_payment_details": [
+    {
+      "ref": "ipd_onramp_ava_mitchell",
+      "type": "ach",
+      "direction": "credit",
+      "amount": 50000,
+      "internal_account_id": "$ref:internal_account.ava_mitchell_usd_wallet",
+      "description": "Ava Mitchell on-ramps USD via ACH deposit",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_seed_ava_mitchell_usd"
+      ]
+    },
+    {
+      "ref": "ipd_onramp_ethan_reed",
+      "type": "ach",
+      "direction": "credit",
+      "amount": 35000,
+      "internal_account_id": "$ref:internal_account.ethan_reed_usd_wallet",
+      "description": "Ethan Reed on-ramps USD via ACH deposit",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_seed_ethan_reed_usd"
+      ]
+    },
+    {
+      "ref": "ipd_onramp_maya_patel",
+      "type": "ach",
+      "direction": "credit",
+      "amount": 75000,
+      "internal_account_id": "$ref:internal_account.maya_patel_usd_wallet",
+      "description": "Maya Patel on-ramps USD via ACH deposit",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_seed_maya_patel_usd"
+      ]
+    }
+  ],
+  "ledger_transactions": [
+    {
+      "ref": "lt_seed_ava_mitchell_usd",
+      "description": "Seed Ava Mitchell USD ledger balance from Tradeify reward",
+      "depends_on": [
+        "$ref:payment_order.po_reward_fund_ava_mitchell"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 120000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_rewards_expense"
+        },
+        {
+          "amount": 120000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.ava_mitchell_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "reward_seed",
+        "user_id": "USR-1001"
+      }
+    },
+    {
+      "ref": "lt_seed_ethan_reed_usd",
+      "description": "Seed Ethan Reed USD ledger balance from Tradeify reward",
+      "depends_on": [
+        "$ref:payment_order.po_reward_fund_ethan_reed"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 95000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_rewards_expense"
+        },
+        {
+          "amount": 95000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.ethan_reed_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "reward_seed",
+        "user_id": "USR-1002"
+      }
+    },
+    {
+      "ref": "lt_seed_maya_patel_usd",
+      "description": "Seed Maya Patel USD ledger balance from Tradeify reward",
+      "depends_on": [
+        "$ref:payment_order.po_reward_fund_maya_patel"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 143500,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_rewards_expense"
+        },
+        {
+          "amount": 143500,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.maya_patel_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "reward_seed",
+        "user_id": "USR-1003"
+      }
+    },
+    {
+      "ref": "lt_seed_noah_brooks_usd",
+      "description": "Seed Noah Brooks USD ledger balance from Tradeify reward",
+      "depends_on": [
+        "$ref:payment_order.po_reward_fund_noah_brooks"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 88000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_rewards_expense"
+        },
+        {
+          "amount": 88000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.noah_brooks_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "reward_seed",
+        "user_id": "USR-1004"
+      }
+    },
+    {
+      "ref": "lt_seed_sophia_nguyen_usd",
+      "description": "Seed Sophia Nguyen USD ledger balance from Tradeify reward",
+      "depends_on": [
+        "$ref:payment_order.po_reward_fund_sophia_nguyen"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 110000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_rewards_expense"
+        },
+        {
+          "amount": 110000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.sophia_nguyen_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "reward_seed",
+        "user_id": "USR-1005"
+      }
+    },
+    {
+      "ref": "lt_seed_liam_turner_usd",
+      "description": "Seed Liam Turner USD ledger balance from Tradeify reward",
+      "depends_on": [
+        "$ref:payment_order.po_reward_fund_liam_turner"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 76000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_rewards_expense"
+        },
+        {
+          "amount": 76000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.liam_turner_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "reward_seed",
+        "user_id": "USR-1006"
+      }
+    },
+    {
+      "ref": "lt_seed_emma_ross_usd",
+      "description": "Seed Emma Ross USD ledger balance from Tradeify reward",
+      "depends_on": [
+        "$ref:payment_order.po_reward_fund_emma_ross"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 132000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_rewards_expense"
+        },
+        {
+          "amount": 132000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.emma_ross_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "reward_seed",
+        "user_id": "USR-1007"
+      }
+    },
+    {
+      "ref": "lt_seed_mason_lee_usd",
+      "description": "Seed Mason Lee USD ledger balance from Tradeify reward",
+      "depends_on": [
+        "$ref:payment_order.po_reward_fund_mason_lee"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 101500,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_rewards_expense"
+        },
+        {
+          "amount": 101500,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.mason_lee_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "reward_seed",
+        "user_id": "USR-1008"
+      }
+    },
+    {
+      "ref": "lt_seed_olivia_foster_usd",
+      "description": "Seed Olivia Foster USD ledger balance from Tradeify reward",
+      "depends_on": [
+        "$ref:payment_order.po_reward_fund_olivia_foster"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 99000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_rewards_expense"
+        },
+        {
+          "amount": 99000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.olivia_foster_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "reward_seed",
+        "user_id": "USR-1009"
+      }
+    },
+    {
+      "ref": "lt_seed_jacob_hayes_usd",
+      "description": "Seed Jacob Hayes USD ledger balance from Tradeify reward",
+      "depends_on": [
+        "$ref:payment_order.po_reward_fund_jacob_hayes"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 150000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_rewards_expense"
+        },
+        {
+          "amount": 150000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.jacob_hayes_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "reward_seed",
+        "user_id": "USR-1010"
+      }
+    },
+    {
+      "ref": "lt_noah_brooks_usd_to_usdg",
+      "description": "Convert Noah Brooks wallet balance from USD to USDG",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_seed_noah_brooks_usd"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 88000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 88000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 88000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.noah_brooks_usd_balance"
+        },
+        {
+          "amount": 88000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.noah_brooks_usdg_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usd_to_usdg",
+        "user_id": "USR-1004"
+      }
+    },
+    {
+      "ref": "lt_sophia_nguyen_usd_to_usdg",
+      "description": "Convert Sophia Nguyen wallet balance from USD to USDG",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_seed_sophia_nguyen_usd"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 110000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 110000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 110000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.sophia_nguyen_usd_balance"
+        },
+        {
+          "amount": 110000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.sophia_nguyen_usdg_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usd_to_usdg",
+        "user_id": "USR-1005"
+      }
+    },
+    {
+      "ref": "lt_liam_turner_usd_to_usdg",
+      "description": "Convert Liam Turner wallet balance from USD to USDG",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_seed_liam_turner_usd"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 76000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 76000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 76000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.liam_turner_usd_balance"
+        },
+        {
+          "amount": 76000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.liam_turner_usdg_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usd_to_usdg",
+        "user_id": "USR-1006"
+      }
+    },
+    {
+      "ref": "lt_emma_ross_usd_to_usdg",
+      "description": "Convert Emma Ross wallet balance from USD to USDG",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_seed_emma_ross_usd"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 132000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 132000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 132000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.emma_ross_usd_balance"
+        },
+        {
+          "amount": 132000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.emma_ross_usdg_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usd_to_usdg",
+        "user_id": "USR-1007"
+      }
+    },
+    {
+      "ref": "lt_mason_lee_usd_to_usdg",
+      "description": "Convert Mason Lee wallet balance from USD to USDG",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_seed_mason_lee_usd"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 101500,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 101500,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 101500,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.mason_lee_usd_balance"
+        },
+        {
+          "amount": 101500,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.mason_lee_usdg_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usd_to_usdg",
+        "user_id": "USR-1008"
+      }
+    },
+    {
+      "ref": "lt_olivia_foster_usd_to_usdg",
+      "description": "Convert Olivia Foster wallet balance from USD to USDG",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_seed_olivia_foster_usd"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 99000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 99000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 99000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.olivia_foster_usd_balance"
+        },
+        {
+          "amount": 99000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.olivia_foster_usdg_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usd_to_usdg",
+        "user_id": "USR-1009"
+      }
+    },
+    {
+      "ref": "lt_jacob_hayes_usd_to_usdg",
+      "description": "Convert Jacob Hayes wallet balance from USD to USDG",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_seed_jacob_hayes_usd"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 150000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 150000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 150000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.jacob_hayes_usd_balance"
+        },
+        {
+          "amount": 150000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.jacob_hayes_usdg_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usd_to_usdg",
+        "user_id": "USR-1010"
+      }
+    },
+    {
+      "ref": "lt_ava_mitchell_usdg_to_usd_cashout",
+      "description": "Off-ramp Ava Mitchell USDG balance to USD for bank cashout",
+      "depends_on": [
+        "$ref:payment_order.po_mint_usdg_ava_mitchell"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 30000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 30000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 30000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.ava_mitchell_usdg_balance"
+        },
+        {
+          "amount": 30000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.ava_mitchell_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usdg_to_usd_cashout",
+        "user_id": "USR-1001"
+      }
+    },
+    {
+      "ref": "lt_ethan_reed_usdg_to_usd_cashout",
+      "description": "Off-ramp Ethan Reed USDG balance to USD for bank cashout",
+      "depends_on": [
+        "$ref:payment_order.po_mint_usdg_ethan_reed"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 25000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 25000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 25000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.ethan_reed_usdg_balance"
+        },
+        {
+          "amount": 25000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.ethan_reed_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usdg_to_usd_cashout",
+        "user_id": "USR-1002"
+      }
+    },
+    {
+      "ref": "lt_maya_patel_usdg_to_usd_cashout",
+      "description": "Off-ramp Maya Patel USDG balance to USD for bank cashout",
+      "depends_on": [
+        "$ref:payment_order.po_mint_usdg_maya_patel"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 40000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 40000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 40000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.maya_patel_usdg_balance"
+        },
+        {
+          "amount": 40000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.maya_patel_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usdg_to_usd_cashout",
+        "user_id": "USR-1003"
+      }
+    },
+    {
+      "ref": "lt_noah_brooks_usdg_to_usd_cashout",
+      "description": "Off-ramp Noah Brooks USDG balance to USD for bank cashout",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_noah_brooks_usd_to_usdg"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 20000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 20000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 20000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.noah_brooks_usdg_balance"
+        },
+        {
+          "amount": 20000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.noah_brooks_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usdg_to_usd_cashout",
+        "user_id": "USR-1004"
+      }
+    },
+    {
+      "ref": "lt_sophia_nguyen_usdg_to_usd_cashout",
+      "description": "Off-ramp Sophia Nguyen USDG balance to USD for bank cashout",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_sophia_nguyen_usd_to_usdg"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 35000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 35000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 35000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.sophia_nguyen_usdg_balance"
+        },
+        {
+          "amount": 35000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.sophia_nguyen_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usdg_to_usd_cashout",
+        "user_id": "USR-1005"
+      }
+    },
+    {
+      "ref": "lt_liam_turner_usdg_to_usd_nt_funding",
+      "description": "Off-ramp Liam Turner USDG balance to USD for NinjaTrader funding",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_liam_turner_usd_to_usdg"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 25000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 25000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 25000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.liam_turner_usdg_balance"
+        },
+        {
+          "amount": 25000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.liam_turner_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usdg_to_usd_ninjatrader",
+        "user_id": "USR-1006"
+      }
+    },
+    {
+      "ref": "lt_emma_ross_usdg_to_usd_nt_funding",
+      "description": "Off-ramp Emma Ross USDG balance to USD for NinjaTrader funding",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_emma_ross_usd_to_usdg"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 50000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 50000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 50000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.emma_ross_usdg_balance"
+        },
+        {
+          "amount": 50000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.emma_ross_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usdg_to_usd_ninjatrader",
+        "user_id": "USR-1007"
+      }
+    },
+    {
+      "ref": "lt_mason_lee_usdg_to_usd_nt_funding",
+      "description": "Off-ramp Mason Lee USDG balance to USD for NinjaTrader funding",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_mason_lee_usd_to_usdg"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 45000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 45000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 45000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.mason_lee_usdg_balance"
+        },
+        {
+          "amount": 45000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.mason_lee_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usdg_to_usd_ninjatrader",
+        "user_id": "USR-1008"
+      }
+    },
+    {
+      "ref": "lt_olivia_foster_usdg_to_usd_nt_funding",
+      "description": "Off-ramp Olivia Foster USDG balance to USD for NinjaTrader funding",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_olivia_foster_usd_to_usdg"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 60000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 60000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 60000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.olivia_foster_usdg_balance"
+        },
+        {
+          "amount": 60000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.olivia_foster_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usdg_to_usd_ninjatrader",
+        "user_id": "USR-1009"
+      }
+    },
+    {
+      "ref": "lt_jacob_hayes_usdg_to_usd_nt_funding",
+      "description": "Off-ramp Jacob Hayes USDG balance to USD for staged NinjaTrader funding",
+      "depends_on": [
+        "$ref:ledger_transaction.lt_jacob_hayes_usd_to_usdg"
+      ],
+      "ledger_entries": [
+        {
+          "amount": 70000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 70000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 70000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.jacob_hayes_usdg_balance"
+        },
+        {
+          "amount": 70000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.jacob_hayes_usd_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "usdg_to_usd_ninjatrader",
+        "user_id": "USR-1010"
+      }
+    },
+    {
+      "ref": "lt_jacob_hayes_return_usd_to_usdg_staged",
+      "description": "Staged reconversion of Jacob Hayes returned USD into USDG",
+      "depends_on": [
+        "$ref:payment_order.po_nt_back_to_tradeify_jacob_hayes_staged"
+      ],
+      "staged": true,
+      "ledger_entries": [
+        {
+          "amount": 25000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+        },
+        {
+          "amount": 25000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+        },
+        {
+          "amount": 25000,
+          "direction": "debit",
+          "ledger_account_id": "$ref:ledger_account.jacob_hayes_usd_balance"
+        },
+        {
+          "amount": 25000,
+          "direction": "credit",
+          "ledger_account_id": "$ref:ledger_account.jacob_hayes_usdg_balance"
+        }
+      ],
+      "metadata": {
+        "flow_type": "staged_return_usd_to_usdg",
+        "user_id": "USR-1010"
+      }
+    }
+  ],
+  "category_memberships": [
+    {
+      "ref": "ava_mitchell_usd_in_wallets_usd",
+      "category_id": "$ref:ledger_account_category.user_wallets_usd",
+      "ledger_account_id": "$ref:ledger_account.ava_mitchell_usd_balance"
+    },
+    {
+      "ref": "ava_mitchell_usdg_in_wallets_usdg",
+      "category_id": "$ref:ledger_account_category.user_wallets_usdg",
+      "ledger_account_id": "$ref:ledger_account.ava_mitchell_usdg_balance"
+    },
+    {
+      "ref": "ethan_reed_usd_in_wallets_usd",
+      "category_id": "$ref:ledger_account_category.user_wallets_usd",
+      "ledger_account_id": "$ref:ledger_account.ethan_reed_usd_balance"
+    },
+    {
+      "ref": "ethan_reed_usdg_in_wallets_usdg",
+      "category_id": "$ref:ledger_account_category.user_wallets_usdg",
+      "ledger_account_id": "$ref:ledger_account.ethan_reed_usdg_balance"
+    },
+    {
+      "ref": "maya_patel_usd_in_wallets_usd",
+      "category_id": "$ref:ledger_account_category.user_wallets_usd",
+      "ledger_account_id": "$ref:ledger_account.maya_patel_usd_balance"
+    },
+    {
+      "ref": "maya_patel_usdg_in_wallets_usdg",
+      "category_id": "$ref:ledger_account_category.user_wallets_usdg",
+      "ledger_account_id": "$ref:ledger_account.maya_patel_usdg_balance"
+    },
+    {
+      "ref": "noah_brooks_usd_in_wallets_usd",
+      "category_id": "$ref:ledger_account_category.user_wallets_usd",
+      "ledger_account_id": "$ref:ledger_account.noah_brooks_usd_balance"
+    },
+    {
+      "ref": "noah_brooks_usdg_in_wallets_usdg",
+      "category_id": "$ref:ledger_account_category.user_wallets_usdg",
+      "ledger_account_id": "$ref:ledger_account.noah_brooks_usdg_balance"
+    },
+    {
+      "ref": "sophia_nguyen_usd_in_wallets_usd",
+      "category_id": "$ref:ledger_account_category.user_wallets_usd",
+      "ledger_account_id": "$ref:ledger_account.sophia_nguyen_usd_balance"
+    },
+    {
+      "ref": "sophia_nguyen_usdg_in_wallets_usdg",
+      "category_id": "$ref:ledger_account_category.user_wallets_usdg",
+      "ledger_account_id": "$ref:ledger_account.sophia_nguyen_usdg_balance"
+    },
+    {
+      "ref": "liam_turner_usd_in_wallets_usd",
+      "category_id": "$ref:ledger_account_category.user_wallets_usd",
+      "ledger_account_id": "$ref:ledger_account.liam_turner_usd_balance"
+    },
+    {
+      "ref": "liam_turner_usdg_in_wallets_usdg",
+      "category_id": "$ref:ledger_account_category.user_wallets_usdg",
+      "ledger_account_id": "$ref:ledger_account.liam_turner_usdg_balance"
+    },
+    {
+      "ref": "emma_ross_usd_in_wallets_usd",
+      "category_id": "$ref:ledger_account_category.user_wallets_usd",
+      "ledger_account_id": "$ref:ledger_account.emma_ross_usd_balance"
+    },
+    {
+      "ref": "emma_ross_usdg_in_wallets_usdg",
+      "category_id": "$ref:ledger_account_category.user_wallets_usdg",
+      "ledger_account_id": "$ref:ledger_account.emma_ross_usdg_balance"
+    },
+    {
+      "ref": "mason_lee_usd_in_wallets_usd",
+      "category_id": "$ref:ledger_account_category.user_wallets_usd",
+      "ledger_account_id": "$ref:ledger_account.mason_lee_usd_balance"
+    },
+    {
+      "ref": "mason_lee_usdg_in_wallets_usdg",
+      "category_id": "$ref:ledger_account_category.user_wallets_usdg",
+      "ledger_account_id": "$ref:ledger_account.mason_lee_usdg_balance"
+    },
+    {
+      "ref": "olivia_foster_usd_in_wallets_usd",
+      "category_id": "$ref:ledger_account_category.user_wallets_usd",
+      "ledger_account_id": "$ref:ledger_account.olivia_foster_usd_balance"
+    },
+    {
+      "ref": "olivia_foster_usdg_in_wallets_usdg",
+      "category_id": "$ref:ledger_account_category.user_wallets_usdg",
+      "ledger_account_id": "$ref:ledger_account.olivia_foster_usdg_balance"
+    },
+    {
+      "ref": "jacob_hayes_usd_in_wallets_usd",
+      "category_id": "$ref:ledger_account_category.user_wallets_usd",
+      "ledger_account_id": "$ref:ledger_account.jacob_hayes_usd_balance"
+    },
+    {
+      "ref": "jacob_hayes_usdg_in_wallets_usdg",
+      "category_id": "$ref:ledger_account_category.user_wallets_usdg",
+      "ledger_account_id": "$ref:ledger_account.jacob_hayes_usdg_balance"
+    },
+    {
+      "ref": "platform_usd_reserve_in_platform",
+      "category_id": "$ref:ledger_account_category.platform_balances_usd",
+      "ledger_account_id": "$ref:ledger_account.platform_usd_reserve"
+    },
+    {
+      "ref": "platform_usdg_pool_in_platform",
+      "category_id": "$ref:ledger_account_category.platform_balances_usdg",
+      "ledger_account_id": "$ref:ledger_account.platform_usdg_pool"
+    },
+    {
+      "ref": "platform_rewards_expense_in_platform",
+      "category_id": "$ref:ledger_account_category.platform_balances_usd",
+      "ledger_account_id": "$ref:ledger_account.platform_rewards_expense"
+    }
+  ]
+}

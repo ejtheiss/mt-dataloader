@@ -543,22 +543,26 @@ async def execute(
                 resource = resource_map[typed_ref]
                 await emit_sse("creating", typed_ref, {})
 
-                async with semaphore:
-                    resolved = resolve_refs(resource, registry)
+                try:
+                    async with semaphore:
+                        resolved = resolve_refs(resource, registry)
 
-                    if getattr(resource, "staged", False):
-                        staged_payloads[typed_ref] = resolved
-                        manifest.record_staged(typed_ref, resource.resource_type)
-                        manifest.write(runs_dir)
-                        await emit_sse("staged", typed_ref, {})
-                        return
+                        if getattr(resource, "staged", False):
+                            staged_payloads[typed_ref] = resolved
+                            manifest.record_staged(typed_ref, resource.resource_type)
+                            manifest.write(runs_dir)
+                            await emit_sse("staged", typed_ref, {})
+                            return
 
-                    handler = handler_dispatch[resource.resource_type]
-                    result = await handler(
-                        resolved,
-                        idempotency_key=f"{run_id}:{typed_ref}",
-                        typed_ref=typed_ref,
-                    )
+                        handler = handler_dispatch[resource.resource_type]
+                        result = await handler(
+                            resolved,
+                            idempotency_key=f"{run_id}:{typed_ref}",
+                            typed_ref=typed_ref,
+                        )
+                except Exception as exc:
+                    exc._failed_typed_ref = typed_ref  # type: ignore[attr-defined]
+                    raise
 
                 registry.register(typed_ref, result.created_id)
                 for child_key, child_id in result.child_refs.items():
@@ -594,13 +598,16 @@ async def execute(
                     for ref in to_create:
                         tg.create_task(create_one(ref, batch_index))
             except* Exception as eg:
-                first = eg.exceptions[0]
-                failed_ref = _guess_failed_ref(first, to_create, resource_map)
-                error_detail = _format_exception_detail(first, failed_ref)
-                manifest.record_failure(failed_ref, error_detail)
+                for exc in eg.exceptions:
+                    failed_ref = getattr(
+                        exc, "_failed_typed_ref", None
+                    ) or _guess_failed_ref(exc, to_create, resource_map)
+                    error_detail = _format_exception_detail(exc, failed_ref)
+                    manifest.record_failure(failed_ref, error_detail)
+                    await emit_sse("error", failed_ref, {"error": error_detail})
                 manifest.finalize("failed")
                 manifest.write(runs_dir)
-                raise first from None
+                raise eg.exceptions[0] from None
 
             ts.done(*to_create)
             batch_index += 1
