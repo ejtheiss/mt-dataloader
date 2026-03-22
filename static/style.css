@@ -273,8 +273,25 @@ body {
 .resource-row.error { background: color-mix(in srgb, var(--status-error) 5%, transparent); }
 .resource-row.waiting { background: color-mix(in srgb, var(--status-waiting) 5%, transparent); }
 
-.status-indicator { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; white-space: nowrap; }
-.status-text { font-size: 0.8rem; color: var(--text-muted); }
+.status-indicator {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-left: auto; white-space: nowrap;
+    font-size: 0.75rem; font-weight: 500;
+    padding: 2px 8px; border-radius: 4px;
+    border: 1px solid transparent;
+}
+.status-text { font-size: inherit; color: inherit; }
+.resource-row.created .status-indicator  { background: #E4F3EC; color: #00473C; border-color: #BEE6D5; }
+.resource-row.error .status-indicator    { background: #FFE8EC; color: #C73D4F; border-color: #FFCED3; }
+.resource-row.waiting .status-indicator  { background: #FFEBD5; color: #976740; border-color: #FFD6A2; }
+.resource-row.staged .status-indicator   { background: #F2F1ED; color: #575757; border-color: #DEDDD7; }
+.resource-row.creating .status-indicator { background: #E4F3EC; color: #00473C; border-color: #BEE6D5; }
+.resource-row.pending .status-indicator  { background: #F2F1ED; color: #575757; border-color: #DEDDD7; }
+.cleanup-row.deleted .status-indicator   { background: #E4F3EC; color: #00473C; border-color: #BEE6D5; }
+.cleanup-row.removed .status-indicator   { background: #E4F3EC; color: #00473C; border-color: #BEE6D5; }
+.cleanup-row.archived .status-indicator  { background: #F0EFFF; color: #423B72; border-color: #D8D7F8; }
+.cleanup-row.failed .status-indicator    { background: #FFE8EC; color: #C73D4F; border-color: #FFCED3; }
+.cleanup-row.skipped .status-indicator   { background: #F2F1ED; color: #575757; border-color: #DEDDD7; }
 .ref-name { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; font-size: 0.825rem; }
 .created-id { font-size: 0.75rem; color: var(--text-muted); margin-left: 8px; }
 .error-detail { font-size: 0.8rem; color: var(--status-error); margin-left: 8px; }
@@ -309,24 +326,25 @@ body {
 .cleanup-icon.deletable { opacity: 0.35; }
 .cleanup-icon.persistent { opacity: 0.6; }
 
-/* Type badge colors by resource family */
-.type-badge.type-connection { background: var(--type-connection); color: white; }
+/* Type badge colors — MT Badge tinted style */
+.type-badge { border: 1px solid transparent; }
+.type-badge.type-connection { background: #F0EFFF; color: #423B72; border-color: #D8D7F8; }
 .type-badge.type-legal_entity,
-.type-badge.type-counterparty { background: var(--type-entity); color: white; }
+.type-badge.type-counterparty { background: #FCF4FA; color: #6D4C61; border-color: #EBD7E5; }
 .type-badge.type-ledger,
 .type-badge.type-ledger_account,
 .type-badge.type-ledger_account_category,
-.type-badge.type-ledger_transaction { background: var(--type-ledger); color: white; }
+.type-badge.type-ledger_transaction { background: #EAF1FF; color: #204571; border-color: #CCDEFF; }
 .type-badge.type-internal_account,
 .type-badge.type-external_account,
 .type-badge.type-virtual_account,
 .type-badge.type-payment_order,
-.type-badge.type-expected_payment { background: var(--type-payment); color: white; }
+.type-badge.type-expected_payment { background: #E4F3EC; color: #00473C; border-color: #BEE6D5; }
 .type-badge.type-incoming_payment_detail,
-.type-badge.type-return { background: var(--type-lifecycle); color: white; }
+.type-badge.type-return { background: #FFEBD5; color: #724F3B; border-color: #FFD6A2; }
 .type-badge.type-reversal,
 .type-badge.type-category_membership,
-.type-badge.type-nested_category { background: var(--type-mutation); color: white; }
+.type-badge.type-nested_category { background: #F2F1ED; color: #575757; border-color: #DEDDD7; }
 
 /* --- Phase groups --- */
 .phase-group { margin-bottom: 24px; }
@@ -355,7 +373,7 @@ body {
     text-align: left; font-size: 0.68rem; text-transform: uppercase;
     color: var(--text-muted); padding: 6px 8px;
     letter-spacing: 0.04em; border-bottom: 1px solid var(--border);
-    white-space: nowrap;
+    white-space: nowrap; background: #F7F7F6;
 }
 .preview-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .preview-table td code { word-break: break-all; }
@@ -414,17 +432,21 @@ body {
 .discovered-group h4 { margin: 0 0 4px; font-size: 0.8rem; color: var(--text-muted); }
 .mini-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
 .mini-table th { text-align: left; font-size: 0.7rem; color: var(--text-muted); padding: 3px 6px; }
+.mini-table th { background: #F7F7F6; }
 .mini-table td { padding: 3px 6px; border-bottom: 1px solid var(--border); }
+.mini-table tbody tr:hover { background: #F7F7F6; }
 .empty-state { color: var(--text-muted); font-style: italic; padding: 16px 0; }
 
 /* --- Error alerts --- */
 .error-alert {
-    background: color-mix(in srgb, var(--status-error) 5%, transparent);
-    border: 1px solid color-mix(in srgb, var(--status-error) 20%, transparent);
-    border-radius: var(--radius); padding: 20px;
+    display: flex; flex-direction: column; gap: 8px;
+    background: #FFE8EC;
+    border: 1px solid #FFCED3;
+    border-left: 3px solid #C73D4F;
+    border-radius: var(--radius); padding: 12px 16px;
 }
-.error-alert h3 { margin: 0 0 8px; color: var(--status-error); font-size: 1rem; }
-.error-alert p { margin: 0 0 12px; }
+.error-alert h3 { margin: 0; color: var(--status-error); font-size: 0.85rem; }
+.error-alert p { margin: 0; }
 
 /* --- Preflight failure --- */
 .preflight-failure { padding: 20px; }
@@ -436,8 +458,8 @@ body {
     font-size: 0.7rem; font-weight: 700; padding: 2px 6px;
     border-radius: 3px; min-width: 50px; text-align: center;
 }
-.issue-row.issue-error .issue-level { background: var(--status-error); color: white; }
-.issue-row.issue-warning .issue-level { background: var(--status-waiting); color: white; }
+.issue-row.issue-error .issue-level { background: #FFE8EC; color: #C73D4F; border: 1px solid #FFCED3; }
+.issue-row.issue-warning .issue-level { background: #FFEBD5; color: #976740; border: 1px solid #FFD6A2; }
 .issue-ref { font-size: 0.8rem; }
 
 /* --- Run cards --- */
@@ -479,12 +501,13 @@ body {
 
 /* --- Run complete --- */
 .run-complete {
-    background: color-mix(in srgb, var(--status-created) 5%, transparent);
-    border: 1px solid color-mix(in srgb, var(--status-created) 20%, transparent);
+    display: flex; flex-direction: column; gap: 12px;
+    background: #E4F3EC;
+    border: 1px solid #BEE6D5;
     border-radius: var(--radius); padding: 20px; margin-top: 20px;
 }
-.run-complete h3 { margin: 0 0 8px; color: var(--status-created); }
-.run-summary { display: flex; gap: 16px; margin-bottom: 12px; font-size: 0.9rem; }
+.run-complete h3 { margin: 0; color: var(--status-created); }
+.run-summary { display: flex; gap: 16px; font-size: 0.9rem; }
 .run-summary .stat-error { color: var(--status-error); }
 
 /* --- Execute form / cleanup note --- */
@@ -494,8 +517,9 @@ body {
 
 /* --- Cleanup complete --- */
 .cleanup-complete {
-    background: color-mix(in srgb, var(--status-created) 5%, transparent);
-    border: 1px solid color-mix(in srgb, var(--status-created) 20%, transparent);
+    display: flex; flex-direction: column; gap: 12px;
+    background: #E4F3EC;
+    border: 1px solid #BEE6D5;
     border-radius: var(--radius); padding: 20px; margin-top: 20px;
 }
 
@@ -623,13 +647,13 @@ a.doc-link:hover .sandbox-badge {
     margin-top: 8px;
     align-items: center;
 }
-.btn-outline {
-    background: var(--bg) !important;
-    border: 1px solid var(--border) !important;
-    color: var(--text) !important;
+.btn.btn-outline {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
 }
-.btn-outline:hover {
-    background: var(--border) !important;
+.btn.btn-outline:hover {
+    background: var(--border);
 }
 
 /* --- File drop zone --- */
@@ -722,7 +746,7 @@ a.doc-link:hover .sandbox-badge {
 .detail-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .detail-table th, .detail-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
 .detail-table th {
-    background: var(--bg); font-weight: 600; color: var(--text-muted);
+    background: #F7F7F6; font-weight: 600; color: var(--text-muted);
     font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em;
 }
 .failed-entry { padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -741,15 +765,16 @@ a.doc-link:hover .sandbox-badge {
 
 /* --- Webhook cards --- */
 .webhook-card {
+    display: flex; flex-direction: column; gap: 6px;
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px;
 }
 .webhook-card-header {
-    display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+    display: flex; align-items: center; justify-content: space-between;
 }
 .webhook-card-meta {
     display: flex; align-items: center; gap: 12px; font-size: 0.82rem;
-    color: var(--text-muted); flex-wrap: wrap; margin-bottom: 4px;
+    color: var(--text-muted); flex-wrap: wrap;
 }
 .wh-event { font-weight: 600; font-size: 0.88rem; }
 .wh-time { color: var(--text-muted); font-family: monospace; font-size: 0.8rem; }
@@ -759,6 +784,10 @@ a.doc-link:hover .sandbox-badge {
 .wh-run-link { font-size: 0.8rem; color: var(--primary); text-decoration: none; }
 .wh-run-link:hover { text-decoration: underline; }
 
+/* --- Webhook rows (listen page) --- */
+.webhook-row { border-bottom: 1px solid var(--border); padding: 8px 0; }
+.webhook-row:hover { background: #F7F7F6; }
+
 /* --- Accordion (shared) --- */
 .accordion { margin-top: 8px; }
 .accordion-header {
@@ -766,6 +795,11 @@ a.doc-link:hover .sandbox-badge {
     padding: 6px 10px; background: var(--bg); border-radius: 4px;
     user-select: none; transition: background 0.15s;
 }
+.accordion-header::after {
+    content: "\25B6"; float: right; font-size: 0.7rem;
+    transition: transform 0.2s;
+}
+.accordion.open .accordion-header::after { transform: rotate(90deg); }
 .accordion-header:hover { background: var(--border); }
 .accordion-panel {
     max-height: 0; overflow: hidden; transition: max-height 0.25s ease;
@@ -823,14 +857,15 @@ a.doc-link:hover .sandbox-badge {
 .reconciliation-matches { display: flex; flex-direction: column; gap: 10px; }
 
 .reconciliation-card {
+    display: flex; flex-direction: column; gap: 8px;
     border: 1px solid var(--border); border-radius: var(--radius);
     padding: 12px 14px; background: var(--bg);
 }
 .recon-card-header {
-    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
 }
 .recon-config-ref { font-size: 0.85rem; }
-.recon-card-body { font-size: 0.82rem; margin-bottom: 8px; }
+.recon-card-body { font-size: 0.82rem; }
 .recon-match-info, .recon-match-reason {
     display: flex; align-items: center; gap: 6px; margin-bottom: 2px;
 }
@@ -914,6 +949,3 @@ a.doc-link:hover .sandbox-badge {
 .recon-remap-row code { font-size: 0.82rem; }
 .recon-remap-row .recon-remap-select { margin-left: auto; }
 
-/* Type badge colours for new types */
-.type-badge.type-legal_entity { background: color-mix(in srgb, #9c27b0 14%, transparent); color: #7b1fa2; }
-.type-badge.type-counterparty { background: color-mix(in srgb, #00897b 14%, transparent); color: #00695c; }
