@@ -1,0 +1,73 @@
+{
+  "connections": [
+    {"ref": "demo_bank", "entity_id": "example1"}
+  ],
+  "internal_accounts": [
+    {
+      "ref": "ops_usd",
+      "connection_id": "$ref:connection.demo_bank",
+      "name": "Ops USD",
+      "party_name": "Demo Corp",
+      "currency": "USD"
+    }
+  ],
+  "ledgers": [
+    {"ref": "main", "name": "Main Ledger"}
+  ],
+  "ledger_accounts": [
+    {
+      "ref": "cash",
+      "ledger_id": "$ref:ledger.main",
+      "name": "Cash",
+      "normal_balance": "debit",
+      "currency": "USD"
+    },
+    {
+      "ref": "revenue",
+      "ledger_id": "$ref:ledger.main",
+      "name": "Revenue",
+      "normal_balance": "credit",
+      "currency": "USD"
+    }
+  ],
+  "funds_flows": [
+    {
+      "ref": "simple_deposit",
+      "pattern_type": "deposit_settle",
+      "trace_key": "deal_id",
+      "trace_value_template": "deal-{ref}-{instance}",
+      "actors": {
+        "ops_account": "$ref:internal_account.ops_usd",
+        "cash_ledger": "$ref:ledger_account.cash",
+        "revenue_ledger": "$ref:ledger_account.revenue"
+      },
+      "steps": [
+        {
+          "step_id": "deposit",
+          "type": "incoming_payment_detail",
+          "direction": "credit",
+          "amount": 50000,
+          "internal_account_id": "@actor:ops_account"
+        },
+        {
+          "step_id": "settle",
+          "type": "ledger_transaction",
+          "depends_on": ["deposit"],
+          "description": "Book the settled deposit to ledger",
+          "ledger_entries": [
+            {
+              "ledger_account_id": "@actor:cash_ledger",
+              "amount": 50000,
+              "direction": "debit"
+            },
+            {
+              "ledger_account_id": "@actor:revenue_ledger",
+              "amount": 50000,
+              "direction": "credit"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

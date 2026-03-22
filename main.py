@@ -58,6 +58,7 @@ from engine import (
     list_manifest_ids,
     typed_ref_for,
 )
+from flow_compiler import maybe_compile
 from handlers import DELETABILITY, build_handler_dispatch
 from models import AppSettings, DataLoaderConfig, DisplayPhase
 from webhooks import router as webhook_router, index_resource, rebuild_correlation_index
@@ -408,6 +409,15 @@ async def validate_json(request: Request):
     except ValidationError as e:
         return {"valid": False, "errors": _format_validation_errors(e)}
 
+    had_funds_flows = bool(config.funds_flows)
+
+    try:
+        config = maybe_compile(config)
+    except (ValueError, KeyError, NotImplementedError) as e:
+        return {"valid": False, "errors": [
+            {"path": "(compiler)", "type": "compile_error", "message": str(e)}
+        ]}
+
     try:
         batches = dry_run(config)
     except CycleError as e:
@@ -423,6 +433,7 @@ async def validate_json(request: Request):
         "valid": True,
         "resource_count": sum(len(b) for b in batches),
         "batch_count": len(batches),
+        "has_funds_flows": had_funds_flows,
         "errors": [],
     }
 
@@ -465,6 +476,11 @@ async def validate(
             "Config Validation Error",
             "\n".join(detail_lines) or str(e),
         )
+
+    try:
+        config = maybe_compile(config)
+    except (ValueError, KeyError, NotImplementedError) as e:
+        return _error_response("Compiler Error", str(e))
 
     # 2. Ping MT to validate API key
     async with AsyncModernTreasury(
@@ -606,6 +622,11 @@ async def revalidate(
             "Config Validation Error",
             "\n".join(detail_lines) or str(e),
         )
+
+    try:
+        config = maybe_compile(config)
+    except (ValueError, KeyError, NotImplementedError) as e:
+        return _error_response("Compiler Error", str(e))
 
     async with AsyncModernTreasury(
         api_key=session.api_key, organization_id=session.org_id

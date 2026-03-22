@@ -10,10 +10,11 @@ dependencies are defined first; types that reference others come later.
 from __future__ import annotations
 
 import re
+import string
 import warnings
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Annotated, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import (
     AfterValidator,
@@ -909,12 +910,16 @@ class PaymentOrderConfig(MetadataMixin, _BaseResourceConfig):
 # ---------------------------------------------------------------------------
 
 
-class IncomingPaymentDetailConfig(_BaseResourceConfig):
-    """Simulated incoming payment.  Does NOT support metadata (no MetadataMixin).
+class IncomingPaymentDetailConfig(MetadataMixin, _BaseResourceConfig):
+    """Simulated incoming payment.
 
-    The SDK has zero required params for ``create_async()``.  All fields here
-    are business-required for demo usability — typed as required (no defaults)
-    to catch incomplete configs early.
+    The MT SDK's ``create_async()`` does NOT accept a ``metadata`` parameter,
+    but we include ``MetadataMixin`` so the compiler can stamp trace metadata
+    uniformly on all resources.  The handler strips ``metadata`` before the
+    SDK call.
+
+    All fields here are business-required for demo usability — typed as
+    required (no defaults) to catch incomplete configs early.
     """
 
     display_phase: ClassVar[int] = DisplayPhase.LIFECYCLE
@@ -948,8 +953,13 @@ class LedgerTransactionConfig(MetadataMixin, _BaseResourceConfig):
     staged: bool = Field(default=False, exclude=True)
 
 
-class ReturnConfig(_BaseResourceConfig):
-    """Return against an incoming payment detail.  Does NOT support metadata.
+class ReturnConfig(MetadataMixin, _BaseResourceConfig):
+    """Return against an incoming payment detail.
+
+    The MT SDK's ``returns.create()`` does NOT accept a ``metadata`` parameter,
+    but we include ``MetadataMixin`` so the compiler can stamp trace metadata
+    uniformly on all resources.  The handler strips ``metadata`` before the
+    SDK call.
 
     ``returnable_type`` is a ClassVar — the only valid value is
     ``"incoming_payment_detail"`` so there is no reason to make the user
@@ -1010,6 +1020,121 @@ class NestedCategoryConfig(_BaseResourceConfig):
 
 
 # ---------------------------------------------------------------------------
+# Funds Flow DSL (compiler input — not MT resources)
+# ---------------------------------------------------------------------------
+
+_VALID_STEP_TYPES = frozenset({
+    "payment_order",
+    "incoming_payment_detail",
+    "ledger_transaction",
+    "expected_payment",
+    "return",
+    "reversal",
+})
+
+
+class FundsFlowStepConfig(BaseModel):
+    """One step in a funds flow — represents a single lifecycle event.
+
+    ``extra="allow"`` because step-type-specific fields (e.g.
+    ``internal_account_id`` for IPD, ``payment_order_id`` for reversal)
+    vary by type.  The compiler validates required fields per type.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    step_id: str
+    type: str
+    direction: Literal["credit", "debit"] | None = None
+    amount: int | None = None
+    description: str | None = None
+    depends_on: list[str] = Field(default_factory=list)
+    ledger_entries: list[InlineLedgerEntryConfig] | None = None
+
+    @model_validator(mode="after")
+    def _validate_step(self) -> FundsFlowStepConfig:
+        if self.type not in _VALID_STEP_TYPES:
+            raise ValueError(
+                f"Step type '{self.type}' not supported. "
+                f"Must be one of: {sorted(_VALID_STEP_TYPES)}"
+            )
+        if self.ledger_entries:
+            debits = sum(e.amount for e in self.ledger_entries if e.direction == "debit")
+            credits_ = sum(e.amount for e in self.ledger_entries if e.direction == "credit")
+            if debits != credits_:
+                raise ValueError(
+                    f"Step '{self.step_id}' ledger_entries unbalanced: "
+                    f"debits={debits}, credits={credits_}"
+                )
+        return self
+
+
+class FundsFlowScaleConfig(BaseModel):
+    """Expansion settings for generating multiple instances of a flow."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instances: int = Field(1, ge=1, le=5000)
+    seed_namespace: str | None = None
+    mutation_profile: str = "none"
+    edge_case_profile: str = "none"
+
+
+_TRACE_FORMATTER = string.Formatter()
+_ALLOWED_TRACE_PLACEHOLDERS = frozenset({"ref", "instance"})
+
+
+class FundsFlowConfig(BaseModel):
+    """High-level funds flow definition — compiler input, not an MT resource."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ref: str
+    pattern_type: str
+    trace_key: str = "deal_id"
+    trace_value_template: str = "{ref}-{instance}"
+    trace_metadata: dict[str, str] = Field(default_factory=dict)
+    actors: dict[str, str] = Field(default_factory=dict)
+    steps: list[FundsFlowStepConfig] = Field(..., min_length=1)
+    scale: FundsFlowScaleConfig | None = None
+
+    @model_validator(mode="after")
+    def _validate_flow(self) -> FundsFlowConfig:
+        ids = [s.step_id for s in self.steps]
+        dupes = {sid for sid in ids if ids.count(sid) > 1}
+        if dupes:
+            raise ValueError(f"Duplicate step_id(s): {dupes}")
+
+        try:
+            fields = {
+                fname
+                for _, fname, _, _ in _TRACE_FORMATTER.parse(self.trace_value_template)
+                if fname is not None
+            }
+        except (ValueError, KeyError) as e:
+            raise ValueError(
+                f"Invalid trace_value_template '{self.trace_value_template}': {e}"
+            ) from e
+        bad = fields - _ALLOWED_TRACE_PLACEHOLDERS
+        if bad:
+            raise ValueError(
+                f"trace_value_template contains unknown placeholders: {bad}. "
+                f"Allowed: {sorted(_ALLOWED_TRACE_PLACEHOLDERS)}"
+            )
+
+        valid_ids = set(ids)
+        for step in self.steps:
+            for dep in step.depends_on:
+                if dep not in valid_ids:
+                    raise ValueError(
+                        f"Step '{step.step_id}' depends_on '{dep}' "
+                        f"which is not a valid step_id in this flow"
+                    )
+
+        return self
+
+
+# ---------------------------------------------------------------------------
 # Top-level config
 # ---------------------------------------------------------------------------
 
@@ -1053,6 +1178,18 @@ class DataLoaderConfig(BaseModel):
     reversals: list[ReversalConfig] = []
     category_memberships: list[CategoryMembershipConfig] = []
     nested_categories: list[NestedCategoryConfig] = []
+
+    # Funds Flow DSL (compiler input, not an MT resource).
+    # Intentionally skipped by _refs_are_unique_within_type — these items
+    # have no resource_type ClassVar.  The compiler validates flow refs.
+    funds_flows: list[FundsFlowConfig] = Field(
+        default_factory=list,
+        description=(
+            "High-level funds flow definitions. Compiled to FlowIR and "
+            "emitted into the resource sections above. If empty, the "
+            "config is treated as a raw resource config (passthrough)."
+        ),
+    )
 
     @model_validator(mode="after")
     def _refs_are_unique_within_type(self) -> DataLoaderConfig:

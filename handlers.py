@@ -558,6 +558,8 @@ async def create_incoming_payment_detail(
 ) -> HandlerResult:
     logger.bind(ref=typed_ref).info("Simulating incoming payment detail")
 
+    resolved.pop("metadata", None)  # MT's create_async() has no metadata param
+
     result = await client.incoming_payment_details.create_async(
         **resolved,
         idempotency_key=idempotency_key,
@@ -622,8 +624,8 @@ async def create_return(
     logger.bind(ref=typed_ref).info("Creating return")
     returnable_id = resolved.pop("returnable_id")
     # returnable_type is a ClassVar on ReturnConfig — excluded by model_dump().
-    # Pop defensively in case the model definition changes.
     resolved.pop("returnable_type", None)
+    resolved.pop("metadata", None)  # MT's returns.create() has no metadata param
 
     async def _before_sleep(retry_state: Any) -> None:
         await emit_sse(
