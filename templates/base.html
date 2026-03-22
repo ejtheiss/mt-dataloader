@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}MT Dataloader{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css?v={{ css_version }}">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
@@ -41,18 +44,25 @@
     </script>
 </head>
 <body>
-    <header>
-        <h1 class="logo">MT Dataloader</h1>
-        <nav>
-            <a href="/setup" class="nav-tab {% block nav_setup %}{% endblock %}">Setup</a>
-            <a href="/runs" class="nav-tab {% block nav_runs %}{% endblock %}">Runs</a>
-            <a href="/listen" class="nav-tab {% block nav_listen %}{% endblock %}">Listener</a>
-        </nav>
-        <span class="cred-status" id="cred-status"></span>
-    </header>
-    <main id="content">
-        {% block content %}{% endblock %}
-    </main>
+    <div class="app-shell">
+        <aside class="sidebar" id="application-sidebar">
+            <a href="/setup" class="sidebar-logo">
+                <img src="/static/mt-symbol.svg" alt="MT" width="20" height="20">
+                <span>Dataloader</span>
+            </a>
+            <nav class="sidebar-nav">
+                <a href="/setup" class="sidebar-link {% block nav_setup %}{% endblock %}">Setup</a>
+                <a href="/runs" class="sidebar-link {% block nav_runs %}{% endblock %}">Runs</a>
+                <a href="/listen" class="sidebar-link {% block nav_listen %}{% endblock %}">Listener</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span class="cred-status" id="cred-status"></span>
+            </div>
+        </aside>
+        <main id="content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
     <script>
     (function() {
         var el = document.getElementById("cred-status");
