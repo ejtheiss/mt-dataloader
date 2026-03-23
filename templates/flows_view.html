@@ -3,7 +3,7 @@
 {% block title %}{{ metadata_key }}: {{ metadata_value }} — Fund Flows{% endblock %}
 
 {% block content %}
-<div class="fund-flow-view">
+<div class="fund-flow-view" style="padding-bottom: 72px;">
     <div class="flow-breadcrumb">
         <a href="/flows?session_token={{ session_token }}" class="breadcrumb-link">Fund Flows</a>
         <span class="breadcrumb-sep">›</span>
@@ -13,9 +13,6 @@
 
     <div class="flow-toolbar">
         <span class="text-muted" style="font-size: 0.85rem;">{{ transactions|length }} steps — compile-time preview</span>
-        <a href="/flows?session_token={{ session_token }}" class="btn btn-sm btn-outline" style="margin-left: auto;">
-            Back to List
-        </a>
     </div>
 
     {% if account_balances %}
@@ -106,6 +103,16 @@
         {% set mermaid_label = "" %}
         {% include "partials/mermaid_accordion.html" %}
     {% endif %}
+</div>
+
+<div class="pinned-bottom-bar">
+    <a href="/flows?session_token={{ session_token }}" class="btn btn-outline" style="margin-right: 8px;">
+        ← Back to List
+    </a>
+    <a href="/preview?session_token={{ session_token }}" class="btn btn-primary">
+        Next
+        <span style="margin-left: 4px;">→</span>
+    </a>
 </div>
 
 <script>

@@ -1134,28 +1134,84 @@ async def flows_view_page(request: Request, flow_idx: int):
 
     flow_ir = session.flow_ir[flow_idx]
 
+    def _fmt_amt(amt: Any) -> str:
+        if isinstance(amt, (int, float)):
+            return f"${amt / 100:,.2f}"
+        return str(amt)
+
+    def _track_account(aid: str) -> None:
+        if aid and aid not in account_ids_seen:
+            account_ids_seen.add(aid)
+            account_ids_ordered.append(aid)
+
     transactions = []
     account_ids_seen: set[str] = set()
     account_ids_ordered: list[str] = []
+    running_deltas: dict[str, int] = {}
+
     for step in flow_ir.steps:
         entries_by_account: dict[str, dict[str, list]] = {}
+        payload = step.payload
+        amount = payload.get("amount", 0)
+        rtype = step.resource_type
+
+        if rtype == "incoming_payment_detail":
+            ia = payload.get("internal_account_id", "")
+            if ia:
+                _track_account(ia)
+                entries_by_account.setdefault(ia, {"debit": [], "credit": []})
+                entries_by_account[ia]["debit"].append({"amount": _fmt_amt(amount)})
+                running_deltas[ia] = running_deltas.get(ia, 0) + (amount if isinstance(amount, (int, float)) else 0)
+
+        elif rtype == "payment_order":
+            orig = payload.get("originating_account_id", "")
+            recv = payload.get("receiving_account_id", "")
+            if orig:
+                _track_account(orig)
+                entries_by_account.setdefault(orig, {"debit": [], "credit": []})
+                entries_by_account[orig]["credit"].append({"amount": _fmt_amt(amount)})
+                running_deltas[orig] = running_deltas.get(orig, 0) - (amount if isinstance(amount, (int, float)) else 0)
+            if recv:
+                _track_account(recv)
+                entries_by_account.setdefault(recv, {"debit": [], "credit": []})
+                entries_by_account[recv]["debit"].append({"amount": _fmt_amt(amount)})
+                running_deltas[recv] = running_deltas.get(recv, 0) + (amount if isinstance(amount, (int, float)) else 0)
+
+        elif rtype == "expected_payment":
+            ia = payload.get("internal_account_id", "")
+            direction = payload.get("direction", "")
+            if ia:
+                _track_account(ia)
+                entries_by_account.setdefault(ia, {"debit": [], "credit": []})
+                col = "debit" if direction == "debit" else "credit"
+                entries_by_account[ia][col].append({"amount": _fmt_amt(amount)})
+                sign = 1 if direction == "debit" else -1
+                running_deltas[ia] = running_deltas.get(ia, 0) + sign * (amount if isinstance(amount, (int, float)) else 0)
+
+        elif rtype in ("return", "reversal"):
+            ia = payload.get("internal_account_id", "")
+            if ia:
+                _track_account(ia)
+                entries_by_account.setdefault(ia, {"debit": [], "credit": []})
+                entries_by_account[ia]["credit"].append({"amount": _fmt_amt(amount)})
+                running_deltas[ia] = running_deltas.get(ia, 0) - (amount if isinstance(amount, (int, float)) else 0)
+
         for lg in step.ledger_groups:
             for entry in lg.entries:
                 aid = entry.get("ledger_account_id", "")
-                if aid and aid not in account_ids_seen:
-                    account_ids_seen.add(aid)
-                    account_ids_ordered.append(aid)
+                _track_account(aid)
                 if aid not in entries_by_account:
                     entries_by_account[aid] = {"debit": [], "credit": []}
                 direction = entry.get("direction", "")
                 amt = entry.get("amount", 0)
-                entries_by_account[aid][direction].append({
-                    "amount": f"${amt / 100:,.2f}" if isinstance(amt, (int, float)) else str(amt),
-                })
+                entries_by_account[aid][direction].append({"amount": _fmt_amt(amt)})
+                sign = 1 if direction == "debit" else -1
+                running_deltas[aid] = running_deltas.get(aid, 0) + sign * (amt if isinstance(amt, (int, float)) else 0)
+
         transactions.append({
             "step_id": step.step_id,
-            "description": step.payload.get("description", step.step_id),
-            "resource_type": step.resource_type,
+            "description": payload.get("description", step.step_id),
+            "resource_type": rtype,
             "status": "preview",
             "entries_by_account": entries_by_account,
             "edge_case": step.optional_group is not None,
@@ -1163,15 +1219,14 @@ async def flows_view_page(request: Request, flow_idx: int):
         })
 
     account_balances = []
-    deltas = flow_account_deltas(flow_ir)
     for aid in account_ids_ordered:
         display = actor_display_name(aid) if aid else "Unknown"
-        net = deltas.get(aid, 0)
+        net = running_deltas.get(aid, 0)
         account_balances.append({
             "id": aid,
             "name": display,
             "normal_balance": "—",
-            "pending_balance": f"${abs(net) / 100:,.2f}" if net else "$0.00",
+            "pending_balance": _fmt_amt(abs(net)) if net else "$0.00",
             "posted_balance": "—",
         })
 
@@ -1204,7 +1259,7 @@ async def preview_page(request: Request):
 
     return templates.TemplateResponse(
         request,
-        "preview.html",
+        "preview_page.html",
         {
             "session_token": session_token,
             "batches": session.batches,

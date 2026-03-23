@@ -1202,3 +1202,19 @@ a.doc-link:hover .sandbox-badge {
     100% { opacity: 0; }
 }
 
+/* Pinned bottom navigation bar */
+.pinned-bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: var(--sidebar-width, 220px);
+    right: 0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 12px 32px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 50;
+}
+

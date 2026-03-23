@@ -3,15 +3,8 @@
 {% block title %}Fund Flows{% endblock %}
 
 {% block content %}
-<div class="flows-container">
-    <div class="flows-header">
-        <h2>Fund Flows</h2>
-        <div style="display: flex; gap: 8px;">
-            <a href="/preview?session_token={{ session_token }}" class="btn btn-primary btn-sm">
-                Go to Preview / Execution
-            </a>
-        </div>
-    </div>
+<div class="flows-container" style="padding-bottom: 72px;">
+    <h2>Fund Flows</h2>
 
     <p class="text-muted" style="font-size: 0.85rem; margin-top: -8px; margin-bottom: 16px;">
         Compile-time preview — statuses will update after execution
@@ -88,6 +81,13 @@
             </div>
         </form>
     </details>
+</div>
+
+<div class="pinned-bottom-bar">
+    <a href="/preview?session_token={{ session_token }}" class="btn btn-primary">
+        Next
+        <span style="margin-left: 4px;">→</span>
+    </a>
 </div>
 
 {% include "partials/mermaid_scripts.html" %}
