@@ -175,11 +175,10 @@ class TestFundsFlowConfig:
         flow = FundsFlowConfig(
             ref="f1",
             pattern_type="test",
-            scale=FundsFlowScaleConfig(instances=100, mutation_profile="light_variance"),
+            scale=FundsFlowScaleConfig(instances=100),
             steps=[FundsFlowStepConfig(step_id="s1", type="incoming_payment_detail")],
         )
         assert flow.scale.instances == 100
-        assert flow.scale.mutation_profile == "light_variance"
 
     def test_extra_fields_forbidden_on_flow(self):
         with pytest.raises(ValueError):
@@ -275,14 +274,14 @@ class TestMetadataOnIPDAndReturn:
 class TestMaybeCompile:
     def test_passthrough_no_flows(self):
         config = DataLoaderConfig()
-        result = maybe_compile(config)
+        result, _ = maybe_compile(config)
         assert result is config
 
     def test_passthrough_with_resources_no_flows(self):
         config = DataLoaderConfig(
             ledgers=[{"ref": "main", "name": "Main"}],
         )
-        result = maybe_compile(config)
+        result, _ = maybe_compile(config)
         assert result is config
         assert len(result.ledgers) == 1
 
@@ -308,7 +307,7 @@ class TestMaybeCompile:
                 }
             ],
         )
-        result = maybe_compile(config)
+        result, _ = maybe_compile(config)
         assert result.funds_flows == []
         assert len(result.incoming_payment_details) == 1
 
@@ -330,7 +329,7 @@ class TestExistingExamplesUnchanged:
         raw = example.read_bytes()
         config = DataLoaderConfig.model_validate_json(raw)
         if not config.funds_flows:
-            result = maybe_compile(config)
+            result, _ = maybe_compile(config)
             assert result is config
 
 
@@ -347,7 +346,7 @@ class TestFundsFlowDemo:
         config = DataLoaderConfig.model_validate_json(demo.read_bytes())
         assert len(config.funds_flows) == 1
         assert config.funds_flows[0].ref == "simple_deposit"
-        assert len(config.funds_flows[0].steps) == 2
+        assert len(config.funds_flows[0].steps) == 3
 
     def test_demo_compiles_end_to_end(self):
         """Step 2s: the demo JSON now compiles instead of raising."""
@@ -355,7 +354,7 @@ class TestFundsFlowDemo:
         if not demo.exists():
             pytest.skip("funds_flow_demo.json not yet created")
         config = DataLoaderConfig.model_validate_json(demo.read_bytes())
-        result = maybe_compile(config)
+        result, _ = maybe_compile(config)
         assert result.funds_flows == []
         assert len(result.incoming_payment_details) == 1
         assert len(result.ledger_transactions) == 1
@@ -373,20 +372,17 @@ class TestSeedCatalog:
         catalog = yaml.safe_load(
             (_SEEDS_DIR / "seed_catalog.yaml").read_text()
         )
-        assert "patterns" in catalog
-        assert "mutations" in catalog
-        assert "edge_cases" in catalog
         assert "business_profiles" in catalog
         assert "individual_profiles" in catalog
-        assert len(catalog["patterns"]) >= 2
-        assert len(catalog["mutations"]) >= 1
-        assert len(catalog["edge_cases"]) >= 1
+        assert len(catalog["business_profiles"]) >= 1
+        assert len(catalog["individual_profiles"]) >= 1
 
-    def test_patterns_have_required_fields(self):
+    def test_profiles_have_required_fields(self):
         catalog = yaml.safe_load(
             (_SEEDS_DIR / "seed_catalog.yaml").read_text()
         )
-        for pattern in catalog["patterns"]:
-            assert "ref" in pattern, f"Pattern missing 'ref': {pattern}"
-            assert "steps" in pattern, f"Pattern missing 'steps': {pattern}"
-            assert "pattern_type" in pattern
+        for profile in catalog["business_profiles"]:
+            assert "name" in profile, f"Business profile missing 'name': {profile}"
+        for profile in catalog["individual_profiles"]:
+            assert "first_name" in profile, f"Individual profile missing 'first_name': {profile}"
+            assert "last_name" in profile, f"Individual profile missing 'last_name': {profile}"

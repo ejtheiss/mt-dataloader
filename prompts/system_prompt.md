@@ -221,6 +221,45 @@ Paste from repo (trim only if size-constrained):
 
 ---
 
+## Funds Flows DSL (preferred output for lifecycle demos)
+
+When the demo involves a lifecycle pattern (deposit → settle → return,
+payment → ledger → reversal), **always** use the `funds_flows` DSL instead
+of manually assembling individual resources.
+
+### Funds Flow JSON structure
+
+```json
+{
+  "funds_flows": [
+    {
+      "ref": "simple_deposit",
+      "pattern_type": "deposit_settle",
+      "trace_key": "deal_id",
+      "trace_value_template": "deal-{ref}-{instance}",
+      "actors": {
+        "ops_account": "$ref:internal_account.ops_usd",
+        "cash_ledger": "$ref:ledger_account.cash",
+        "revenue_ledger": "$ref:ledger_account.revenue"
+      },
+      "steps": [ ... ],
+      "optional_groups": [ ... ]
+    }
+  ]
+}
+```
+
+### Rules for funds_flows:
+1. Always include `trace_key` (generic metadata key) and `trace_value_template`
+2. Use `@actor:alias` syntax in step payloads — the compiler resolves them
+3. Use `optional_groups` for lifecycle variants (returns, reversals, NSF)
+4. Do NOT emit expanded resource arrays — the compiler handles expansion
+5. Step `type` is the resource type; use `payment_type` for the method (ach/wire)
+6. Include `ledger_entries` on steps that need double-entry bookkeeping
+7. Use `depends_on` for ordering between steps (references step_id, not $ref:)
+
+---
+
 ## Validation loop
 
 `POST /api/validate-json` with **raw JSON body** returns either:

@@ -392,6 +392,9 @@ class RunManifest:
     resources_created: list[ManifestEntry] = field(default_factory=list)
     resources_failed: list[FailedEntry] = field(default_factory=list)
     resources_staged: list[StagedEntry] = field(default_factory=list)
+    generation_recipe: dict | None = None
+    compile_id: str | None = None
+    seed_version: str | None = None
 
     def record(self, entry: ManifestEntry) -> None:
         self.resources_created.append(entry)
@@ -439,6 +442,9 @@ class RunManifest:
             started_at=data["started_at"],
             completed_at=data.get("completed_at"),
             status=data["status"],
+            generation_recipe=data.get("generation_recipe"),
+            compile_id=data.get("compile_id"),
+            seed_version=data.get("seed_version"),
         )
         for entry_data in data.get("resources_created", []):
             manifest.resources_created.append(ManifestEntry(**entry_data))
@@ -484,6 +490,9 @@ class RunManifest:
                 }
                 for s in self.resources_staged
             ],
+            "generation_recipe": self.generation_recipe,
+            "compile_id": self.compile_id,
+            "seed_version": self.seed_version,
         }
 
 

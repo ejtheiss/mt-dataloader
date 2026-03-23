@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block nav_flows %}active{% endblock %}
+{% block title %}{{ metadata_key }}: {{ metadata_value }} — Fund Flows{% endblock %}
+
+{% block content %}
+<div class="fund-flow-view">
+    <div class="flow-breadcrumb">
+        <a href="/flows?session_token={{ session_token }}" class="breadcrumb-link">Fund Flows</a>
+        <span class="breadcrumb-sep">›</span>
+        <span class="breadcrumb-current">{{ metadata_key }}: {{ metadata_value }}</span>
+    </div>
+    <h2>{{ metadata_key }}: {{ metadata_value }}</h2>
+
+    <div class="flow-toolbar">
+        <span class="text-muted" style="font-size: 0.85rem;">{{ transactions|length }} steps — compile-time preview</span>
+        <a href="/flows?session_token={{ session_token }}" class="btn btn-sm btn-outline" style="margin-left: auto;">
+            Back to List
+        </a>
+    </div>
+
+    {% if account_balances %}
+    <div class="flow-columns" id="flow-columns">
+        <div class="flow-col flow-col-transactions">
+            <div class="flow-col-header">
+                <div class="flow-col-title">Transactions</div>
+            </div>
+            <div class="flow-col-subheader">
+                <span class="flow-th" style="width: 28%;">Description</span>
+                <span class="flow-th" style="width: 14%;">Status</span>
+                <span class="flow-th" style="width: 18%;">Type</span>
+                <span class="flow-th" style="width: 22%;">Ref</span>
+                <span class="flow-th" style="width: 18%;">Edge?</span>
+            </div>
+            <div class="flow-col-body" id="flow-scroll-tx" onscroll="syncFlowScroll(this)">
+                {% for tx in transactions %}
+                <div class="flow-row" data-step-id="{{ tx.step_id }}">
+                    <span class="flow-td" style="width: 28%;" title="{{ tx.description }}">
+                        {{ tx.description or '—' }}
+                    </span>
+                    <span class="flow-td" style="width: 14%;">
+                        <span class="status-dot pending"></span>
+                        <span class="status-text">{{ tx.status }}</span>
+                    </span>
+                    <span class="flow-td" style="width: 18%;">
+                        <span class="ledgerable-pill">{{ tx.resource_type }}</span>
+                    </span>
+                    <span class="flow-td" style="width: 22%;">
+                        <code class="ref-name">{{ tx.step_id }}</code>
+                    </span>
+                    <span class="flow-td" style="width: 18%;">
+                        {% if tx.edge_case %}
+                        <span class="edge-case-badge" title="{{ tx.edge_group }}">⚠ {{ tx.edge_group }}</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% for acct in account_balances %}
+        <div class="flow-col flow-col-account">
+            <div class="flow-col-header">
+                <div class="flow-col-title" title="{{ acct.name }}">{{ acct.name }}</div>
+                <div class="flow-col-meta">
+                    <div class="flow-meta-row">
+                        <span>Pending:</span>
+                        <span class="flow-meta-val">{{ acct.pending_balance }}</span>
+                    </div>
+                    <div class="flow-meta-row">
+                        <span>Posted:</span>
+                        <span class="flow-meta-val">{{ acct.posted_balance }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flow-col-subheader flow-col-split">
+                <span class="flow-th">Debit</span>
+                <span class="flow-th">Credit</span>
+            </div>
+            <div class="flow-col-body flow-scroll-acct" onscroll="syncFlowScroll(this)">
+                {% for tx in transactions %}
+                {% set entries = tx.entries_by_account.get(acct.id, {}) %}
+                <div class="flow-row flow-row-split">
+                    <span class="flow-td-entry flow-td-debit">
+                        {% for e in entries.get('debit', []) %}
+                        <span class="entry-amount">{{ e.amount }}</span>
+                        {% endfor %}
+                    </span>
+                    <span class="flow-td-entry flow-td-credit">
+                        {% for e in entries.get('credit', []) %}
+                        <span class="entry-amount">{{ e.amount }}</span>
+                        {% endfor %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No ledger entries in this flow.</p>
+    {% endif %}
+
+    {% if mermaid_text %}
+        {% set mermaid_id = "detail" %}
+        {% set mermaid_diagram = mermaid_text %}
+        {% set mermaid_label = "" %}
+        {% include "partials/mermaid_accordion.html" %}
+    {% endif %}
+</div>
+
+<script>
+(function() {
+    var syncing = false;
+    window.syncFlowScroll = function(source) {
+        if (syncing) return;
+        syncing = true;
+        var top = source.scrollTop;
+        var bodies = document.querySelectorAll('.flow-col-body');
+        bodies.forEach(function(el) {
+            if (el !== source) el.scrollTop = top;
+        });
+        syncing = false;
+    };
+})();
+</script>
+
+{% include "partials/mermaid_scripts.html" %}
+{% endblock %}

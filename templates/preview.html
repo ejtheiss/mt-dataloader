@@ -1,5 +1,12 @@
 <div class="preview-container">
-    <h2>Execution Plan</h2>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+        <h2>Execution Plan</h2>
+        {% if has_funds_flows %}
+        <a href="/flows?session_token={{ session_token }}" class="btn btn-outline btn-sm">
+            Back to Fund Flows
+        </a>
+        {% endif %}
+    </div>
 
     {% if discovery %}
         {% include "partials/discovery_summary.html" %}

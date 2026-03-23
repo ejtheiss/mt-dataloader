@@ -71,10 +71,15 @@ __all__ = [
     "ReversalConfig",
     "CategoryMembershipConfig",
     "NestedCategoryConfig",
+    "TransitionLedgerTransactionConfig",
     # Funds Flow DSL
     "FundsFlowStepConfig",
+    "OptionalGroupConfig",
     "FundsFlowScaleConfig",
     "FundsFlowConfig",
+    # Generation
+    "PaymentMixConfig",
+    "GenerationRecipeV1",
     # Top-level config
     "DataLoaderConfig",
     # Internal types
@@ -114,6 +119,7 @@ RESOURCE_TYPES: frozenset[str] = frozenset(
         "reversal",
         "category_membership",
         "nested_category",
+        "transition_ledger_transaction",
     }
 )
 
@@ -1023,6 +1029,16 @@ class NestedCategoryConfig(_BaseResourceConfig):
     sub_category_id: RefStr
 
 
+class TransitionLedgerTransactionConfig(MetadataMixin, _BaseResourceConfig):
+    """Transition an existing LT to a new status (pending->posted, posted->archived)."""
+
+    display_phase: ClassVar[int] = DisplayPhase.MUTATIONS
+    resource_type: ClassVar[str] = "transition_ledger_transaction"
+
+    ledger_transaction_id: RefStr
+    status: Literal["posted", "archived"]
+
+
 # ---------------------------------------------------------------------------
 # Funds Flow DSL (compiler input — not MT resources)
 # ---------------------------------------------------------------------------
@@ -1031,6 +1047,14 @@ _VALID_STEP_TYPES = frozenset({
     "payment_order",
     "incoming_payment_detail",
     "ledger_transaction",
+    "expected_payment",
+    "return",
+    "reversal",
+    "transition_ledger_transaction",
+})
+
+_INLINE_LT_TYPES = frozenset({
+    "payment_order",
     "expected_payment",
     "return",
     "reversal",
@@ -1058,6 +1082,8 @@ class FundsFlowStepConfig(BaseModel):
     description: str | None = None
     depends_on: list[str] = Field(default_factory=list)
     ledger_entries: list[InlineLedgerEntryConfig] | None = None
+    ledger_status: Literal["pending", "posted"] | None = None
+    ledger_inline: bool = False
 
     @model_validator(mode="after")
     def _validate_step(self) -> FundsFlowStepConfig:
@@ -1065,6 +1091,15 @@ class FundsFlowStepConfig(BaseModel):
             raise ValueError(
                 f"Step type '{self.type}' not supported. "
                 f"Must be one of: {sorted(_VALID_STEP_TYPES)}"
+            )
+        if self.ledger_inline and self.type not in _INLINE_LT_TYPES:
+            raise ValueError(
+                f"Step '{self.step_id}': ledger_inline=True is only valid for "
+                f"types {sorted(_INLINE_LT_TYPES)}, not '{self.type}'"
+            )
+        if self.ledger_inline and not self.ledger_entries:
+            raise ValueError(
+                f"Step '{self.step_id}': ledger_inline=True requires ledger_entries"
             )
         if self.ledger_entries:
             debits = sum(e.amount for e in self.ledger_entries if e.direction == "debit")
@@ -1077,6 +1112,23 @@ class FundsFlowStepConfig(BaseModel):
         return self
 
 
+class OptionalGroupConfig(BaseModel):
+    """An optional lifecycle branch within a funds flow pattern.
+
+    Represents sub-sequences that may or may not fire (e.g., a return
+    after a deposit, a reversal after a PO). NOT mutually exclusive —
+    multiple groups can activate on the same instance.
+
+    trigger is documentation/rendering metadata only — no execution impact.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str
+    trigger: Literal["manual", "system", "webhook"] = "manual"
+    steps: list[FundsFlowStepConfig] = Field(..., min_length=1)
+
+
 class FundsFlowScaleConfig(BaseModel):
     """Expansion settings for generating multiple instances of a flow."""
 
@@ -1084,8 +1136,6 @@ class FundsFlowScaleConfig(BaseModel):
 
     instances: int = Field(1, ge=1, le=5000)
     seed_namespace: str | None = None
-    mutation_profile: str = "none"
-    edge_case_profile: str = "none"
 
 
 _TRACE_FORMATTER = string.Formatter()
@@ -1104,11 +1154,16 @@ class FundsFlowConfig(BaseModel):
     trace_metadata: dict[str, str] = Field(default_factory=dict)
     actors: dict[str, str] = Field(default_factory=dict)
     steps: list[FundsFlowStepConfig] = Field(..., min_length=1)
+    optional_groups: list[OptionalGroupConfig] = Field(default_factory=list)
     scale: FundsFlowScaleConfig | None = None
 
     @model_validator(mode="after")
     def _validate_flow(self) -> FundsFlowConfig:
-        ids = [s.step_id for s in self.steps]
+        all_steps = list(self.steps)
+        for og in self.optional_groups:
+            all_steps.extend(og.steps)
+
+        ids = [s.step_id for s in all_steps]
         dupes = {sid for sid in ids if ids.count(sid) > 1}
         if dupes:
             raise ValueError(f"Duplicate step_id(s): {dupes}")
@@ -1131,7 +1186,7 @@ class FundsFlowConfig(BaseModel):
             )
 
         valid_ids = set(ids)
-        for step in self.steps:
+        for step in all_steps:
             for dep in step.depends_on:
                 if dep not in valid_ids:
                     raise ValueError(
@@ -1140,6 +1195,50 @@ class FundsFlowConfig(BaseModel):
                     )
 
         return self
+
+
+# ---------------------------------------------------------------------------
+# Generation pipeline models
+# ---------------------------------------------------------------------------
+
+
+class PaymentMixConfig(BaseModel):
+    """Controls which resource types to include when generating instances."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    include_expected_payments: bool = True
+    include_payment_orders: bool = True
+    include_ipds: bool = True
+    include_returns: bool = True
+    include_reversals: bool = True
+    include_standalone_lts: bool = True
+
+
+class GenerationRecipeV1(BaseModel):
+    """Compact, UI-facing recipe for generating N flow instances."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal["v1"] = "v1"
+    flow_ref: str
+    instances: int = Field(..., ge=1, le=5000)
+    seed: int
+    edge_case_frequency: float = Field(
+        default=0.0, ge=0.0, le=1.0,
+        description="Probability that each optional group activates per instance",
+    )
+    amount_variance_pct: float = Field(
+        default=0.0, ge=0.0, le=100.0,
+        description="Percentage jitter on amounts (e.g. 5.0 = +/-5%)",
+    )
+    staged_count: int = Field(
+        default=0, ge=0,
+        description="How many instances have money-movement steps marked staged: true",
+    )
+    staged_selection: Literal["first", "random"] = "first"
+    payment_mix: PaymentMixConfig | None = None
+    overrides: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -1186,6 +1285,7 @@ class DataLoaderConfig(BaseModel):
     reversals: list[ReversalConfig] = []
     category_memberships: list[CategoryMembershipConfig] = []
     nested_categories: list[NestedCategoryConfig] = []
+    transition_ledger_transactions: list[TransitionLedgerTransactionConfig] = []
 
     # Funds Flow DSL (compiler input, not an MT resource).
     # Intentionally skipped by _refs_are_unique_within_type — these items
@@ -1299,3 +1399,9 @@ class AppSettings(BaseSettings):
         description="Max concurrent MT API calls within a batch",
     )
     webhook_secret: str = ""
+    generation_chunk_size: int = Field(
+        default=100,
+        ge=10,
+        le=500,
+        description="Resources per DAG batch during generation runs",
+    )

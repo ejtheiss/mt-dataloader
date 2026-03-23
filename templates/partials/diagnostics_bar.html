@@ -1,0 +1,22 @@
+{% if diagnostics %}
+<div class="diagnostics-bar">
+    <div class="stat">
+        <span class="stat-value">{{ diagnostics.total_steps }}</span>
+        <span class="stat-label">Steps</span>
+    </div>
+    {% for rtype, count in diagnostics.type_counts.items() %}
+    <div class="stat">
+        <span class="stat-value">{{ count }}</span>
+        <span class="stat-label">{{ rtype }}</span>
+    </div>
+    {% endfor %}
+    <div class="stat">
+        <span class="stat-value">{{ diagnostics.total_entries }}</span>
+        <span class="stat-label">Ledger Entries</span>
+    </div>
+    <div class="stat">
+        <span class="stat-value">{{ diagnostics.trace_value_count }}</span>
+        <span class="stat-label">Trace Values</span>
+    </div>
+</div>
+{% endif %}

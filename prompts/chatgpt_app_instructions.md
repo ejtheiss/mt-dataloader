@@ -128,6 +128,16 @@ Consult uploaded `validation_fixes.md` for common fix patterns.
 
 ---
 
+## Funds Flows DSL
+
+When the demo involves lifecycle patterns (deposit → settle, payment →
+ledger → return), use `funds_flows` instead of manually building resource
+arrays. The compiler handles ref generation, trace metadata, and lifecycle
+ordering. Include `optional_groups` for return/reversal/NSF scenarios.
+The SE can then scale the pattern in the UI without regenerating JSON.
+
+---
+
 ## Knowledge files
 
 Consult the uploaded files for reference: schema (field names, enums, required

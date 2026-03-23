@@ -1,0 +1,47 @@
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+
+function showToast(msg) {
+    var el = document.createElement('div');
+    el.className = 'toast-notification';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(function() { el.remove(); }, 2000);
+}
+
+function renderMermaidAccordion(panel) {
+    var container = panel.querySelector('.mermaid-render');
+    var source = panel.querySelector('.mermaid-source');
+    if (!container || !source || container.dataset.rendered) return;
+    var mermaidId = 'mmd-' + (container.id || Math.random().toString(36).slice(2, 8));
+    container.innerHTML = '<span class="spinner-sm" style="display:inline-block"></span>';
+    mermaid.render(mermaidId, source.textContent.trim()).then(function(result) {
+        container.innerHTML = result.svg;
+        container.dataset.rendered = 'true';
+    }).catch(function(err) {
+        container.innerHTML = '<pre class="error-alert" style="white-space:pre-wrap;">'
+            + 'Mermaid render error:\n' + err.message + '</pre>';
+    });
+}
+
+document.querySelectorAll('.mermaid-accordion .accordion-header').forEach(function(header) {
+    header.addEventListener('click', function() {
+        var panel = this.parentNode;
+        if (panel.classList.contains('open')) {
+            renderMermaidAccordion(panel);
+        }
+    });
+});
+
+function copyMermaidSyntax(id) {
+    var el = document.getElementById('mermaid-source-' + id);
+    if (el) navigator.clipboard.writeText(el.textContent.trim()).then(function() { showToast('Mermaid syntax copied!'); });
+}
+
+function copyMermaidSVG(id) {
+    var svg = document.getElementById('mermaid-render-' + id);
+    if (svg) svg = svg.querySelector('svg');
+    if (svg) navigator.clipboard.writeText(svg.outerHTML).then(function() { showToast('SVG copied!'); });
+}
+</script>

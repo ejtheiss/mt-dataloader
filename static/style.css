@@ -949,3 +949,255 @@ a.doc-link:hover .sandbox-badge {
 .recon-remap-row code { font-size: 0.82rem; }
 .recon-remap-row .recon-remap-select { margin-left: auto; }
 
+/* ================================================================
+   Fund Flows — adapted from funds_flow_ui_design.md
+   ================================================================ */
+
+.flows-container {
+    max-width: 960px; margin: 0 auto; padding: 24px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.flows-header {
+    display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 20px;
+}
+
+.diagnostics-bar {
+    display: flex; gap: 20px; margin-bottom: 24px;
+    padding: 12px 16px; background: var(--bg);
+    border-radius: var(--radius); border: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.diagnostics-bar .stat { text-align: center; }
+.diagnostics-bar .stat-value { display: block; font-size: 1.2rem; font-weight: 700; }
+.diagnostics-bar .stat-label {
+    font-size: 0.7rem; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.03em;
+}
+
+.flow-card {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 12px; background: var(--surface);
+}
+.flow-card-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.flow-ref { font-weight: 600; font-size: 0.95rem; }
+.flow-pattern {
+    font-size: 0.75rem; padding: 2px 8px; border-radius: 10px;
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    color: var(--primary);
+}
+.flow-status-badge {
+    font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 10px; margin-left: auto;
+}
+.flow-status-compiled { background: #F2F1ED; color: #575757; }
+.flow-status-pending { background: #F2F1ED; color: #575757; }
+.flow-status-posted { background: #E4F3EC; color: #00473C; }
+.flow-status-archived { background: #F0EFFF; color: #423B72; }
+.flow-status-partially_posted { background: #FFEBD5; color: #724F3B; }
+.flow-status-failed { background: #FFE8EC; color: #C73D4F; }
+.flow-meta {
+    font-size: 0.82rem; color: var(--text-muted);
+    display: flex; gap: 12px; margin-bottom: 8px;
+}
+
+/* --- Fund Flow Detail View --- */
+.fund-flow-view { padding: 0; }
+
+.flow-breadcrumb {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;
+}
+.breadcrumb-link { color: var(--primary); text-decoration: none; }
+.breadcrumb-link:hover { text-decoration: underline; }
+.breadcrumb-sep { color: var(--text-muted); }
+
+.flow-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.flow-columns {
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    padding-bottom: 8px;
+}
+
+.flow-col {
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column;
+}
+.flow-col-transactions {
+    width: 50%;
+    min-width: 560px;
+    max-width: 700px;
+}
+.flow-col-account {
+    width: 200px;
+    min-width: 180px;
+    max-width: 240px;
+}
+
+.flow-col-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+}
+.flow-col-title {
+    font-weight: 600; font-size: 0.9rem; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.flow-col-meta { margin-top: 6px; }
+.flow-meta-row {
+    display: flex; justify-content: space-between;
+    font-size: 0.75rem; color: var(--text-muted);
+}
+.flow-meta-val { font-weight: 500; color: var(--text); }
+
+.flow-col-subheader {
+    display: flex; padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+}
+.flow-col-split { padding: 8px 0; }
+.flow-col-split .flow-th { flex: 1; text-align: center; }
+.flow-col-split .flow-th:first-child {
+    border-right: 1px solid var(--border);
+}
+.flow-th {
+    font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+    color: var(--text-muted); letter-spacing: 0.04em;
+}
+
+.flow-col-body {
+    max-height: 700px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.flow-row {
+    display: flex; align-items: center;
+    height: 48px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.82rem; padding: 0 14px;
+}
+.flow-row:hover { background: color-mix(in srgb, var(--primary) 3%, transparent); }
+
+.flow-row-split { padding: 0; }
+.flow-td {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 0 4px;
+}
+
+.flow-td-entry {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; padding: 4px 8px;
+}
+.flow-td-debit { border-right: 1px solid var(--border); }
+
+.entry-amount {
+    font-size: 0.82rem; font-weight: 500; color: var(--text);
+    padding: 2px 8px; border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: default; white-space: nowrap;
+}
+
+.ledgerable-pill {
+    display: inline-block;
+    font-size: 0.72rem; font-weight: 500;
+    padding: 2px 8px; border: 1px solid var(--border);
+    border-radius: 999px; color: var(--text);
+    white-space: nowrap; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis;
+}
+
+/* --- Mermaid accordion --- */
+.mermaid-accordion .accordion-panel {
+    max-height: none;
+}
+.mermaid-accordion.open .accordion-panel {
+    max-height: none; overflow: visible;
+}
+.mermaid-actions {
+    display: flex; gap: 8px; margin-bottom: 8px; padding-top: 8px;
+}
+.mermaid-render { padding: 12px; }
+.mermaid-render svg { max-width: 100%; height: auto; }
+.mermaid-source { display: none; }
+
+/* --- Edge case badge --- */
+.edge-case-badge {
+    display: inline-block;
+    font-size: 0.68rem; font-weight: 600;
+    padding: 2px 8px; border-radius: 10px;
+    background: color-mix(in srgb, var(--status-waiting) 18%, transparent);
+    color: var(--status-waiting);
+    border: 1px solid color-mix(in srgb, var(--status-waiting) 30%, transparent);
+    white-space: nowrap;
+}
+
+/* --- Scenario builder --- */
+.scenario-builder {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px; margin: 20px 0; background: var(--bg);
+}
+.scenario-builder h3 { margin: 0 0 12px; font-size: 1rem; }
+.scenario-actions { display: flex; gap: 8px; margin-top: 16px; }
+.canned-commands {
+    display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+}
+.gen-preview-stats {
+    margin-top: 12px; padding: 12px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 0.9rem;
+}
+
+/* --- Account deltas --- */
+.account-deltas {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    font-size: 0.78rem; margin-top: 4px;
+}
+.delta-chip {
+    padding: 2px 6px; border-radius: 4px;
+    background: var(--bg); border: 1px solid var(--border);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+.delta-positive { color: var(--status-created); }
+.delta-negative { color: var(--status-error); }
+
+/* --- Sortable headers --- */
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { color: var(--primary); }
+.sort-asc::after { content: " ▲"; font-size: 0.6em; }
+.sort-desc::after { content: " ▼"; font-size: 0.6em; }
+
+/* --- Resource search --- */
+.resource-search {
+    font-family: inherit;
+}
+
+/* --- Toast notification --- */
+.toast-notification {
+    position: fixed; bottom: 24px; right: 24px;
+    padding: 10px 20px; border-radius: var(--radius);
+    background: var(--text); color: var(--surface);
+    font-size: 0.85rem; z-index: 9999;
+    animation: fadeInOut 2s ease;
+    pointer-events: none;
+}
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(8px); }
+    15% { opacity: 1; transform: translateY(0); }
+    85% { opacity: 1; }
+    100% { opacity: 0; }
+}
+

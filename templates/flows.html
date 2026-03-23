@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block nav_flows %}active{% endblock %}
+{% block title %}Fund Flows{% endblock %}
+
+{% block content %}
+<div class="flows-container">
+    <div class="flows-header">
+        <h2>Fund Flows</h2>
+        <div style="display: flex; gap: 8px;">
+            <a href="/preview?session_token={{ session_token }}" class="btn btn-primary btn-sm">
+                Go to Preview / Execution
+            </a>
+        </div>
+    </div>
+
+    <p class="text-muted" style="font-size: 0.85rem; margin-top: -8px; margin-bottom: 16px;">
+        Compile-time preview — statuses will update after execution
+    </p>
+
+    {% include "partials/diagnostics_bar.html" %}
+
+    {% if flow_summaries %}
+    <div class="flow-list">
+        {% for fs in flow_summaries %}
+        <div class="flow-card">
+            <div class="flow-card-header">
+                <span class="flow-ref">{{ fs.trace_value }}</span>
+                <span class="flow-pattern">{{ fs.pattern_type }}</span>
+                <span class="flow-status-badge flow-status-{{ fs.status }}">{{ fs.status }}</span>
+            </div>
+            <div class="flow-meta">
+                <span>{{ fs.step_count }} steps</span>
+                <span>{{ fs.trace_key }}: {{ fs.trace_value }}</span>
+            </div>
+            {% if fs.account_deltas %}
+            <div class="account-deltas">
+                {% for acct, delta in fs.account_deltas.items() %}
+                {% if acct %}
+                <span class="delta-chip {% if delta > 0 %}delta-positive{% elif delta < 0 %}delta-negative{% endif %}">
+                    {{ acct.split('.')[-1].replace('_', ' ').title() if '.' in acct else acct[:12] }}:
+                    {% if delta > 0 %}+{% endif %}${{ '{:,.2f}'.format(delta|abs / 100) }}
+                </span>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div style="margin-top: 8px;">
+                <a href="/flows/view/{{ fs.index }}?session_token={{ session_token }}" class="btn btn-sm btn-outline">
+                    View Detail
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No fund flows in this configuration.</p>
+    {% endif %}
+
+    {% for diagram in mermaid_diagrams %}
+        {% set mermaid_id = loop.index0 %}
+        {% set mermaid_diagram = diagram %}
+        {% set mermaid_label = flow_summaries[loop.index0].trace_value if flow_summaries else "" %}
+        {% include "partials/mermaid_accordion.html" %}
+    {% endfor %}
+
+    {% include "partials/scenario_builder.html" %}
+
+    <details class="json-editor-panel">
+        <summary>View / Edit JSON Config</summary>
+        <form id="revalidate-form"
+              hx-post="/api/revalidate"
+              hx-target="#content"
+              hx-swap="innerHTML"
+              hx-indicator="#revalidate-spinner-flows"
+              hx-disabled-elt="button[type=submit]">
+            <input type="hidden" name="session_token" value="{{ session_token }}">
+            <textarea id="flows-json-editor" name="config_json"
+                      class="json-editor" rows="24"
+                      spellcheck="false">{{ working_config_json }}</textarea>
+            <div id="flows-json-status" class="json-parse-status"></div>
+            <div class="json-editor-actions">
+                <button type="submit" class="btn btn-secondary btn-sm">
+                    <span class="btn-text">Re-validate</span>
+                    <span id="revalidate-spinner-flows" class="htmx-indicator spinner-sm"></span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline" id="btn-format-flows-json">Format</button>
+                <button type="button" class="btn btn-sm btn-outline" id="btn-copy-flows-json">Copy</button>
+            </div>
+        </form>
+    </details>
+</div>
+
+{% include "partials/mermaid_scripts.html" %}
+
+<script>
+(function() {
+    var editor = document.getElementById("flows-json-editor");
+    var status = document.getElementById("flows-json-status");
+    if (!editor) return;
+    var debounce;
+    editor.addEventListener("input", function() {
+        clearTimeout(debounce);
+        debounce = setTimeout(function() {
+            var val = editor.value.trim();
+            if (!val) { status.textContent = ""; status.className = "json-parse-status"; return; }
+            try { JSON.parse(val); status.textContent = "Valid JSON"; status.className = "json-parse-status valid"; }
+            catch(e) { status.textContent = e.message; status.className = "json-parse-status invalid"; }
+        }, 300);
+    });
+    document.getElementById("btn-format-flows-json").addEventListener("click", function() {
+        try { editor.value = JSON.stringify(JSON.parse(editor.value), null, 2); status.textContent = "Formatted"; status.className = "json-parse-status valid"; }
+        catch(e) { status.textContent = e.message; status.className = "json-parse-status invalid"; }
+    });
+    document.getElementById("btn-copy-flows-json").addEventListener("click", function() {
+        navigator.clipboard.writeText(editor.value).then(function() { showToast('JSON copied!'); });
+    });
+})();
+</script>
+{% endblock %}

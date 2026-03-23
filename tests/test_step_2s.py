@@ -505,20 +505,20 @@ class TestEndToEnd:
         config = DataLoaderConfig.model_validate_json(raw)
         assert len(config.funds_flows) == 1
 
-        compiled = maybe_compile(config)
+        compiled, _ = maybe_compile(config)
         assert compiled.funds_flows == []
         assert len(compiled.incoming_payment_details) == 1
         assert len(compiled.ledger_transactions) == 1
 
     def test_demo_json_ipd_has_correct_type(self):
         raw = (EXAMPLES_DIR / "funds_flow_demo.json").read_text()
-        compiled = maybe_compile(DataLoaderConfig.model_validate_json(raw))
+        compiled, _ = maybe_compile(DataLoaderConfig.model_validate_json(raw))
         ipd = compiled.incoming_payment_details[0]
         assert ipd.type == "ach"
 
     def test_demo_json_trace_metadata(self):
         raw = (EXAMPLES_DIR / "funds_flow_demo.json").read_text()
-        compiled = maybe_compile(DataLoaderConfig.model_validate_json(raw))
+        compiled, _ = maybe_compile(DataLoaderConfig.model_validate_json(raw))
         ipd = compiled.incoming_payment_details[0]
         assert "deal_id" in ipd.metadata
         assert ipd.metadata["deal_id"] == "deal-simple_deposit-0"
@@ -528,7 +528,7 @@ class TestEndToEnd:
         from engine import dry_run
 
         raw = (EXAMPLES_DIR / "funds_flow_demo.json").read_text()
-        compiled = maybe_compile(DataLoaderConfig.model_validate_json(raw))
+        compiled, _ = maybe_compile(DataLoaderConfig.model_validate_json(raw))
         batches = dry_run(compiled)
         assert len(batches) > 0
         all_refs = [ref for batch in batches for ref in batch]
@@ -537,9 +537,9 @@ class TestEndToEnd:
 
     def test_demo_json_round_trip(self):
         raw = (EXAMPLES_DIR / "funds_flow_demo.json").read_text()
-        compiled = maybe_compile(DataLoaderConfig.model_validate_json(raw))
+        compiled, _ = maybe_compile(DataLoaderConfig.model_validate_json(raw))
         dumped = compiled.model_dump_json(exclude_none=True)
-        recompiled = maybe_compile(DataLoaderConfig.model_validate_json(dumped))
+        recompiled, _ = maybe_compile(DataLoaderConfig.model_validate_json(dumped))
         assert len(recompiled.incoming_payment_details) == len(compiled.incoming_payment_details)
         assert len(recompiled.ledger_transactions) == len(compiled.ledger_transactions)
 
@@ -552,7 +552,7 @@ class TestEndToEnd:
 class TestPassthroughRegression:
     def test_passthrough_no_funds_flows(self):
         config = _make_minimal_config()
-        result = maybe_compile(config)
+        result, _ = maybe_compile(config)
         assert result is config
 
     def test_existing_examples_passthrough(self):
@@ -565,5 +565,5 @@ class TestPassthroughRegression:
                 config = DataLoaderConfig.model_validate_json(raw)
             except Exception:
                 continue
-            result = maybe_compile(config)
+            result, _ = maybe_compile(config)
             assert result is config, f"{path.name} should passthrough"

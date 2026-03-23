@@ -58,9 +58,17 @@ from engine import (
     list_manifest_ids,
     typed_ref_for,
 )
-from flow_compiler import maybe_compile
+from flow_compiler import (
+    actor_display_name,
+    compile_diagnostics,
+    compute_flow_status,
+    flow_account_deltas,
+    generate_from_recipe,
+    maybe_compile,
+    render_mermaid,
+)
 from handlers import DELETABILITY, build_handler_dispatch
-from models import AppSettings, DataLoaderConfig, DisplayPhase
+from models import AppSettings, DataLoaderConfig, DisplayPhase, GenerationRecipeV1
 from webhooks import router as webhook_router, index_resource, rebuild_correlation_index
 
 # ---------------------------------------------------------------------------
@@ -130,6 +138,10 @@ class _SessionState:
     reconciliation: ReconciliationResult | None = None
     skip_refs: set[str] = field(default_factory=set)
     created_at: float = field(default_factory=time.time)
+    flow_ir: list[Any] | None = None
+    generation_recipe: dict | None = None
+    working_config_json: str | None = None
+    mermaid_diagrams: list[str] | None = None
 
 
 _sessions: dict[str, _SessionState] = {}
@@ -412,7 +424,7 @@ async def validate_json(request: Request):
     had_funds_flows = bool(config.funds_flows)
 
     try:
-        config = maybe_compile(config)
+        config, _ = maybe_compile(config)
     except (ValueError, KeyError, NotImplementedError) as e:
         return {"valid": False, "errors": [
             {"path": "(compiler)", "type": "compile_error", "message": str(e)}
@@ -477,10 +489,18 @@ async def validate(
             "\n".join(detail_lines) or str(e),
         )
 
+    original_funds_flows = list(config.funds_flows)
     try:
-        config = maybe_compile(config)
+        config, flow_irs = maybe_compile(config)
     except (ValueError, KeyError, NotImplementedError) as e:
         return _error_response("Compiler Error", str(e))
+
+    mermaid_diagrams = None
+    if flow_irs and original_funds_flows:
+        mermaid_diagrams = [
+            render_mermaid(ir, fc)
+            for ir, fc in zip(flow_irs[:10], original_funds_flows[:10])
+        ]
 
     # 2. Ping MT to validate API key
     async with AsyncModernTreasury(
@@ -548,6 +568,9 @@ async def validate(
     config_json_text = json.dumps(
         json.loads(raw_json), indent=2, ensure_ascii=False
     )
+    working_config_json = json.dumps(
+        json.loads(raw_json), indent=2, ensure_ascii=False
+    )
 
     # 8. Cache session state
     token = secrets.token_urlsafe(32)
@@ -565,7 +588,17 @@ async def validate(
         discovery=discovery,
         reconciliation=reconciliation,
         skip_refs=skip_refs,
+        flow_ir=flow_irs,
+        mermaid_diagrams=mermaid_diagrams,
+        working_config_json=working_config_json,
     )
+
+    had_funds_flows = bool(flow_irs)
+    if had_funds_flows:
+        return RedirectResponse(
+            url=f"/flows?session_token={token}",
+            status_code=303,
+        )
 
     return templates.TemplateResponse(
         request,
@@ -623,10 +656,18 @@ async def revalidate(
             "\n".join(detail_lines) or str(e),
         )
 
+    original_funds_flows_reval = list(config.funds_flows)
     try:
-        config = maybe_compile(config)
+        config, flow_irs_reval = maybe_compile(config)
     except (ValueError, KeyError, NotImplementedError) as e:
         return _error_response("Compiler Error", str(e))
+
+    mermaid_diagrams_reval = None
+    if flow_irs_reval and original_funds_flows_reval:
+        mermaid_diagrams_reval = [
+            render_mermaid(ir, fc)
+            for ir, fc in zip(flow_irs_reval[:10], original_funds_flows_reval[:10])
+        ]
 
     async with AsyncModernTreasury(
         api_key=session.api_key, organization_id=session.org_id
@@ -728,6 +769,9 @@ async def revalidate(
         discovery=discovery,
         reconciliation=reconciliation,
         skip_refs=skip_refs,
+        flow_ir=flow_irs_reval,
+        mermaid_diagrams=mermaid_diagrams_reval,
+        working_config_json=session.working_config_json,
     )
 
     del _sessions[session_token]
@@ -753,6 +797,7 @@ async def revalidate(
             "reconciliation": reconciliation,
             "config_json_text": config_json_text,
             "discovered_by_type": _build_discovered_by_type(discovery),
+            "has_funds_flows": bool(flow_irs_reval),
         },
     )
 
@@ -892,6 +937,304 @@ async def list_runs(request: Request):
         request,
         "runs.html",
         {"manifests": manifests, "deletability": DELETABILITY},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Generation API endpoints (Step 3)
+# ---------------------------------------------------------------------------
+
+
+def _get_session(request: Request) -> tuple[str, _SessionState | None]:
+    """Extract session token and state from request headers."""
+    token = request.headers.get("x-session-token", "")
+    return token, _sessions.get(token)
+
+
+_GEN_SECTIONS = (
+    "payment_orders", "incoming_payment_details", "ledger_transactions",
+    "expected_payments", "returns", "reversals", "transition_ledger_transactions",
+)
+
+
+def _count_resources(config: DataLoaderConfig) -> dict[str, int]:
+    return {s: len(getattr(config, s, [])) for s in _GEN_SECTIONS}
+
+
+@app.post("/api/flows/generate-preview")
+async def generate_preview(request: Request):
+    """Return compile stats + Mermaid diagrams without executing."""
+    session_token, session = _get_session(request)
+    if not session:
+        return HTMLResponse(
+            content=json.dumps({"error": "Session not found. Please validate a config first."}),
+            status_code=401, media_type="application/json",
+        )
+
+    try:
+        body = await request.body()
+        recipe = GenerationRecipeV1.model_validate_json(body)
+    except ValidationError as e:
+        return HTMLResponse(
+            content=json.dumps({"error": "Invalid recipe", "detail": _format_validation_errors(e)}),
+            status_code=422, media_type="application/json",
+        )
+
+    try:
+        compiled, diagrams = generate_from_recipe(recipe, base_config=session.config)
+    except (ValueError, KeyError) as e:
+        return HTMLResponse(
+            content=json.dumps({"error": "Generation failed", "detail": str(e)}),
+            status_code=400, media_type="application/json",
+        )
+
+    counts = _count_resources(compiled)
+    total = sum(counts.values())
+    batches = dry_run(compiled)
+    api_calls = sum(len(b) for b in batches)
+    needs_confirmation = api_calls > 10000
+
+    return {
+        "counts_by_type": counts,
+        "total_resources": total,
+        "estimated_batches": len(batches),
+        "estimated_api_calls": api_calls,
+        "staged_count": recipe.staged_count,
+        "mermaid_diagrams": diagrams,
+        "needs_confirmation": needs_confirmation,
+        "confirm_token": secrets.token_urlsafe(16) if needs_confirmation else None,
+    }
+
+
+@app.post("/api/flows/recipe-to-working-config")
+async def recipe_to_working_config(request: Request):
+    """Compile recipe into a working config and store in session."""
+    session_token, session = _get_session(request)
+    if not session:
+        return HTMLResponse(
+            content=json.dumps({"error": "Session not found."}),
+            status_code=401, media_type="application/json",
+        )
+
+    try:
+        body = await request.body()
+        recipe = GenerationRecipeV1.model_validate_json(body)
+    except ValidationError as e:
+        return HTMLResponse(
+            content=json.dumps({"error": "Invalid recipe", "detail": _format_validation_errors(e)}),
+            status_code=422, media_type="application/json",
+        )
+
+    try:
+        compiled, diagrams = generate_from_recipe(recipe, base_config=session.config)
+    except (ValueError, KeyError) as e:
+        return HTMLResponse(
+            content=json.dumps({"error": "Generation failed", "detail": str(e)}),
+            status_code=400, media_type="application/json",
+        )
+
+    session.config = compiled
+    session.config_json_text = compiled.model_dump_json(indent=2, exclude_none=True)
+    session.working_config_json = session.config_json_text
+    session.mermaid_diagrams = diagrams
+    session.generation_recipe = recipe.model_dump()
+
+    batches = dry_run(compiled)
+    session.batches = batches
+    resource_map = {typed_ref_for(r): r for r in all_resources(compiled)}
+    session.preview_items = _build_preview(batches, resource_map)
+
+    return {
+        "status": "ok",
+        "total_resources": sum(_count_resources(compiled).values()),
+        "mermaid_count": len(diagrams),
+    }
+
+
+@app.post("/api/flows/generate-execute")
+async def generate_execute(request: Request):
+    """Compile recipe and feed directly into the execution pipeline."""
+    session_token, session = _get_session(request)
+    if not session:
+        return HTMLResponse(
+            content=json.dumps({"error": "Session not found."}),
+            status_code=401, media_type="application/json",
+        )
+
+    try:
+        body = await request.body()
+        recipe = GenerationRecipeV1.model_validate_json(body)
+    except ValidationError as e:
+        return HTMLResponse(
+            content=json.dumps({"error": "Invalid recipe", "detail": _format_validation_errors(e)}),
+            status_code=422, media_type="application/json",
+        )
+
+    try:
+        compiled, diagrams = generate_from_recipe(recipe, base_config=session.config)
+    except (ValueError, KeyError) as e:
+        return HTMLResponse(
+            content=json.dumps({"error": "Generation failed", "detail": str(e)}),
+            status_code=400, media_type="application/json",
+        )
+
+    session.config = compiled
+    session.mermaid_diagrams = diagrams
+    session.generation_recipe = recipe.model_dump()
+    batches = dry_run(compiled)
+    session.batches = batches
+
+    return {
+        "status": "ok",
+        "estimated_batches": len(batches),
+        "estimated_api_calls": sum(len(b) for b in batches),
+        "session_token": session_token,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Fund Flows routes (Step 4)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/flows", include_in_schema=False)
+async def flows_page(request: Request):
+    """Fund Flows list page — compile-time view of flow patterns."""
+    session_token = request.query_params.get("session_token", "")
+    session = _sessions.get(session_token)
+
+    if not session:
+        return RedirectResponse(url="/setup")
+
+    diagnostics = None
+    if session.flow_ir:
+        diagnostics = compile_diagnostics(session.flow_ir)
+
+    flow_summaries = []
+    if session.flow_ir:
+        for i, ir in enumerate(session.flow_ir):
+            flow_summaries.append({
+                "index": i,
+                "flow_ref": ir.flow_ref,
+                "pattern_type": ir.pattern_type,
+                "trace_key": ir.trace_key,
+                "trace_value": ir.trace_value,
+                "step_count": len(ir.steps),
+                "status": compute_flow_status(ir),
+                "account_deltas": flow_account_deltas(ir),
+            })
+
+    return templates.TemplateResponse(
+        request,
+        "flows.html",
+        {
+            "session_token": session_token,
+            "has_funds_flows": bool(session.flow_ir),
+            "flow_summaries": flow_summaries,
+            "mermaid_diagrams": session.mermaid_diagrams or [],
+            "diagnostics": diagnostics,
+            "working_config_json": session.working_config_json or session.config_json_text,
+            "generation_recipe": session.generation_recipe,
+            "config_json_text": session.config_json_text,
+        },
+    )
+
+
+@app.get("/flows/view/{flow_idx}", include_in_schema=False)
+async def flows_view_page(request: Request, flow_idx: int):
+    """Fund Flow detail — multi-column scroll-synced view from FlowIR."""
+    session_token = request.query_params.get("session_token", "")
+    session = _sessions.get(session_token)
+    if not session or not session.flow_ir or flow_idx >= len(session.flow_ir):
+        return RedirectResponse(url="/setup")
+
+    flow_ir = session.flow_ir[flow_idx]
+
+    transactions = []
+    account_ids: set[str] = set()
+    for step in flow_ir.steps:
+        entries_by_account: dict[str, dict[str, list]] = {}
+        for lg in step.ledger_groups:
+            for entry in lg.entries:
+                aid = entry.get("ledger_account_id", "")
+                if aid:
+                    account_ids.add(aid)
+                if aid not in entries_by_account:
+                    entries_by_account[aid] = {"debit": [], "credit": []}
+                direction = entry.get("direction", "")
+                amt = entry.get("amount", 0)
+                entries_by_account[aid][direction].append({
+                    "amount": f"${amt / 100:,.2f}" if isinstance(amt, (int, float)) else str(amt),
+                })
+        transactions.append({
+            "step_id": step.step_id,
+            "description": step.payload.get("description", step.step_id),
+            "resource_type": step.resource_type,
+            "status": "compiled",
+            "entries_by_account": entries_by_account,
+            "edge_case": step.optional_group is not None,
+            "edge_group": step.optional_group or "",
+        })
+
+    account_balances = []
+    deltas = flow_account_deltas(flow_ir)
+    for aid in sorted(account_ids):
+        display = actor_display_name(aid) if aid else "Unknown"
+        net = deltas.get(aid, 0)
+        account_balances.append({
+            "id": aid,
+            "name": display,
+            "normal_balance": "—",
+            "pending_balance": f"${abs(net) / 100:,.2f}" if net else "—",
+            "posted_balance": "—",
+        })
+
+    mermaid_text = None
+    if session.mermaid_diagrams and flow_idx < len(session.mermaid_diagrams):
+        mermaid_text = session.mermaid_diagrams[flow_idx]
+
+    return templates.TemplateResponse(
+        request,
+        "flows_view.html",
+        {
+            "session_token": session_token,
+            "flow_idx": flow_idx,
+            "transactions": transactions,
+            "account_balances": account_balances,
+            "mermaid_text": mermaid_text,
+            "metadata_key": flow_ir.trace_key,
+            "metadata_value": flow_ir.trace_value,
+        },
+    )
+
+
+@app.get("/preview", include_in_schema=False)
+async def preview_page(request: Request):
+    """Preview page from session state (bidirectional toggle from Flows)."""
+    session_token = request.query_params.get("session_token", "")
+    session = _sessions.get(session_token)
+    if not session:
+        return RedirectResponse(url="/setup")
+
+    return templates.TemplateResponse(
+        request,
+        "preview.html",
+        {
+            "session_token": session_token,
+            "batches": session.batches,
+            "preview_items": session.preview_items,
+            "preflight": session.preflight,
+            "config_hash": config_hash(session.config),
+            "resource_count": sum(len(b) for b in session.batches),
+            "deletable_count": sum(1 for i in session.preview_items if i["deletable"]),
+            "non_deletable_count": sum(1 for i in session.preview_items if not i["deletable"]),
+            "display_phases": DisplayPhase,
+            "discovery": session.discovery,
+            "reconciliation": session.reconciliation,
+            "config_json_text": session.config_json_text,
+            "discovered_by_type": _build_discovered_by_type(session.discovery),
+            "has_funds_flows": bool(session.flow_ir),
+        },
     )
 
 

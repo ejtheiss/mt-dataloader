@@ -48,6 +48,7 @@ __all__ = [
     "create_reversal",
     "create_category_membership",
     "create_nested_category",
+    "transition_ledger_transaction",
 ]
 
 # ---------------------------------------------------------------------------
@@ -79,6 +80,7 @@ DELETABILITY: dict[str, bool] = {
     "reversal": False,
     "category_membership": True,
     "nested_category": True,
+    "transition_ledger_transaction": False,
 }
 
 # ---------------------------------------------------------------------------
@@ -488,6 +490,9 @@ async def create_expected_payment(
     typed_ref: str = "",
 ) -> HandlerResult:
     logger.bind(ref=typed_ref).info("Creating expected payment")
+    meta = resolved.get("metadata", {})
+    if meta:
+        resolved["metadata"] = {k: v for k, v in meta.items() if not k.startswith("_flow_")}
     result = await client.expected_payments.create(
         **resolved,
         idempotency_key=idempotency_key,
@@ -516,6 +521,10 @@ async def create_payment_order(
         payload_keys=sorted(resolved.keys()),
     ).info("Creating payment order")
     logger.bind(ref=typed_ref, resolved_payload=resolved).debug("Full PO payload")
+
+    meta = resolved.get("metadata", {})
+    if meta:
+        resolved["metadata"] = {k: v for k, v in meta.items() if not k.startswith("_flow_")}
 
     try:
         result = await client.payment_orders.create(
@@ -602,6 +611,9 @@ async def create_ledger_transaction(
     typed_ref: str = "",
 ) -> HandlerResult:
     logger.bind(ref=typed_ref).info("Creating ledger transaction")
+    meta = resolved.get("metadata", {})
+    if meta:
+        resolved["metadata"] = {k: v for k, v in meta.items() if not k.startswith("_flow_")}
     result = await client.ledger_transactions.create(
         **resolved,
         idempotency_key=idempotency_key,
@@ -751,6 +763,36 @@ async def create_nested_category(
 
 
 # ---------------------------------------------------------------------------
+# Lifecycle transition handlers
+# ---------------------------------------------------------------------------
+
+
+async def transition_ledger_transaction(
+    client: AsyncModernTreasury,
+    emit_sse: EmitFn,
+    resolved: dict,
+    *,
+    idempotency_key: str,
+    typed_ref: str = "",
+) -> HandlerResult:
+    """Update an existing LT's status (e.g., pending -> posted)."""
+    logger.bind(ref=typed_ref).info("Transitioning ledger transaction")
+    lt_id = resolved.pop("ledger_transaction_id")
+    new_status = resolved.pop("status")
+
+    result = await client.ledger_transactions.update(
+        lt_id,
+        status=new_status,
+        idempotency_key=idempotency_key,
+    )
+    return HandlerResult(
+        created_id=result.id,
+        resource_type="transition_ledger_transaction",
+        deletable=DELETABILITY["transition_ledger_transaction"],
+    )
+
+
+# ---------------------------------------------------------------------------
 # Dispatch table factory
 # ---------------------------------------------------------------------------
 
@@ -788,4 +830,7 @@ def build_handler_dispatch(
         "reversal": bind(create_reversal, client, emit_sse),
         "category_membership": bind(create_category_membership, client, emit_sse),
         "nested_category": bind(create_nested_category, client, emit_sse),
+        "transition_ledger_transaction": bind(
+            transition_ledger_transaction, client, emit_sse
+        ),
     }

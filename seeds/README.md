@@ -1,18 +1,37 @@
-# Seed Catalog for Pattern Expansion
+# Seed Catalog — Profile Data for Generation
 
-This directory contains curated YAML seed data for generating high-volume, pattern-based transaction scenarios.
+This directory contains curated YAML profile data used to inject
+name/identity variety when scaling funds flows ("generate 100 of these").
+
+## What belongs here
+
+- **Business profiles** — company names, industries, countries
+- **Individual profiles** — first/last names for counterparties
+
+## What does NOT belong here
+
+- **Flow patterns** — live inline in JSON configs (`funds_flows` section)
+- **Mutation profiles** — inline settings on `GenerationRecipeV1`
+- **Edge case configs** — inline settings on `GenerationRecipeV1`
 
 ## Files
 
-- `seed_catalog.yaml`: **single file** containing all seed data — business profiles, individual profiles, flow patterns, mutation profiles, edge cases, and recommended compositions. Consolidating into one file simplifies loading, validation, and versioning.
+- `seed_catalog.yaml` — single file containing all profile data.
 
-## When to split
+## How profiles are used
 
-If any single section grows past ~500 lines, split that section into its own file and reference it from the catalog. Until then, one file is simpler.
+The generation pipeline picks profiles by modular cycling:
+
+```python
+profile = profiles[instance_index % len(profiles)]
+```
+
+For N > profile count, profiles repeat deterministically.
 
 ## Why YAML
 
-YAML is easy to review and edit by non-engineers while staying git-friendly.
+YAML is easy to review and edit by non-engineers while staying
+git-friendly.
 
 ## When to change format
 
@@ -20,4 +39,5 @@ If this grows into a large corpus, move to:
 - `sqlite` for indexed weighted sampling and fast filtering
 - `parquet` for analytical-scale seed sets
 
-Keep YAML as the authoring format and compile it into a runtime index if needed.
+Keep YAML as the authoring format and compile it into a runtime
+index if needed.

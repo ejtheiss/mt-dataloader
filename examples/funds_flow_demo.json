@@ -55,6 +55,7 @@
           "type": "ledger_transaction",
           "depends_on": ["deposit"],
           "description": "Book the settled deposit to ledger",
+          "ledger_status": "pending",
           "ledger_entries": [
             {
               "ledger_account_id": "@actor:cash_ledger",
@@ -65,6 +66,51 @@
               "ledger_account_id": "@actor:revenue_ledger",
               "amount": 50000,
               "direction": "credit"
+            }
+          ]
+        },
+        {
+          "step_id": "post_settle",
+          "type": "transition_ledger_transaction",
+          "depends_on": ["settle"],
+          "status": "posted",
+          "description": "Post the settlement LT after deposit completes"
+        }
+      ],
+      "optional_groups": [
+        {
+          "label": "Customer requests return",
+          "trigger": "manual",
+          "steps": [
+            {
+              "step_id": "return_deposit",
+              "type": "return",
+              "depends_on": ["deposit"]
+            },
+            {
+              "step_id": "archive_settle",
+              "type": "transition_ledger_transaction",
+              "depends_on": ["settle"],
+              "status": "archived",
+              "description": "Archive the original settlement LT"
+            },
+            {
+              "step_id": "reverse_settle",
+              "type": "ledger_transaction",
+              "depends_on": ["return_deposit"],
+              "description": "Reverse the settled deposit",
+              "ledger_entries": [
+                {
+                  "ledger_account_id": "@actor:cash_ledger",
+                  "amount": 50000,
+                  "direction": "credit"
+                },
+                {
+                  "ledger_account_id": "@actor:revenue_ledger",
+                  "amount": 50000,
+                  "direction": "debit"
+                }
+              ]
             }
           ]
         }

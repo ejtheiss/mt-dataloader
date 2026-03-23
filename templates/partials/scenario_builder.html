@@ -1,0 +1,119 @@
+{% if flow_summaries %}
+<div class="scenario-builder">
+    <h3>Generate at Scale</h3>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Flow Pattern</label>
+            <select id="gen-flow-ref">
+                {% for fs in flow_summaries %}
+                <option value="{{ fs.flow_ref }}">{{ fs.flow_ref }} ({{ fs.pattern_type }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Instances</label>
+            <input type="number" id="gen-instances" value="100" min="1" max="5000">
+        </div>
+        <div class="form-group">
+            <label>Seed</label>
+            <input type="number" id="gen-seed" value="424242">
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Edge case freq</label>
+            <input type="number" id="gen-edge" value="0.0" min="0" max="1" step="0.01">
+        </div>
+        <div class="form-group">
+            <label>Amount variance %</label>
+            <input type="number" id="gen-variance" value="0.0" min="0" max="100" step="0.5">
+        </div>
+        <div class="form-group">
+            <label>Staged count</label>
+            <input type="number" id="gen-staged" value="0" min="0">
+        </div>
+        <div class="form-group">
+            <label>Staged selection</label>
+            <select id="gen-staged-sel">
+                <option value="first">First N</option>
+                <option value="random">Random N</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="canned-commands">
+        <button class="btn btn-sm btn-outline" onclick="setPreset(100, 0, 0, 0)">Scale to 100</button>
+        <button class="btn btn-sm btn-outline" onclick="setPreset(100, 0.05, 0, 0)">100 + 5% edges</button>
+        <button class="btn btn-sm btn-outline" onclick="setPreset(100, 0.05, 5, 1)">100 + edges + variance + 1 staged</button>
+    </div>
+
+    <div class="scenario-actions">
+        <button class="btn btn-secondary" onclick="generatePreview()">Generate Preview</button>
+        <button class="btn btn-primary" onclick="applyToConfig()">Apply to Config</button>
+    </div>
+
+    <div id="gen-preview-result"></div>
+</div>
+
+<script>
+function buildRecipe() {
+    return {
+        version: "v1",
+        flow_ref: document.getElementById('gen-flow-ref').value,
+        instances: parseInt(document.getElementById('gen-instances').value),
+        seed: parseInt(document.getElementById('gen-seed').value),
+        edge_case_frequency: parseFloat(document.getElementById('gen-edge').value),
+        amount_variance_pct: parseFloat(document.getElementById('gen-variance').value),
+        staged_count: parseInt(document.getElementById('gen-staged').value),
+        staged_selection: document.getElementById('gen-staged-sel').value,
+    };
+}
+
+function setPreset(instances, edge, variance, staged) {
+    document.getElementById('gen-instances').value = instances;
+    document.getElementById('gen-edge').value = edge;
+    document.getElementById('gen-variance').value = variance;
+    document.getElementById('gen-staged').value = staged;
+}
+
+async function generatePreview() {
+    var recipe = buildRecipe();
+    var resp = await fetch('/api/flows/generate-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Session-Token': '{{ session_token }}' },
+        body: JSON.stringify(recipe)
+    });
+    var data = await resp.json();
+    var el = document.getElementById('gen-preview-result');
+    if (data.error) {
+        el.innerHTML = '<div class="error-alert"><h3>Error</h3><p>' + data.error + '</p></div>';
+        return;
+    }
+    var html = '<div class="gen-preview-stats">' +
+        '<strong>' + data.total_resources + '</strong> resources, ' +
+        '<strong>' + data.estimated_api_calls + '</strong> API calls, ' +
+        '<strong>' + data.estimated_batches + '</strong> batches';
+    if (data.needs_confirmation) {
+        html += '<br><span class="warning-badge">Large run — will require confirmation</span>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+async function applyToConfig() {
+    var recipe = buildRecipe();
+    var resp = await fetch('/api/flows/recipe-to-working-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Session-Token': '{{ session_token }}' },
+        body: JSON.stringify(recipe)
+    });
+    var data = await resp.json();
+    if (data.error) {
+        document.getElementById('gen-preview-result').innerHTML =
+            '<div class="error-alert"><h3>Error</h3><p>' + data.error + '</p></div>';
+        return;
+    }
+    window.location.href = '/flows?session_token={{ session_token }}';
+}
+</script>
+{% endif %}

@@ -1,8 +1,21 @@
 <div class="resource-table" id="resource-table">
     <div class="table-toolbar">
-        <button type="button" class="btn btn-sm btn-outline" id="btn-toggle-view">
+        <input type="text" id="resource-search" placeholder="Search refs, types..."
+               class="resource-search" oninput="searchResources(this.value)"
+               style="padding: 6px 10px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); width: 200px;">
+        <div class="flow-filter-toolbar" style="margin-left: 8px;">
+            <select id="edge-case-filter" onchange="filterEdgeCases(this.value)"
+                    style="padding: 6px 10px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);">
+                <option value="all">Show all</option>
+                <option value="happy">Happy path only</option>
+                <option value="edge">Edge cases only</option>
+            </select>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline" id="btn-toggle-view" style="margin-left: 8px;">
             Show Advanced
         </button>
+        <button class="btn btn-sm btn-outline" onclick="exportPreviewJSON()" style="margin-left: auto;">Export JSON</button>
+        <button class="btn btn-sm btn-outline" onclick="exportPreviewCSV()">Export CSV</button>
     </div>
 
     {% for phase_value, phase_name in [(1, "Setup"), (2, "Business"), (3, "Lifecycle"), (4, "Mutations")] %}
@@ -16,9 +29,9 @@
             <table class="preview-table">
                 <thead>
                     <tr>
-                        <th>Batch</th>
-                        <th>Type</th>
-                        <th>Ref</th>
+                        <th data-sort="batch" class="sortable" onclick="sortTable(this, 'num')">Batch</th>
+                        <th data-sort="type" class="sortable" onclick="sortTable(this, 'text')">Type</th>
+                        <th data-sort="ref" class="sortable" onclick="sortTable(this, 'text')">Ref</th>
                         <th>Metadata</th>
                         <th class="col-adv">Dependencies</th>
                         <th class="col-adv">Sandbox</th>
@@ -46,6 +59,11 @@
                         {% endif %}
                     </td>
                     <td>
+                        {% if item.metadata and item.metadata.get("_flow_optional_group") %}
+                        <span class="edge-case-badge" title="Edge case: {{ item.metadata._flow_optional_group }}">
+                            Edge: {{ item.metadata._flow_optional_group }}
+                        </span>
+                        {% endif %}
                         {% if item.has_metadata %}
                         <details class="metadata-expand">
                             <summary>{{ item.metadata|length }} key(s)</summary>
@@ -89,4 +107,74 @@
         btn.textContent = isAdv ? "Show Simple" : "Show Advanced";
     });
 })();
+
+function searchResources(query) {
+    var q = query.toLowerCase();
+    document.querySelectorAll('.preview-table tbody tr').forEach(function(row) {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+function filterEdgeCases(filter) {
+    document.querySelectorAll('.preview-table tbody tr').forEach(function(row) {
+        var badge = row.querySelector('.edge-case-badge');
+        if (filter === 'all') { row.style.display = ''; }
+        else if (filter === 'happy') { row.style.display = badge ? 'none' : ''; }
+        else if (filter === 'edge') { row.style.display = badge ? '' : 'none'; }
+    });
+}
+
+function sortTable(header, type) {
+    var table = header.closest('table');
+    var tbody = table.querySelector('tbody');
+    var rows = Array.from(tbody.querySelectorAll('tr'));
+    var colIdx = Array.from(header.parentNode.children).indexOf(header);
+    var asc = !header.classList.contains('sort-asc');
+
+    header.parentNode.querySelectorAll('th').forEach(function(th) {
+        th.classList.remove('sort-asc', 'sort-desc');
+    });
+    header.classList.add(asc ? 'sort-asc' : 'sort-desc');
+
+    rows.sort(function(a, b) {
+        var aVal = a.children[colIdx].textContent.trim();
+        var bVal = b.children[colIdx].textContent.trim();
+        if (type === 'num') { aVal = parseInt(aVal) || 0; bVal = parseInt(bVal) || 0; }
+        if (asc) return aVal > bVal ? 1 : -1;
+        return aVal < bVal ? 1 : -1;
+    });
+    rows.forEach(function(row) { tbody.appendChild(row); });
+}
+
+function csvEscape(val) {
+    var s = String(val);
+    if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) {
+        return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+}
+
+function exportPreviewJSON() {
+    var data = {{ preview_items | tojson }};
+    var blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'preview_resources.json';
+    a.click();
+}
+
+function exportPreviewCSV() {
+    var rows = [['Batch', 'Type', 'Ref', 'Deletable', 'Metadata']];
+    var data = {{ preview_items | tojson }};
+    data.forEach(function(item) {
+        rows.push([item.batch, item.resource_type, item.typed_ref,
+                   item.deletable, JSON.stringify(item.metadata || {})]);
+    });
+    var csv = rows.map(function(r) { return r.map(csvEscape).join(','); }).join('\n');
+    var blob = new Blob([csv], {type: 'text/csv'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'preview_resources.csv';
+    a.click();
+}
 </script>

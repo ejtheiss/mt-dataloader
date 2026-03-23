@@ -543,3 +543,23 @@ See `examples/staged_demo.json` for a full working example.
 
 Plan configs knowing that non-deletable resources (LEs, IAs, POs, IPDs)
 will persist in the sandbox org after cleanup.
+
+---
+
+## Funds Flows (lifecycle patterns)
+
+When the demo involves a multi-step payment lifecycle, use the `funds_flows`
+DSL section. This replaces manually building individual `payment_orders`,
+`incoming_payment_details`, `ledger_transactions`, `returns`, and
+`reversals` sections.
+
+**Use funds_flows when:**
+- The demo involves 2+ related payment/ledger steps
+- The SE wants to visualize the money flow
+- The SE will scale the pattern ("generate 100 of these")
+- The demo involves lifecycle variants (returns, reversals)
+
+**Use raw resource arrays when:**
+- Single isolated resources (one PO, one LT)
+- Complex non-linear patterns that don't fit the step model
+- Configs that mix funds_flows with additional standalone resources
