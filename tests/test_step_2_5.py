@@ -440,12 +440,12 @@ class TestRenderMermaid:
         output = render_mermaid(ir)
         assert "-)" in output
 
-    def test_lt_dotted_arrow(self):
+    def test_lt_sync_arrow(self):
         ir = _build_basic_flow_ir()
         output = render_mermaid(ir)
-        assert "-->>" in output
+        assert "->>" in output
 
-    def test_po_arrow(self):
+    def test_po_async_arrow(self):
         ir = FlowIR(
             flow_ref="po_flow", instance_id="0000", pattern_type="payout",
             trace_key="deal_id", trace_value="deal-po-0",
@@ -462,7 +462,7 @@ class TestRenderMermaid:
             )],
         )
         output = render_mermaid(ir)
-        assert "->>" in output
+        assert "-)" in output
         assert "OpsUsd" in output
 
     def test_return_cross_arrow(self):

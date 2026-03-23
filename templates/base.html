@@ -86,6 +86,11 @@
             credEl.textContent = orgId;
             credEl.title = "Org ID stored for this session";
         }
+        var token = new URLSearchParams(window.location.search).get('session_token');
+        if (token) {
+            var flowsLink = document.querySelector('a.sidebar-link[href="/flows"]');
+            if (flowsLink) flowsLink.href = '/flows?session_token=' + token;
+        }
     })();
     </script>
 </body>

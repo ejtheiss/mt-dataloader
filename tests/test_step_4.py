@@ -114,9 +114,9 @@ class TestMaybeCompileTuple:
 
 
 class TestComputeFlowStatus:
-    def test_compile_time_returns_compiled(self):
+    def test_compile_time_returns_preview(self):
         ir = _make_flow_ir()
-        assert compute_flow_status(ir) == "compiled"
+        assert compute_flow_status(ir) == "preview"
 
 
 # ---------------------------------------------------------------------------

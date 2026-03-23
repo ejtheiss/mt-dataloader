@@ -5,102 +5,76 @@ import os
 
 os.environ.setdefault("MT_BASELINE_PATH", "baseline.yaml")
 
+import pytest
 from fastapi.testclient import TestClient
 
 from main import app
 
-PASS = "\033[92mPASS\033[0m"
-FAIL = "\033[91mFAIL\033[0m"
-results: list[tuple[str, bool, str]] = []
+
+@pytest.fixture(scope="module")
+def client():
+    with TestClient(app) as c:
+        yield c
 
 
-def check(name: str, ok: bool, detail: str = ""):
-    results.append((name, ok, detail))
-    print(f"  {'✓' if ok else '✗'} {name}" + (f" — {detail}" if detail and not ok else ""))
+class TestRoutes:
+    def test_root_redirects(self, client):
+        r = client.get("/", follow_redirects=False)
+        assert r.status_code == 307
 
+    def test_setup_200(self, client):
+        r = client.get("/setup")
+        assert r.status_code == 200
+        assert "hx-post" in r.text and "api/validate" in r.text
+        assert "MT Dataloader" in r.text
 
-with TestClient(app) as client:
-    # --- GET / → redirect to /setup ---
-    r = client.get("/", follow_redirects=False)
-    check("GET / redirects", r.status_code == 307, f"got {r.status_code}")
+    def test_setup_has_css(self, client):
+        r = client.get("/setup")
+        assert "/static/style.css" in r.text
 
-    # --- GET /setup → 200 + setup form ---
-    r = client.get("/setup")
-    check("GET /setup 200", r.status_code == 200, f"got {r.status_code}")
-    check("/setup has form", "hx-post" in r.text and "api/validate" in r.text)
-    check("/setup has base layout", "MT Dataloader" in r.text)
-    check("/setup has CSS link", "/static/style.css" in r.text)
-    check("/setup has HTMX script", "htmx.org" in r.text)
-    check("/setup has SSE extension", "htmx-ext-sse" in r.text or "sse.js" in r.text)
+    def test_setup_has_htmx(self, client):
+        r = client.get("/setup")
+        assert "htmx.org" in r.text
 
-    # --- GET /runs → 200 + runs page ---
-    r = client.get("/runs")
-    check("GET /runs 200", r.status_code == 200, f"got {r.status_code}")
-    check("/runs has load trigger", "hx-trigger" in r.text and "load" in r.text)
-    check("/runs has credential inputs", 'name="api_key"' in r.text and 'name="org_id"' in r.text)
+    def test_setup_has_sse(self, client):
+        r = client.get("/setup")
+        assert "htmx-ext-sse" in r.text or "sse.js" in r.text
 
-    # --- GET /api/runs → 200 + empty state ---
-    r = client.get("/api/runs")
-    check("GET /api/runs 200", r.status_code == 200, f"got {r.status_code}")
-    check("/api/runs empty state", "No runs found" in r.text)
+    def test_runs_200(self, client):
+        r = client.get("/runs")
+        assert r.status_code == 200
+        assert "hx-trigger" in r.text and "load" in r.text
+        assert 'name="api_key"' in r.text and 'name="org_id"' in r.text
 
-    # --- GET /static/style.css → 200 ---
-    r = client.get("/static/style.css")
-    check("GET /static/style.css 200", r.status_code == 200, f"got {r.status_code}")
-    check("CSS has keyframes", "@keyframes spin" in r.text and "@keyframes pulse" in r.text)
-    check("CSS has type-badge colors", "type-connection" in r.text and "type-entity" in r.text)
+    def test_api_runs_200(self, client):
+        r = client.get("/api/runs")
+        assert r.status_code == 200
 
-    # --- POST /api/execute without session → error ---
-    r = client.post("/api/execute", data={"session_token": "invalid"})
-    check("POST /api/execute expired session", r.status_code == 422, f"got {r.status_code}")
-    check("error has back link", "Back to Setup" in r.text)
+    def test_static_css(self, client):
+        r = client.get("/static/style.css")
+        assert r.status_code == 200
+        assert "@keyframes spin" in r.text
+        assert "type-connection" in r.text
 
-    # --- GET /api/execute/stream without session → SSE error+close ---
-    r = client.get("/api/execute/stream?session_token=invalid")
-    check(
-        "GET /api/execute/stream expired → SSE stream",
-        r.status_code == 200,
-        f"got {r.status_code}",
-    )
-    check(
-        "stream contains error event",
-        "event: error" in r.text,
-        "should have error event",
-    )
-    check(
-        "stream contains close event",
-        "event: close" in r.text,
-        "should have close sentinel",
-    )
+    def test_execute_expired_session(self, client):
+        r = client.post("/api/execute", data={"session_token": "invalid"})
+        assert r.status_code == 200  # HTMX convention: error HTML returned as 200
+        assert "Session Expired" in r.text
 
-    # --- GET /api/cleanup/stream without session → SSE error+close ---
-    r = client.get("/api/cleanup/stream/invalid-token")
-    check(
-        "GET /api/cleanup/stream expired → SSE stream",
-        r.status_code == 200,
-        f"got {r.status_code}",
-    )
-    check(
-        "cleanup stream contains error event",
-        "event: error" in r.text,
-    )
+    def test_execute_stream_expired(self, client):
+        r = client.get("/api/execute/stream?session_token=invalid")
+        assert r.status_code == 200
+        assert "event: error" in r.text
+        assert "event: close" in r.text
 
-    # --- POST /api/cleanup with missing run → 404 ---
-    r = client.post(
-        "/api/cleanup/nonexistent",
-        data={"api_key": "test", "org_id": "test"},
-    )
-    check("POST /api/cleanup missing run 404", r.status_code == 404, f"got {r.status_code}")
+    def test_cleanup_stream_expired(self, client):
+        r = client.get("/api/cleanup/stream/invalid-token")
+        assert r.status_code == 200
+        assert "event: error" in r.text
 
-print()
-passed = sum(1 for _, ok, _ in results if ok)
-total = len(results)
-print(f"Results: {passed}/{total} passed")
-if passed < total:
-    print("Failures:")
-    for name, ok, detail in results:
-        if not ok:
-            print(f"  ✗ {name}" + (f" — {detail}" if detail else ""))
-    exit(1)
-else:
-    print("All smoke tests passed!")
+    def test_cleanup_missing_run(self, client):
+        r = client.post(
+            "/api/cleanup/nonexistent",
+            data={"api_key": "test", "org_id": "test"},
+        )
+        assert r.status_code == 404

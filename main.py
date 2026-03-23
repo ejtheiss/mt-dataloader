@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
@@ -59,6 +59,7 @@ from engine import (
     typed_ref_for,
 )
 from flow_compiler import (
+    FlowIR,
     actor_display_name,
     compile_diagnostics,
     compute_flow_status,
@@ -138,7 +139,7 @@ class _SessionState:
     reconciliation: ReconciliationResult | None = None
     skip_refs: set[str] = field(default_factory=set)
     created_at: float = field(default_factory=time.time)
-    flow_ir: list[Any] | None = None
+    flow_ir: list[FlowIR] | None = None
     generation_recipe: dict | None = None
     working_config_json: str | None = None
     mermaid_diagrams: list[str] | None = None
@@ -274,6 +275,8 @@ def _error_html(title: str, detail: str) -> str:
 
 
 def _error_response(title: str, detail: str, status_code: int = 200) -> HTMLResponse:
+    """Return error as HTML partial. Default 200 so HTMX swaps the content
+    inline (base.html htmx:beforeSwap handles 4xx/5xx differently)."""
     return HTMLResponse(content=_error_html(title, detail), status_code=status_code)
 
 
@@ -568,9 +571,7 @@ async def validate(
     config_json_text = json.dumps(
         json.loads(raw_json), indent=2, ensure_ascii=False
     )
-    working_config_json = json.dumps(
-        json.loads(raw_json), indent=2, ensure_ascii=False
-    )
+    working_config_json = config_json_text
 
     # 8. Cache session state
     token = secrets.token_urlsafe(32)
@@ -958,39 +959,55 @@ _GEN_SECTIONS = (
 
 
 def _count_resources(config: DataLoaderConfig) -> dict[str, int]:
-    return {s: len(getattr(config, s, [])) for s in _GEN_SECTIONS}
+    return {s: len(getattr(config, s, None) or []) for s in _GEN_SECTIONS}
 
 
-@app.post("/api/flows/generate-preview")
-async def generate_preview(request: Request):
-    """Return compile stats + Mermaid diagrams without executing."""
+async def _parse_and_compile_recipe(
+    request: Request,
+) -> tuple[str, _SessionState, GenerationRecipeV1, DataLoaderConfig, list[str]]:
+    """Shared parse → compile helper for generation endpoints.
+
+    Returns (session_token, session, recipe, compiled_config, mermaid_diagrams).
+    Raises JSONResponse on error.
+    """
     session_token, session = _get_session(request)
     if not session:
-        return HTMLResponse(
-            content=json.dumps({"error": "Session not found. Please validate a config first."}),
-            status_code=401, media_type="application/json",
+        raise JSONResponse(
+            content={"error": "Session not found. Please validate a config first."},
+            status_code=401,
         )
 
     try:
         body = await request.body()
         recipe = GenerationRecipeV1.model_validate_json(body)
     except ValidationError as e:
-        return HTMLResponse(
-            content=json.dumps({"error": "Invalid recipe", "detail": _format_validation_errors(e)}),
-            status_code=422, media_type="application/json",
+        raise JSONResponse(
+            content={"error": "Invalid recipe", "detail": _format_validation_errors(e)},
+            status_code=422,
         )
 
     try:
         compiled, diagrams = generate_from_recipe(recipe, base_config=session.config)
     except (ValueError, KeyError) as e:
-        return HTMLResponse(
-            content=json.dumps({"error": "Generation failed", "detail": str(e)}),
-            status_code=400, media_type="application/json",
+        raise JSONResponse(
+            content={"error": "Generation failed", "detail": str(e)},
+            status_code=400,
         )
+
+    return session_token, session, recipe, compiled, diagrams
+
+
+@app.post("/api/flows/generate-preview")
+async def generate_preview(request: Request):
+    """Return compile stats + Mermaid diagrams without executing."""
+    try:
+        session_token, session, recipe, compiled, diagrams = await _parse_and_compile_recipe(request)
+    except JSONResponse as resp:
+        return resp
 
     counts = _count_resources(compiled)
     total = sum(counts.values())
-    batches = dry_run(compiled)
+    batches = dry_run(compiled, session.baseline_refs, skip_refs=session.skip_refs)
     api_calls = sum(len(b) for b in batches)
     needs_confirmation = api_calls > 10000
 
@@ -1009,37 +1026,19 @@ async def generate_preview(request: Request):
 @app.post("/api/flows/recipe-to-working-config")
 async def recipe_to_working_config(request: Request):
     """Compile recipe into a working config and store in session."""
-    session_token, session = _get_session(request)
-    if not session:
-        return HTMLResponse(
-            content=json.dumps({"error": "Session not found."}),
-            status_code=401, media_type="application/json",
-        )
-
     try:
-        body = await request.body()
-        recipe = GenerationRecipeV1.model_validate_json(body)
-    except ValidationError as e:
-        return HTMLResponse(
-            content=json.dumps({"error": "Invalid recipe", "detail": _format_validation_errors(e)}),
-            status_code=422, media_type="application/json",
-        )
-
-    try:
-        compiled, diagrams = generate_from_recipe(recipe, base_config=session.config)
-    except (ValueError, KeyError) as e:
-        return HTMLResponse(
-            content=json.dumps({"error": "Generation failed", "detail": str(e)}),
-            status_code=400, media_type="application/json",
-        )
+        session_token, session, recipe, compiled, diagrams = await _parse_and_compile_recipe(request)
+    except JSONResponse as resp:
+        return resp
 
     session.config = compiled
-    session.config_json_text = compiled.model_dump_json(indent=2, exclude_none=True)
-    session.working_config_json = session.config_json_text
+    config_json_text = compiled.model_dump_json(indent=2, exclude_none=True)
+    session.config_json_text = config_json_text
+    session.working_config_json = config_json_text
     session.mermaid_diagrams = diagrams
     session.generation_recipe = recipe.model_dump()
 
-    batches = dry_run(compiled)
+    batches = dry_run(compiled, session.baseline_refs, skip_refs=session.skip_refs)
     session.batches = batches
     resource_map = {typed_ref_for(r): r for r in all_resources(compiled)}
     session.preview_items = _build_preview(batches, resource_map)
@@ -1054,34 +1053,15 @@ async def recipe_to_working_config(request: Request):
 @app.post("/api/flows/generate-execute")
 async def generate_execute(request: Request):
     """Compile recipe and feed directly into the execution pipeline."""
-    session_token, session = _get_session(request)
-    if not session:
-        return HTMLResponse(
-            content=json.dumps({"error": "Session not found."}),
-            status_code=401, media_type="application/json",
-        )
-
     try:
-        body = await request.body()
-        recipe = GenerationRecipeV1.model_validate_json(body)
-    except ValidationError as e:
-        return HTMLResponse(
-            content=json.dumps({"error": "Invalid recipe", "detail": _format_validation_errors(e)}),
-            status_code=422, media_type="application/json",
-        )
-
-    try:
-        compiled, diagrams = generate_from_recipe(recipe, base_config=session.config)
-    except (ValueError, KeyError) as e:
-        return HTMLResponse(
-            content=json.dumps({"error": "Generation failed", "detail": str(e)}),
-            status_code=400, media_type="application/json",
-        )
+        session_token, session, recipe, compiled, diagrams = await _parse_and_compile_recipe(request)
+    except JSONResponse as resp:
+        return resp
 
     session.config = compiled
     session.mermaid_diagrams = diagrams
     session.generation_recipe = recipe.model_dump()
-    batches = dry_run(compiled)
+    batches = dry_run(compiled, session.baseline_refs, skip_refs=session.skip_refs)
     session.batches = batches
 
     return {
@@ -1149,20 +1129,22 @@ async def flows_view_page(request: Request, flow_idx: int):
     """Fund Flow detail — multi-column scroll-synced view from FlowIR."""
     session_token = request.query_params.get("session_token", "")
     session = _sessions.get(session_token)
-    if not session or not session.flow_ir or flow_idx >= len(session.flow_ir):
+    if not session or not session.flow_ir or flow_idx < 0 or flow_idx >= len(session.flow_ir):
         return RedirectResponse(url="/setup")
 
     flow_ir = session.flow_ir[flow_idx]
 
     transactions = []
-    account_ids: set[str] = set()
+    account_ids_seen: set[str] = set()
+    account_ids_ordered: list[str] = []
     for step in flow_ir.steps:
         entries_by_account: dict[str, dict[str, list]] = {}
         for lg in step.ledger_groups:
             for entry in lg.entries:
                 aid = entry.get("ledger_account_id", "")
-                if aid:
-                    account_ids.add(aid)
+                if aid and aid not in account_ids_seen:
+                    account_ids_seen.add(aid)
+                    account_ids_ordered.append(aid)
                 if aid not in entries_by_account:
                     entries_by_account[aid] = {"debit": [], "credit": []}
                 direction = entry.get("direction", "")
@@ -1174,7 +1156,7 @@ async def flows_view_page(request: Request, flow_idx: int):
             "step_id": step.step_id,
             "description": step.payload.get("description", step.step_id),
             "resource_type": step.resource_type,
-            "status": "compiled",
+            "status": "preview",
             "entries_by_account": entries_by_account,
             "edge_case": step.optional_group is not None,
             "edge_group": step.optional_group or "",
@@ -1182,14 +1164,14 @@ async def flows_view_page(request: Request, flow_idx: int):
 
     account_balances = []
     deltas = flow_account_deltas(flow_ir)
-    for aid in sorted(account_ids):
+    for aid in account_ids_ordered:
         display = actor_display_name(aid) if aid else "Unknown"
         net = deltas.get(aid, 0)
         account_balances.append({
             "id": aid,
             "name": display,
             "normal_balance": "—",
-            "pending_balance": f"${abs(net) / 100:,.2f}" if net else "—",
+            "pending_balance": f"${abs(net) / 100:,.2f}" if net else "$0.00",
             "posted_balance": "—",
         })
 

@@ -160,21 +160,27 @@ def _auto_derive_lifecycle_refs(
     """Auto-set returnable_id / payment_order_id / ledger_transaction_id from depends_on targets."""
     if step.type == "return" and "returnable_id" not in step_dict:
         for dep_id in step.depends_on:
-            dep_step = next(s for s in all_steps if s.step_id == dep_id)
+            dep_step = next((s for s in all_steps if s.step_id == dep_id), None)
+            if dep_step is None:
+                continue
             if dep_step.type == "incoming_payment_detail":
                 step_dict["returnable_id"] = step_ref_map[dep_id]
                 break
 
     if step.type == "reversal" and "payment_order_id" not in step_dict:
         for dep_id in step.depends_on:
-            dep_step = next(s for s in all_steps if s.step_id == dep_id)
+            dep_step = next((s for s in all_steps if s.step_id == dep_id), None)
+            if dep_step is None:
+                continue
             if dep_step.type == "payment_order":
                 step_dict["payment_order_id"] = step_ref_map[dep_id]
                 break
 
     if step.type == "transition_ledger_transaction" and "ledger_transaction_id" not in step_dict:
         for dep_id in step.depends_on:
-            dep_step = next(s for s in all_steps if s.step_id == dep_id)
+            dep_step = next((s for s in all_steps if s.step_id == dep_id), None)
+            if dep_step is None:
+                continue
             if dep_step.type == "ledger_transaction":
                 step_dict["ledger_transaction_id"] = step_ref_map[dep_id]
                 break
@@ -501,9 +507,10 @@ def compile_flows(
         parts = flow.ref.rsplit("__", 1)
         if len(parts) == 2 and parts[1].isdigit():
             _validate_ref_segment(parts[0])
+            instance_id = parts[1]
         else:
             _validate_ref_segment(flow.ref)
-        instance_id = "0000"
+            instance_id = "0000"
         trace_value = expand_trace_value(
             flow.trace_value_template, flow.ref, 0
         )
@@ -693,9 +700,9 @@ _DIR_ABBREV: dict[str, str] = {"debit": "DR", "credit": "CR"}
 
 _ARROW_BY_TYPE: dict[str, str] = {
     "incoming_payment_detail": "-)",
-    "payment_order": "->>",
-    "ledger_transaction": "-->>",
-    "expected_payment": "->>",
+    "payment_order": "-)",
+    "ledger_transaction": "->>",
+    "expected_payment": "-)",
     "return": "--x",
     "reversal": "--x",
     "transition_ledger_transaction": "-->>",
@@ -823,6 +830,7 @@ def render_mermaid(
         arrow = _ARROW_BY_TYPE.get(step.resource_type, "->>")
 
         desc = step.payload.get("description", step.step_id)
+        desc = desc.replace(";", ",").replace("#", "").replace("%%", "pct")
         if show_amounts:
             amount = step.payload.get("amount")
             if amount is not None:
@@ -891,10 +899,10 @@ def maybe_compile(
 def compute_flow_status(flow_ir: FlowIR) -> str:
     """Compute aggregate flow status from FlowIR at compile time.
 
-    Always returns "compiled" for compile-time preview.
+    Returns "preview" for compile-time data; post-execution should query
+    actual LT statuses from RunManifest.
     """
-    # TODO: post-execution — query actual LT statuses from RunManifest
-    return "compiled"
+    return "preview"
 
 
 def flow_account_deltas(flow_ir: FlowIR) -> dict[str, int]:

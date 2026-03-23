@@ -28,6 +28,7 @@ function renderMermaidAccordion(panel) {
 document.querySelectorAll('.mermaid-accordion .accordion-header').forEach(function(header) {
     header.addEventListener('click', function() {
         var panel = this.parentNode;
+        panel.classList.toggle('open');
         if (panel.classList.contains('open')) {
             renderMermaidAccordion(panel);
         }

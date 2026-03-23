@@ -100,43 +100,55 @@ function setPreset(instances, edge, variance, staged) {
 }
 
 async function generatePreview() {
-    var recipe = buildRecipe();
-    var resp = await fetch('/api/flows/generate-preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Session-Token': '{{ session_token }}' },
-        body: JSON.stringify(recipe)
-    });
-    var data = await resp.json();
-    var el = document.getElementById('gen-preview-result');
-    if (data.error) {
-        el.innerHTML = '<div class="error-alert"><h3>Error</h3><p>' + data.error + '</p></div>';
-        return;
+    var btn = document.querySelector('.scenario-actions .btn-secondary');
+    btn.disabled = true; btn.textContent = 'Generating…';
+    try {
+        var recipe = buildRecipe();
+        var resp = await fetch('/api/flows/generate-preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Session-Token': '{{ session_token }}' },
+            body: JSON.stringify(recipe)
+        });
+        var data = await resp.json();
+        var el = document.getElementById('gen-preview-result');
+        if (data.error) {
+            el.innerHTML = '<div class="error-alert"><h3>Error</h3><p>' + data.error + '</p></div>';
+            return;
+        }
+        var html = '<div class="gen-preview-stats">' +
+            '<strong>' + data.total_resources + '</strong> resources, ' +
+            '<strong>' + data.estimated_api_calls + '</strong> API calls, ' +
+            '<strong>' + data.estimated_batches + '</strong> batches';
+        if (data.needs_confirmation) {
+            html += '<br><span class="warning-badge">Large run — will require confirmation</span>';
+        }
+        html += '</div>';
+        el.innerHTML = html;
+    } finally {
+        btn.disabled = false; btn.textContent = 'Generate Preview';
     }
-    var html = '<div class="gen-preview-stats">' +
-        '<strong>' + data.total_resources + '</strong> resources, ' +
-        '<strong>' + data.estimated_api_calls + '</strong> API calls, ' +
-        '<strong>' + data.estimated_batches + '</strong> batches';
-    if (data.needs_confirmation) {
-        html += '<br><span class="warning-badge">Large run — will require confirmation</span>';
-    }
-    html += '</div>';
-    el.innerHTML = html;
 }
 
 async function applyToConfig() {
-    var recipe = buildRecipe();
-    var resp = await fetch('/api/flows/recipe-to-working-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Session-Token': '{{ session_token }}' },
-        body: JSON.stringify(recipe)
-    });
-    var data = await resp.json();
-    if (data.error) {
-        document.getElementById('gen-preview-result').innerHTML =
-            '<div class="error-alert"><h3>Error</h3><p>' + data.error + '</p></div>';
-        return;
+    var btn = document.querySelector('.scenario-actions .btn-primary');
+    btn.disabled = true; btn.textContent = 'Applying…';
+    try {
+        var recipe = buildRecipe();
+        var resp = await fetch('/api/flows/recipe-to-working-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Session-Token': '{{ session_token }}' },
+            body: JSON.stringify(recipe)
+        });
+        var data = await resp.json();
+        if (data.error) {
+            document.getElementById('gen-preview-result').innerHTML =
+                '<div class="error-alert"><h3>Error</h3><p>' + data.error + '</p></div>';
+            return;
+        }
+        window.location.href = '/flows?session_token={{ session_token }}';
+    } finally {
+        btn.disabled = false; btn.textContent = 'Apply to Config';
     }
-    window.location.href = '/flows?session_token={{ session_token }}';
 }
 </script>
 {% endif %}
