@@ -1114,9 +1114,12 @@ async def _parse_and_compile_recipe(
             status_code=422,
         )
 
-    base = session.config.model_copy()
-    if session.original_funds_flows:
-        base.funds_flows = list(session.original_funds_flows)
+    try:
+        base = DataLoaderConfig.model_validate_json(session.config_json_text)
+    except ValidationError:
+        base = session.config.model_copy(deep=True)
+        if session.original_funds_flows:
+            base.funds_flows = list(session.original_funds_flows)
 
     try:
         compiled, diagrams = generate_from_recipe(recipe, base_config=base)

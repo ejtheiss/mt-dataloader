@@ -280,8 +280,11 @@ def clone_flow(
     flow: FundsFlowConfig,
     instance: int,
     profile: dict[str, str] | None = None,
-) -> dict:
-    """Clone a loaded flow for a specific instance with optional profile substitution."""
+) -> tuple[dict, dict[str, list[dict]] | None]:
+    """Clone a flow for a specific instance with optional profile substitution.
+
+    Returns (flow_dict, instance_resources_or_None).
+    """
     as_dict = flow.model_dump()
     as_dict["ref"] = f"{flow.ref}__{instance:04d}"
 
@@ -639,7 +642,15 @@ def emit_dataloader_config(
 
     if extra_resources:
         for section, items in extra_resources.items():
-            data.setdefault(section, []).extend(items)
+            existing = data.get(section, [])
+            existing_refs = {item.get("ref") for item in existing if isinstance(item, dict)}
+            for item in items:
+                if isinstance(item, dict) and item.get("ref") in existing_refs:
+                    continue
+                existing.append(item)
+                if isinstance(item, dict) and item.get("ref"):
+                    existing_refs.add(item["ref"])
+            data[section] = existing
 
     for flow_ir in flow_irs:
         for step in flow_ir.steps:
@@ -897,15 +908,16 @@ def maybe_compile(
     extra_resources: dict[str, list[dict]] = {}
     expanded_flows: list[FundsFlowConfig] = []
 
+    default_profile = {
+        "first_name": "Demo",
+        "last_name": "User",
+        "business_name": "Demo Corp",
+        "industry": "fintech",
+        "country": "US",
+    }
+
     for flow in config.funds_flows:
         if flow.instance_resources:
-            default_profile = {
-                "first_name": "Demo",
-                "last_name": "User",
-                "business_name": "Demo Corp",
-                "industry": "fintech",
-                "country": "US",
-            }
             mapping = {"instance": "0000", "ref": flow.ref, **default_profile}
 
             expanded_ir = _expand_instance_resources(
@@ -919,7 +931,17 @@ def maybe_compile(
             flow_dict = deep_format_map(flow_dict, mapping)
             expanded_flows.append(FundsFlowConfig.model_validate(flow_dict))
         else:
-            expanded_flows.append(flow)
+            needs_expansion = any(
+                "{instance}" in v or "{first_name}" in v
+                for v in flow.actors.values()
+            )
+            if needs_expansion:
+                mapping = {"instance": "0000", "ref": flow.ref, **default_profile}
+                flow_dict = flow.model_dump()
+                flow_dict = deep_format_map(flow_dict, mapping)
+                expanded_flows.append(FundsFlowConfig.model_validate(flow_dict))
+            else:
+                expanded_flows.append(flow)
 
     flow_irs = compile_flows(expanded_flows, config)
     emitted = emit_dataloader_config(
