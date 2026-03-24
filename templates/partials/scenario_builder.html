@@ -87,20 +87,31 @@
 
     {% if fs.amount_steps %}
     <div class="scenario-section">
-        <div class="scenario-section-label">Amount Variance</div>
+        <div class="scenario-section-label">Money Movement</div>
         <div class="amount-step-list">
+            <div class="amount-step-header">
+                <span>Step</span>
+                <span class="amount-header-right">Amount</span>
+            </div>
             {% for as in fs.amount_steps %}
-            <div class="amount-step-item">
+            <div class="amount-step-item" data-base-amount="{{ as.amount }}" data-step-id="{{ as.step_id }}" data-variance-mode="global">
+                <button type="button" class="variance-lock-btn" title="Click to lock amount">
+                    <svg class="lock-icon lock-icon-unlocked" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                    <svg class="lock-icon lock-icon-locked" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <svg class="lock-icon lock-icon-custom" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
                 <code class="ref-name">{{ as.step_id }}</code>
-                <span class="ledgerable-pill">{{ as.type }}</span>
-                <span class="amount-base">${{ '{:,.2f}'.format(as.amount / 100) }}</span>
+                <span class="ledgerable-pill ledgerable-{{ as.type }}">{{ as.type }}</span>
+                <input type="number" class="variance-custom-input" min="0" max="100" step="0.5" placeholder="%">
+                <span class="amount-display">${{ '{:,.2f}'.format(as.amount / 100) }}</span>
             </div>
             {% endfor %}
         </div>
         <div class="form-row" style="margin-top: 8px;">
             <div class="form-group">
                 <label>Variance % (±)</label>
-                <input type="number" id="gen-variance-{{ flow_idx }}" value="0.0" min="0" max="100" step="0.5">
+                <input type="number" id="gen-variance-{{ flow_idx }}" value="0.0" min="0" max="100" step="0.5"
+                       onchange="updateAmountRanges{{ flow_idx }}()" oninput="updateAmountRanges{{ flow_idx }}()">
             </div>
         </div>
     </div>
@@ -220,6 +231,56 @@
     var instancesInput = el('gen-instances');
     if (instancesInput) instancesInput.addEventListener('input', syncEdgeMax);
 
+    function fmtAmt(cents) {
+        return '$' + (cents / 100).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function renderRowAmount(row, globalPct) {
+        var base = parseInt(row.getAttribute('data-base-amount')) || 0;
+        var display = row.querySelector('.amount-display');
+        if (!display) return;
+        var mode = row.getAttribute('data-variance-mode');
+        var pct = 0;
+        if (mode === 'global') pct = globalPct;
+        else if (mode === 'custom') pct = parseFloat(row.querySelector('.variance-custom-input').value) || 0;
+
+        if (pct <= 0) {
+            display.textContent = fmtAmt(base);
+            display.classList.remove('amount-range');
+        } else {
+            display.textContent = fmtAmt(base * (1 - pct / 100)) + ' – ' + fmtAmt(base * (1 + pct / 100));
+            display.classList.add('amount-range');
+        }
+    }
+
+    window['updateAmountRanges' + idx] = function() {
+        var globalPct = parseFloat((el('gen-variance') || {value: '0'}).value) || 0;
+        var items = document.querySelectorAll('#scenario-builder-' + idx + ' .amount-step-item');
+        items.forEach(function(row) { renderRowAmount(row, globalPct); });
+    };
+
+    (function() {
+        var container = document.getElementById('scenario-builder-' + idx);
+        if (!container) return;
+        container.addEventListener('click', function(e) {
+            var btn = e.target.closest('.variance-lock-btn');
+            if (!btn) return;
+            var row = btn.closest('.amount-step-item');
+            var mode = row.getAttribute('data-variance-mode');
+            if (mode === 'global') row.setAttribute('data-variance-mode', 'locked');
+            else if (mode === 'locked') row.setAttribute('data-variance-mode', 'custom');
+            else row.setAttribute('data-variance-mode', 'global');
+            var globalPct = parseFloat((el('gen-variance') || {value: '0'}).value) || 0;
+            renderRowAmount(row, globalPct);
+        });
+        container.addEventListener('input', function(e) {
+            if (!e.target.classList.contains('variance-custom-input')) return;
+            var row = e.target.closest('.amount-step-item');
+            var globalPct = parseFloat((el('gen-variance') || {value: '0'}).value) || 0;
+            renderRowAmount(row, globalPct);
+        });
+    })();
+
     function buildRecipe() {
         var instances = parseInt(el('gen-instances').value);
         var recipe = {
@@ -233,6 +294,14 @@
             staged_count: parseInt(el('gen-staged').value),
             staged_selection: el('gen-staged-sel').value,
         };
+        var stepVariance = {};
+        document.querySelectorAll('#scenario-builder-' + idx + ' .amount-step-item').forEach(function(row) {
+            var mode = row.getAttribute('data-variance-mode');
+            var stepId = row.getAttribute('data-step-id');
+            if (mode === 'locked') stepVariance[stepId] = 0;
+            else if (mode === 'custom') stepVariance[stepId] = parseFloat(row.querySelector('.variance-custom-input').value) || 0;
+        });
+        if (Object.keys(stepVariance).length > 0) recipe.step_variance_pct = stepVariance;
         var edgeInputs = document.querySelectorAll('#scenario-builder-' + idx + ' .edge-case-count-input');
         var edgeOverrides = {};
         edgeInputs.forEach(function(input) {
@@ -362,5 +431,49 @@
             btn.disabled = false; btn.textContent = 'Apply to Config';
         }
     };
+
+    var savedRecipe = {{ generation_recipe|default('null')|tojson }};
+    if (savedRecipe && savedRecipe.flow_ref === flowRef) {
+        el('gen-instances').value = savedRecipe.instances || 10;
+        el('gen-seed').value = savedRecipe.seed || 424242;
+        if (savedRecipe.amount_variance_pct != null && el('gen-variance'))
+            el('gen-variance').value = savedRecipe.amount_variance_pct;
+        el('gen-staged').value = savedRecipe.staged_count || 0;
+        if (savedRecipe.staged_selection)
+            el('gen-staged-sel').value = savedRecipe.staged_selection;
+        if (savedRecipe.edge_case_overrides) {
+            for (var label in savedRecipe.edge_case_overrides) {
+                var inp = document.querySelector(
+                    '#scenario-builder-' + idx +
+                    ' .edge-case-count-input[data-label="' + label + '"]'
+                );
+                if (inp) inp.value = savedRecipe.edge_case_overrides[label].count || 0;
+            }
+        }
+        if (savedRecipe.step_variance_pct) {
+            for (var sid in savedRecipe.step_variance_pct) {
+                var row = document.querySelector(
+                    '#scenario-builder-' + idx + ' .amount-step-item[data-step-id="' + sid + '"]'
+                );
+                if (!row) continue;
+                var v = savedRecipe.step_variance_pct[sid];
+                if (v === 0) {
+                    row.setAttribute('data-variance-mode', 'locked');
+                } else {
+                    row.setAttribute('data-variance-mode', 'custom');
+                    row.querySelector('.variance-custom-input').value = v;
+                }
+            }
+        }
+        if (savedRecipe.timing) {
+            var t = savedRecipe.timing;
+            if (el('gen-timing-base')) el('gen-timing-base').value = t.base_date || 'today';
+            if (el('gen-timing-spread')) el('gen-timing-spread').value = t.instance_spread_days || 0;
+            if (el('gen-timing-pattern')) el('gen-timing-pattern').value = t.spread_pattern || 'uniform';
+            if (el('gen-timing-jitter')) el('gen-timing-jitter').value = t.spread_jitter_days || 0;
+        }
+        syncEdgeMax();
+        window['updateAmountRanges' + idx]();
+    }
 })();
 </script>

@@ -210,6 +210,8 @@ async def validate(
         skip_refs=skip_refs,
         flow_ir=flow_irs,
         expanded_flows=expanded_flows,
+        pattern_flow_ir=flow_irs,
+        pattern_expanded_flows=expanded_flows,
         mermaid_diagrams=mermaid_diagrams,
         view_data_cache=view_data_cache,
         working_config_json=working_config_json,
@@ -376,9 +378,12 @@ async def revalidate(
         skip_refs=skip_refs,
         flow_ir=flow_irs_reval,
         expanded_flows=expanded_flows_reval,
+        pattern_flow_ir=flow_irs_reval,
+        pattern_expanded_flows=expanded_flows_reval,
         mermaid_diagrams=mermaid_diagrams_reval,
         view_data_cache=view_data_reval,
         working_config_json=session.working_config_json,
+        generation_recipe=session.generation_recipe,
     )
 
     del sessions[session_token]

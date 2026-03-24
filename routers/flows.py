@@ -112,16 +112,18 @@ async def flows_page(request: Request):
     if session.flow_ir:
         diagnostics = compile_diagnostics(session.flow_ir)
 
+    display_flow_ir = session.pattern_flow_ir or session.flow_ir or []
+    display_expanded = session.pattern_expanded_flows or session.expanded_flows or []
+
     flow_summaries = []
-    orig_flows = session.expanded_flows or []
-    if session.flow_ir:
-        for i, ir in enumerate(session.flow_ir):
+    if display_flow_ir:
+        for i, ir in enumerate(display_flow_ir):
             optional_groups: list[dict] = []
             amount_steps: list[dict] = []
             actors_list: list[dict] = []
             actor_frames: list[dict] = []
-            if i < len(orig_flows):
-                fc = orig_flows[i]
+            if i < len(display_expanded):
+                fc = display_expanded[i]
                 for og in fc.optional_groups:
                     optional_groups.append({
                         "label": og.label,
@@ -190,7 +192,7 @@ async def flows_page(request: Request):
                 "actors": actors_list,
                 "actor_frames": actor_frames,
                 "has_instance_resources": bool(
-                    i < len(orig_flows) and orig_flows[i].instance_resources
+                    i < len(display_expanded) and display_expanded[i].instance_resources
                 ),
             })
 
@@ -202,7 +204,7 @@ async def flows_page(request: Request):
         "flows.html",
         {
             "session_token": session_token,
-            "has_funds_flows": bool(session.flow_ir),
+            "has_funds_flows": bool(display_flow_ir),
             "flow_summaries": flow_summaries,
             "mermaid_diagrams": session.mermaid_diagrams or [],
             "diagnostics": diagnostics,
@@ -411,7 +413,6 @@ async def recipe_to_working_config(request: Request):
     session.config = gen.config
     config_json_text = gen.config.model_dump_json(indent=2, exclude_none=True)
     session.config_json_text = config_json_text
-    session.working_config_json = config_json_text
     session.mermaid_diagrams = gen.diagrams
     session.generation_recipe = recipe.model_dump()
     session.flow_ir = gen.flow_irs

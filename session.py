@@ -38,6 +38,8 @@ class SessionState:
     created_at: float = field(default_factory=time.time)
     flow_ir: list[FlowIR] | None = None
     expanded_flows: list | None = None
+    pattern_flow_ir: list[FlowIR] | None = None
+    pattern_expanded_flows: list | None = None
     generation_recipe: dict | None = None
     working_config_json: str | None = None
     mermaid_diagrams: list[str] | None = None
