@@ -73,7 +73,8 @@
                             <summary>{{ item.metadata|length }} key(s)</summary>
                             <dl class="metadata-list">
                             {% for k, v in item.metadata.items() %}
-                                <dt>{{ k }}:</dt> <dd>{{ v }}</dd>
+                                <dt>{{ k }}:</dt>
+                                <dd{% if '{' in v|string and '}' in v|string %} class="metadata-tpl-value"{% endif %}>{{ v }}</dd>
                             {% endfor %}
                             </dl>
                         </details>

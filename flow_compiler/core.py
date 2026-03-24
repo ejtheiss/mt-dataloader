@@ -74,12 +74,21 @@ def resolve_actors(obj: Any, actor_refs: dict[str, str]) -> Any:
     return obj
 
 
-def expand_trace_value(template: str, ref: str, instance: int) -> str:
+def expand_trace_value(
+    template: str,
+    ref: str,
+    instance: int,
+    profile: dict[str, str] | None = None,
+) -> str:
+    from collections import defaultdict
+    mapping: dict[str, Any] = {"ref": ref, "instance": instance}
+    if profile:
+        mapping.update(profile)
     try:
-        return template.format_map({"ref": ref, "instance": instance})
-    except KeyError as e:
+        return template.format_map(defaultdict(str, mapping))
+    except (ValueError, KeyError) as e:
         raise ValueError(
-            f"Unknown placeholder {e} in trace_value_template '{template}'"
+            f"Bad placeholder in trace_value_template '{template}': {e}"
         ) from e
 
 

@@ -51,7 +51,7 @@
             </div>
             <div class="metadata-row">
                 <label class="metadata-label">trace_value_template</label>
-                <input type="text" class="metadata-input" id="meta-trace-value-tpl" value="{{ trace_value_template }}">
+                <input type="text" class="metadata-input metadata-tpl-input" id="meta-trace-value-tpl" value="{{ trace_value_template }}">
             </div>
 
             <div class="metadata-kv-section">
@@ -60,7 +60,7 @@
                     {% for k, v in trace_metadata.items() %}
                     <div class="metadata-kv-row">
                         <input type="text" class="metadata-kv-key" value="{{ k }}" placeholder="key">
-                        <input type="text" class="metadata-kv-val" value="{{ v }}" placeholder="value">
+                        <input type="text" class="metadata-kv-val{% if '{' in v and '}' in v %} metadata-tpl-input{% endif %}" value="{{ v }}" placeholder="value">
                         <button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>
                     </div>
                     {% endfor %}
@@ -72,27 +72,42 @@
             <div class="metadata-steps-section">
                 <label class="metadata-label">Per-Step Metadata</label>
                 {% for sm in per_step_metadata %}
-                {% if sm.metadata %}
-                <details class="metadata-step-detail">
+                <details class="metadata-step-detail"{% if sm.metadata %} open{% endif %}>
                     <summary>
                         <code>{{ sm.step_id }}</code>
-                        <span class="ledgerable-pill">{{ sm.resource_type }}</span>
+                        <span class="ledgerable-pill ledgerable-{{ sm.resource_type }}">{{ sm.resource_type }}</span>
                         <span class="metadata-count">{{ sm.metadata|length }} key{{ 's' if sm.metadata|length != 1 }}</span>
                     </summary>
                     <div class="metadata-step-entries" data-step-id="{{ sm.step_id }}">
                         {% for k, v in sm.metadata.items() %}
                         <div class="metadata-kv-row">
                             <input type="text" class="metadata-kv-key" value="{{ k }}" placeholder="key">
-                            <input type="text" class="metadata-kv-val" value="{{ v }}" placeholder="value">
+                            <input type="text" class="metadata-kv-val{% if '{' in v and '}' in v %} metadata-tpl-input{% endif %}" value="{{ v }}" placeholder="value">
                             <button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>
                         </div>
                         {% endfor %}
+                        <button type="button" class="btn btn-sm btn-outline" onclick="addStepMetaEntry(this)">+ Add Key</button>
                     </div>
                 </details>
-                {% endif %}
                 {% endfor %}
             </div>
             {% endif %}
+
+            <details class="metadata-var-hint">
+                <summary>Available variables</summary>
+                <div class="metadata-var-list">
+                    <code>{instance}</code> — instance number (e.g. 0042)<br>
+                    <code>{ref}</code> — flow ref (e.g. marketplace__0042)<br>
+                    <code>{business_name}</code> — seeded company name<br>
+                    <code>{first_name}</code> — seeded first name<br>
+                    <code>{last_name}</code> — seeded last name<br>
+                    <code>{industry}</code> — seeded industry<br>
+                    <code>{country}</code> — seeded country<br>
+                    {% for alias in actor_aliases %}
+                    <code>{{ '{' }}{{ alias }}_name{{ '}' }}</code> — {{ alias }} display name<br>
+                    {% endfor %}
+                </div>
+            </details>
 
             <div class="metadata-actions">
                 <button type="button" class="btn btn-primary btn-sm" onclick="saveMetadata()">Save Metadata</button>
@@ -120,9 +135,20 @@ function addTraceEntry() {
     var row = document.createElement('div');
     row.className = 'metadata-kv-row';
     row.innerHTML = '<input type="text" class="metadata-kv-key" placeholder="key">' +
-                    '<input type="text" class="metadata-kv-val" placeholder="value">' +
+                    '<input type="text" class="metadata-kv-val" placeholder="value or {variable}">' +
                     '<button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>';
     container.appendChild(row);
+    row.querySelector('.metadata-kv-key').focus();
+}
+
+function addStepMetaEntry(btn) {
+    var container = btn.closest('.metadata-step-entries');
+    var row = document.createElement('div');
+    row.className = 'metadata-kv-row';
+    row.innerHTML = '<input type="text" class="metadata-kv-key" placeholder="key">' +
+                    '<input type="text" class="metadata-kv-val" placeholder="value or {variable}">' +
+                    '<button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>';
+    container.insertBefore(row, btn);
     row.querySelector('.metadata-kv-key').focus();
 }
 
@@ -175,5 +201,12 @@ async function saveMetadata() {
         status.className = 'metadata-save-status error';
     }
 }
+
+document.querySelector('.metadata-panel-body').addEventListener('input', function(e) {
+    if (e.target.classList.contains('metadata-kv-val') || e.target.id === 'meta-trace-value-tpl') {
+        var hasBraces = e.target.value.includes('{') && e.target.value.includes('}');
+        e.target.classList.toggle('metadata-tpl-input', hasBraces);
+    }
+});
 </script>
 {% endblock %}

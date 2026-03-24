@@ -108,9 +108,16 @@ class TestExpandTraceValue:
     def test_no_placeholders(self):
         assert expand_trace_value("static-value", "x", 0) == "static-value"
 
-    def test_unknown_placeholder_raises(self):
-        with pytest.raises(ValueError, match="Unknown placeholder"):
-            expand_trace_value("{ref}-{bad}", "x", 0)
+    def test_unknown_placeholder_empties(self):
+        assert expand_trace_value("{ref}-{bad}", "x", 0) == "x-"
+
+    def test_profile_placeholders(self):
+        assert expand_trace_value(
+            "{ref}-{business_name}", "flow", 0, profile={"business_name": "Acme"}
+        ) == "flow-Acme"
+
+    def test_profile_missing_key_empties(self):
+        assert expand_trace_value("{business_name}-{industry}", "x", 0) == "-"
 
 
 # =========================================================================

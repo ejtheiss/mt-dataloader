@@ -342,25 +342,42 @@ body {
 .cleanup-icon.deletable { opacity: 0.35; }
 .cleanup-icon.persistent { opacity: 0.6; }
 
-/* Type badge colors — MT Badge tinted style */
+/* ── Resource type colors (single source of truth) ── */
+:root {
+    --rt-connection-bg: #F0EFFF; --rt-connection-fg: #423B72; --rt-connection-border: #D8D7F8;
+    --rt-entity-bg: #FCF4FA; --rt-entity-fg: #6D4C61; --rt-entity-border: #EBD7E5;
+    --rt-ledger-bg: #EAF1FF; --rt-ledger-fg: #204571; --rt-ledger-border: #CCDEFF;
+    --rt-account-bg: #E4F3EC; --rt-account-fg: #00473C; --rt-account-border: #BEE6D5;
+    --rt-payment-bg: #E4F3EC; --rt-payment-fg: #00473C; --rt-payment-border: #BEE6D5;
+    --rt-ipd-bg: #FFEBD5; --rt-ipd-fg: #724F3B; --rt-ipd-border: #F5D4AD;
+    --rt-expected-bg: #F0EFFF; --rt-expected-fg: #423B72; --rt-expected-border: #D4D2F2;
+    --rt-return-bg: #FFE8EC; --rt-return-fg: #C73D4F; --rt-return-border: #F5C4CC;
+    --rt-reversal-bg: #FFE8EC; --rt-reversal-fg: #C73D4F; --rt-reversal-border: #F5C4CC;
+    --rt-lt-bg: #EAF1FF; --rt-lt-fg: #204571; --rt-lt-border: #CCDEFF;
+    --rt-tlt-bg: #EDE9FE; --rt-tlt-fg: #5B21B6; --rt-tlt-border: #C4B5FD;
+    --rt-neutral-bg: #F2F1ED; --rt-neutral-fg: #575757; --rt-neutral-border: #DEDDD7;
+}
+
+/* Type badge colors */
 .type-badge { border: 1px solid transparent; }
-.type-badge.type-connection { background: #F0EFFF; color: #423B72; border-color: #D8D7F8; }
+.type-badge.type-connection { background: var(--rt-connection-bg); color: var(--rt-connection-fg); border-color: var(--rt-connection-border); }
 .type-badge.type-legal_entity,
-.type-badge.type-counterparty { background: #FCF4FA; color: #6D4C61; border-color: #EBD7E5; }
+.type-badge.type-counterparty { background: var(--rt-entity-bg); color: var(--rt-entity-fg); border-color: var(--rt-entity-border); }
 .type-badge.type-ledger,
 .type-badge.type-ledger_account,
-.type-badge.type-ledger_account_category,
-.type-badge.type-ledger_transaction { background: #EAF1FF; color: #204571; border-color: #CCDEFF; }
+.type-badge.type-ledger_account_category { background: var(--rt-ledger-bg); color: var(--rt-ledger-fg); border-color: var(--rt-ledger-border); }
+.type-badge.type-ledger_transaction { background: var(--rt-lt-bg); color: var(--rt-lt-fg); border-color: var(--rt-lt-border); }
+.type-badge.type-transition_ledger_transaction { background: var(--rt-tlt-bg); color: var(--rt-tlt-fg); border-color: var(--rt-tlt-border); }
 .type-badge.type-internal_account,
 .type-badge.type-external_account,
-.type-badge.type-virtual_account,
-.type-badge.type-payment_order,
-.type-badge.type-expected_payment { background: #E4F3EC; color: #00473C; border-color: #BEE6D5; }
-.type-badge.type-incoming_payment_detail,
-.type-badge.type-return { background: #FFEBD5; color: #724F3B; border-color: #FFD6A2; }
-.type-badge.type-reversal,
+.type-badge.type-virtual_account { background: var(--rt-account-bg); color: var(--rt-account-fg); border-color: var(--rt-account-border); }
+.type-badge.type-payment_order { background: var(--rt-payment-bg); color: var(--rt-payment-fg); border-color: var(--rt-payment-border); }
+.type-badge.type-expected_payment { background: var(--rt-expected-bg); color: var(--rt-expected-fg); border-color: var(--rt-expected-border); }
+.type-badge.type-incoming_payment_detail { background: var(--rt-ipd-bg); color: var(--rt-ipd-fg); border-color: var(--rt-ipd-border); }
+.type-badge.type-return { background: var(--rt-return-bg); color: var(--rt-return-fg); border-color: var(--rt-return-border); }
+.type-badge.type-reversal { background: var(--rt-reversal-bg); color: var(--rt-reversal-fg); border-color: var(--rt-reversal-border); }
 .type-badge.type-category_membership,
-.type-badge.type-nested_category { background: #F2F1ED; color: #575757; border-color: #DEDDD7; }
+.type-badge.type-nested_category { background: var(--rt-neutral-bg); color: var(--rt-neutral-fg); border-color: var(--rt-neutral-border); }
 
 /* --- Phase groups --- */
 .phase-group { margin-bottom: 24px; }
@@ -1258,13 +1275,22 @@ details.recon-section[open] > .recon-section-toggle::before { transform: rotate(
     white-space: nowrap; max-width: 100%;
     overflow: hidden; text-overflow: ellipsis;
 }
-.ledgerable-payment_order { background: #E4F3EC; color: #00473C; border-color: #B5E0C8; }
-.ledgerable-incoming_payment_detail { background: #FFEBD5; color: #724F3B; border-color: #F5D4AD; }
-.ledgerable-expected_payment { background: #F0EFFF; color: #423B72; border-color: #D4D2F2; }
-.ledgerable-return { background: #FFE8EC; color: #C73D4F; border-color: #F5C4CC; }
-.ledgerable-reversal { background: #FFE8EC; color: #C73D4F; border-color: #F5C4CC; }
-.ledgerable-ledger_transaction { background: #E0E7FF; color: #3730A3; border-color: #A5B4FC; }
-.ledgerable-transition_ledger_transaction { background: #EDE9FE; color: #5B21B6; border-color: #C4B5FD; }
+.ledgerable-payment_order { background: var(--rt-payment-bg); color: var(--rt-payment-fg); border-color: var(--rt-payment-border); }
+.ledgerable-incoming_payment_detail { background: var(--rt-ipd-bg); color: var(--rt-ipd-fg); border-color: var(--rt-ipd-border); }
+.ledgerable-expected_payment { background: var(--rt-expected-bg); color: var(--rt-expected-fg); border-color: var(--rt-expected-border); }
+.ledgerable-return { background: var(--rt-return-bg); color: var(--rt-return-fg); border-color: var(--rt-return-border); }
+.ledgerable-reversal { background: var(--rt-reversal-bg); color: var(--rt-reversal-fg); border-color: var(--rt-reversal-border); }
+.ledgerable-ledger_transaction { background: var(--rt-lt-bg); color: var(--rt-lt-fg); border-color: var(--rt-lt-border); }
+.ledgerable-transition_ledger_transaction { background: var(--rt-tlt-bg); color: var(--rt-tlt-fg); border-color: var(--rt-tlt-border); }
+.ledgerable-connection { background: var(--rt-connection-bg); color: var(--rt-connection-fg); border-color: var(--rt-connection-border); }
+.ledgerable-legal_entity,
+.ledgerable-counterparty { background: var(--rt-entity-bg); color: var(--rt-entity-fg); border-color: var(--rt-entity-border); }
+.ledgerable-ledger,
+.ledgerable-ledger_account,
+.ledgerable-ledger_account_category { background: var(--rt-ledger-bg); color: var(--rt-ledger-fg); border-color: var(--rt-ledger-border); }
+.ledgerable-internal_account,
+.ledgerable-external_account,
+.ledgerable-virtual_account { background: var(--rt-account-bg); color: var(--rt-account-fg); border-color: var(--rt-account-border); }
 .ledgerable-standalone { background: var(--surface, #f5f5f4); color: var(--text-muted, #888); }
 
 /* --- View toggle tabs --- */
@@ -1728,6 +1754,12 @@ details.recon-section[open] > .recon-section-toggle::before { transform: rotate(
     background: color-mix(in srgb, var(--danger, #ef4444) 12%, transparent);
     color: var(--danger, #ef4444);
 }
+.metadata-tpl-input {
+    background: color-mix(in srgb, var(--primary, #2563eb) 6%, var(--bg));
+    border-color: color-mix(in srgb, var(--primary, #2563eb) 30%, var(--border));
+    color: var(--primary, #2563eb);
+}
+
 .metadata-steps-section { margin-top: 16px; }
 .metadata-step-detail {
     border: 1px solid var(--border); border-radius: 6px;
@@ -1747,6 +1779,25 @@ details.recon-section[open] > .recon-section-toggle::before { transform: rotate(
 .metadata-step-entries {
     padding: 8px 12px; border-top: 1px solid var(--border);
 }
+.metadata-var-hint {
+    margin-top: 12px; font-size: 0.78rem;
+}
+.metadata-var-hint > summary {
+    cursor: pointer; color: var(--text-muted); font-weight: 500;
+}
+.metadata-var-list {
+    margin-top: 6px; padding: 8px 12px; line-height: 1.8;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.metadata-var-list code {
+    font-size: 0.76rem; padding: 1px 5px;
+    background: color-mix(in srgb, var(--primary, #2563eb) 8%, var(--bg));
+    border-radius: 3px; color: var(--primary, #2563eb);
+}
+.metadata-tpl-value {
+    color: var(--primary, #2563eb); font-style: italic;
+}
+
 .metadata-actions {
     display: flex; align-items: center; gap: 12px;
     margin-top: 16px; padding-top: 12px;

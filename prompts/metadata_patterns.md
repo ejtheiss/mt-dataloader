@@ -313,6 +313,64 @@ Employee payments, tax withholding, benefits.
 
 ---
 
+## Template Variables in Metadata and Descriptions
+
+In Funds Flows, both `metadata` values and `description` fields support
+template variables that are resolved per-instance during generation. Use
+these to make each generated instance unique.
+
+### Available Variables
+
+| Variable | Resolves to | Example |
+|----------|------------|---------|
+| `{instance}` | Zero-padded instance number | `0042` |
+| `{ref}` | Flow ref including instance suffix | `marketplace__0042` |
+| `{business_name}` | Seeded company name | `Acme Corp` |
+| `{first_name}` | Seeded first name | `John` |
+| `{last_name}` | Seeded last name | `Doe` |
+| `{industry}` | Seeded industry | `fintech` |
+| `{country}` | Seeded country | `US` |
+| `{alias_name}` | Actor display name (replace `alias` with frame alias) | `John Doe` |
+
+### Usage in step descriptions
+
+```json
+{
+    "step_id": "ipd_deposit",
+    "type": "incoming_payment_detail",
+    "description": "ACH deposit from {first_name} {last_name}",
+    "amount": 500000
+}
+```
+
+### Usage in metadata values
+
+```json
+{
+    "metadata": {
+        "user_id": "USR-{instance}",
+        "customer": "{business_name}",
+        "region": "{country}"
+    }
+}
+```
+
+### Usage in `trace_value_template`
+
+```json
+{
+    "trace_value_template": "USR-{instance}",
+    "trace_key": "user_id"
+}
+```
+
+Variables are resolved by `deep_format_map` during generation. Unknown
+variables produce empty strings rather than errors, so typos fail silently.
+At compile time (before generation), profile variables like `{business_name}`
+are not yet available and will be empty.
+
+---
+
 ## General Demo Tips
 
 1. **Use realistic IDs** — `INV-2026-0042` is better than `test123`.

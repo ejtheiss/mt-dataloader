@@ -243,11 +243,14 @@ async def flows_view_page(request: Request, flow_idx: int):
     per_step_metadata: list[dict] = []
     for step in flow_ir.steps:
         step_meta = dict(step.trace_metadata) if step.trace_metadata else {}
+        step_meta = {k: v for k, v in step_meta.items() if not k.startswith("_flow_")}
         per_step_metadata.append({
             "step_id": step.step_id,
             "resource_type": step.resource_type,
             "metadata": step_meta,
         })
+
+    actor_aliases = list(flow_config.actors.keys()) if flow_config else []
 
     return templates.TemplateResponse(
         request,
@@ -264,6 +267,7 @@ async def flows_view_page(request: Request, flow_idx: int):
             "trace_value_template": trace_value_template,
             "trace_metadata": trace_metadata,
             "per_step_metadata": per_step_metadata,
+            "actor_aliases": actor_aliases,
             "fmt_amt": fmt_amt,
             "source_badge": SOURCE_BADGE,
         },
