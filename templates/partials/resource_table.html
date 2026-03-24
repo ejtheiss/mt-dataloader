@@ -31,7 +31,7 @@
                     <tr>
                         <th data-sort="batch" class="sortable" onclick="sortTable(this, 'num')">Batch</th>
                         <th data-sort="type" class="sortable" onclick="sortTable(this, 'text')">Type</th>
-                        <th data-sort="ref" class="sortable" onclick="sortTable(this, 'text')">Ref</th>
+                        <th data-sort="ref" class="sortable" onclick="sortTable(this, 'text')">Name</th>
                         <th>Metadata</th>
                         <th class="col-adv">Dependencies</th>
                         <th class="col-adv">Sandbox</th>
@@ -51,7 +51,11 @@
                         {% endif %}
                     </td>
                     <td>
-                        <code>{{ item.typed_ref }}</code>
+                        {% if item.display_name %}
+                        <span class="resource-display-name" title="{{ item.typed_ref }}">{{ item.display_name }}</span>
+                        {% else %}
+                        <code class="resource-ref-fallback" title="{{ item.typed_ref }}">{{ item.typed_ref }}</code>
+                        {% endif %}
                         {% if item.deletable %}
                         <span class="cleanup-icon deletable" title="Deletable after run">&#x1f5d1;</span>
                         {% else %}

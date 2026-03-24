@@ -264,13 +264,13 @@ class TestMigratedExamples:
         assert "ledger_accounts" in flow.instance_resources
 
     def test_psp_minimal_compiles(self):
-        from flow_compiler import maybe_compile
+        from flow_compiler import AuthoringConfig, compile_to_plan
         data = json.loads((_EXAMPLES_DIR / "psp_minimal.json").read_text())
         config = DataLoaderConfig.model_validate(data)
-        compiled, flow_irs = maybe_compile(config)
-        assert flow_irs is not None
-        assert len(flow_irs) == 1
-        assert len(flow_irs[0].steps) == 1
+        raw = config.model_dump_json().encode()
+        plan = compile_to_plan(AuthoringConfig.from_json(raw))
+        assert len(plan.flow_irs) == 1
+        assert len(plan.flow_irs[0].steps) == 1
 
 
 # =========================================================================
@@ -286,3 +286,124 @@ class TestRecipeSeedDataset:
     def test_accepts_curated(self):
         recipe = GenerationRecipeV1(flow_ref="test", instances=1, seed=42, seed_dataset="harry_potter")
         assert recipe.seed_dataset == "harry_potter"
+
+
+# =========================================================================
+# Actor overrides and name_template in generate_from_recipe
+# =========================================================================
+
+
+def _make_actor_flow_config():
+    """Minimal flow with two actors (buyer, seller) using name_template."""
+    return {
+        "funds_flows": [{
+            "ref": "actor_test",
+            "pattern_type": "demo",
+            "actors": {
+                "buyer": {
+                    "alias": "buyer",
+                    "name_template": "{business_name} LLC",
+                    "slots": {},
+                },
+                "seller": {
+                    "alias": "seller",
+                    "customer_name": "Acme Corp",
+                    "slots": {},
+                },
+            },
+            "steps": [
+                {
+                    "step_id": "lt1",
+                    "type": "ledger_transaction",
+                    "description": "Pay from {buyer_name} to {seller_name}",
+                    "ledger_entries": [
+                        {"amount": 100, "direction": "debit", "ledger_account_id": "$ref:ledger_account.cash"},
+                        {"amount": 100, "direction": "credit", "ledger_account_id": "$ref:ledger_account.rev"},
+                    ],
+                },
+            ],
+        }],
+    }
+
+
+class TestActorNameTemplate:
+    def test_name_template_substituted_into_profile(self):
+        """buyer_name should be '{business_name} LLC' with faker data."""
+        from flow_compiler.generation import _enrich_profile_with_actors, _build_actor_profile_caches
+        config_data = _make_actor_flow_config()
+        config = DataLoaderConfig.model_validate(config_data)
+        pattern = config.funds_flows[0]
+        recipe = GenerationRecipeV1(flow_ref="actor_test", instances=1, seed=42)
+        biz, indiv = generate_profiles("standard", 1, 42)
+        actor_caches = _build_actor_profile_caches(pattern, recipe)
+        profile = pick_profile(biz, indiv, 0)
+        profile = _enrich_profile_with_actors(
+            profile, pattern, recipe, actor_caches, biz, indiv, 0,
+        )
+        assert profile["buyer_name"].endswith(" LLC")
+        assert len(profile["buyer_name"]) > 4
+        assert profile["seller_name"] == "Acme Corp"
+
+    def test_name_template_flows_into_step_description(self):
+        """clone_flow deep_format_map picks up {buyer_name} and {seller_name}."""
+        from flow_compiler.generation import _enrich_profile_with_actors, _build_actor_profile_caches
+        config_data = _make_actor_flow_config()
+        config = DataLoaderConfig.model_validate(config_data)
+        pattern = config.funds_flows[0]
+        recipe = GenerationRecipeV1(flow_ref="actor_test", instances=1, seed=42)
+        biz, indiv = generate_profiles("standard", 1, 42)
+        actor_caches = _build_actor_profile_caches(pattern, recipe)
+        profile = pick_profile(biz, indiv, 0)
+        profile = _enrich_profile_with_actors(
+            profile, pattern, recipe, actor_caches, biz, indiv, 0,
+        )
+        flow_dict, _ = clone_flow(pattern, 0, profile)
+        desc = flow_dict["steps"][0]["description"]
+        assert "LLC" in desc
+        assert "Acme Corp" in desc
+        assert "{buyer_name}" not in desc
+        assert "{seller_name}" not in desc
+
+
+class TestActorDatasetOverride:
+    def test_override_uses_different_dataset(self):
+        """Actor override dataset produces different names than the global."""
+        from models import ActorDatasetOverride
+        from flow_compiler.generation import _enrich_profile_with_actors, _build_actor_profile_caches
+        config_data = _make_actor_flow_config()
+        config = DataLoaderConfig.model_validate(config_data)
+        pattern = config.funds_flows[0]
+        recipe = GenerationRecipeV1(
+            flow_ref="actor_test", instances=3, seed=42,
+            seed_dataset="standard",
+            actor_overrides={"buyer": ActorDatasetOverride(dataset="harry_potter")},
+        )
+        biz, indiv = generate_profiles("standard", 3, 42)
+        actor_caches = _build_actor_profile_caches(pattern, recipe)
+        assert "buyer" in actor_caches
+        hp_biz, hp_indiv = actor_caches["buyer"]
+        profile = pick_profile(biz, indiv, 0)
+        profile = _enrich_profile_with_actors(
+            profile, pattern, recipe, actor_caches, biz, indiv, 0,
+        )
+        assert profile["buyer_business_name"] == hp_biz[0]["name"]
+
+    def test_override_name_template_takes_precedence(self):
+        """name_template from override beats name_template from frame."""
+        from models import ActorDatasetOverride
+        from flow_compiler.generation import _enrich_profile_with_actors, _build_actor_profile_caches
+        config_data = _make_actor_flow_config()
+        config = DataLoaderConfig.model_validate(config_data)
+        pattern = config.funds_flows[0]
+        recipe = GenerationRecipeV1(
+            flow_ref="actor_test", instances=1, seed=42,
+            actor_overrides={"buyer": ActorDatasetOverride(name_template="{business_name} Industries")},
+        )
+        biz, indiv = generate_profiles("standard", 1, 42)
+        actor_caches = _build_actor_profile_caches(pattern, recipe)
+        profile = pick_profile(biz, indiv, 0)
+        profile = _enrich_profile_with_actors(
+            profile, pattern, recipe, actor_caches, biz, indiv, 0,
+        )
+        assert profile["buyer_name"].endswith(" Industries")
+        assert " LLC" not in profile["buyer_name"]

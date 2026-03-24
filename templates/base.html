@@ -63,6 +63,18 @@
                 <a href="/runs" class="sidebar-link {% block nav_runs %}{% endblock %}">Runs</a>
                 <a href="/listen" class="sidebar-link {% block nav_listen %}{% endblock %}">Listener</a>
             </nav>
+            <div class="sidebar-connection" id="sidebar-connection">
+                <div class="conn-status">
+                    <span class="conn-org" id="conn-org-label"></span>
+                </div>
+                <button class="btn btn-xs btn-outline conn-edit-btn"
+                        hx-get="/api/connection-editor"
+                        hx-target="#conn-editor-modal"
+                        hx-swap="innerHTML"
+                        hx-on:htmx:after-settle="document.getElementById('conn-editor-modal').style.display='block'"
+                        style="display:none;" id="conn-edit-btn">Change</button>
+            </div>
+            <div id="conn-editor-modal" style="display:none;"></div>
             <div class="sidebar-footer">
                 <span class="cred-status" id="cred-status"></span>
             </div>
@@ -85,6 +97,12 @@
         if (orgId) {
             credEl.textContent = orgId;
             credEl.title = "Org ID stored for this session";
+        }
+        var connOrg = document.getElementById("conn-org-label");
+        var connBtn = document.getElementById("conn-edit-btn");
+        if (orgName || orgId) {
+            connOrg.textContent = orgName || orgId;
+            connBtn.style.display = "inline-block";
         }
         var token = new URLSearchParams(window.location.search).get('session_token');
         if (token) {

@@ -80,7 +80,7 @@
       "legal_entity_id": "$ref:legal_entity.platform_entity",
       "name": "Payment Account (USDC)",
       "party_name": "Archer Payments Inc.",
-      "currency": "USD",
+      "currency": "USDC",
       "metadata": { "account_role": "usdc_omnibus" }
     },
     {
@@ -100,15 +100,29 @@
       "trace_key": "onramp_id",
       "trace_value_template": "ONRAMP-{instance}",
       "actors": {
-        "c2_usd": "$ref:internal_account.c2_payment_usd",
-        "usdc_account": "$ref:internal_account.payment_usdc",
-        "customer_bank": "$ref:counterparty.customer_{instance}_bank.account[0]",
-        "customer_wallet": "$ref:counterparty.customer_{instance}_wallet.account[0]",
-        "customer_usd_la": "$ref:ledger_account.customer_{instance}_usd",
-        "customer_usdc_la": "$ref:ledger_account.customer_{instance}_usdc",
-        "fiat_reserve": "$ref:ledger_account.fiat_reserve",
-        "usdc_pool": "$ref:ledger_account.usdc_pool",
-        "revenue": "$ref:ledger_account.conversion_revenue"
+        "user_1": {
+          "alias": "Customer",
+          "frame_type": "user",
+          "entity_ref": "$ref:legal_entity.customer_{instance}",
+          "slots": {
+            "bank": "$ref:counterparty.customer_{instance}_bank.account[0]",
+            "wallet": "$ref:counterparty.customer_{instance}_wallet.account[0]",
+            "usd_la": "$ref:ledger_account.customer_{instance}_usd",
+            "usdc_la": "$ref:ledger_account.customer_{instance}_usdc"
+          }
+        },
+        "direct_1": {
+          "alias": "Platform",
+          "frame_type": "direct",
+          "customer_name": "C2 Inc",
+          "slots": {
+            "c2_usd": "$ref:internal_account.c2_payment_usd",
+            "usdc_account": "$ref:internal_account.payment_usdc",
+            "fiat_reserve": "$ref:ledger_account.fiat_reserve",
+            "usdc_pool": "$ref:ledger_account.usdc_pool",
+            "revenue": "$ref:ledger_account.conversion_revenue"
+          }
+        }
       },
       "instance_resources": {
         "legal_entities": [
@@ -185,7 +199,8 @@
           "payment_type": "ach",
           "direction": "credit",
           "amount": 100000,
-          "internal_account_id": "@actor:c2_usd",
+          "originating_account_id": "@actor:user_1.bank",
+          "internal_account_id": "@actor:direct_1.c2_usd",
           "description": "{first_name} {last_name} ACH deposit for USDC purchase"
         },
         {
@@ -194,8 +209,8 @@
           "depends_on": ["ach_deposit"],
           "description": "Record USD received from {first_name} {last_name}",
           "ledger_entries": [
-            { "amount": 100000, "direction": "debit", "ledger_account_id": "@actor:fiat_reserve" },
-            { "amount": 100000, "direction": "credit", "ledger_account_id": "@actor:customer_usd_la" }
+            { "amount": 100000, "direction": "debit", "ledger_account_id": "@actor:direct_1.fiat_reserve" },
+            { "amount": 100000, "direction": "credit", "ledger_account_id": "@actor:user_1.usd_la" }
           ]
         },
         {
@@ -204,15 +219,15 @@
           "payment_type": "book",
           "direction": "credit",
           "amount": 100000,
-          "originating_account_id": "@actor:c2_usd",
-          "receiving_account_id": "@actor:usdc_account",
+          "originating_account_id": "@actor:direct_1.c2_usd",
+          "receiving_account_id": "@actor:direct_1.usdc_account",
           "depends_on": ["lt_record_usd"],
           "description": "Book transfer USD → USDC omnibus for conversion",
           "ledger_inline": true,
           "ledger_entries": [
-            { "amount": 100000, "direction": "debit", "ledger_account_id": "@actor:customer_usd_la" },
-            { "amount": 99500, "direction": "credit", "ledger_account_id": "@actor:customer_usdc_la" },
-            { "amount": 500, "direction": "credit", "ledger_account_id": "@actor:revenue" }
+            { "amount": 100000, "direction": "debit", "ledger_account_id": "@actor:user_1.usd_la" },
+            { "amount": 99500, "direction": "credit", "ledger_account_id": "@actor:user_1.usdc_la" },
+            { "amount": 500, "direction": "credit", "ledger_account_id": "@actor:direct_1.revenue" }
           ]
         },
         {
@@ -221,14 +236,14 @@
           "payment_type": "ach",
           "direction": "credit",
           "amount": 99500,
-          "originating_account_id": "@actor:usdc_account",
-          "receiving_account_id": "@actor:customer_wallet",
+          "originating_account_id": "@actor:direct_1.usdc_account",
+          "receiving_account_id": "@actor:user_1.wallet",
           "depends_on": ["book_usd_to_usdc"],
           "description": "Send USDC to {first_name} {last_name} external wallet",
           "ledger_inline": true,
           "ledger_entries": [
-            { "amount": 99500, "direction": "debit", "ledger_account_id": "@actor:customer_usdc_la" },
-            { "amount": 99500, "direction": "credit", "ledger_account_id": "@actor:usdc_pool" }
+            { "amount": 99500, "direction": "debit", "ledger_account_id": "@actor:user_1.usdc_la" },
+            { "amount": 99500, "direction": "credit", "ledger_account_id": "@actor:direct_1.usdc_pool" }
           ]
         }
       ],
@@ -243,8 +258,8 @@
               "payment_type": "ach",
               "direction": "debit",
               "amount": 100000,
-              "originating_account_id": "@actor:c2_usd",
-              "receiving_account_id": "@actor:customer_bank",
+              "originating_account_id": "@actor:direct_1.c2_usd",
+              "receiving_account_id": "@actor:user_1.bank",
               "depends_on": ["ach_deposit"],
               "description": "ACH return — insufficient funds on customer deposit"
             }
@@ -258,15 +273,29 @@
       "trace_key": "offramp_id",
       "trace_value_template": "OFFRAMP-{instance}",
       "actors": {
-        "usdc_account": "$ref:internal_account.payment_usdc",
-        "payout_usd": "$ref:internal_account.employee_payment_usd",
-        "customer_wallet": "$ref:counterparty.customer_{instance}_wallet.account[0]",
-        "customer_bank": "$ref:counterparty.customer_{instance}_bank.account[0]",
-        "customer_usd_la": "$ref:ledger_account.customer_{instance}_usd",
-        "customer_usdc_la": "$ref:ledger_account.customer_{instance}_usdc",
-        "fiat_reserve": "$ref:ledger_account.fiat_reserve",
-        "usdc_pool": "$ref:ledger_account.usdc_pool",
-        "revenue": "$ref:ledger_account.conversion_revenue"
+        "user_1": {
+          "alias": "Customer",
+          "frame_type": "user",
+          "entity_ref": "$ref:legal_entity.customer_{instance}",
+          "slots": {
+            "bank": "$ref:counterparty.customer_{instance}_bank.account[0]",
+            "wallet": "$ref:counterparty.customer_{instance}_wallet.account[0]",
+            "usd_la": "$ref:ledger_account.customer_{instance}_usd",
+            "usdc_la": "$ref:ledger_account.customer_{instance}_usdc"
+          }
+        },
+        "direct_1": {
+          "alias": "Platform",
+          "frame_type": "direct",
+          "customer_name": "C2 Inc",
+          "slots": {
+            "usdc_account": "$ref:internal_account.payment_usdc",
+            "payout_usd": "$ref:internal_account.employee_payment_usd",
+            "fiat_reserve": "$ref:ledger_account.fiat_reserve",
+            "usdc_pool": "$ref:ledger_account.usdc_pool",
+            "revenue": "$ref:ledger_account.conversion_revenue"
+          }
+        }
       },
       "steps": [
         {
@@ -275,7 +304,8 @@
           "payment_type": "ach",
           "direction": "credit",
           "amount": 75000,
-          "internal_account_id": "@actor:usdc_account",
+          "originating_account_id": "@actor:user_1.wallet",
+          "internal_account_id": "@actor:direct_1.usdc_account",
           "description": "{first_name} {last_name} sends USDC for off-ramp"
         },
         {
@@ -284,8 +314,8 @@
           "depends_on": ["usdc_received"],
           "description": "Record USDC received from {first_name} {last_name}",
           "ledger_entries": [
-            { "amount": 75000, "direction": "debit", "ledger_account_id": "@actor:usdc_pool" },
-            { "amount": 75000, "direction": "credit", "ledger_account_id": "@actor:customer_usdc_la" }
+            { "amount": 75000, "direction": "debit", "ledger_account_id": "@actor:direct_1.usdc_pool" },
+            { "amount": 75000, "direction": "credit", "ledger_account_id": "@actor:user_1.usdc_la" }
           ]
         },
         {
@@ -294,15 +324,15 @@
           "payment_type": "book",
           "direction": "credit",
           "amount": 75000,
-          "originating_account_id": "@actor:usdc_account",
-          "receiving_account_id": "@actor:payout_usd",
+          "originating_account_id": "@actor:direct_1.usdc_account",
+          "receiving_account_id": "@actor:direct_1.payout_usd",
           "depends_on": ["lt_record_usdc"],
           "description": "Book transfer USDC → USD for fiat off-ramp",
           "ledger_inline": true,
           "ledger_entries": [
-            { "amount": 75000, "direction": "debit", "ledger_account_id": "@actor:customer_usdc_la" },
-            { "amount": 74625, "direction": "credit", "ledger_account_id": "@actor:customer_usd_la" },
-            { "amount": 375, "direction": "credit", "ledger_account_id": "@actor:revenue" }
+            { "amount": 75000, "direction": "debit", "ledger_account_id": "@actor:user_1.usdc_la" },
+            { "amount": 74625, "direction": "credit", "ledger_account_id": "@actor:user_1.usd_la" },
+            { "amount": 375, "direction": "credit", "ledger_account_id": "@actor:direct_1.revenue" }
           ]
         },
         {
@@ -311,14 +341,14 @@
           "payment_type": "ach",
           "direction": "credit",
           "amount": 74625,
-          "originating_account_id": "@actor:payout_usd",
-          "receiving_account_id": "@actor:customer_bank",
+          "originating_account_id": "@actor:direct_1.payout_usd",
+          "receiving_account_id": "@actor:user_1.bank",
           "depends_on": ["book_usdc_to_usd"],
           "description": "ACH payout of USD to {first_name} {last_name} bank",
           "ledger_inline": true,
           "ledger_entries": [
-            { "amount": 74625, "direction": "debit", "ledger_account_id": "@actor:customer_usd_la" },
-            { "amount": 74625, "direction": "credit", "ledger_account_id": "@actor:fiat_reserve" }
+            { "amount": 74625, "direction": "debit", "ledger_account_id": "@actor:user_1.usd_la" },
+            { "amount": 74625, "direction": "credit", "ledger_account_id": "@actor:direct_1.fiat_reserve" }
           ]
         }
       ],
@@ -326,6 +356,9 @@
         {
           "label": "RTP instant payout",
           "trigger": "manual",
+          "exclusion_group": "payout_method",
+          "position": "replace",
+          "insert_after": "fiat_payout",
           "steps": [
             {
               "step_id": "rtp_payout",
@@ -333,14 +366,14 @@
               "payment_type": "rtp",
               "direction": "credit",
               "amount": 74625,
-              "originating_account_id": "@actor:payout_usd",
-              "receiving_account_id": "@actor:customer_bank",
+              "originating_account_id": "@actor:direct_1.payout_usd",
+              "receiving_account_id": "@actor:user_1.bank",
               "depends_on": ["book_usdc_to_usd"],
               "description": "RTP instant payout to {first_name} {last_name}",
               "ledger_inline": true,
               "ledger_entries": [
-                { "amount": 74625, "direction": "debit", "ledger_account_id": "@actor:customer_usd_la" },
-                { "amount": 74625, "direction": "credit", "ledger_account_id": "@actor:fiat_reserve" }
+                { "amount": 74625, "direction": "debit", "ledger_account_id": "@actor:user_1.usd_la" },
+                { "amount": 74625, "direction": "credit", "ledger_account_id": "@actor:direct_1.fiat_reserve" }
               ]
             }
           ]
@@ -348,6 +381,9 @@
         {
           "label": "Wire payout",
           "trigger": "manual",
+          "exclusion_group": "payout_method",
+          "position": "replace",
+          "insert_after": "fiat_payout",
           "steps": [
             {
               "step_id": "wire_payout",
@@ -355,14 +391,14 @@
               "payment_type": "wire",
               "direction": "credit",
               "amount": 74625,
-              "originating_account_id": "@actor:payout_usd",
-              "receiving_account_id": "@actor:customer_bank",
+              "originating_account_id": "@actor:direct_1.payout_usd",
+              "receiving_account_id": "@actor:user_1.bank",
               "depends_on": ["book_usdc_to_usd"],
               "description": "Wire payout to {first_name} {last_name}",
               "ledger_inline": true,
               "ledger_entries": [
-                { "amount": 74625, "direction": "debit", "ledger_account_id": "@actor:customer_usd_la" },
-                { "amount": 74625, "direction": "credit", "ledger_account_id": "@actor:fiat_reserve" }
+                { "amount": 74625, "direction": "debit", "ledger_account_id": "@actor:user_1.usd_la" },
+                { "amount": 74625, "direction": "credit", "ledger_account_id": "@actor:direct_1.fiat_reserve" }
               ]
             }
           ]

@@ -13,38 +13,124 @@ from models import (
     FundsFlowScaleConfig,
     FundsFlowStepConfig,
     IncomingPaymentDetailConfig,
+    IncomingPaymentDetailStep,
+    LedgerTransactionStep,
+    PaymentOrderStep,
     ReturnConfig,
+    ReturnStep,
+    ReversalStep,
+    TransitionLedgerTransactionStep,
+    VALID_STEP_TYPES,
 )
-from flow_compiler import maybe_compile
+from flow_compiler import AuthoringConfig, compile_to_plan
+
+
+def _compile(config):
+    """Compile a DataLoaderConfig via the pipeline, returning (compiled, flow_irs)."""
+    raw = config.model_dump_json().encode()
+    plan = compile_to_plan(AuthoringConfig.from_json(raw))
+    irs = list(plan.flow_irs) or None
+    return plan.config, irs
+
+
+def _ipd(**overrides):
+    """Minimal valid IPD step dict for flow construction."""
+    d = {
+        "step_id": "s1",
+        "type": "incoming_payment_detail",
+        "payment_type": "ach",
+        "amount": 1000,
+        "internal_account_id": "ia_ops",
+    }
+    d.update(overrides)
+    return d
+
+
+def _lt(**overrides):
+    """Minimal valid LT step dict for flow construction."""
+    d = {
+        "step_id": "s1",
+        "type": "ledger_transaction",
+        "ledger_entries": [
+            {"amount": 100, "direction": "debit", "ledger_account_id": "la_a"},
+            {"amount": 100, "direction": "credit", "ledger_account_id": "la_b"},
+        ],
+    }
+    d.update(overrides)
+    return d
 
 
 # ---------------------------------------------------------------------------
-# FundsFlowStepConfig
+# Typed Step Models (Plan 0: Discriminated Union)
 # ---------------------------------------------------------------------------
 
 
-class TestFundsFlowStepConfig:
-    def test_valid_step(self):
-        step = FundsFlowStepConfig(
-            step_id="deposit",
-            type="incoming_payment_detail",
-            direction="credit",
-            amount=50000,
-        )
-        assert step.step_id == "deposit"
-        assert step.type == "incoming_payment_detail"
+class TestTypedStepModels:
+    def test_ipd_requires_payment_type(self):
+        with pytest.raises(Exception, match="payment_type"):
+            FundsFlowStepConfig(
+                step_id="dep", type="incoming_payment_detail",
+                amount=5000, internal_account_id="ia",
+            )
 
-    def test_invalid_step_type(self):
-        with pytest.raises(ValueError, match="not supported"):
-            FundsFlowStepConfig(step_id="bad", type="not_a_real_type")
+    def test_ipd_requires_internal_account(self):
+        with pytest.raises(Exception, match="internal_account_id"):
+            FundsFlowStepConfig(
+                step_id="dep", type="incoming_payment_detail",
+                payment_type="ach", amount=5000,
+            )
 
-    def test_extra_fields_allowed(self):
+    def test_po_requires_direction(self):
+        with pytest.raises(Exception, match="direction"):
+            FundsFlowStepConfig(
+                step_id="pay", type="payment_order",
+                payment_type="ach", amount=5000,
+                originating_account_id="ia",
+            )
+
+    def test_lt_requires_entries(self):
+        with pytest.raises(Exception, match="ledger_entries"):
+            FundsFlowStepConfig(step_id="lt", type="ledger_transaction")
+
+    def test_tlt_requires_status(self):
+        with pytest.raises(Exception, match="status"):
+            FundsFlowStepConfig(
+                step_id="t", type="transition_ledger_transaction",
+            )
+
+    def test_valid_ipd(self):
         step = FundsFlowStepConfig(
-            step_id="deposit",
-            type="incoming_payment_detail",
+            step_id="dep", type="incoming_payment_detail",
+            payment_type="ach", amount=50000,
             internal_account_id="$ref:internal_account.ops",
         )
-        assert step.model_extra["internal_account_id"] == "$ref:internal_account.ops"
+        assert step.step_id == "dep"
+        assert step.type == "incoming_payment_detail"
+        assert isinstance(step, IncomingPaymentDetailStep)
+
+    def test_ipd_direction_defaults_to_credit(self):
+        step = FundsFlowStepConfig(
+            step_id="dep", type="incoming_payment_detail",
+            payment_type="ach", amount=1000,
+            internal_account_id="ia",
+        )
+        assert step.direction == "credit"
+
+    def test_ipd_rejects_debit_direction(self):
+        with pytest.raises(Exception):
+            FundsFlowStepConfig(
+                step_id="dep", type="incoming_payment_detail",
+                payment_type="ach", amount=1000,
+                internal_account_id="ia", direction="debit",
+            )
+
+    def test_extra_fields_forbidden(self):
+        with pytest.raises(Exception, match="Extra inputs"):
+            FundsFlowStepConfig(
+                step_id="dep", type="incoming_payment_detail",
+                payment_type="ach", amount=1000,
+                internal_account_id="ia", bogus_field="nope",
+            )
 
     def test_unbalanced_ledger_entries(self):
         with pytest.raises(ValueError, match="unbalanced"):
@@ -72,13 +158,51 @@ class TestFundsFlowStepConfig:
         )
         assert len(step.ledger_entries) == 2
 
-    @pytest.mark.parametrize("step_type", [
-        "payment_order", "incoming_payment_detail", "ledger_transaction",
-        "expected_payment", "return", "reversal",
-    ])
-    def test_all_valid_step_types(self, step_type: str):
-        step = FundsFlowStepConfig(step_id="s1", type=step_type)
-        assert step.type == step_type
+    def test_invalid_step_type(self):
+        with pytest.raises(Exception):
+            FundsFlowStepConfig(step_id="bad", type="not_a_real_type")
+
+    def test_valid_step_types_complete(self):
+        assert VALID_STEP_TYPES == frozenset({
+            "payment_order", "incoming_payment_detail",
+            "ledger_transaction", "expected_payment",
+            "return", "reversal", "transition_ledger_transaction",
+        })
+
+    def test_return_code_defaults_to_r01(self):
+        step = FundsFlowStepConfig(step_id="ret", type="return")
+        assert isinstance(step, ReturnStep)
+        assert step.code == "R01"
+
+    def test_return_code_custom(self):
+        step = FundsFlowStepConfig(step_id="ret", type="return", code="R05")
+        assert isinstance(step, ReturnStep)
+        assert step.code == "R05"
+
+    def test_reversal_reason_optional(self):
+        step = FundsFlowStepConfig(step_id="rev", type="reversal")
+        assert isinstance(step, ReversalStep)
+        assert step.reason is None
+
+    def test_union_parses_all_types(self):
+        """Each step type can be parsed via the compat factory."""
+        specs = [
+            {"step_id": "a", "type": "payment_order", "payment_type": "ach",
+             "direction": "debit", "amount": 100, "originating_account_id": "ia"},
+            {"step_id": "b", "type": "incoming_payment_detail",
+             "payment_type": "ach", "amount": 100, "internal_account_id": "ia"},
+            {"step_id": "c", "type": "expected_payment"},
+            {"step_id": "d", "type": "ledger_transaction", "ledger_entries": [
+                {"amount": 1, "direction": "debit", "ledger_account_id": "la"},
+                {"amount": 1, "direction": "credit", "ledger_account_id": "lb"},
+            ]},
+            {"step_id": "e", "type": "return"},
+            {"step_id": "f", "type": "reversal"},
+            {"step_id": "g", "type": "transition_ledger_transaction", "status": "posted"},
+        ]
+        for spec in specs:
+            step = FundsFlowStepConfig.model_validate(spec)
+            assert step.type == spec["type"]
 
 
 # ---------------------------------------------------------------------------
@@ -91,9 +215,7 @@ class TestFundsFlowConfig:
         flow = FundsFlowConfig(
             ref="test_flow",
             pattern_type="deposit_settle",
-            steps=[
-                FundsFlowStepConfig(step_id="s1", type="incoming_payment_detail"),
-            ],
+            steps=[_ipd()],
         )
         assert flow.ref == "test_flow"
         assert len(flow.steps) == 1
@@ -103,10 +225,7 @@ class TestFundsFlowConfig:
             FundsFlowConfig(
                 ref="bad_flow",
                 pattern_type="test",
-                steps=[
-                    FundsFlowStepConfig(step_id="s1", type="incoming_payment_detail"),
-                    FundsFlowStepConfig(step_id="s1", type="ledger_transaction"),
-                ],
+                steps=[_ipd(), _lt(step_id="s1")],
             )
 
     def test_invalid_depends_on(self):
@@ -114,13 +233,7 @@ class TestFundsFlowConfig:
             FundsFlowConfig(
                 ref="bad_flow",
                 pattern_type="test",
-                steps=[
-                    FundsFlowStepConfig(
-                        step_id="s1",
-                        type="ledger_transaction",
-                        depends_on=["nonexistent"],
-                    ),
-                ],
+                steps=[_lt(depends_on=["nonexistent"])],
             )
 
     def test_bad_trace_placeholder(self):
@@ -129,9 +242,7 @@ class TestFundsFlowConfig:
                 ref="bad",
                 pattern_type="test",
                 trace_value_template="{ref}-{bad_key}",
-                steps=[
-                    FundsFlowStepConfig(step_id="s1", type="incoming_payment_detail"),
-                ],
+                steps=[_ipd()],
             )
 
     def test_empty_steps_rejected(self):
@@ -142,12 +253,7 @@ class TestFundsFlowConfig:
         flow = FundsFlowConfig(
             ref="chained",
             pattern_type="test",
-            steps=[
-                FundsFlowStepConfig(step_id="s1", type="incoming_payment_detail"),
-                FundsFlowStepConfig(
-                    step_id="s2", type="ledger_transaction", depends_on=["s1"]
-                ),
-            ],
+            steps=[_ipd(), _lt(step_id="s2", depends_on=["s1"])],
         )
         assert flow.steps[1].depends_on == ["s1"]
 
@@ -155,7 +261,7 @@ class TestFundsFlowConfig:
         flow = FundsFlowConfig(
             ref="f1",
             pattern_type="test",
-            steps=[FundsFlowStepConfig(step_id="s1", type="incoming_payment_detail")],
+            steps=[_ipd()],
         )
         assert flow.trace_value_template == "{ref}-{instance}"
         assert flow.trace_key == "deal_id"
@@ -164,11 +270,21 @@ class TestFundsFlowConfig:
         flow = FundsFlowConfig(
             ref="f1",
             pattern_type="test",
-            actors={"acct": "$ref:internal_account.ops"},
+            actors={
+                "direct_1": {
+                    "alias": "Platform",
+                    "frame_type": "direct",
+                    "customer_name": "Platform",
+                    "slots": {"ops": "$ref:internal_account.ops"},
+                }
+            },
             trace_metadata={"env": "demo"},
-            steps=[FundsFlowStepConfig(step_id="s1", type="incoming_payment_detail")],
+            steps=[_ipd()],
         )
-        assert flow.actors == {"acct": "$ref:internal_account.ops"}
+        frame = flow.actors["direct_1"]
+        assert frame.alias == "Platform"
+        assert frame.frame_type == "direct"
+        assert frame.slots["ops"].ref == "$ref:internal_account.ops"
         assert flow.trace_metadata == {"env": "demo"}
 
     def test_scale_config(self):
@@ -176,7 +292,7 @@ class TestFundsFlowConfig:
             ref="f1",
             pattern_type="test",
             scale=FundsFlowScaleConfig(instances=100),
-            steps=[FundsFlowStepConfig(step_id="s1", type="incoming_payment_detail")],
+            steps=[_ipd()],
         )
         assert flow.scale.instances == 100
 
@@ -186,7 +302,7 @@ class TestFundsFlowConfig:
                 ref="f1",
                 pattern_type="test",
                 bogus_field="nope",
-                steps=[FundsFlowStepConfig(step_id="s1", type="incoming_payment_detail")],
+                steps=[_ipd()],
             )
 
 
@@ -208,7 +324,7 @@ class TestDataLoaderConfigWithFlows:
                 {
                     "ref": "f1",
                     "pattern_type": "deposit",
-                    "steps": [{"step_id": "s1", "type": "incoming_payment_detail"}],
+                    "steps": [_ipd()],
                 }
             ],
         )
@@ -222,7 +338,7 @@ class TestDataLoaderConfigWithFlows:
                 {
                     "ref": "f1",
                     "pattern_type": "deposit",
-                    "steps": [{"step_id": "s1", "type": "incoming_payment_detail"}],
+                    "steps": [_ipd()],
                 }
             ],
         )
@@ -267,28 +383,26 @@ class TestMetadataOnIPDAndReturn:
 
 
 # ---------------------------------------------------------------------------
-# maybe_compile() gate
+# compile_to_plan gate
 # ---------------------------------------------------------------------------
 
 
-class TestMaybeCompile:
+class TestCompilePipeline:
     def test_passthrough_no_flows(self):
         config = DataLoaderConfig()
-        result, _ = maybe_compile(config)
-        assert result is config
+        result, irs = _compile(config)
+        assert irs is None
+        assert result.funds_flows == []
 
     def test_passthrough_with_resources_no_flows(self):
         config = DataLoaderConfig(
             ledgers=[{"ref": "main", "name": "Main"}],
         )
-        result, _ = maybe_compile(config)
-        assert result is config
+        result, irs = _compile(config)
+        assert irs is None
         assert len(result.ledgers) == 1
 
     def test_compiles_with_flows(self):
-        """Step 2s replaced the NotImplementedError stub with a working
-        compiler.  A minimal flow now compiles (or fails validation),
-        but never raises NotImplementedError."""
         config = DataLoaderConfig(
             funds_flows=[
                 {
@@ -307,7 +421,7 @@ class TestMaybeCompile:
                 }
             ],
         )
-        result, _ = maybe_compile(config)
+        result, _ = _compile(config)
         assert result.funds_flows == []
         assert len(result.incoming_payment_details) == 1
 
@@ -329,8 +443,8 @@ class TestExistingExamplesUnchanged:
         raw = example.read_bytes()
         config = DataLoaderConfig.model_validate_json(raw)
         if not config.funds_flows:
-            result, _ = maybe_compile(config)
-            assert result is config
+            result, irs = _compile(config)
+            assert irs is None
 
 
 # ---------------------------------------------------------------------------
@@ -349,12 +463,11 @@ class TestFundsFlowDemo:
         assert len(config.funds_flows[0].steps) == 3
 
     def test_demo_compiles_end_to_end(self):
-        """Step 2s: the demo JSON now compiles instead of raising."""
         demo = _EXAMPLE_DIR / "funds_flow_demo.json"
         if not demo.exists():
             pytest.skip("funds_flow_demo.json not yet created")
         config = DataLoaderConfig.model_validate_json(demo.read_bytes())
-        result, _ = maybe_compile(config)
+        result, _ = _compile(config)
         assert result.funds_flows == []
         assert len(result.incoming_payment_details) == 1
         assert len(result.ledger_transactions) == 1

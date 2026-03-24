@@ -78,3 +78,70 @@ class TestRoutes:
             data={"api_key": "test", "org_id": "test"},
         )
         assert r.status_code == 404
+
+
+class TestMetadataEndpoint:
+    def test_metadata_no_session(self, client):
+        r = client.post(
+            "/api/flows/0/metadata",
+            json={"trace_key": "invoice_id"},
+            headers={"X-Session-Token": "nonexistent"},
+        )
+        assert r.status_code == 401
+
+    def test_metadata_updates_working_config(self, client):
+        import json
+        from session import SessionState, sessions
+        from engine import RefRegistry
+        from models import DataLoaderConfig
+
+        config_data = {
+            "funds_flows": [{
+                "ref": "test_flow",
+                "pattern_type": "psp",
+                "trace_key": "deal_id",
+                "trace_value_template": "{ref}-{instance}",
+                "trace_metadata": {"env": "sandbox"},
+                "steps": [
+                    {"step_id": "lt1", "type": "ledger_transaction",
+                     "ledger_entries": [
+                         {"amount": 100, "direction": "debit",
+                          "ledger_account_id": "$ref:ledger_account.cash"},
+                         {"amount": 100, "direction": "credit",
+                          "ledger_account_id": "$ref:ledger_account.rev"},
+                     ]},
+                ],
+            }],
+        }
+        config = DataLoaderConfig.model_validate(config_data)
+        token = "test-meta-token"
+        sessions[token] = SessionState(
+            session_token=token,
+            api_key="k",
+            org_id="o",
+            config=config,
+            config_json_text=json.dumps(config_data),
+            registry=RefRegistry(),
+            batches=[],
+            working_config_json=json.dumps(config_data),
+        )
+        try:
+            r = client.post(
+                "/api/flows/0/metadata",
+                json={
+                    "trace_key": "invoice_id",
+                    "trace_value_template": "INV-{instance}",
+                    "trace_metadata": {"env": "production", "region": "us-east"},
+                },
+                headers={"X-Session-Token": token},
+            )
+            assert r.status_code == 200
+            assert r.json()["status"] == "ok"
+
+            updated = json.loads(sessions[token].working_config_json)
+            flow = updated["funds_flows"][0]
+            assert flow["trace_key"] == "invoice_id"
+            assert flow["trace_value_template"] == "INV-{instance}"
+            assert flow["trace_metadata"]["region"] == "us-east"
+        finally:
+            sessions.pop(token, None)

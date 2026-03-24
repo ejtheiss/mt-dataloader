@@ -1,0 +1,46 @@
+<div class="conn-editor-overlay" onclick="if(event.target===this)this.parentElement.style.display='none'">
+    <div class="conn-editor-panel">
+        <div class="conn-editor-header">
+            <h3>Connection Settings</h3>
+            <button class="btn btn-xs" onclick="this.closest('#conn-editor-modal').style.display='none'">×</button>
+        </div>
+        <form id="conn-editor-form">
+            <div class="form-group">
+                <label class="form-label">API Key</label>
+                <input type="password" name="api_key" class="form-input"
+                       value="{{ api_key or '' }}" placeholder="Enter MT API key">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Organization ID</label>
+                <input type="text" name="org_id" class="form-input"
+                       value="{{ org_id or '' }}" placeholder="Enter org ID">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Organization Name (optional)</label>
+                <input type="text" name="org_name" class="form-input"
+                       value="{{ org_name or '' }}" placeholder="Display name">
+            </div>
+
+            <div id="conn-test-result" style="margin: 12px 0;"></div>
+
+            <div class="conn-editor-actions">
+                <button type="button" class="btn btn-outline"
+                        hx-post="/api/connection-test"
+                        hx-include="#conn-editor-form"
+                        hx-target="#conn-test-result"
+                        hx-swap="innerHTML">
+                    Test Connection
+                </button>
+                <button type="button" class="btn btn-primary"
+                        hx-post="/api/connection-apply"
+                        hx-include="#conn-editor-form"
+                        hx-target="#conn-apply-result"
+                        hx-swap="innerHTML"
+                        onclick="_creds.save();">
+                    Apply
+                </button>
+            </div>
+            <div id="conn-apply-result" style="margin-top: 12px;"></div>
+        </form>
+    </div>
+</div>

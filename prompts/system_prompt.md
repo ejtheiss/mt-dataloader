@@ -233,14 +233,30 @@ of manually assembling individual resources.
 {
   "funds_flows": [
     {
-      "ref": "simple_deposit",
+      "ref": "marketplace_deposit",
       "pattern_type": "deposit_settle",
       "trace_key": "deal_id",
       "trace_value_template": "deal-{ref}-{instance}",
       "actors": {
-        "ops_account": "$ref:internal_account.ops_usd",
-        "cash_ledger": "$ref:ledger_account.cash",
-        "revenue_ledger": "$ref:ledger_account.revenue"
+        "user_1": {
+          "alias": "Buyer",
+          "frame_type": "user",
+          "entity_ref": "$ref:legal_entity.buyer_{instance}",
+          "slots": {
+            "bank": "$ref:counterparty.buyer_{instance}_cp.account[0]",
+            "wallet": "$ref:internal_account.buyer_{instance}_wallet"
+          }
+        },
+        "direct_1": {
+          "alias": "Platform",
+          "frame_type": "direct",
+          "customer_name": "Acme Corp",
+          "slots": {
+            "revenue": "$ref:internal_account.platform_revenue",
+            "cash": "$ref:ledger_account.cash",
+            "fees": "$ref:ledger_account.fees"
+          }
+        }
       },
       "steps": [ ... ],
       "optional_groups": [ ... ]
@@ -248,6 +264,22 @@ of manually assembling individual resources.
   ]
 }
 ```
+
+### Actor Frames & Slots
+
+Each actor is a **Frame** (typed participant) with named **Slots** (account refs):
+
+- **`alias`**: UI display name ("Buyer", "Seller", "Platform")
+- **`frame_type`**: `"user"` for per-instance actors (scaled by recipe),
+  `"direct"` for shared/platform actors (static refs)
+- **`entity_ref`** (user frames): LE reference for faker-seeded names
+- **`customer_name`** (direct frames): literal business name
+- **`slots`**: dict of short name → `$ref:` string (or `{"ref": "$ref:...", "fi": "Wells Fargo"}`)
+- **`fi`** (optional, on slots): Financial institution label for BYOB IAs and EAs
+
+Step payloads use `@actor:frame.slot` syntax:
+`"internal_account_id": "@actor:user_1.wallet"`,
+`"originating_account_id": "@actor:direct_1.revenue"`
 
 ### `instance_resources` — per-instance infrastructure templates
 
@@ -258,11 +290,11 @@ defining N copies of each resource:
 ```json
 "instance_resources": {
   "legal_entities": [
-    { "ref": "user_{instance}", "legal_entity_type": "individual",
+    { "ref": "buyer_{instance}", "legal_entity_type": "individual",
       "first_name": "{first_name}", "last_name": "{last_name}" }
   ],
   "internal_accounts": [
-    { "ref": "user_{instance}_wallet", "connection_id": "$ref:connection.bank",
+    { "ref": "buyer_{instance}_wallet", "connection_id": "$ref:connection.bank",
       "name": "{first_name} {last_name} Wallet", "party_name": "{first_name} {last_name}",
       "currency": "USD" }
   ]
@@ -273,11 +305,11 @@ Available placeholders: `{instance}` (zero-padded 4-digit), `{first_name}`,
 `{last_name}`, `{business_name}`, `{industry}`, `{country}`.
 
 Placeholders are resolved from seed profiles at generation time via `deep_format_map()`.
-Actor refs can also use `{instance}` (e.g., `"$ref:internal_account.user_{instance}_wallet"`).
+Actor slot refs can use `{instance}` (e.g., `"$ref:internal_account.buyer_{instance}_wallet"`).
 
 ### Rules for funds_flows:
 1. Always include `trace_key` (generic metadata key) and `trace_value_template`
-2. Use `@actor:alias` syntax in step payloads — the compiler resolves them
+2. Use `@actor:frame.slot` syntax in step payloads — e.g., `@actor:user_1.bank`, `@actor:direct_1.revenue`
 3. Use `optional_groups` for lifecycle variants (returns, reversals, NSF)
 4. Do NOT emit expanded resource arrays — the compiler handles expansion
 5. Step `type` is the resource type; use `payment_type` for the method (ach/wire)
@@ -285,6 +317,8 @@ Actor refs can also use `{instance}` (e.g., `"$ref:internal_account.user_{instan
 7. Use `depends_on` for ordering between steps (references step_id, not $ref:)
 8. Use `instance_resources` for per-user infrastructure (LEs, CPs, IAs, LAs)
 9. Use `{placeholder}` syntax in descriptions and names for profile injection
+10. Frame keys: `user_1`, `user_2`, ... for per-instance actors; `direct_1`, `direct_2`, ... for platform/static actors
+11. Slot keys: short descriptive names like `bank`, `wallet`, `ops`, `cash`, `revenue`
 
 ---
 

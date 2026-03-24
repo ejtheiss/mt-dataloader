@@ -29,8 +29,22 @@
       "trace_key": "transfer_id",
       "trace_value_template": "xfer-{ref}-{instance}",
       "actors": {
-        "source_wallet": "$ref:internal_account.wallet_a",
-        "dest_wallet": "$ref:internal_account.wallet_b"
+        "direct_1": {
+          "alias": "Source",
+          "frame_type": "direct",
+          "customer_name": "Party A",
+          "slots": {
+            "wallet": "$ref:internal_account.wallet_a"
+          }
+        },
+        "direct_2": {
+          "alias": "Dest",
+          "frame_type": "direct",
+          "customer_name": "Party B",
+          "slots": {
+            "wallet": "$ref:internal_account.wallet_b"
+          }
+        }
       },
       "steps": [
         {
@@ -39,8 +53,8 @@
           "payment_type": "book",
           "direction": "credit",
           "amount": 10000,
-          "originating_account_id": "@actor:source_wallet",
-          "receiving_account_id": "@actor:dest_wallet",
+          "originating_account_id": "@actor:direct_1.wallet",
+          "receiving_account_id": "@actor:direct_2.wallet",
           "description": "Minimal PSP internal transfer"
         }
       ]

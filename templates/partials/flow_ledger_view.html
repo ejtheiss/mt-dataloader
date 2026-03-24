@@ -1,0 +1,240 @@
+{% if view_data.ledger_rows %}
+<div class="flow-columns" id="flow-columns">
+    <div class="flow-col flow-col-transactions">
+        <div class="flow-col-header">
+            <div class="flow-col-title">Transactions</div>
+            <div class="flow-col-meta">
+                <div class="flow-meta-row"><span>&nbsp;</span></div>
+                <div class="flow-meta-row"><span>&nbsp;</span></div>
+            </div>
+        </div>
+        <div class="flow-col-subheader">
+            <span class="flow-th" style="width: 32%;">Description</span>
+            <span class="flow-th" style="width: 14%;">Status</span>
+            <span class="flow-th" style="width: 14%;">Source</span>
+            <span class="flow-th" style="width: 22%;">Ref</span>
+            <span class="flow-th" style="width: 18%;">Effective</span>
+        </div>
+        <div class="flow-col-body" id="flow-scroll-tx" onscroll="syncFlowScroll(this)">
+            {% set ns_og = namespace(current_og=None) %}
+            {% for row in view_data.ledger_rows %}
+            {% if row.optional_group and row.optional_group != ns_og.current_og %}
+            {% set ns_og.current_og = row.optional_group %}
+            <div class="flow-og-header" data-og="{{ row.optional_group }}" onclick="toggleOgRows(this)">
+                <span class="flow-og-icon">&#9656;</span>
+                <span class="flow-og-label">{{ row.optional_group }}</span>
+            </div>
+            {% elif not row.optional_group and ns_og.current_og %}
+            {% set ns_og.current_og = None %}
+            {% endif %}
+            <div class="flow-row {% if row.optional_group %}flow-og-row{% endif %}"
+                 data-step-ref="{{ row.step_ref }}"
+                 {% if row.optional_group %}data-og="{{ row.optional_group }}" style="display: none; height: 48px;"{% else %}style="height: 48px;"{% endif %}>
+                <span class="flow-td" style="width: 32%;" title="{{ row.description }}">
+                    {{ row.description or '—' }}
+                </span>
+                <span class="flow-td" style="width: 14%;">
+                    <span class="status-dot pending"></span>
+                    <span class="status-text">{{ row.status }}</span>
+                </span>
+                <span class="flow-td" style="width: 14%;">
+                    {% if row.is_standalone %}
+                        <span class="ledgerable-pill ledgerable-standalone">—</span>
+                    {% elif row.ledgerable_type %}
+                        {% set badge = source_badge.get(row.ledgerable_type, row.ledgerable_type) %}
+                        <span class="ledgerable-pill ledgerable-{{ row.ledgerable_type }}">{{ badge }}</span>
+                    {% else %}
+                        <span class="ledgerable-pill ledgerable-standalone">—</span>
+                    {% endif %}
+                </span>
+                <span class="flow-td" style="width: 22%;">
+                    <code class="ref-name">{{ row.step_ref.split('__')[-1] }}</code>
+                </span>
+                <span class="flow-td" style="width: 18%;">
+                    {{ row.effective_at or '—' }}
+                </span>
+            </div>
+            {% endfor %}
+            <div class="flow-row flow-row-summary" style="height: 48px; font-weight: 600; border-top: 2px solid var(--border);">
+                <span class="flow-td" style="width: 100%;">Net Position</span>
+            </div>
+        </div>
+    </div>
+
+    {% for col in view_data.ledger_columns %}
+    <div class="flow-col flow-col-account">
+        <div class="flow-col-header">
+            <div class="flow-col-title" title="{{ col.account_ref }}">{{ col.display_name }}</div>
+            <div class="flow-col-meta">
+                <div class="flow-meta-row">
+                    <span>Normal:</span>
+                    <span class="flow-meta-val">{{ col.normal_balance or '—' }}</span>
+                </div>
+                <div class="flow-meta-row">
+                    <span>&nbsp;</span>
+                </div>
+            </div>
+        </div>
+        <div class="flow-col-subheader flow-col-split">
+            <span class="flow-th">Debit</span>
+            <span class="flow-th">Credit</span>
+        </div>
+        <div class="flow-col-body flow-scroll-acct" onscroll="syncFlowScroll(this)">
+            {% set ns = namespace(net=0) %}
+            {% set ns_og = namespace(current_og=None) %}
+            {% for row in view_data.ledger_rows %}
+            {% if row.optional_group and row.optional_group != ns_og.current_og %}
+            {% set ns_og.current_og = row.optional_group %}
+            <div class="flow-og-header flow-og-header-placeholder" data-og="{{ row.optional_group }}" onclick="toggleOgRows(this)">
+                &nbsp;
+            </div>
+            {% elif not row.optional_group and ns_og.current_og %}
+            {% set ns_og.current_og = None %}
+            {% endif %}
+            <div class="flow-row flow-row-split {% if row.optional_group %}flow-og-row{% endif %}"
+                 {% if row.optional_group %}data-og="{{ row.optional_group }}" style="display: none; height: 48px;"{% else %}style="height: 48px;"{% endif %}>
+                <span class="flow-td-entry flow-td-debit">
+                    {% for e in row.entries %}
+                    {% if e.column_ref == col.account_ref and e.direction == 'debit' %}
+                    <span class="entry-amount">{{ fmt_amt(e.amount) }}</span>
+                    {% set ns.net = ns.net + e.amount %}
+                    {% endif %}
+                    {% endfor %}
+                </span>
+                <span class="flow-td-entry flow-td-credit">
+                    {% for e in row.entries %}
+                    {% if e.column_ref == col.account_ref and e.direction == 'credit' %}
+                    <span class="entry-amount">{{ fmt_amt(e.amount) }}</span>
+                    {% set ns.net = ns.net - e.amount %}
+                    {% endif %}
+                    {% endfor %}
+                </span>
+            </div>
+            {% endfor %}
+            <div class="flow-row flow-row-split flow-row-summary" style="height: 48px; font-weight: 600; border-top: 2px solid var(--border);">
+                <span class="flow-td-entry" style="width: 100%; text-align: center;">
+                    {% if ns.net > 0 %}
+                    <span class="entry-amount" style="color: var(--green, #22c55e);">{{ fmt_amt(ns.net) }} DR</span>
+                    {% elif ns.net < 0 %}
+                    <span class="entry-amount" style="color: var(--red, #ef4444);">{{ fmt_amt(-ns.net) }} CR</span>
+                    {% else %}
+                    <span class="entry-amount" style="color: var(--muted, #888);">$0.00</span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if view_data.payment_columns %}
+    <div id="payment-columns-toggle" style="display: none;">
+        {% for col in view_data.payment_columns %}
+        <div class="flow-col flow-col-account flow-col-payment">
+            <div class="flow-col-header">
+                <div class="flow-col-title" title="{{ col.account_ref }}">{{ col.display_name }}</div>
+                <div class="flow-col-meta">
+                    <div class="flow-meta-row">
+                        <span>Type:</span>
+                        <span class="flow-meta-val">{{ col.account_type }}</span>
+                    </div>
+                    <div class="flow-meta-row"><span>&nbsp;</span></div>
+                </div>
+            </div>
+            <div class="flow-col-subheader flow-col-split">
+                <span class="flow-th">In</span>
+                <span class="flow-th">Out</span>
+            </div>
+            <div class="flow-col-body flow-scroll-acct" onscroll="syncFlowScroll(this)">
+                {% set ns_og = namespace(current_og=None) %}
+                {% for row in view_data.ledger_rows %}
+                {% if row.optional_group and row.optional_group != ns_og.current_og %}
+                {% set ns_og.current_og = row.optional_group %}
+                <div class="flow-og-header flow-og-header-placeholder" data-og="{{ row.optional_group }}" onclick="toggleOgRows(this)">
+                    &nbsp;
+                </div>
+                {% elif not row.optional_group and ns_og.current_og %}
+                {% set ns_og.current_og = None %}
+                {% endif %}
+                <div class="flow-row flow-row-split {% if row.optional_group %}flow-og-row{% endif %}"
+                     {% if row.optional_group %}data-og="{{ row.optional_group }}" style="display: none; height: 48px;"{% else %}style="height: 48px;"{% endif %}>
+                    <span class="flow-td-entry flow-td-debit">
+                        {% for imp in row.payment_account_impacts %}
+                        {% if imp.column_ref == col.account_ref and imp.direction == 'in' %}
+                        <span class="entry-amount">{{ fmt_amt(imp.amount) }}</span>
+                        {% endif %}
+                        {% endfor %}
+                    </span>
+                    <span class="flow-td-entry flow-td-credit">
+                        {% for imp in row.payment_account_impacts %}
+                        {% if imp.column_ref == col.account_ref and imp.direction == 'out' %}
+                        <span class="entry-amount">{{ fmt_amt(imp.amount) }}</span>
+                        {% endif %}
+                        {% endfor %}
+                    </span>
+                </div>
+                {% endfor %}
+                <div class="flow-row flow-row-split flow-row-summary" style="height: 48px; font-weight: 600; border-top: 2px solid var(--border);">
+                    <span class="flow-td-entry" style="width: 100%; text-align: center;">—</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+{% if view_data.payment_columns %}
+<div style="margin-top: 8px;">
+    <button class="btn btn-sm btn-outline" onclick="togglePaymentColumns()">
+        Show Payment Accounts
+    </button>
+</div>
+{% endif %}
+
+<script>
+(function() {
+    var syncing = false;
+    window.syncFlowScroll = function(source) {
+        if (syncing) return;
+        syncing = true;
+        var top = source.scrollTop;
+        var bodies = document.querySelectorAll('.flow-col-body');
+        bodies.forEach(function(el) {
+            if (el !== source) el.scrollTop = top;
+        });
+        syncing = false;
+    };
+
+    window.togglePaymentColumns = function() {
+        var el = document.getElementById('payment-columns-toggle');
+        if (!el) return;
+        var btn = event.target;
+        if (el.style.display === 'none') {
+            el.style.display = 'contents';
+            btn.textContent = 'Hide Payment Accounts';
+        } else {
+            el.style.display = 'none';
+            btn.textContent = 'Show Payment Accounts';
+        }
+    };
+
+    window.toggleOgRows = function(headerEl) {
+        var ogName = headerEl.getAttribute('data-og');
+        if (!ogName) return;
+        var allHeaders = document.querySelectorAll('.flow-og-header[data-og="' + ogName + '"]');
+        var allRows = document.querySelectorAll('.flow-og-row[data-og="' + ogName + '"]');
+        var isExpanded = headerEl.classList.contains('expanded');
+
+        allHeaders.forEach(function(h) {
+            h.classList.toggle('expanded', !isExpanded);
+        });
+        allRows.forEach(function(r) {
+            r.style.display = isExpanded ? 'none' : '';
+        });
+    };
+})();
+</script>
+
+{% else %}
+<p class="empty-state">No ledger entries in this flow.</p>
+{% endif %}

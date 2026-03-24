@@ -1,6 +1,6 @@
 """Tests for Step 4 — Fund Flow UI, Session Hardening, Remaining Phases.
 
-Covers: maybe_compile() tuple signature, compute_flow_status,
+Covers: compile_to_plan pipeline, compute_flow_status,
 flow_account_deltas, compile_diagnostics, actor_display_name rename,
 FlowIRStep.optional_group, RunManifest new fields, backward-compat load,
 and passthrough regression.
@@ -19,17 +19,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from engine import RunManifest, _now_iso
 from flow_compiler import (
+    AuthoringConfig,
     FlowIR,
     FlowIRStep,
     LedgerGroup,
     actor_display_name,
     compile_diagnostics,
     compile_flows,
+    compile_to_plan,
     compute_flow_status,
     flow_account_deltas,
-    maybe_compile,
     render_mermaid,
 )
+
+
+def _compile(config):
+    """Compile a DataLoaderConfig via the pipeline, returning (compiled, flow_irs)."""
+    raw = config.model_dump_json().encode()
+    plan = compile_to_plan(AuthoringConfig.from_json(raw))
+    irs = list(plan.flow_irs) or None
+    return plan.config, irs
 from models import DataLoaderConfig, FundsFlowConfig
 
 EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
@@ -48,26 +57,29 @@ def _load_funds_flow_config() -> DataLoaderConfig:
 def _make_flow_ir(
     entries: list[dict] | None = None,
     optional_group: str | None = None,
+    ledger_groups: tuple[LedgerGroup, ...] | None = None,
 ) -> FlowIR:
     """Build a minimal FlowIR for testing."""
-    lg = LedgerGroup(
-        group_id="lg0",
-        inline=False,
-        entries=entries or [
-            {"ledger_account_id": "$ref:ledger_account.cash", "direction": "debit", "amount": 10000},
-            {"ledger_account_id": "$ref:ledger_account.revenue", "direction": "credit", "amount": 10000},
-        ],
-        metadata={},
-        status=None,
-    )
+    if ledger_groups is None:
+        lg = LedgerGroup(
+            group_id="lg0",
+            inline=False,
+            entries=tuple(entries) if entries else (
+                {"ledger_account_id": "$ref:ledger_account.cash", "direction": "debit", "amount": 10000},
+                {"ledger_account_id": "$ref:ledger_account.revenue", "direction": "credit", "amount": 10000},
+            ),
+            metadata={},
+            status=None,
+        )
+        ledger_groups = (lg,)
     step = FlowIRStep(
         step_id="step1",
         flow_ref="test",
         instance_id="0000",
-        depends_on=[],
+        depends_on=(),
         resource_type="ledger_transaction",
         payload={"description": "Test LT"},
-        ledger_groups=[lg],
+        ledger_groups=ledger_groups,
         trace_metadata={"_flow_test": "yes"},
         optional_group=optional_group,
     )
@@ -78,33 +90,33 @@ def _make_flow_ir(
         trace_key="test_key",
         trace_value="test-0000",
         trace_metadata={"_flow_test": "yes"},
-        steps=[step],
+        steps=(step,),
     )
 
 
 # ---------------------------------------------------------------------------
-# maybe_compile() tuple signature
+# compile_to_plan pipeline
 # ---------------------------------------------------------------------------
 
 
-class TestMaybeCompileTuple:
+class TestCompilePipeline:
     def test_no_funds_flows_returns_none(self):
         config = DataLoaderConfig()
-        result, flow_irs = maybe_compile(config)
+        result, flow_irs = _compile(config)
         assert flow_irs is None
         assert result.funds_flows == []
 
-    def test_with_funds_flows_returns_tuple(self):
+    def test_with_funds_flows_returns_irs(self):
         config = _load_funds_flow_config()
         assert len(config.funds_flows) > 0
-        result, flow_irs = maybe_compile(config)
+        result, flow_irs = _compile(config)
         assert flow_irs is not None
         assert len(flow_irs) > 0
         assert result.funds_flows == []
 
     def test_flow_irs_have_correct_length(self):
         config = _load_funds_flow_config()
-        _, flow_irs = maybe_compile(config)
+        _, flow_irs = _compile(config)
         assert len(flow_irs) == len(_load_funds_flow_config().funds_flows)
 
 
@@ -135,8 +147,7 @@ class TestFlowAccountDeltas:
         assert deltas["acct_b"] == -5000
 
     def test_empty_entries(self):
-        ir = _make_flow_ir()
-        ir.steps[0].ledger_groups = []
+        ir = _make_flow_ir(ledger_groups=())
         assert flow_account_deltas(ir) == {}
 
     def test_multiple_entries_accumulate(self):
@@ -165,9 +176,9 @@ class TestCompileDiagnostics:
         assert "_flow_test" in diag["flow_metadata_keys"]
 
     def test_multiple_flows(self):
+        import dataclasses as dc
         ir1 = _make_flow_ir()
-        ir2 = _make_flow_ir()
-        ir2.trace_value = "test-0001"
+        ir2 = dc.replace(_make_flow_ir(), trace_value="test-0001")
         diag = compile_diagnostics([ir1, ir2])
         assert diag["total_steps"] == 2
         assert diag["trace_value_count"] == 2
@@ -180,7 +191,7 @@ class TestCompileDiagnostics:
 
 class TestActorDisplayName:
     def test_ref_format(self):
-        assert actor_display_name("$ref:internal_account.ops_usd") == "Ops Usd"
+        assert actor_display_name("$ref:internal_account.ops_usd") == "Ops"
 
     def test_simple_name(self):
         assert actor_display_name("some_account") == "Some Account"
@@ -195,16 +206,16 @@ class TestFlowIRStepOptionalGroup:
     def test_default_is_none(self):
         step = FlowIRStep(
             step_id="s1", flow_ref="f", instance_id="0000",
-            depends_on=[], resource_type="payment_order",
-            payload={}, ledger_groups=[], trace_metadata={},
+            depends_on=(), resource_type="payment_order",
+            payload={}, ledger_groups=(), trace_metadata={},
         )
         assert step.optional_group is None
 
     def test_set_optional_group(self):
         step = FlowIRStep(
             step_id="s1", flow_ref="f", instance_id="0000",
-            depends_on=[], resource_type="payment_order",
-            payload={}, ledger_groups=[], trace_metadata={},
+            depends_on=(), resource_type="payment_order",
+            payload={}, ledger_groups=(), trace_metadata={},
             optional_group="ach_return",
         )
         assert step.optional_group == "ach_return"
@@ -235,6 +246,41 @@ class TestFlowIRStepOptionalGroup:
                 if step.optional_group:
                     has_tagged = True
         assert has_tagged, "Expected at least one step with optional_group set after flatten"
+
+
+# ---------------------------------------------------------------------------
+# FlowIR / FlowIRStep / LedgerGroup frozen invariant
+# ---------------------------------------------------------------------------
+
+
+class TestFlowIRFrozen:
+    def test_flowir_step_frozen(self):
+        import dataclasses as dc
+        step = FlowIRStep(
+            step_id="s", flow_ref="f", instance_id="0000",
+            depends_on=(), resource_type="payment_order",
+            payload={}, ledger_groups=(), trace_metadata={},
+        )
+        with pytest.raises(dc.FrozenInstanceError):
+            step.depends_on = ("new",)
+
+    def test_flowir_frozen(self):
+        import dataclasses as dc
+        ir = FlowIR(
+            flow_ref="f", instance_id="0000", pattern_type="test",
+            trace_key="k", trace_value="v", trace_metadata={},
+        )
+        with pytest.raises(dc.FrozenInstanceError):
+            ir.steps = ()
+
+    def test_ledger_group_frozen(self):
+        import dataclasses as dc
+        lg = LedgerGroup(
+            group_id="g", inline=False, entries=(),
+            metadata={}, status=None,
+        )
+        with pytest.raises(dc.FrozenInstanceError):
+            lg.inline = True
 
 
 # ---------------------------------------------------------------------------
@@ -304,13 +350,13 @@ class TestRunManifestNewFields:
 class TestPassthroughRegression:
     def test_existing_demo_compiles(self):
         config = _load_funds_flow_config()
-        result, flow_irs = maybe_compile(config)
+        result, flow_irs = _compile(config)
         assert flow_irs is not None
         assert len(result.funds_flows) == 0
 
     def test_empty_config_compiles(self):
         config = DataLoaderConfig()
-        result, flow_irs = maybe_compile(config)
+        result, flow_irs = _compile(config)
         assert flow_irs is None
 
     def test_render_mermaid_still_works(self):

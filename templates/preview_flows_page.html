@@ -85,7 +85,7 @@
                 <thead>
                     <tr>
                         <th>Type</th>
-                        <th>Ref</th>
+                        <th>Name</th>
                         <th>Info</th>
                     </tr>
                 </thead>
@@ -93,7 +93,12 @@
                 {% for item in group.infra_items %}
                 <tr>
                     <td><span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span></td>
-                    <td><code>{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</code>
+                    <td>
+                        {% if item.display_name %}
+                        <span class="resource-display-name" title="{{ item.typed_ref }}">{{ item.display_name }}</span>
+                        {% else %}
+                        <code class="resource-ref-fallback" title="{{ item.typed_ref }}">{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</code>
+                        {% endif %}
                         {% if item.deletable %}
                         <span class="cleanup-icon deletable" title="Deletable">&#x1f5d1;</span>
                         {% else %}
@@ -122,7 +127,7 @@
                     <tr>
                         <th style="width: 50px;">Batch</th>
                         <th>Type</th>
-                        <th>Ref</th>
+                        <th>Name</th>
                         <th>Info</th>
                     </tr>
                 </thead>
@@ -131,7 +136,12 @@
                 <tr>
                     <td><span class="batch-badge">B{{ item.batch }}</span></td>
                     <td><span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span></td>
-                    <td><code>{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</code>
+                    <td>
+                        {% if item.display_name %}
+                        <span class="resource-display-name" title="{{ item.typed_ref }}">{{ item.display_name }}</span>
+                        {% else %}
+                        <code class="resource-ref-fallback" title="{{ item.typed_ref }}">{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</code>
+                        {% endif %}
                         {% if item.deletable %}
                         <span class="cleanup-icon deletable" title="Deletable">&#x1f5d1;</span>
                         {% else %}

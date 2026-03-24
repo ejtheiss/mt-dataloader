@@ -9,36 +9,50 @@
                 <label>Count</label>
                 <input type="number" id="gen-instances-{{ flow_idx }}" value="10" min="1" max="5000">
             </div>
-            <div class="form-group">
-                <label>RNG Seed</label>
-                <input type="number" id="gen-seed-{{ flow_idx }}" value="424242">
-            </div>
         </div>
+        <input type="hidden" id="gen-seed-{{ flow_idx }}" value="424242">
     </div>
 
     {% if fs.actors %}
     <div class="scenario-section">
         <div class="scenario-section-label">Actors</div>
-        <div class="actor-list">
+        <div class="edge-case-list">
             {% for actor in fs.actors %}
-            <div class="actor-item {% if actor.is_instance %}actor-instance{% endif %}">
-                <code class="actor-alias">{{ actor.alias }}</code>
-                <span class="ledgerable-pill">{{ actor.resource_type }}</span>
-                <span class="actor-display-name">{{ actor.display_name }}</span>
-                {% if actor.is_instance %}
-                <select class="actor-dataset-select" data-actor="{{ actor.alias }}" id="gen-actor-ds-{{ flow_idx }}-{{ loop.index0 }}">
+            <div class="actor-frame-row" data-frame="{{ actor.frame_name }}" data-frame-type="{{ actor.frame_type }}">
+                <code class="actor-alias">{{ actor.frame_name }}</code>
+                <span class="actor-frame-alias">{{ actor.alias }}</span>
+                <span class="actor-slot-pills">{% for st in actor.slot_types %}<span class="slot-pill">{{ st }}</span>{% endfor %}</span>
+                {% if actor.frame_type == 'direct' %}
+                <input type="text" class="actor-customer-name"
+                       data-frame="{{ actor.frame_name }}"
+                       id="gen-actor-cn-{{ flow_idx }}-{{ loop.index0 }}"
+                       value="{{ actor.customer_name }}"
+                       placeholder="Customer name">
+                {% else %}
+                <select class="actor-entity-type"
+                        data-frame="{{ actor.frame_name }}"
+                        id="gen-actor-et-{{ flow_idx }}-{{ loop.index0 }}"
+                        onchange="cascadeDataset{{ flow_idx }}(this)">
+                    <option value="business" selected>Business</option>
+                    <option value="individual">Individual</option>
+                </select>
+                <select class="actor-dataset-select"
+                        data-frame="{{ actor.frame_name }}"
+                        id="gen-actor-ds-{{ flow_idx }}-{{ loop.index0 }}">
                     {% if seed_datasets %}
                     {% set current_tier = namespace(value='') %}
                     {% for ds in seed_datasets %}
                     {% if ds.tier != current_tier.value %}
                     {% if current_tier.value %}</optgroup>{% endif %}
                     {% if ds.tier == 'faker' %}<optgroup label="General">
-                    {% elif ds.tier == 'industry' %}<optgroup label="Industry Verticals">
+                    {% elif ds.tier == 'industry' %}<optgroup label="Industry Verticals" class="biz-only">
                     {% elif ds.tier == 'curated' %}<optgroup label="Pop Culture">
                     {% endif %}
                     {% set current_tier.value = ds.tier %}
                     {% endif %}
-                    <option value="{{ ds.name }}"{% if ds.name == 'standard' %} selected{% endif %}>{{ ds.label }}</option>
+                    <option value="{{ ds.name }}"
+                            {% if ds.name == 'standard' %} selected{% endif %}
+                            {% if not ds.has_individuals %} data-biz-only="1"{% endif %}>{{ ds.label }}</option>
                     {% endfor %}
                     {% if current_tier.value %}</optgroup>{% endif %}
                     {% else %}
@@ -60,15 +74,13 @@
             <div class="edge-case-item">
                 <span class="edge-case-badge">{{ og.label }}</span>
                 <span class="edge-case-detail">{{ og.step_count }} step{{ 's' if og.step_count != 1 else '' }} ({{ og.step_types|join(', ') }})</span>
-                <span class="edge-case-trigger">{{ og.trigger }}</span>
+                <input type="number" class="edge-case-count-input"
+                       data-label="{{ og.label }}"
+                       id="gen-edge-{{ flow_idx }}-{{ loop.index0 }}"
+                       value="0" min="0" max="5000" step="1"
+                       title="Number of instances with this edge case">
             </div>
             {% endfor %}
-        </div>
-        <div class="form-row" style="margin-top: 8px;">
-            <div class="form-group">
-                <label>Frequency (0 = none, 1 = all)</label>
-                <input type="number" id="gen-edge-{{ flow_idx }}" value="0.0" min="0" max="1" step="0.01">
-            </div>
         </div>
     </div>
     {% endif %}
@@ -102,10 +114,13 @@
                 <input type="number" id="gen-staged-{{ flow_idx }}" value="0" min="0">
             </div>
             <div class="form-group">
-                <label>Selection</label>
+                <label>Stage from</label>
                 <select id="gen-staged-sel-{{ flow_idx }}">
-                    <option value="first">First N</option>
-                    <option value="random">Random N</option>
+                    <option value="happy_path">Happy path</option>
+                    <option value="all">All instances</option>
+                    {% for og in fs.optional_groups %}
+                    <option value="{{ og.label }}">{{ og.label }}</option>
+                    {% endfor %}
                 </select>
             </div>
         </div>
@@ -115,12 +130,12 @@
         <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(10, 0, 0, 0)">10 instances</button>
         <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 0, 0)">100 instances</button>
         {% if fs.optional_groups %}
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0.05, 0, 0)">100 + 5% edges</button>
+        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 5, 0, 0)">100 + 5 edges</button>
         {% endif %}
         {% if fs.amount_steps %}
         <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 5, 0)">100 + 5% variance</button>
         {% endif %}
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, {% if fs.optional_groups %}0.05{% else %}0{% endif %}, {% if fs.amount_steps %}5{% else %}0{% endif %}, 1)">100 + 1 staged</button>
+        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, {% if fs.optional_groups %}5{% else %}0{% endif %}, {% if fs.amount_steps %}5{% else %}0{% endif %}, 1)">100 + 1 staged</button>
     </div>
 
     <div class="scenario-actions">
@@ -138,35 +153,91 @@
 
     function el(id) { return document.getElementById(id + '-' + idx); }
 
+    window['cascadeDataset' + idx] = function(etSelect) {
+        var frame = etSelect.getAttribute('data-frame');
+        var isIndiv = etSelect.value === 'individual';
+        var dsSelect = document.querySelector(
+            '#scenario-builder-' + idx + ' .actor-dataset-select[data-frame="' + frame + '"]'
+        );
+        if (!dsSelect) return;
+        var options = dsSelect.querySelectorAll('option');
+        options.forEach(function(opt) {
+            if (opt.getAttribute('data-biz-only') === '1') {
+                opt.disabled = isIndiv;
+                opt.style.display = isIndiv ? 'none' : '';
+            }
+        });
+        if (isIndiv && dsSelect.selectedOptions[0] && dsSelect.selectedOptions[0].disabled) {
+            dsSelect.value = 'standard';
+        }
+    };
+
+    function syncEdgeMax() {
+        var max = parseInt(el('gen-instances').value) || 1;
+        var edgeInputs = document.querySelectorAll('#scenario-builder-' + idx + ' .edge-case-count-input');
+        edgeInputs.forEach(function(input) {
+            input.max = max;
+            if (parseInt(input.value) > max) input.value = max;
+        });
+    }
+    var instancesInput = el('gen-instances');
+    if (instancesInput) instancesInput.addEventListener('input', syncEdgeMax);
+
     function buildRecipe() {
+        var instances = parseInt(el('gen-instances').value);
         var recipe = {
             version: "v1",
             flow_ref: flowRef,
-            instances: parseInt(el('gen-instances').value),
+            instances: instances,
             seed: parseInt(el('gen-seed').value),
             seed_dataset: "standard",
-            edge_case_frequency: parseFloat((el('gen-edge') || {value: '0'}).value),
+            edge_case_count: 0,
             amount_variance_pct: parseFloat((el('gen-variance') || {value: '0'}).value),
             staged_count: parseInt(el('gen-staged').value),
             staged_selection: el('gen-staged-sel').value,
         };
-        var selects = document.querySelectorAll('#scenario-builder-' + idx + ' .actor-dataset-select');
-        if (selects.length > 0) {
-            var first = selects[0].value;
-            if (first !== 'standard') recipe.business_dataset = first;
-            if (first !== 'standard') recipe.individual_dataset = first;
-            selects.forEach(function(s) {
-                if (s.value !== 'standard' && s.value !== first) {
-                    recipe.business_dataset = recipe.business_dataset || s.value;
+        var edgeInputs = document.querySelectorAll('#scenario-builder-' + idx + ' .edge-case-count-input');
+        var edgeOverrides = {};
+        edgeInputs.forEach(function(input) {
+            var label = input.getAttribute('data-label');
+            var count = parseInt(input.value) || 0;
+            if (count > instances) count = instances;
+            if (count > 0) {
+                edgeOverrides[label] = { count: count };
+            }
+        });
+        if (Object.keys(edgeOverrides).length > 0) {
+            recipe.edge_case_overrides = edgeOverrides;
+        }
+
+        var overrides = {};
+        document.querySelectorAll('#scenario-builder-' + idx + ' .actor-frame-row').forEach(function(row) {
+            var frame = row.getAttribute('data-frame');
+            var frameType = row.getAttribute('data-frame-type');
+            if (frameType === 'direct') {
+                var cnInput = row.querySelector('.actor-customer-name');
+                if (cnInput && cnInput.value.trim()) {
+                    overrides[frame] = { customer_name: cnInput.value.trim() };
                 }
-            });
+            } else {
+                var etSelect = row.querySelector('.actor-entity-type');
+                var dsSelect = row.querySelector('.actor-dataset-select');
+                var ov = {};
+                if (etSelect) ov.entity_type = etSelect.value;
+                if (dsSelect && dsSelect.value !== 'standard') ov.dataset = dsSelect.value;
+                if (Object.keys(ov).length > 0) overrides[frame] = ov;
+            }
+        });
+        if (Object.keys(overrides).length > 0) {
+            recipe.actor_overrides = overrides;
         }
         return recipe;
     }
 
     window['setPreset' + idx] = function(instances, edge, variance, staged) {
         el('gen-instances').value = instances;
-        if (el('gen-edge')) el('gen-edge').value = edge;
+        var edgeInputs = document.querySelectorAll('#scenario-builder-' + idx + ' .edge-case-count-input');
+        edgeInputs.forEach(function(input) { input.value = edge; input.max = instances; });
         if (el('gen-variance')) el('gen-variance').value = variance;
         el('gen-staged').value = staged;
     };
@@ -193,6 +264,19 @@
                 '<strong>' + data.estimated_batches + '</strong> batches';
             if (data.needs_confirmation) {
                 html += '<br><span class="warning-badge">Large run — will require confirmation</span>';
+            }
+            if (data.edge_case_map && Object.keys(data.edge_case_map).length > 0) {
+                html += '<div class="edge-case-map">';
+                html += '<strong>Edge case assignments:</strong>';
+                for (var label in data.edge_case_map) {
+                    var indices = data.edge_case_map[label];
+                    var display = indices.length <= 20
+                        ? indices.map(function(i) { return '#' + String(i).padStart(4, '0'); }).join(', ')
+                        : indices.length + ' instances';
+                    html += '<div class="edge-map-row"><span class="edge-case-badge">' + label +
+                        '</span> <span class="edge-map-instances">' + display + '</span></div>';
+                }
+                html += '</div>';
             }
             html += '</div>';
             out.innerHTML = html;

@@ -30,6 +30,20 @@
       "currency": "USD"
     }
   ],
+  "counterparties": [
+    {
+      "ref": "demo_customer",
+      "name": "Demo Customer",
+      "accounts": [
+        {
+          "party_name": "Demo Customer",
+          "party_type": "individual",
+          "account_type": "checking",
+          "sandbox_behavior": "success"
+        }
+      ]
+    }
+  ],
   "funds_flows": [
     {
       "ref": "simple_deposit",
@@ -37,9 +51,24 @@
       "trace_key": "deal_id",
       "trace_value_template": "deal-{ref}-{instance}",
       "actors": {
-        "ops_account": "$ref:internal_account.ops_usd",
-        "cash_ledger": "$ref:ledger_account.cash",
-        "revenue_ledger": "$ref:ledger_account.revenue"
+        "direct_1": {
+          "alias": "Customer",
+          "frame_type": "direct",
+          "customer_name": "Demo Customer",
+          "slots": {
+            "bank": "$ref:counterparty.demo_customer.account[0]"
+          }
+        },
+        "direct_2": {
+          "alias": "Platform",
+          "frame_type": "direct",
+          "customer_name": "Demo Corp",
+          "slots": {
+            "ops": "$ref:internal_account.ops_usd",
+            "cash": "$ref:ledger_account.cash",
+            "revenue": "$ref:ledger_account.revenue"
+          }
+        }
       },
       "steps": [
         {
@@ -48,7 +77,8 @@
           "payment_type": "ach",
           "direction": "credit",
           "amount": 50000,
-          "internal_account_id": "@actor:ops_account",
+          "originating_account_id": "@actor:direct_1.bank",
+          "internal_account_id": "@actor:direct_2.ops",
           "description": "Incoming ACH deposit for {first_name} {last_name}"
         },
         {
@@ -59,12 +89,12 @@
           "ledger_status": "pending",
           "ledger_entries": [
             {
-              "ledger_account_id": "@actor:cash_ledger",
+              "ledger_account_id": "@actor:direct_2.cash",
               "amount": 50000,
               "direction": "debit"
             },
             {
-              "ledger_account_id": "@actor:revenue_ledger",
+              "ledger_account_id": "@actor:direct_2.revenue",
               "amount": 50000,
               "direction": "credit"
             }
@@ -102,12 +132,12 @@
               "description": "Reverse the settled deposit",
               "ledger_entries": [
                 {
-                  "ledger_account_id": "@actor:cash_ledger",
+                  "ledger_account_id": "@actor:direct_2.cash",
                   "amount": 50000,
                   "direction": "credit"
                 },
                 {
-                  "ledger_account_id": "@actor:revenue_ledger",
+                  "ledger_account_id": "@actor:direct_2.revenue",
                   "amount": 50000,
                   "direction": "debit"
                 }

@@ -36,7 +36,11 @@
                     {% else %}
                     <span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span>
                     {% endif %}
-                    <span class="ref-name">{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</span>
+                    {% if item.display_name %}
+                    <span class="resource-display-name" title="{{ item.typed_ref }}">{{ item.display_name }}</span>
+                    {% else %}
+                    <span class="ref-name" title="{{ item.typed_ref }}">{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</span>
+                    {% endif %}
                     <span class="status-indicator">
                         <span class="status-dot pending"></span>
                         <span class="status-text">Pending</span>

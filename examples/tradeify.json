@@ -88,23 +88,29 @@
       "ref": "ninjatrader_bmo_cp",
       "name": "NinjaTrader BMO",
       "legal_entity_id": "$ref:legal_entity.ninjatrader_group",
-      "accounts": [
-        {
-          "party_name": "NinjaTrader BMO Funding",
-          "party_type": "business",
-          "account_type": "checking",
-          "sandbox_behavior": "success",
-          "metadata": { "account_label": "ninjatrader_bmo_funding" }
-        },
-        {
-          "party_name": "NinjaTrader BMO Return Source",
-          "party_type": "business",
-          "account_type": "checking",
-          "sandbox_behavior": "success",
-          "metadata": { "account_label": "ninjatrader_bmo_return_source" }
-        }
-      ],
       "metadata": { "partner_name": "ninjatrader", "partner_type": "brokerage" }
+    }
+  ],
+  "external_accounts": [
+    {
+      "ref": "ninjatrader_bmo_funding",
+      "counterparty_id": "$ref:counterparty.ninjatrader_bmo_cp",
+      "party_name": "NinjaTrader BMO Funding",
+      "party_type": "business",
+      "account_type": "checking",
+      "account_details": [{ "account_number": "123456789" }],
+      "routing_details": [{ "routing_number": "121141822", "routing_number_type": "aba" }],
+      "metadata": { "account_label": "ninjatrader_bmo_funding" }
+    },
+    {
+      "ref": "ninjatrader_bmo_return",
+      "counterparty_id": "$ref:counterparty.ninjatrader_bmo_cp",
+      "party_name": "NinjaTrader BMO Return Source",
+      "party_type": "business",
+      "account_type": "checking",
+      "account_details": [{ "account_number": "123456789" }],
+      "routing_details": [{ "routing_number": "121141822", "routing_number_type": "aba" }],
+      "metadata": { "account_label": "ninjatrader_bmo_return_source" }
     }
   ],
   "internal_accounts": [
@@ -160,17 +166,40 @@
       "trace_key": "user_id",
       "trace_value_template": "USR-{instance}",
       "actors": {
-        "c_payment": "$ref:internal_account.tradeify_c_payment",
-        "usdg_pool_ia": "$ref:internal_account.tradeify_usdg_pool",
-        "user_wallet": "$ref:internal_account.user_{instance}_usd_wallet",
-        "user_usd_la": "$ref:ledger_account.user_{instance}_usd_balance",
-        "user_usdg_la": "$ref:ledger_account.user_{instance}_usdg_balance",
-        "rewards_expense": "$ref:ledger_account.platform_rewards_expense",
-        "usd_reserve": "$ref:ledger_account.platform_usd_reserve",
-        "usdg_pool_la": "$ref:ledger_account.platform_usdg_pool",
-        "user_cp": "$ref:counterparty.user_{instance}_bank_cp.account[0]",
-        "nt_cp_funding": "$ref:counterparty.ninjatrader_bmo_cp.account[0]",
-        "nt_cp_return": "$ref:counterparty.ninjatrader_bmo_cp.account[1]"
+        "user_1": {
+          "alias": "User",
+          "frame_type": "user",
+          "entity_ref": "$ref:legal_entity.user_{instance}",
+          "slots": {
+            "wallet": "$ref:internal_account.user_{instance}_usd_wallet",
+            "usd_la": "$ref:ledger_account.user_{instance}_usd_balance",
+            "usdg_la": "$ref:ledger_account.user_{instance}_usdg_balance",
+            "bank": "$ref:counterparty.user_{instance}_bank_cp.account[0]"
+          }
+        },
+        "direct_1": {
+          "alias": "Platform",
+          "frame_type": "direct",
+          "customer_name": "Tradeify",
+          "slots": {
+            "c_payment": "$ref:internal_account.tradeify_c_payment",
+            "usdg_pool_ia": "$ref:internal_account.tradeify_usdg_pool",
+            "rewards_expense": "$ref:ledger_account.platform_rewards_expense",
+            "usd_reserve": "$ref:ledger_account.platform_usd_reserve",
+            "usdg_pool_la": "$ref:ledger_account.platform_usdg_pool"
+          }
+        },
+        "direct_2": {
+          "alias": "NinjaTrader",
+          "frame_type": "direct",
+          "entity_ref": "$ref:legal_entity.ninjatrader_group",
+          "customer_name": "NinjaTrader Group",
+          "slots": {
+            "cp": "$ref:counterparty.ninjatrader_bmo_cp",
+            "funding": "$ref:external_account.ninjatrader_bmo_funding",
+            "return": "$ref:external_account.ninjatrader_bmo_return"
+          }
+        }
       },
       "instance_resources": {
         "legal_entities": [
@@ -245,7 +274,8 @@
           "payment_type": "ach",
           "direction": "credit",
           "amount": 50000,
-          "internal_account_id": "@actor:user_wallet",
+          "originating_account_id": "@actor:user_1.bank",
+          "internal_account_id": "@actor:user_1.wallet",
           "description": "{first_name} {last_name} on-ramps USD via ACH deposit"
         },
         {
@@ -254,8 +284,8 @@
           "depends_on": ["ipd_onramp"],
           "description": "Seed {first_name} {last_name} USD ledger balance from reward",
           "ledger_entries": [
-            { "amount": 120000, "direction": "debit", "ledger_account_id": "@actor:rewards_expense" },
-            { "amount": 120000, "direction": "credit", "ledger_account_id": "@actor:user_usd_la" }
+            { "amount": 120000, "direction": "debit", "ledger_account_id": "@actor:direct_1.rewards_expense" },
+            { "amount": 120000, "direction": "credit", "ledger_account_id": "@actor:user_1.usd_la" }
           ]
         },
         {
@@ -264,8 +294,8 @@
           "payment_type": "book",
           "direction": "credit",
           "amount": 120000,
-          "originating_account_id": "@actor:c_payment",
-          "receiving_account_id": "@actor:user_wallet",
+          "originating_account_id": "@actor:direct_1.c_payment",
+          "receiving_account_id": "@actor:user_1.wallet",
           "depends_on": ["lt_seed_balance"],
           "description": "Tradeify reward funding to {first_name} {last_name} USD wallet"
         },
@@ -275,10 +305,10 @@
           "depends_on": ["po_reward_fund"],
           "description": "Convert {first_name} {last_name} USD wallet balance to USDG",
           "ledger_entries": [
-            { "amount": 120000, "direction": "credit", "ledger_account_id": "@actor:usd_reserve" },
-            { "amount": 120000, "direction": "debit", "ledger_account_id": "@actor:usdg_pool_la" },
-            { "amount": 120000, "direction": "debit", "ledger_account_id": "@actor:user_usd_la" },
-            { "amount": 120000, "direction": "credit", "ledger_account_id": "@actor:user_usdg_la" }
+            { "amount": 120000, "direction": "credit", "ledger_account_id": "@actor:direct_1.usd_reserve" },
+            { "amount": 120000, "direction": "debit", "ledger_account_id": "@actor:direct_1.usdg_pool_la" },
+            { "amount": 120000, "direction": "debit", "ledger_account_id": "@actor:user_1.usd_la" },
+            { "amount": 120000, "direction": "credit", "ledger_account_id": "@actor:user_1.usdg_la" }
           ]
         }
       ],
@@ -293,10 +323,10 @@
               "depends_on": ["lt_usd_to_usdg"],
               "description": "Off-ramp USDG balance to USD for bank cashout",
               "ledger_entries": [
-                { "amount": 30000, "direction": "debit", "ledger_account_id": "@actor:usd_reserve" },
-                { "amount": 30000, "direction": "credit", "ledger_account_id": "@actor:usdg_pool_la" },
-                { "amount": 30000, "direction": "debit", "ledger_account_id": "@actor:user_usdg_la" },
-                { "amount": 30000, "direction": "credit", "ledger_account_id": "@actor:user_usd_la" }
+                { "amount": 30000, "direction": "debit", "ledger_account_id": "@actor:direct_1.usd_reserve" },
+                { "amount": 30000, "direction": "credit", "ledger_account_id": "@actor:direct_1.usdg_pool_la" },
+                { "amount": 30000, "direction": "debit", "ledger_account_id": "@actor:user_1.usdg_la" },
+                { "amount": 30000, "direction": "credit", "ledger_account_id": "@actor:user_1.usd_la" }
               ]
             },
             {
@@ -305,14 +335,14 @@
               "payment_type": "ach",
               "direction": "credit",
               "amount": 30000,
-              "originating_account_id": "@actor:user_wallet",
-              "receiving_account_id": "@actor:user_cp",
+              "originating_account_id": "@actor:user_1.wallet",
+              "receiving_account_id": "@actor:user_1.bank",
               "depends_on": ["lt_usdg_to_usd_cashout"],
               "description": "{first_name} {last_name} cashout to external bank",
               "ledger_inline": true,
               "ledger_entries": [
-                { "amount": 30000, "direction": "debit", "ledger_account_id": "@actor:user_usd_la" },
-                { "amount": 30000, "direction": "credit", "ledger_account_id": "@actor:usd_reserve" }
+                { "amount": 30000, "direction": "debit", "ledger_account_id": "@actor:user_1.usd_la" },
+                { "amount": 30000, "direction": "credit", "ledger_account_id": "@actor:direct_1.usd_reserve" }
               ]
             }
           ]
@@ -327,10 +357,10 @@
               "depends_on": ["lt_usd_to_usdg"],
               "description": "Off-ramp USDG to USD for NinjaTrader funding",
               "ledger_entries": [
-                { "amount": 25000, "direction": "debit", "ledger_account_id": "@actor:usd_reserve" },
-                { "amount": 25000, "direction": "credit", "ledger_account_id": "@actor:usdg_pool_la" },
-                { "amount": 25000, "direction": "debit", "ledger_account_id": "@actor:user_usdg_la" },
-                { "amount": 25000, "direction": "credit", "ledger_account_id": "@actor:user_usd_la" }
+                { "amount": 25000, "direction": "debit", "ledger_account_id": "@actor:direct_1.usd_reserve" },
+                { "amount": 25000, "direction": "credit", "ledger_account_id": "@actor:direct_1.usdg_pool_la" },
+                { "amount": 25000, "direction": "debit", "ledger_account_id": "@actor:user_1.usdg_la" },
+                { "amount": 25000, "direction": "credit", "ledger_account_id": "@actor:user_1.usd_la" }
               ]
             },
             {
@@ -339,14 +369,14 @@
               "payment_type": "wire",
               "direction": "credit",
               "amount": 25000,
-              "originating_account_id": "@actor:user_wallet",
-              "receiving_account_id": "@actor:nt_cp_funding",
+              "originating_account_id": "@actor:user_1.wallet",
+              "receiving_account_id": "@actor:direct_2.funding",
               "depends_on": ["lt_usdg_to_usd_nt"],
               "description": "{first_name} {last_name} funds NinjaTrader brokerage",
               "ledger_inline": true,
               "ledger_entries": [
-                { "amount": 25000, "direction": "debit", "ledger_account_id": "@actor:user_usd_la" },
-                { "amount": 25000, "direction": "credit", "ledger_account_id": "@actor:usd_reserve" }
+                { "amount": 25000, "direction": "debit", "ledger_account_id": "@actor:user_1.usd_la" },
+                { "amount": 25000, "direction": "credit", "ledger_account_id": "@actor:direct_1.usd_reserve" }
               ]
             }
           ]
@@ -361,10 +391,10 @@
               "depends_on": ["lt_usd_to_usdg"],
               "description": "Off-ramp USDG to USD for staged NinjaTrader funding",
               "ledger_entries": [
-                { "amount": 70000, "direction": "debit", "ledger_account_id": "@actor:usd_reserve" },
-                { "amount": 70000, "direction": "credit", "ledger_account_id": "@actor:usdg_pool_la" },
-                { "amount": 70000, "direction": "debit", "ledger_account_id": "@actor:user_usdg_la" },
-                { "amount": 70000, "direction": "credit", "ledger_account_id": "@actor:user_usd_la" }
+                { "amount": 70000, "direction": "debit", "ledger_account_id": "@actor:direct_1.usd_reserve" },
+                { "amount": 70000, "direction": "credit", "ledger_account_id": "@actor:direct_1.usdg_pool_la" },
+                { "amount": 70000, "direction": "debit", "ledger_account_id": "@actor:user_1.usdg_la" },
+                { "amount": 70000, "direction": "credit", "ledger_account_id": "@actor:user_1.usd_la" }
               ]
             },
             {
@@ -373,15 +403,15 @@
               "payment_type": "wire",
               "direction": "credit",
               "amount": 70000,
-              "originating_account_id": "@actor:user_wallet",
-              "receiving_account_id": "@actor:nt_cp_funding",
+              "originating_account_id": "@actor:user_1.wallet",
+              "receiving_account_id": "@actor:direct_2.funding",
               "depends_on": ["lt_usdg_to_usd_staged"],
               "description": "Staged NinjaTrader funding",
               "staged": true,
               "ledger_inline": true,
               "ledger_entries": [
-                { "amount": 70000, "direction": "debit", "ledger_account_id": "@actor:user_usd_la" },
-                { "amount": 70000, "direction": "credit", "ledger_account_id": "@actor:usd_reserve" }
+                { "amount": 70000, "direction": "debit", "ledger_account_id": "@actor:user_1.usd_la" },
+                { "amount": 70000, "direction": "credit", "ledger_account_id": "@actor:direct_1.usd_reserve" }
               ]
             },
             {
@@ -390,15 +420,15 @@
               "payment_type": "ach",
               "direction": "debit",
               "amount": 25000,
-              "originating_account_id": "@actor:user_wallet",
-              "receiving_account_id": "@actor:nt_cp_return",
+              "originating_account_id": "@actor:user_1.wallet",
+              "receiving_account_id": "@actor:direct_2.return",
               "depends_on": ["po_fund_nt_staged"],
               "description": "Staged NinjaTrader backflow",
               "staged": true,
               "ledger_inline": true,
               "ledger_entries": [
-                { "amount": 25000, "direction": "debit", "ledger_account_id": "@actor:usd_reserve" },
-                { "amount": 25000, "direction": "credit", "ledger_account_id": "@actor:user_usd_la" }
+                { "amount": 25000, "direction": "debit", "ledger_account_id": "@actor:direct_1.usd_reserve" },
+                { "amount": 25000, "direction": "credit", "ledger_account_id": "@actor:user_1.usd_la" }
               ]
             }
           ]

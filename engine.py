@@ -35,6 +35,12 @@ from models import (
 if TYPE_CHECKING:
     pass
 
+
+def _extract_display_name(resource: _BaseResourceConfig) -> str:
+    """Lazy wrapper to avoid circular import with helpers."""
+    from helpers import extract_display_name
+    return extract_display_name(resource)
+
 __all__ = [
     "RefRegistry",
     "extract_ref_dependencies",
@@ -243,25 +249,26 @@ def build_dag(
 
 def dry_run(
     config: DataLoaderConfig,
-    baseline_refs: set[str] | None = None,
+    known_refs: set[str] | None = None,
     skip_refs: set[str] | None = None,
 ) -> list[list[str]]:
     """Compute execution order without running anything.
 
     Returns a list of batches where each batch is a list of typed refs
-    that can execute concurrently.  Baseline refs are filtered out of the
-    batches (they are pre-existing, not created).
+    that can execute concurrently.  Known refs (from org discovery) are
+    used to validate ``$ref:`` targets; skip refs are filtered from
+    batches (pre-existing, not created).
 
     Raises ``CycleError`` if the config has circular dependencies.
-    Raises ``KeyError`` if a ``$ref:`` target doesn't exist in baseline
-    or config.
+    Raises ``KeyError`` if a ``$ref:`` target doesn't exist in config
+    or known refs.
     """
     ts, resource_map = build_dag(config)
     ts.prepare()
 
     all_known_refs = set(resource_map.keys())
-    if baseline_refs:
-        all_known_refs |= baseline_refs
+    if known_refs:
+        all_known_refs |= known_refs
 
     def _is_known_or_child(dep: str) -> bool:
         """A ref is resolvable if it exists directly, or if its parent
@@ -550,7 +557,8 @@ async def execute(
 
             async def create_one(typed_ref: str, _batch: int) -> None:
                 resource = resource_map[typed_ref]
-                await emit_sse("creating", typed_ref, {})
+                dn = _extract_display_name(resource)
+                await emit_sse("creating", typed_ref, {"display_name": dn} if dn else {})
 
                 try:
                     async with semaphore:
@@ -560,7 +568,7 @@ async def execute(
                             staged_payloads[typed_ref] = resolved
                             manifest.record_staged(typed_ref, resource.resource_type)
                             manifest.write(runs_dir)
-                            await emit_sse("staged", typed_ref, {})
+                            await emit_sse("staged", typed_ref, {"display_name": dn} if dn else {})
                             return
 
                         handler = handler_dispatch[resource.resource_type]
@@ -596,11 +604,10 @@ async def execute(
                     )
                 )
                 manifest.write(runs_dir)
-                await emit_sse(
-                    "created",
-                    typed_ref,
-                    {"id": result.created_id, "child_refs": result.child_refs},
-                )
+                data: dict[str, Any] = {"id": result.created_id, "child_refs": result.child_refs}
+                if dn:
+                    data["display_name"] = dn
+                await emit_sse("created", typed_ref, data)
 
             try:
                 async with asyncio.TaskGroup() as tg:

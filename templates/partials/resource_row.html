@@ -11,7 +11,11 @@
     {% else %}
     <span class="type-badge type-{{ resource_type }}">{{ resource_type }}</span>
     {% endif %}
-    <span class="ref-name">{{ ref_name }}</span>
+    {% if display_name %}
+    <span class="resource-display-name" title="{{ ref }}">{{ display_name }}</span>
+    {% else %}
+    <span class="ref-name" title="{{ ref }}">{{ ref_name }}</span>
+    {% endif %}
 
     {% if status == "pending" %}
         <span class="status-indicator">

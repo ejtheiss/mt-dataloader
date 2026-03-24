@@ -283,7 +283,7 @@ tests/               Pytest suite (262 tests)
 | `models.py` | Pydantic config + `AppSettings` + `FundsFlowConfig` + `GenerationRecipeV1` |
 | `engine.py` | Refs, DAG (`graphlib`), execute, manifests |
 | `handlers.py` | MT SDK calls, polling, trace metadata stripping |
-| `flow_compiler.py` | `compile_flows()`, `emit_dataloader_config()`, `maybe_compile()`, `render_mermaid()`, generation pipeline |
+| `flow_compiler.py` | `compile_to_plan()`, `compile_flows()`, `emit_dataloader_config()`, `render_mermaid()`, generation pipeline |
 | `seed_loader.py` | Faker hybrid seed engine: 10 datasets (standard/industry/pop-culture), `generate_profiles()`, `pick_profile()` |
 | `baseline.py` | Org discovery + YAML fallback |
 | `main.py` | FastAPI, SSE, Fund Flows UI routes, cleanup |

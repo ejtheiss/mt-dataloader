@@ -31,10 +31,32 @@
       "trace_key": "order_id",
       "trace_value_template": "ORD-{ref}-{instance}",
       "actors": {
-        "buyer_wallet": "$ref:internal_account.buyer_{instance}_wallet",
-        "seller_wallet": "$ref:internal_account.seller_{instance}_wallet",
-        "platform_account": "$ref:internal_account.platform_revenue",
-        "seller_cp": "$ref:counterparty.seller_{instance}_cp.account[0]"
+        "user_1": {
+          "alias": "Buyer",
+          "frame_type": "user",
+          "entity_ref": "$ref:legal_entity.buyer_{instance}",
+          "slots": {
+            "bank": "$ref:counterparty.buyer_{instance}_cp.account[0]",
+            "wallet": "$ref:internal_account.buyer_{instance}_wallet"
+          }
+        },
+        "user_2": {
+          "alias": "Seller",
+          "frame_type": "user",
+          "entity_ref": "$ref:legal_entity.seller_{instance}",
+          "slots": {
+            "wallet": "$ref:internal_account.seller_{instance}_wallet",
+            "bank": "$ref:counterparty.seller_{instance}_cp.account[0]"
+          }
+        },
+        "direct_1": {
+          "alias": "Platform",
+          "frame_type": "direct",
+          "customer_name": "Platform",
+          "slots": {
+            "revenue": "$ref:internal_account.platform_revenue"
+          }
+        }
       },
       "instance_resources": {
         "legal_entities": [
@@ -52,6 +74,20 @@
           }
         ],
         "counterparties": [
+          {
+            "ref": "buyer_{instance}_cp",
+            "name": "{first_name} {last_name}",
+            "legal_entity_id": "$ref:legal_entity.buyer_{instance}",
+            "accounts": [
+              {
+                "party_name": "{first_name} {last_name}",
+                "party_type": "individual",
+                "account_type": "checking",
+                "sandbox_behavior": "success",
+                "metadata": { "account_purpose": "buyer_funding" }
+              }
+            ]
+          },
           {
             "ref": "seller_{instance}_cp",
             "name": "{first_name} {last_name}",
@@ -93,7 +129,8 @@
           "payment_type": "ach",
           "direction": "credit",
           "amount": 5000000,
-          "internal_account_id": "@actor:buyer_wallet",
+          "originating_account_id": "@actor:user_1.bank",
+          "internal_account_id": "@actor:user_1.wallet",
           "description": "Buyer deposits $50,000 via ACH",
           "staged": true
         },
@@ -103,8 +140,8 @@
           "payment_type": "book",
           "direction": "credit",
           "amount": 150000,
-          "originating_account_id": "@actor:buyer_wallet",
-          "receiving_account_id": "@actor:platform_account",
+          "originating_account_id": "@actor:user_1.wallet",
+          "receiving_account_id": "@actor:direct_1.revenue",
           "depends_on": ["buyer_deposit"],
           "description": "Platform takes 3% fee ($1,500)",
           "staged": true
@@ -115,8 +152,8 @@
           "payment_type": "book",
           "direction": "credit",
           "amount": 4850000,
-          "originating_account_id": "@actor:buyer_wallet",
-          "receiving_account_id": "@actor:seller_wallet",
+          "originating_account_id": "@actor:user_1.wallet",
+          "receiving_account_id": "@actor:user_2.wallet",
           "depends_on": ["platform_fee"],
           "description": "Net proceeds ($48,500) to seller wallet",
           "staged": true
@@ -127,8 +164,8 @@
           "payment_type": "ach",
           "direction": "credit",
           "amount": 4850000,
-          "originating_account_id": "@actor:seller_wallet",
-          "receiving_account_id": "@actor:seller_cp",
+          "originating_account_id": "@actor:user_2.wallet",
+          "receiving_account_id": "@actor:user_2.bank",
           "depends_on": ["settle_seller"],
           "description": "ACH payout to seller bank account",
           "staged": true

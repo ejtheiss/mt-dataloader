@@ -20,6 +20,7 @@ from modern_treasury.types.connection import Connection
 from tenacity import (
     RetryError,
     retry,
+    retry_if_exception,
     retry_if_exception_type,
     retry_if_result,
     stop_after_delay,
@@ -648,8 +649,10 @@ async def create_return(
 
     @retry(
         wait=wait_exponential(multiplier=1, min=2, max=5),
-        stop=stop_after_delay(15),
-        retry=retry_if_exception_type(APIStatusError),
+        stop=stop_after_delay(30),
+        retry=retry_if_exception(
+            lambda exc: isinstance(exc, APIStatusError) and exc.status_code in (429, 500, 502, 503, 504)
+        ),
         before_sleep=_before_sleep,
     )
     async def _create_with_retry() -> Any:
@@ -723,11 +726,19 @@ async def create_category_membership(
         "Adding ledger account to category"
     )
 
-    await client.ledger_account_categories.add_ledger_account(
-        ledger_account_id,
-        id=category_id,
-        idempotency_key=idempotency_key,
-    )
+    try:
+        await client.ledger_account_categories.add_ledger_account(
+            ledger_account_id,
+            id=category_id,
+            idempotency_key=idempotency_key,
+        )
+    except APIStatusError as exc:
+        if exc.status_code == 422 and "already in" in str(exc).lower():
+            logger.bind(ref=typed_ref).info(
+                "Ledger account already in category — treating as success"
+            )
+        else:
+            raise
 
     return HandlerResult(
         created_id=f"{category_id}:{ledger_account_id}",
@@ -749,11 +760,19 @@ async def create_nested_category(
 
     logger.bind(ref=typed_ref).info("Adding nested sub-category")
 
-    await client.ledger_account_categories.add_nested_category(
-        sub_id,
-        id=parent_id,
-        idempotency_key=idempotency_key,
-    )
+    try:
+        await client.ledger_account_categories.add_nested_category(
+            sub_id,
+            id=parent_id,
+            idempotency_key=idempotency_key,
+        )
+    except APIStatusError as exc:
+        if exc.status_code == 422 and "already" in str(exc).lower():
+            logger.bind(ref=typed_ref).info(
+                "Sub-category already nested — treating as success"
+            )
+        else:
+            raise
 
     return HandlerResult(
         created_id=f"{parent_id}:{sub_id}",

@@ -69,6 +69,7 @@ def list_datasets() -> list[dict[str, Any]]:
             "name": name,
             "label": meta["label"],
             "tier": meta["tier"],
+            "has_individuals": meta["tier"] != "industry",
         })
     return result
 

@@ -2,7 +2,8 @@
 
 Covers: GenerationRecipeV1 validation, PaymentMixConfig, clone_flow,
 apply_overrides, apply_amount_variance (including balanced ledger fix),
-activate_optional_groups, edge case provenance metadata, staging at scale,
+activate_optional_groups / preselect_edge_cases, edge case provenance metadata,
+staging at scale,
 generate_from_recipe integration, seed_loader, _flow_* stripping, and
 passthrough regression.
 """
@@ -19,20 +20,30 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from flow_compiler import (
+    AuthoringConfig,
     FlowIR,
     activate_optional_groups,
     apply_amount_variance,
     apply_overrides,
     clone_flow,
     compile_flows,
+    compile_to_plan,
     emit_dataloader_config,
     flatten_optional_groups,
     generate_from_recipe,
     mark_staged,
-    maybe_compile,
+    preselect_edge_cases,
     render_mermaid,
     select_staged_instances,
 )
+
+
+def _compile(config):
+    """Compile a DataLoaderConfig via the pipeline, returning (compiled, flow_irs)."""
+    raw = config.model_dump_json().encode()
+    plan = compile_to_plan(AuthoringConfig.from_json(raw))
+    irs = list(plan.flow_irs) or None
+    return plan.config, irs
 from models import (
     DataLoaderConfig,
     FundsFlowConfig,
@@ -88,9 +99,16 @@ def _make_flow_config(**kwargs) -> FundsFlowConfig:
         "trace_key": "deal_id",
         "trace_value_template": "{ref}-{instance}",
         "actors": {
-            "ops_account": "$ref:internal_account.ops",
-            "cash_ledger": "$ref:ledger_account.cash",
-            "revenue_ledger": "$ref:ledger_account.revenue",
+            "direct_1": {
+                "alias": "Platform",
+                "frame_type": "direct",
+                "customer_name": "Platform",
+                "slots": {
+                    "ops": "$ref:internal_account.ops",
+                    "cash": "$ref:ledger_account.cash",
+                    "revenue": "$ref:ledger_account.revenue",
+                },
+            },
         },
         "steps": [
             {
@@ -99,7 +117,7 @@ def _make_flow_config(**kwargs) -> FundsFlowConfig:
                 "payment_type": "ach",
                 "direction": "credit",
                 "amount": 10000,
-                "internal_account_id": "@actor:ops_account",
+                "internal_account_id": "@actor:direct_1.ops",
             },
             {
                 "step_id": "settle",
@@ -107,8 +125,8 @@ def _make_flow_config(**kwargs) -> FundsFlowConfig:
                 "depends_on": ["deposit"],
                 "description": "Book deposit",
                 "ledger_entries": [
-                    {"ledger_account_id": "@actor:cash_ledger", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:revenue_ledger", "amount": 10000, "direction": "credit"},
+                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
+                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
                 ],
             },
         ],
@@ -144,10 +162,10 @@ class TestGenerationRecipeV1:
         assert r.instances == 3
         assert r.seed == 42
         assert r.version == "v1"
-        assert r.edge_case_frequency == 0.0
+        assert r.edge_case_count == 0
         assert r.amount_variance_pct == 0.0
         assert r.staged_count == 0
-        assert r.staged_selection == "first"
+        assert r.staged_selection == "happy_path"
         assert r.payment_mix is None
         assert r.overrides == {}
 
@@ -169,13 +187,14 @@ class TestGenerationRecipeV1:
         with pytest.raises(Exception):
             GenerationRecipeV1.model_validate({"instances": 1, "seed": 0})
 
-    def test_edge_case_frequency_bounds(self):
-        _make_recipe(edge_case_frequency=0.0)
-        _make_recipe(edge_case_frequency=1.0)
+    def test_edge_case_count_bounds(self):
+        _make_recipe(edge_case_count=0)
+        r = _make_recipe(instances=3, edge_case_count=3)
+        assert r.edge_case_count == 3
+        capped = _make_recipe(instances=2, edge_case_count=500)
+        assert capped.edge_case_count == 2
         with pytest.raises(Exception):
-            _make_recipe(edge_case_frequency=-0.1)
-        with pytest.raises(Exception):
-            _make_recipe(edge_case_frequency=1.1)
+            _make_recipe(edge_case_count=-1)
 
     def test_amount_variance_pct_bounds(self):
         _make_recipe(amount_variance_pct=0.0)
@@ -192,10 +211,15 @@ class TestGenerationRecipeV1:
             _make_recipe(staged_count=-1)
 
     def test_staged_selection_values(self):
-        _make_recipe(staged_selection="first")
+        _make_recipe(staged_selection="happy_path")
         _make_recipe(staged_selection="random")
         with pytest.raises(Exception):
-            _make_recipe(staged_selection="last")
+            GenerationRecipeV1.model_validate({
+                "flow_ref": "f",
+                "instances": 1,
+                "seed": 0,
+                "staged_selection": {},
+            })
 
     def test_payment_mix_none_passes(self):
         r = _make_recipe(payment_mix=None)
@@ -248,8 +272,9 @@ class TestCloneFlow:
     def test_actors_are_real_refs(self):
         flow = _make_flow_config()
         cloned, _ = clone_flow(flow, 0)
-        for alias, val in cloned["actors"].items():
-            assert val.startswith("$ref:")
+        for frame_name, frame in cloned["actors"].items():
+            for slot_name, slot in frame["slots"].items():
+                assert slot["ref"].startswith("$ref:")
 
 
 # =========================================================================
@@ -333,15 +358,18 @@ class TestApplyAmountVariance:
 
     def test_applies_to_optional_group_steps(self):
         flow = _make_flow_config(optional_groups=[{
-            "label": "Return",
+            "label": "Refund",
             "steps": [
-                {"step_id": "ret", "type": "return", "depends_on": ["deposit"], "amount": 5000},
+                {"step_id": "refund", "type": "payment_order",
+                 "payment_type": "ach", "direction": "debit",
+                 "amount": 5000, "originating_account_id": "@actor:direct_1.ops",
+                 "depends_on": ["deposit"]},
             ],
         }])
         d, _ = clone_flow(flow, 0)
         apply_amount_variance(d, 10.0, random.Random(42))
-        ret_amount = d["optional_groups"][0]["steps"][0]["amount"]
-        assert ret_amount >= 1
+        refund_amount = d["optional_groups"][0]["steps"][0]["amount"]
+        assert refund_amount >= 1
 
 
 # =========================================================================
@@ -357,31 +385,47 @@ class TestActivateOptionalGroups:
         ]), 0)
         return d
 
-    def test_zero_frequency_activates_nothing(self):
+    def test_empty_preselection_activates_nothing(self):
         d = self._flow_with_groups()
-        result = activate_optional_groups(d, 0.0, random.Random(42))
-        assert result == set()
+        assert activate_optional_groups(d, set()) == set()
 
-    def test_full_frequency_activates_everything(self):
+    def test_preselected_labels_pass_through_when_applicable(self):
         d = self._flow_with_groups()
-        result = activate_optional_groups(d, 1.0, random.Random(42))
+        result = activate_optional_groups(d, {"return_path", "reversal_path"})
         assert result == {"return_path", "reversal_path"}
 
-    def test_deterministic_with_same_seed(self):
+    def test_preselect_edge_cases_deterministic_same_seed(self):
         d1 = self._flow_with_groups()
         d2 = self._flow_with_groups()
-        r1 = activate_optional_groups(d1, 0.5, random.Random(42))
-        r2 = activate_optional_groups(d2, 0.5, random.Random(42))
-        assert r1 == r2
+        s1 = preselect_edge_cases(d1, global_count=1, total_instances=10, seed=42)
+        s2 = preselect_edge_cases(d2, global_count=1, total_instances=10, seed=42)
+        assert s1 == s2
 
-    def test_independent_activation(self):
-        results: list[set[str]] = []
-        for seed in range(100):
-            d = self._flow_with_groups()
-            results.append(activate_optional_groups(d, 0.5, random.Random(seed)))
-        has_only_return = any(r == {"return_path"} for r in results)
-        has_only_reversal = any(r == {"reversal_path"} for r in results)
-        assert has_only_return or has_only_reversal
+    def test_exclusion_preselect_never_assigns_same_instance_twice(self):
+        """Mutually exclusive groups get disjoint instance index sets."""
+        d, _ = clone_flow(_make_flow_config(optional_groups=[
+            {"label": "return_path", "exclusion_group": "branch",
+             "steps": [{"step_id": "ret", "type": "return", "depends_on": ["deposit"]}]},
+            {"label": "reversal_path", "exclusion_group": "branch",
+             "steps": [{"step_id": "rev", "type": "reversal", "depends_on": ["deposit"]}]},
+        ]), 0)
+        for seed in range(50):
+            sel = preselect_edge_cases(d, global_count=1, total_instances=20, seed=seed)
+            union: set[int] = set()
+            for label, indices in sel.items():
+                assert not (union & indices), f"seed={seed} overlap on {label}"
+                union |= indices
+
+    def test_independent_groups_preselect_can_overlap_instances(self):
+        d = self._flow_with_groups()
+        overlap_seeds = 0
+        for seed in range(200):
+            sel = preselect_edge_cases(d, global_count=3, total_instances=10, seed=seed)
+            ret = sel.get("return_path", set())
+            rev = sel.get("reversal_path", set())
+            if ret & rev:
+                overlap_seeds += 1
+        assert overlap_seeds > 0
 
 
 # =========================================================================
@@ -396,15 +440,15 @@ class TestEdgeCaseProvenance:
             "trigger": "manual",
             "steps": [{"step_id": "ret", "type": "return", "depends_on": ["deposit"]}],
         }])
-        recipe = _make_recipe(instances=1, seed=42, edge_case_frequency=1.0)
-        compiled, _ = generate_from_recipe(recipe, config)
+        recipe = _make_recipe(instances=1, seed=42, edge_case_count=1)
+        compiled, _, _ = generate_from_recipe(recipe, config)
         returns = compiled.returns
         if returns:
             ret = returns[0]
             ret_dict = ret.model_dump(exclude_none=True)
             meta = ret_dict.get("metadata", {})
             assert meta.get("_flow_optional_group") == "Return path"
-            assert meta.get("_flow_edge_case_frequency") == "1.0"
+            assert meta.get("_flow_edge_case_count") == "1"
             assert meta.get("_flow_trigger") == "manual"
 
     def test_no_provenance_on_happy_path_steps(self):
@@ -412,8 +456,8 @@ class TestEdgeCaseProvenance:
             "label": "Return path",
             "steps": [{"step_id": "ret", "type": "return", "depends_on": ["deposit"]}],
         }])
-        recipe = _make_recipe(instances=1, seed=42, edge_case_frequency=0.0)
-        compiled, _ = generate_from_recipe(recipe, config)
+        recipe = _make_recipe(instances=1, seed=42, edge_case_count=0)
+        compiled, _, _ = generate_from_recipe(recipe, config)
         for ipd in compiled.incoming_payment_details:
             ipd_dict = ipd.model_dump(exclude_none=True)
             meta = ipd_dict.get("metadata", {})
@@ -432,23 +476,25 @@ class TestStagingAtScale:
         assert result == set()
 
     def test_staged_first_one(self):
-        recipe = _make_recipe(staged_count=1, staged_selection="first")
+        recipe = _make_recipe(staged_count=1, staged_selection="all")
         result = select_staged_instances(recipe, 10, random.Random(42))
         assert result == {0}
 
     def test_staged_first_three(self):
-        recipe = _make_recipe(staged_count=3, staged_selection="first")
+        recipe = _make_recipe(staged_count=3, staged_selection="all")
         result = select_staged_instances(recipe, 10, random.Random(42))
         assert result == {0, 1, 2}
 
-    def test_staged_random_three(self):
-        recipe = _make_recipe(staged_count=3, staged_selection="random")
-        result = select_staged_instances(recipe, 10, random.Random(42))
-        assert len(result) == 3
-        assert all(0 <= i < 10 for i in result)
+    def test_staged_named_group_first_three(self):
+        recipe = _make_recipe(staged_count=3, staged_selection="g")
+        edge_selections = {"g": {2, 7, 1, 9}}
+        result = select_staged_instances(
+            recipe, 10, random.Random(42), edge_selections=edge_selections,
+        )
+        assert result == {1, 2, 7}
 
     def test_staged_count_capped_at_total(self):
-        recipe = _make_recipe(staged_count=100, staged_selection="first")
+        recipe = _make_recipe(staged_count=100, staged_selection="all")
         result = select_staged_instances(recipe, 5, random.Random(42))
         assert result == {0, 1, 2, 3, 4}
 
@@ -465,8 +511,8 @@ class TestStagingAtScale:
 
     def test_staged_instances_have_staged_in_compiled(self):
         config = _make_config_with_flow()
-        recipe = _make_recipe(instances=3, seed=42, staged_count=1, staged_selection="first")
-        compiled, _ = generate_from_recipe(recipe, config)
+        recipe = _make_recipe(instances=3, seed=42, staged_count=1, staged_selection="all")
+        compiled, _, _ = generate_from_recipe(recipe, config)
         ipds = compiled.incoming_payment_details
         staged_ipds = [i for i in ipds if i.staged]
         assert len(staged_ipds) >= 1
@@ -506,21 +552,21 @@ class TestGenerateFromRecipe:
     def test_single_instance(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=1, seed=42)
-        compiled, diagrams = generate_from_recipe(recipe, config)
+        compiled, diagrams, _ = generate_from_recipe(recipe, config)
         assert isinstance(compiled, DataLoaderConfig)
         assert len(compiled.incoming_payment_details) >= 1
 
     def test_ten_instances_produce_10x_resources(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=10, seed=42)
-        compiled, diagrams = generate_from_recipe(recipe, config)
+        compiled, diagrams, _ = generate_from_recipe(recipe, config)
         assert len(compiled.incoming_payment_details) == 10
         assert len(compiled.ledger_transactions) >= 10
 
     def test_all_refs_unique(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=5, seed=42)
-        compiled, _ = generate_from_recipe(recipe, config)
+        compiled, _, _ = generate_from_recipe(recipe, config)
         refs = []
         for ipd in compiled.incoming_payment_details:
             refs.append(ipd.ref)
@@ -531,7 +577,7 @@ class TestGenerateFromRecipe:
     def test_all_trace_values_unique(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=5, seed=42)
-        compiled, _ = generate_from_recipe(recipe, config)
+        compiled, _, _ = generate_from_recipe(recipe, config)
         trace_vals = set()
         for ipd in compiled.incoming_payment_details:
             ipd_dict = ipd.model_dump(exclude_none=True)
@@ -541,13 +587,13 @@ class TestGenerateFromRecipe:
                 trace_vals.add(tv)
         assert len(trace_vals) == 5
 
-    def test_edge_case_frequency_activates_groups(self):
+    def test_edge_case_count_activates_groups(self):
         config = _make_config_with_flow(optional_groups=[{
             "label": "Return path",
             "steps": [{"step_id": "ret", "type": "return", "depends_on": ["deposit"]}],
         }])
-        recipe = _make_recipe(instances=20, seed=42, edge_case_frequency=1.0)
-        compiled, _ = generate_from_recipe(recipe, config)
+        recipe = _make_recipe(instances=20, seed=42, edge_case_count=20)
+        compiled, _, _ = generate_from_recipe(recipe, config)
         assert len(compiled.returns) == 20
 
     def test_edge_case_zero_no_groups(self):
@@ -555,8 +601,8 @@ class TestGenerateFromRecipe:
             "label": "Return path",
             "steps": [{"step_id": "ret", "type": "return", "depends_on": ["deposit"]}],
         }])
-        recipe = _make_recipe(instances=5, seed=42, edge_case_frequency=0.0)
-        compiled, _ = generate_from_recipe(recipe, config)
+        recipe = _make_recipe(instances=5, seed=42, edge_case_count=0)
+        compiled, _, _ = generate_from_recipe(recipe, config)
         assert len(compiled.returns) == 0
 
     def test_payment_mix_filters(self):
@@ -565,21 +611,21 @@ class TestGenerateFromRecipe:
             instances=3, seed=42,
             payment_mix={"include_ipds": False}
         )
-        compiled, _ = generate_from_recipe(recipe, config)
+        compiled, _, _ = generate_from_recipe(recipe, config)
         assert len(compiled.incoming_payment_details) == 0
         assert len(compiled.ledger_transactions) >= 3
 
     def test_output_validates_against_pydantic(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=5, seed=42)
-        compiled, _ = generate_from_recipe(recipe, config)
+        compiled, _, _ = generate_from_recipe(recipe, config)
         revalidated = DataLoaderConfig.model_validate(compiled.model_dump())
         assert isinstance(revalidated, DataLoaderConfig)
 
     def test_mermaid_diagrams_returned(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=3, seed=42)
-        _, diagrams = generate_from_recipe(recipe, config)
+        _, diagrams, _ = generate_from_recipe(recipe, config)
         assert len(diagrams) == 3
         for d in diagrams:
             assert d.startswith("sequenceDiagram")
@@ -587,7 +633,7 @@ class TestGenerateFromRecipe:
     def test_mermaid_capped_at_ten(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=15, seed=42)
-        _, diagrams = generate_from_recipe(recipe, config)
+        _, diagrams, _ = generate_from_recipe(recipe, config)
         assert len(diagrams) == 10
 
     def test_unknown_flow_ref_raises(self):
@@ -598,8 +644,8 @@ class TestGenerateFromRecipe:
 
     def test_staged_count_marks_instances(self):
         config = _make_config_with_flow()
-        recipe = _make_recipe(instances=5, seed=42, staged_count=2, staged_selection="first")
-        compiled, _ = generate_from_recipe(recipe, config)
+        recipe = _make_recipe(instances=5, seed=42, staged_count=2, staged_selection="all")
+        compiled, _, _ = generate_from_recipe(recipe, config)
         all_ipds = compiled.incoming_payment_details
         staged = [i for i in all_ipds if i.staged]
         assert len(staged) == 2
@@ -624,8 +670,8 @@ class TestFlowMetadataStripping:
             "trigger": "webhook",
             "steps": [{"step_id": "ret", "type": "return", "depends_on": ["deposit"]}],
         }])
-        recipe = _make_recipe(instances=1, seed=42, edge_case_frequency=1.0)
-        compiled, _ = generate_from_recipe(recipe, config)
+        recipe = _make_recipe(instances=1, seed=42, edge_case_count=1)
+        compiled, _, _ = generate_from_recipe(recipe, config)
         if compiled.returns:
             ret_dict = compiled.returns[0].model_dump(exclude_none=True)
             meta = ret_dict.get("metadata", {})
@@ -636,7 +682,7 @@ class TestFlowMetadataStripping:
         meta = {
             "deal_id": "deal-1",
             "_flow_optional_group": "Return path",
-            "_flow_edge_case_frequency": "0.5",
+            "_flow_edge_case_count": "5",
             "_flow_trigger": "manual",
         }
         stripped = {k: v for k, v in meta.items() if not k.startswith("_flow_")}
@@ -656,5 +702,5 @@ class TestPassthroughRegression:
         path = EXAMPLES_DIR / filename
         data = json.loads(path.read_text())
         config = DataLoaderConfig.model_validate(data)
-        compiled, _ = maybe_compile(config)
+        compiled, _ = _compile(config)
         assert isinstance(compiled, DataLoaderConfig)

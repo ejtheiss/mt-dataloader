@@ -18,20 +18,28 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from flow_compiler import (
+    AuthoringConfig,
     FlowIR,
     FlowIRStep,
     LedgerGroup,
     actor_display_name,
     _resolve_step_participants,
     compile_flows,
+    compile_to_plan,
     flatten_optional_groups,
-    maybe_compile,
     render_mermaid,
 )
+
+
+def _compile(config):
+    """Compile a DataLoaderConfig via the pipeline, returning (compiled, flow_irs)."""
+    raw = config.model_dump_json().encode()
+    plan = compile_to_plan(AuthoringConfig.from_json(raw))
+    irs = list(plan.flow_irs) or None
+    return plan.config, irs
 from models import (
     DataLoaderConfig,
     FundsFlowConfig,
-    FundsFlowStepConfig,
     OptionalGroupConfig,
 )
 
@@ -83,9 +91,16 @@ def _make_flow_dict(**kwargs) -> dict:
         "trace_key": "deal_id",
         "trace_value_template": "{ref}-{instance}",
         "actors": {
-            "ops_account": "$ref:internal_account.ops",
-            "cash_ledger": "$ref:ledger_account.cash",
-            "revenue_ledger": "$ref:ledger_account.revenue",
+            "direct_1": {
+                "alias": "Platform",
+                "frame_type": "direct",
+                "customer_name": "Platform",
+                "slots": {
+                    "ops": "$ref:internal_account.ops",
+                    "cash": "$ref:ledger_account.cash",
+                    "revenue": "$ref:ledger_account.revenue",
+                },
+            },
         },
         "steps": [
             {
@@ -94,7 +109,7 @@ def _make_flow_dict(**kwargs) -> dict:
                 "payment_type": "ach",
                 "direction": "credit",
                 "amount": 10000,
-                "internal_account_id": "@actor:ops_account",
+                "internal_account_id": "@actor:direct_1.ops",
             },
             {
                 "step_id": "settle",
@@ -102,8 +117,8 @@ def _make_flow_dict(**kwargs) -> dict:
                 "depends_on": ["deposit"],
                 "description": "Book deposit",
                 "ledger_entries": [
-                    {"ledger_account_id": "@actor:cash_ledger", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:revenue_ledger", "amount": 10000, "direction": "credit"},
+                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
+                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
                 ],
             },
         ],
@@ -266,8 +281,8 @@ class TestFundsFlowConfigOptionalGroups:
                 "steps": [
                     {"step_id": "step_b", "type": "ledger_transaction", "depends_on": ["step_a"],
                      "ledger_entries": [
-                         {"ledger_account_id": "@actor:cash_ledger", "amount": 10000, "direction": "debit"},
-                         {"ledger_account_id": "@actor:revenue_ledger", "amount": 10000, "direction": "credit"},
+                         {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
+                         {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
                      ]},
                 ],
             },
@@ -344,7 +359,7 @@ class TestFlattenOptionalGroups:
 
 class TestActorDisplayName:
     def test_internal_account_ref(self):
-        assert actor_display_name("$ref:internal_account.ops_usd") == "Ops Usd"
+        assert actor_display_name("$ref:internal_account.ops_usd") == "Ops"
 
     def test_ledger_account_ref(self):
         assert actor_display_name("$ref:ledger_account.cash") == "Cash"
@@ -433,12 +448,12 @@ class TestRenderMermaid:
         output = render_mermaid(ir)
         assert "participant" in output
         assert "External" in output
-        assert "Ops Usd" in output
+        assert "Ops" in output
 
-    def test_ipd_async_arrow(self):
+    def test_ipd_sync_arrow(self):
         ir = _build_basic_flow_ir()
         output = render_mermaid(ir)
-        assert "-)" in output
+        assert "->>" in output
 
     def test_lt_sync_arrow(self):
         ir = _build_basic_flow_ir()
@@ -463,9 +478,9 @@ class TestRenderMermaid:
         )
         output = render_mermaid(ir)
         assert "-)" in output
-        assert "OpsUsd" in output
+        assert "Ops" in output
 
-    def test_return_cross_arrow(self):
+    def test_return_dashed_arrow(self):
         ir = FlowIR(
             flow_ref="ret_flow", instance_id="0000", pattern_type="return",
             trace_key="deal_id", trace_value="deal-ret-0",
@@ -478,7 +493,7 @@ class TestRenderMermaid:
             )],
         )
         output = render_mermaid(ir)
-        assert "--x" in output
+        assert "-->>" in output
 
     def test_ledger_entries_note_with_dr_cr(self):
         ir = _build_basic_flow_ir()
@@ -594,11 +609,11 @@ class TestDemoJsonOptionalGroups:
         assert len(flow.optional_groups) == 1
         assert flow.optional_groups[0].label == "Customer requests return"
 
-    def test_demo_maybe_compile_still_works(self):
+    def test_demo_compile_pipeline_still_works(self):
         demo_path = EXAMPLES_DIR / "funds_flow_demo.json"
         data = json.loads(demo_path.read_text())
         config = DataLoaderConfig.model_validate(data)
-        compiled, _ = maybe_compile(config)
+        compiled, _ = _compile(config)
         assert len(compiled.incoming_payment_details) >= 1
         assert len(compiled.ledger_transactions) >= 1
 
@@ -646,5 +661,5 @@ class TestPassthroughRegression:
         path = EXAMPLES_DIR / filename
         data = json.loads(path.read_text())
         config = DataLoaderConfig.model_validate(data)
-        compiled, _ = maybe_compile(config)
+        compiled, _ = _compile(config)
         assert isinstance(compiled, DataLoaderConfig)

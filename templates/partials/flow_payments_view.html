@@ -1,0 +1,219 @@
+{% if view_data.payment_rows %}
+<div class="flow-columns" id="flow-columns">
+    <div class="flow-col flow-col-transactions">
+        <div class="flow-col-header">
+            <div class="flow-col-title">Payments</div>
+            <div class="flow-col-meta">
+                <div class="flow-meta-row"><span>&nbsp;</span></div>
+                <div class="flow-meta-row"><span>&nbsp;</span></div>
+            </div>
+        </div>
+        <div class="flow-col-subheader">
+            <span class="flow-th" style="width: 28%;">Description</span>
+            <span class="flow-th" style="width: 14%;">Type</span>
+            <span class="flow-th" style="width: 12%;">Status</span>
+            <span class="flow-th" style="width: 16%;">Amount</span>
+            <span class="flow-th" style="width: 14%;">Direction</span>
+            <span class="flow-th" style="width: 8%;">LT</span>
+            <span class="flow-th" style="width: 8%;">Rail</span>
+        </div>
+        <div class="flow-col-body" id="flow-scroll-tx" onscroll="syncFlowScroll(this)">
+            {% set ns_og = namespace(current_og=None) %}
+            {% for row in view_data.payment_rows %}
+            {% if row.optional_group and row.optional_group != ns_og.current_og %}
+            {% set ns_og.current_og = row.optional_group %}
+            <div class="flow-og-header" data-og="{{ row.optional_group }}" onclick="toggleOgRows(this)">
+                <span class="flow-og-icon">&#9656;</span>
+                <span class="flow-og-label">{{ row.optional_group }}</span>
+            </div>
+            {% elif not row.optional_group and ns_og.current_og %}
+            {% set ns_og.current_og = None %}
+            {% endif %}
+            <div class="flow-row {% if row.optional_group %}flow-og-row{% endif %}"
+                 data-step-ref="{{ row.step_ref }}"
+                 {% if row.optional_group %}data-og="{{ row.optional_group }}" style="display: none; height: 48px;"{% else %}style="height: 48px;"{% endif %}>
+                <span class="flow-td" style="width: 28%;" title="{{ row.description }}">
+                    {{ row.description or '—' }}
+                </span>
+                <span class="flow-td" style="width: 14%;">
+                    <span class="ledgerable-pill ledgerable-{{ row.resource_type }}">{{ source_badge.get(row.resource_type, row.resource_type) }}</span>
+                </span>
+                <span class="flow-td" style="width: 12%;">
+                    <span class="status-dot pending"></span>
+                    <span class="status-text">{{ row.status }}</span>
+                </span>
+                <span class="flow-td" style="width: 16%;">
+                    {{ fmt_amt(row.amount) }}
+                </span>
+                <span class="flow-td" style="width: 14%;">
+                    {{ row.direction or '—' }}
+                </span>
+                <span class="flow-td" style="width: 8%;">
+                    {% if row.has_auto_lt %}
+                    <button class="lt-expand-btn" onclick="toggleLtSubRow(this)" title="Show ledger entries">&#10003;</button>
+                    {% else %}
+                    <span style="color: var(--muted, #888);">—</span>
+                    {% endif %}
+                </span>
+                <span class="flow-td" style="width: 8%;">
+                    {{ row.payment_type or '—' }}
+                </span>
+            </div>
+            {% if row.has_auto_lt and row.child_lt_rows %}
+            <div class="flow-row lt-sub-row {% if row.optional_group %}flow-og-row{% endif %}"
+                 data-parent="{{ row.step_ref }}"
+                 {% if row.optional_group %}data-og="{{ row.optional_group }}"{% endif %}
+                 style="display: none;">
+                <div style="padding: 4px 8px; font-size: 0.78rem; width: 100%;">
+                    {% for lt in row.child_lt_rows %}
+                    <div class="lt-entry-row">
+                        {% for e in lt.entries %}
+                        <span class="lt-entry-cell">
+                            <code>{{ view_data.account_actor_map.get(e.column_ref, e.column_ref.split('.')[-1]) }}</code>
+                            <span class="entry-amount {% if e.direction == 'debit' %}flow-td-debit{% else %}flow-td-credit{% endif %}">
+                                {{ fmt_amt(e.amount) }} {{ e.direction[:2]|upper }}
+                            </span>
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+            <div class="flow-row flow-row-summary" style="height: 48px; font-weight: 600; border-top: 2px solid var(--border);">
+                <span class="flow-td" style="width: 100%;">Summary</span>
+            </div>
+        </div>
+    </div>
+
+    {% for col in view_data.payment_view_columns %}
+    <div class="flow-col flow-col-account">
+        <div class="flow-col-header">
+            <div class="flow-col-title" title="{{ col.account_ref }}">{{ col.display_name }}</div>
+            <div class="flow-col-meta">
+                <div class="flow-meta-row">
+                    <span>Type:</span>
+                    <span class="flow-meta-val">
+                        {% if col.account_type == 'internal_account' %}IA
+                        {% elif col.account_type == 'external_account' %}EA
+                        {% elif col.account_type == 'virtual_account' %}VA
+                        {% else %}{{ col.account_type }}{% endif %}
+                    </span>
+                </div>
+                <div class="flow-meta-row">
+                    {% if col.currency %}
+                    <span>Currency:</span>
+                    <span class="flow-meta-val">{{ col.currency }}</span>
+                    {% else %}
+                    <span>&nbsp;</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="flow-col-subheader flow-col-split">
+            <span class="flow-th">In</span>
+            <span class="flow-th">Out</span>
+        </div>
+        <div class="flow-col-body flow-scroll-acct" onscroll="syncFlowScroll(this)">
+            {% set ns = namespace(net_in=0, net_out=0) %}
+            {% set ns_og = namespace(current_og=None) %}
+            {% for row in view_data.payment_rows %}
+            {% if row.optional_group and row.optional_group != ns_og.current_og %}
+            {% set ns_og.current_og = row.optional_group %}
+            <div class="flow-og-header flow-og-header-placeholder" data-og="{{ row.optional_group }}" onclick="toggleOgRows(this)">
+                &nbsp;
+            </div>
+            {% elif not row.optional_group and ns_og.current_og %}
+            {% set ns_og.current_og = None %}
+            {% endif %}
+            <div class="flow-row flow-row-split {% if row.optional_group %}flow-og-row{% endif %}"
+                 {% if row.optional_group %}data-og="{{ row.optional_group }}" style="display: none; height: 48px;"{% else %}style="height: 48px;"{% endif %}>
+                <span class="flow-td-entry flow-td-debit">
+                    {% for imp in row.account_impacts %}
+                    {% if imp.column_ref == col.account_ref and imp.direction == 'in' %}
+                    <span class="entry-amount">{{ fmt_amt(imp.amount) }}</span>
+                    {% set ns.net_in = ns.net_in + imp.amount %}
+                    {% endif %}
+                    {% endfor %}
+                </span>
+                <span class="flow-td-entry flow-td-credit">
+                    {% for imp in row.account_impacts %}
+                    {% if imp.column_ref == col.account_ref and imp.direction == 'out' %}
+                    <span class="entry-amount">{{ fmt_amt(imp.amount) }}</span>
+                    {% set ns.net_out = ns.net_out + imp.amount %}
+                    {% endif %}
+                    {% endfor %}
+                </span>
+            </div>
+            {% if row.has_auto_lt and row.child_lt_rows %}
+            <div class="flow-row flow-row-split lt-sub-row {% if row.optional_group %}flow-og-row{% endif %}"
+                 data-parent="{{ row.step_ref }}"
+                 {% if row.optional_group %}data-og="{{ row.optional_group }}"{% endif %}
+                 style="display: none; height: auto;">
+                <span class="flow-td-entry" style="width: 100%; text-align: center; color: var(--text-muted); font-size: 0.75rem;">
+                    ···
+                </span>
+            </div>
+            {% endif %}
+            {% endfor %}
+            <div class="flow-row flow-row-split flow-row-summary" style="height: 48px; font-weight: 600; border-top: 2px solid var(--border);">
+                <span class="flow-td-entry flow-td-debit">
+                    {% if ns.net_in %}
+                    <span class="entry-amount" style="color: var(--green, #22c55e);">{{ fmt_amt(ns.net_in) }}</span>
+                    {% endif %}
+                </span>
+                <span class="flow-td-entry flow-td-credit">
+                    {% if ns.net_out %}
+                    <span class="entry-amount" style="color: var(--red, #ef4444);">{{ fmt_amt(ns.net_out) }}</span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+(function() {
+    var syncing = false;
+    window.syncFlowScroll = function(source) {
+        if (syncing) return;
+        syncing = true;
+        var top = source.scrollTop;
+        var bodies = document.querySelectorAll('.flow-col-body');
+        bodies.forEach(function(el) {
+            if (el !== source) el.scrollTop = top;
+        });
+        syncing = false;
+    };
+
+    window.toggleLtSubRow = function(btn) {
+        var parentRow = btn.closest('.flow-row');
+        var stepRef = parentRow.getAttribute('data-step-ref');
+        var subRows = document.querySelectorAll('.lt-sub-row[data-parent="' + stepRef + '"]');
+        subRows.forEach(function(el) {
+            el.style.display = el.style.display === 'none' ? '' : 'none';
+        });
+    };
+
+    window.toggleOgRows = function(headerEl) {
+        var ogName = headerEl.getAttribute('data-og');
+        if (!ogName) return;
+        var allHeaders = document.querySelectorAll('.flow-og-header[data-og="' + ogName + '"]');
+        var allRows = document.querySelectorAll('.flow-og-row[data-og="' + ogName + '"]');
+        var isExpanded = headerEl.classList.contains('expanded');
+
+        allHeaders.forEach(function(h) {
+            h.classList.toggle('expanded', !isExpanded);
+        });
+        allRows.forEach(function(r) {
+            r.style.display = isExpanded ? 'none' : '';
+        });
+    };
+})();
+</script>
+
+{% else %}
+<p class="empty-state">No payment resources in this flow.</p>
+{% endif %}
