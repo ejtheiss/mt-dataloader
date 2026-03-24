@@ -19,8 +19,8 @@ come from `/api/schema`, `naming_conventions.md`, and `system_prompt.md` rules.
    the user clearly needs something neither file covers.
 4. **Add extras** only if the user explicitly asked (second step of the ladder).
 
-If the user’s request is vague, **ask one short question**: *“Smallest possible
-demo (one internal transfer), or full marketplace-style onboarding + flows?”*
+If the user's request is vague, **ask one short question**: *"Smallest possible
+demo (one internal transfer), or full marketplace-style onboarding + flows?"*
 
 ---
 
@@ -28,7 +28,7 @@ demo (one internal transfer), or full marketplace-style onboarding + flows?”*
 
 ### A — Minimal slice
 
-**Use when the user wants:** the smallest thing that runs; “hello world”; one
+**Use when the user wants:** the smallest thing that runs; "hello world"; one
 movement of money inside the platform; no parties, no KYB story.
 
 **Structural template:** `examples/psp_minimal.json`  
@@ -62,10 +62,10 @@ accounting demos.
 ### C — Extended (explicit user request only)
 
 **Use when the user clearly asks for:** reconciliation matching, ledgering,
-virtual-account attribution, or IPD return objects—not because “more is better.”
+virtual-account attribution, or IPD return objects—not because "more is better."
 
-**Do not use the word “lifecycle” with the user**—say **extended** or **full-platform
-extras** so it isn’t confused with payment order lifecycle.
+**Do not use the word "lifecycle" with the user**—say **extended** or **full-platform
+extras** so it isn't confused with payment order lifecycle.
 
 **May add (on request):** `expected_payments`, `ledgers` / `ledger_accounts` /
 `ledger_transactions`, `virtual_accounts`, explicit `return` on IPDs, etc., in
@@ -77,12 +77,15 @@ line with `decision_rubrics.md`.
 
 | User intent (examples) | Scope | Template |
 |------------------------|-------|----------|
-| “Smallest”, “one transfer”, “minimal PSP” | A | `psp_minimal.json` |
-| “Marketplace”, “buyer/seller”, “wallets”, “settle”, “fee”, “Boats-style” | B | `marketplace_demo.json` |
-| “Live demo”, “staged”, “fire one-by-one”, “click-through” | B + staged | `staged_demo.json` |
-| “Reconciliation”, “expected payment”, “match inbound” | C | B + EP/IPD per rubrics |
-| “Ledger”, “double-entry”, “GL” | C | B + ledger sections per rubrics |
-| “Per-payer routing”, “VA”, “sub-accounts for attribution” | C | B + VA per rubrics |
+| "Smallest", "one transfer", "minimal PSP" | A | `psp_minimal.json` |
+| "Marketplace", "buyer/seller", "wallets", "settle", "fee" | B | `marketplace_demo.json` |
+| "Lifecycle", "deposit-to-settle", "flow pattern" | B | `funds_flow_demo.json` |
+| "Live demo", "staged", "fire one-by-one", "click-through" | B + staged | `staged_demo.json` |
+| "Stablecoin", "on-ramp", "off-ramp", "USDC", "USDG" | C | `stablecoin_ramp.json` |
+| "Brokerage", "rewards", "chart of accounts" | C | `tradeify.json` |
+| "Reconciliation", "expected payment", "match inbound" | C | B + EP/IPD per rubrics |
+| "Ledger", "double-entry", "GL" | C | B + ledger sections per rubrics |
+| "Per-payer routing", "VA", "sub-accounts for attribution" | C | B + VA per rubrics |
 
 If two rows apply, use the **highest** scope they need (e.g. marketplace + recon → C).
 
@@ -105,11 +108,28 @@ Start at **B** unless the user chose **A** or **C**.
 
 ---
 
+## Funds Flows vs raw resource arrays
+
+| Use `funds_flows` when | Use raw arrays when |
+|------------------------|---------------------|
+| 2+ related payment/ledger steps in a lifecycle | Single isolated resource (one PO, one LT) |
+| SE wants to scale instances (1 user to 100+) | Complex non-linear patterns |
+| Demo involves lifecycle variants (returns, reversals, alternative payout methods) | Mixing `funds_flows` with additional standalone resources |
+| Per-user infrastructure needed (LEs, CPs, IAs via `instance_resources`) | |
+
+**Default:** If the demo involves a deposit-to-settle chain or any lifecycle
+pattern, use `funds_flows`. The compiler generates all the individual resources
+(POs, IPDs, LTs, returns) from the step definitions.
+
+---
+
 ## After you pick scope
 
-1. Generate **complete** `DataLoaderConfig` JSON (no placeholders).
-2. Validate mentally against **self-bootstrap** (connection + resources in-file).
-3. Run **`POST /api/validate-json`** (or user does); fix errors by path.
+1. **Choose structure:** `funds_flows` for lifecycle demos, raw arrays for
+   isolated resources.
+2. Generate **complete** `DataLoaderConfig` JSON (no placeholders).
+3. Validate mentally against **self-bootstrap** (connection + resources in-file).
+4. Run **`POST /api/validate-json`** (or user does); fix errors by path.
 
 If scope and rubrics conflict, **rubrics win** on object choice; **this doc** only
 limits how much you build.

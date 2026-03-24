@@ -36,6 +36,7 @@ All resource `ref` values must follow these patterns. Consistent naming makes
 | `ledger_transaction` | `lt_<purpose>` | `lt_revenue_recognition`, `lt_fee_accrual` | `lt1` |
 | `return` | `return_<ipd_ref>` | `return_ipd_from_alice`, `return_nsf_deposit` | `ret1` |
 | `reversal` | `reverse_<po_ref>` | `reverse_po_pay_bob` | `rev1` |
+| `transition_ledger_transaction` | `<action>_<lt_ref>` | `post_lt_settle`, `archive_lt_revenue` | `tlt1` |
 | `category_membership` | `<account>_in_<category>` | `cash_in_assets`, `ar_in_assets` | `mem1` |
 | `nested_category` | `<child>_under_<parent>` | `liabilities_under_assets` | `nest1` |
 

@@ -55,10 +55,8 @@
             </div>
 
             <div id="tab-paste" class="input-tab-panel">
-                <textarea id="config_json" name="config_json"
-                          class="json-editor" rows="18"
-                          placeholder='Paste your JSON config here...'
-                          spellcheck="false"></textarea>
+                <div id="config-json-container" class="monaco-container" style="height: 380px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;"></div>
+                <input type="hidden" id="config_json" name="config_json" value="">
                 <div id="json-parse-status" class="json-parse-status"></div>
             </div>
         </div>
@@ -111,14 +109,16 @@
         label.classList.add("visible");
     }
 
-    // Live JSON parse validation
-    var editor = document.getElementById("config_json");
+    // Monaco JSON editor for paste tab
+    var hiddenInput = document.getElementById("config_json");
     var status = document.getElementById("json-parse-status");
-    var debounce;
-    editor.addEventListener("input", function() {
-        clearTimeout(debounce);
-        debounce = setTimeout(function() {
-            var val = editor.value.trim();
+    var monacoHandle = null;
+
+    initMonacoEditor(document.getElementById("config-json-container"), {
+        value: "",
+        hiddenInput: hiddenInput,
+        onChange: function(val) {
+            val = val.trim();
             if (!val) { status.textContent = ""; status.className = "json-parse-status"; return; }
             try {
                 var obj = JSON.parse(val);
@@ -129,14 +129,14 @@
                 status.textContent = e.message;
                 status.className = "json-parse-status invalid";
             }
-        }, 300);
-    });
+        },
+    }).then(function(h) { monacoHandle = h; });
 
     // Prevent submit if no config provided
     document.getElementById("setup-form").addEventListener("htmx:configRequest", function(evt) {
         var activeTab = document.querySelector(".input-tab.active");
         if (activeTab && activeTab.dataset.target === "tab-paste") {
-            if (!editor.value.trim()) {
+            if (!hiddenInput.value.trim()) {
                 evt.preventDefault();
                 status.textContent = "Paste a JSON config before submitting.";
                 status.className = "json-parse-status invalid";

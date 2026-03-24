@@ -54,8 +54,8 @@ an internal account.
   external party sending money to your IA so you can demo inbound flows
   without a real bank.
 
-An IPD is **not** a “platform action” in the same sense as a payment order.
-Do not describe configs as “doing an IPD step” in business language — say
+An IPD is **not** a "platform action" in the same sense as a payment order.
+Do not describe configs as "doing an IPD step" in business language — say
 **inbound deposit (simulated via IPD in sandbox)**, then **settlement** via
 book transfers.
 
@@ -75,7 +75,7 @@ do not reference the IPD in their account fields.
 
 ## Sandbox Auto-Returns (`sandbox_behavior`)
 
-On a counterparty’s **inline** account, `sandbox_behavior` controls outcomes
+On a counterparty's **inline** account, `sandbox_behavior` controls outcomes
 for **Payment Orders sent to that external account**:
 
 | Value | Effect |
@@ -85,12 +85,12 @@ for **Payment Orders sent to that external account**:
 | `failure` | PO fails outright |
 
 **Critical:** `sandbox_behavior` applies to **outbound POs to the
-counterparty’s bank account**. It does **not** apply to IPDs (`create_async`).
+counterparty's bank account**. It does **not** apply to IPDs (`create_async`).
 Inbound deposit failures are modeled with an explicit `return` resource
 against the IPD, not with `sandbox_behavior` on the counterparty.
 
 If you need an **ACH pull** that auto-returns (e.g. NSF on a debit), use
-`direction: "debit"` with `sandbox_behavior: "return"` on the **buyer’s**
+`direction: "debit"` with `sandbox_behavior: "return"` on the **buyer's**
 counterparty account, and describe it honestly as **platform ACH collection /
 pull** — not as the same thing as a buyer-push deposit simulated by IPD.
 
@@ -160,11 +160,35 @@ The presenter fires `ipd_buyer_deposit` first, then each PO in order.
 
 ---
 
+## Funds Flows Step Ordering
+
+Within a `funds_flows` definition, steps use `depends_on` with **step_id**
+values (not `$ref:` strings). The compiler translates these into proper DAG
+edges on the generated resources.
+
+```json
+{
+    "step_id": "settle",
+    "type": "payment_order",
+    "depends_on": ["deposit"]
+}
+```
+
+**Key differences from raw resource ordering:**
+- `depends_on` references `step_id`, not `$ref:type.ref`
+- The compiler auto-injects lifecycle dependencies (e.g., a
+  `transition_ledger_transaction` step auto-depends on the LT it targets)
+- Optional group steps can reference core steps in `depends_on`
+- `position` and `insert_after` on optional groups control insertion point,
+  not `depends_on` (though `depends_on` still enforces execution order)
+
+---
+
 ## What NOT to Do
 
 - **Redundant `depends_on`** for refs already in data fields.
 - **Circular dependencies** — `CycleError` at dry run.
-- **Expected payments in PSP demos “by default”** — EPs are reconciliation
+- **Expected payments in PSP demos "by default"** — EPs are reconciliation
   matchers only; they do not move money. For marketplace/PSP flows that are
   not explicitly about reconciliation UI, omit EPs (see IPD/EP review).
 
@@ -181,8 +205,9 @@ Rough layering — actual batches come from the DAG:
 5. **Virtual accounts, expected payments, payment orders** — VAs and EPs are
    **uncommon** in PSP wallet demos; omit unless the story needs them.
 6. **Incoming payment details** — sandbox simulation of inbound funds; not
-   interchangeable with “creating a normal business step” in copy.
+   interchangeable with "creating a normal business step" in copy.
 7. **Ledger transactions, returns, reversals**
-8. **Category memberships, nested categories**
+8. **Transition ledger transactions** (status changes on existing LTs)
+9. **Category memberships, nested categories**
 
 Within a batch, resources run concurrently up to `max_concurrent_requests`.

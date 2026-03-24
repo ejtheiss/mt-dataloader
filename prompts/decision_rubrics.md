@@ -21,10 +21,15 @@ funds in **internal accounts as wallets**:
 - **Do not add by default:** `ledger`, `ledger_account`, `ledger_transaction`,
   `virtual_account`, `expected_payment` — only if the demo is explicitly about
   accounting or reconciliation attribution.
-- **NSF / auto-return via magic account:** only works on **POs to a
-  counterparty account** (`sandbox_behavior: "return"`). That is an **ACH
-  debit pull** (or credit to a return-test account), not an IPD. Label it
-  that way in descriptions and metadata.
+- **NSF / return demos — two patterns exist:**
+  1. **Outbound PO return** — `sandbox_behavior: "return"` on the
+     counterparty's account triggers an auto-return on POs sent to that
+     account. Good for ACH debit/credit return demos.
+  2. **Inbound IPD return** — a `return` step (or standalone `return`
+     resource) with `returnable_id` pointing at an IPD. Used in
+     `funds_flows` `optional_groups` for inbound deposit NSF stories.
+  `sandbox_behavior` does **not** apply to IPDs; always use an explicit
+  `return` resource/step for IPD returns.
 
 ---
 
@@ -531,6 +536,7 @@ See `examples/staged_demo.json` for a full working example.
 | return | No | Skipped |
 | reversal | No | Skipped |
 | ledger_transaction | No (archived) | Archived |
+| transition_ledger_transaction | No | Updates existing LT status |
 | counterparty | **Yes** | Deleted |
 | external_account | **Yes** | Deleted |
 | virtual_account | **Yes** | Deleted |
@@ -557,8 +563,10 @@ DSL section. This replaces manually building individual `payment_orders`,
 - The demo involves 2+ related payment/ledger steps
 - The SE wants to visualize the money flow
 - The SE will scale the pattern ("generate 100 of these")
-- The demo involves lifecycle variants (returns, reversals)
+- The demo involves lifecycle variants (returns, reversals, alternative payout methods)
 - The demo involves per-user infrastructure (use `instance_resources`)
+- The demo needs ledger transaction lifecycle (pending → posted → archived
+  via `transition_ledger_transaction` steps)
 
 **Use `instance_resources` when:**
 - Each flow instance needs its own legal entity, counterparty, internal account, or ledger account

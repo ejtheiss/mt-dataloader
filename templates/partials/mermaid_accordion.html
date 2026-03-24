@@ -1,8 +1,8 @@
-<div class="mermaid-accordion accordion" id="mermaid-accordion-{{ mermaid_id }}">
-    <div class="accordion-header">
-        View Mermaid Diagram{% if mermaid_label %} — {{ mermaid_label }}{% endif %}
-    </div>
-    <div class="accordion-panel">
+<details class="mermaid-accordion">
+    <summary class="mermaid-accordion-header">
+        View Mermaid Diagram{% if mermaid_label %} &mdash; {{ mermaid_label }}{% endif %}
+    </summary>
+    <div class="mermaid-accordion-body">
         <div class="mermaid-actions">
             <button class="btn btn-sm btn-outline" onclick="copyMermaidSyntax('{{ mermaid_id }}')">Copy Mermaid</button>
             <button class="btn btn-sm btn-outline" onclick="copyMermaidSVG('{{ mermaid_id }}')">Copy SVG</button>
@@ -10,4 +10,4 @@
         <div id="mermaid-render-{{ mermaid_id }}" class="mermaid-render"></div>
         <pre id="mermaid-source-{{ mermaid_id }}" class="mermaid-source" style="display:none">{{ mermaid_diagram }}</pre>
     </div>
-</div>
+</details>

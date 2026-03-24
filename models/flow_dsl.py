@@ -7,6 +7,42 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+
+# ---------------------------------------------------------------------------
+# Timing configuration (Step 9: Seasoning & Date Configuration)
+# ---------------------------------------------------------------------------
+
+from models.shared import StepTimingConfig  # noqa: E402 (re-export)
+
+
+class FlowTimingConfig(BaseModel):
+    """Default timing applied to all steps in a flow."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    base_date: str = "today"
+    default_delay_days: float = 0.0
+    default_jitter_days: float = 0.0
+    business_days_only: bool = True
+
+
+class RecipeTimingConfig(BaseModel):
+    """Timing controls for scaled generation (instance spread + overrides)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    base_date: str = "today"
+    instance_spread_days: int = 0
+    spread_pattern: Literal["uniform", "ramp_up", "ramp_down", "clustered"] = (
+        "uniform"
+    )
+    spread_jitter_days: float = 0.0
+    step_delay_overrides: dict[str, float] = Field(
+        default_factory=dict,
+        description="step_id -> delay_days override for this recipe",
+    )
+
+
 from models.steps import (
     FundsFlowStep,
     IncomingPaymentDetailStep,
@@ -79,6 +115,7 @@ class OptionalGroupConfig(BaseModel):
         default=1.0, ge=0.0,
         description="Relative weight within an exclusion_group for weighted selection.",
     )
+    timing: StepTimingConfig | None = None
 
 
 class FundsFlowScaleConfig(BaseModel):
@@ -225,6 +262,7 @@ class FundsFlowConfig(BaseModel):
     optional_groups: list[OptionalGroupConfig] = Field(default_factory=list)
     scale: FundsFlowScaleConfig | None = None
     view_config: FundFlowViewConfig | None = None
+    timing: FlowTimingConfig | None = None
     instance_resources: dict[str, list[dict[str, Any]]] | None = Field(
         default=None,
         description=(
@@ -398,6 +436,7 @@ class GenerationRecipeV1(BaseModel):
         default_factory=dict,
         description="Per-actor overrides keyed by frame name (e.g. 'user_1')",
     )
+    timing: RecipeTimingConfig | None = None
     overrides: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")

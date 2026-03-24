@@ -20,6 +20,7 @@ from models.shared import (
     LedgerStatus,
     MetadataMixin,
     PaymentDirection,
+    StepTimingConfig,
 )
 
 # ---------------------------------------------------------------------------
@@ -54,6 +55,7 @@ class _StepBase(MetadataMixin, BaseModel):
     step_id: str
     description: str | None = None
     depends_on: list[str] = Field(default_factory=list)
+    timing: StepTimingConfig | None = None
 
     _config_section: ClassVar[str]
     _mermaid_arrow: ClassVar[str] = "->>"

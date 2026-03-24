@@ -49,6 +49,7 @@ from .pipeline import (
 
 # --- Generation pipeline ---
 from .generation import (
+    GenerationResult,
     deep_format_map,
     _expand_instance_resources,
     clone_flow,
@@ -82,6 +83,12 @@ from .diagnostics import (
     compile_diagnostics,
 )
 
+# --- Timing & seasoning ---
+from .timing import (
+    compute_effective_dates,
+    compute_spread_offsets,
+)
+
 __all__ = [
     "flatten_optional_groups",
     "render_mermaid",
@@ -92,6 +99,7 @@ __all__ = [
     "activate_optional_groups",
     "mark_staged",
     "select_staged_instances",
+    "GenerationResult",
     "generate_from_recipe",
     "actor_display_name",
     "compute_flow_status",
@@ -126,4 +134,6 @@ __all__ = [
     "_expand_instance_resources",
     "_resolve_ipd_source",
     "clone_flow",
+    "compute_effective_dates",
+    "compute_spread_offsets",
 ]

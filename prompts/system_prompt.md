@@ -125,10 +125,12 @@ Paste from repo (trim only if size-constrained):
 
 | File | Use when |
 |------|----------|
-| `examples/marketplace_demo.json` | **Primary.** PSP marketplace: connection `modern_treasury_bank` + `example1`, minimal LEs (auto-mock compliance), CPs, IAs (`*_wallet` refs, **Payment Account** display names), IPD buyer **push**, book fee + settle + ACH payout, ACH **debit** NSF demo. No EP, no VA, no ledger. |
-| `examples/psp_minimal.json` | Smallest PSP slice: two IAs + one `book` transfer (no counterparties, no LEs). |
-| `examples/staged_demo.json` | **Staged demo.** Marketplace with `staged: true` on IPD + 3 POs. Non-staged resources (LEs, CPs, IAs) create normally; staged items appear as "Fire" buttons in the run-detail UI. Shows the IPD-deposit → book-fee → book-settle → ACH-payout chain. |
-| `examples/tradeify.json` | **Ledger-heavy PSP.** Brokerage funding: 10 users, ledger with chart-of-accounts (asset + liability accounts, USDG reserve), standalone `ledger_transactions` (2-leg seed, 4-leg USD→USDG reallocation, payout journal entries), RTP POs to counterparty brokerage accounts. Shows `ledger_entries[]` payload shape at scale. |
+| `examples/funds_flow_demo.json` | **Funds Flows DSL starter.** Deposit → settle → post lifecycle with actors, ledger entries, and an optional return edge case. Shows `optional_groups`, `@actor:` syntax, and `transition_ledger_transaction`. |
+| `examples/marketplace_demo.json` | **PSP marketplace with instance resources.** Buyer/seller user frames, `instance_resources` (LEs, CPs, wallets), ACH deposit → book fee → book settle → ACH payout, with an NSF `return` edge case via `optional_groups`. No ledger. |
+| `examples/psp_minimal.json` | Smallest PSP slice: two direct actors, two IAs, one `book` transfer. No counterparties, no LEs. |
+| `examples/stablecoin_ramp.json` | **Fiat↔stablecoin on/off-ramp.** Dual connections (USD + USDC), ledger accounts for reserves/positions, inline LTs on POs, mutually exclusive payout alternatives (ACH/RTP/Wire via `exclusion_group` + `position: "replace"`). |
+| `examples/staged_demo.json` | **Staged demo.** Marketplace with `staged: true` on all money-movement steps. Infrastructure creates normally; staged items get "Fire" buttons. |
+| `examples/tradeify.json` | **Ledger-heavy brokerage PSP.** Per-user `instance_resources` (LE + CP + IA + LAs + category memberships), USDG reserve/rewards ledger, NinjaTrader direct actor with EAs, three optional groups (ACH cashout, wire funding, staged return). |
 
 <PASTE_EXAMPLES_HERE>
 
@@ -307,18 +309,46 @@ Available placeholders: `{instance}` (zero-padded 4-digit), `{first_name}`,
 Placeholders are resolved from seed profiles at generation time via `deep_format_map()`.
 Actor slot refs can use `{instance}` (e.g., `"$ref:internal_account.buyer_{instance}_wallet"`).
 
+### Step types
+
+| `type` | Resource created | Notes |
+|--------|-----------------|-------|
+| `payment_order` | PO | Set `payment_type` (`ach`, `wire`, `rtp`, `book`) and `direction` |
+| `incoming_payment_detail` | IPD | Sandbox inbound simulation; set `payment_type` and `direction` |
+| `expected_payment` | EP | Reconciliation matcher; needs `reconciliation_rule_variables` |
+| `ledger_transaction` | LT | Standalone double-entry; requires `ledger_entries[]` |
+| `return` | Return | IPD return; set `returnable_id` (auto-derived from depended-on IPD if omitted) |
+| `reversal` | Reversal | PO reversal; set `payment_order_id` |
+| `transition_ledger_transaction` | TLT | Changes status of an existing LT; requires `status` (`pending`, `posted`, `archived`). `ledger_transaction_id` auto-derived from the depended-on step's inline LT if omitted. |
+
+### `optional_groups` — lifecycle variants
+
+Each group has a `label` and one or more `steps`. Groups model edge cases
+(returns, reversals, NSF) or alternative payment methods (RTP vs Wire).
+
+| Field | Default | Purpose |
+|-------|---------|---------|
+| `position` | `"after"` | Where to insert: `"after"` (append), `"before"` (prepend), `"replace"` (swap out the anchor step) |
+| `insert_after` | `null` | Anchor step_id. With `"replace"`, removes the anchor and inserts group steps in its place. |
+| `exclusion_group` | `null` | Groups sharing the same string are mutually exclusive (at most one activates per instance). |
+| `weight` | `1.0` | Relative weight within an exclusion_group for proportional selection. |
+| `trigger` | `"manual"` | Rendering hint: `"manual"`, `"system"`, or `"webhook"`. No execution impact. |
+| `applicable_when` | `null` | Conditional activation: `requires_step_match`, `excludes_step_match`, `depends_on_step`. |
+
 ### Rules for funds_flows:
 1. Always include `trace_key` (generic metadata key) and `trace_value_template`
 2. Use `@actor:frame.slot` syntax in step payloads — e.g., `@actor:user_1.bank`, `@actor:direct_1.revenue`
-3. Use `optional_groups` for lifecycle variants (returns, reversals, NSF)
+3. Use `optional_groups` for lifecycle variants (returns, reversals, NSF, alternative payout methods)
 4. Do NOT emit expanded resource arrays — the compiler handles expansion
-5. Step `type` is the resource type; use `payment_type` for the method (ach/wire)
+5. Step `type` is the resource type; use `payment_type` for the method (ach/wire/rtp/book)
 6. Include `ledger_entries` on steps that need double-entry bookkeeping
 7. Use `depends_on` for ordering between steps (references step_id, not $ref:)
 8. Use `instance_resources` for per-user infrastructure (LEs, CPs, IAs, LAs)
 9. Use `{placeholder}` syntax in descriptions and names for profile injection
 10. Frame keys: `user_1`, `user_2`, ... for per-instance actors; `direct_1`, `direct_2`, ... for platform/static actors
 11. Slot keys: short descriptive names like `bank`, `wallet`, `ops`, `cash`, `revenue`
+12. Use `exclusion_group` for mutually exclusive optional groups (e.g., payout method alternatives)
+13. Use `position: "replace"` + `insert_after` to swap a default step with an alternative
 
 ---
 

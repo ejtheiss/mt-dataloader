@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="/static/style.css?v={{ css_version }}">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
+    <script src="/static/editor.js"></script>
     <script>
     document.addEventListener("htmx:beforeSwap", function(evt) {
         var code = evt.detail.xhr.status;

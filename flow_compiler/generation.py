@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 import random
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Any
 
 import seed_loader
@@ -21,7 +22,20 @@ from models import (
 )
 
 from .core import compile_flows, emit_dataloader_config, flatten_optional_groups
+from .ir import FlowIR
 from .mermaid import render_mermaid
+from .timing import compute_effective_dates, compute_spread_offsets
+
+
+@dataclass(frozen=True)
+class GenerationResult:
+    """Structured result from ``generate_from_recipe``."""
+
+    config: DataLoaderConfig
+    diagrams: list[str]
+    edge_case_map: dict[str, list[int]]
+    flow_irs: list[FlowIR]
+    expanded_flows: list[FundsFlowConfig]
 
 
 def deep_format_map(obj: Any, mapping: dict[str, str]) -> Any:
@@ -414,11 +428,11 @@ def _enrich_profile_with_actors(
 def generate_from_recipe(
     recipe: GenerationRecipeV1,
     base_config: DataLoaderConfig,
-) -> tuple[DataLoaderConfig, list[str], dict[str, list[int]]]:
+) -> GenerationResult:
     """Expand a recipe into N flow instances, compile, and render Mermaid.
 
-    Returns (compiled_config, mermaid_diagrams, edge_case_map).
-    ``edge_case_map`` maps group label → sorted list of instance indices.
+    Returns a ``GenerationResult`` with compiled config, diagrams,
+    edge-case map, flow IRs, and expanded flow configs.
     """
     pattern = next(
         (f for f in base_config.funds_flows if f.ref == recipe.flow_ref),
@@ -456,6 +470,19 @@ def generate_from_recipe(
         recipe, recipe.instances, random.Random(recipe.seed),
         edge_selections=edge_selections,
     )
+
+    # Pre-compute timing spread offsets (deterministic for given seed)
+    recipe_timing = recipe.timing
+    flow_timing = pattern.timing
+    spread_offsets: list[float] = []
+    if recipe_timing and recipe_timing.instance_spread_days > 0:
+        spread_offsets = compute_spread_offsets(
+            recipe.instances,
+            recipe_timing.instance_spread_days,
+            recipe_timing.spread_pattern,
+            recipe.seed,
+            jitter_days=recipe_timing.spread_jitter_days,
+        )
 
     extra_resources: dict[str, list[dict]] = {}
     flows: list[FundsFlowConfig] = []
@@ -501,6 +528,21 @@ def generate_from_recipe(
         if recipe.payment_mix:
             _apply_payment_mix(flow_dict, recipe.payment_mix)
 
+        # Apply timing/seasoning (stamps effective_date / effective_at)
+        if recipe_timing or flow_timing:
+            spread = spread_offsets[i] if i < len(spread_offsets) else 0.0
+            compute_effective_dates(
+                flow_dict,
+                instance_index=i,
+                spread_offset_days=spread,
+                flow_timing=flow_timing,
+                recipe_timing=recipe_timing,
+                seed=recipe.seed,
+            )
+            # Remove internal keys before validation
+            flow_dict.pop("_computed_dates", None)
+            flow_dict.pop("_base_date", None)
+
         flows.append(FundsFlowConfig.model_validate(flow_dict))
 
     flow_irs = compile_flows(flows, base_config)
@@ -516,4 +558,10 @@ def generate_from_recipe(
         label: sorted(indices) for label, indices in edge_selections.items() if indices
     }
 
-    return compiled, diagrams, edge_case_map
+    return GenerationResult(
+        config=compiled,
+        diagrams=diagrams,
+        edge_case_map=edge_case_map,
+        flow_irs=flow_irs,
+        expanded_flows=flows,
+    )

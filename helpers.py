@@ -171,29 +171,69 @@ def build_preview(
     return items
 
 
+_INFRA_RESOURCE_TYPES: frozenset[str] = frozenset({
+    "connection",
+    "legal_entity",
+    "counterparty",
+    "internal_account",
+    "external_account",
+    "virtual_account",
+    "ledger",
+    "ledger_account",
+    "ledger_account_category",
+    "category_membership",
+    "nested_category",
+})
+
+
 def build_flow_grouped_preview(session: Any) -> list[dict]:
-    """Build flow-grouped preview data for the flow-aware preview page."""
+    """Build flow-grouped preview data for the flow-aware preview page.
+
+    Each flow instance gets a block containing only money-movement steps
+    (POs, IPDs, EPs, LTs, returns, reversals, TLTs).  All infrastructure
+    (accounts, CPs, LEs, connections, ledgers) is collected into a single
+    shared "Infrastructure" group at the top.
+    """
     orig_flows = session.expanded_flows or []
     flow_irs = session.flow_ir or []
     all_items = session.preview_items or []
 
     claimed_refs: set[str] = set()
+    infra_bucket: list[dict] = []
     groups: list[dict] = []
 
     for i, ir in enumerate(flow_irs):
         fc = orig_flows[i] if i < len(orig_flows) else None
 
-        flow_step_refs = {f"{s.resource_type}.{s.step_id}" for s in ir.steps}
+        # Build the set of refs that this flow instance emitted
+        flow_step_refs: set[str] = set()
         for s in ir.steps:
+            flow_step_refs.add(f"{s.resource_type}.{s.emitted_ref}")
             for lg in s.ledger_groups:
-                flow_step_refs.add(f"ledger_transaction.{lg.group_id}")
+                if not lg.inline:
+                    flow_step_refs.add(
+                        f"ledger_transaction.{s.emitted_ref}__{lg.group_id}"
+                    )
 
-        flow_items = [
-            item for item in all_items
-            if item["typed_ref"] in flow_step_refs
-            or item.get("metadata", {}).get(ir.trace_key) == ir.trace_value
-        ]
-        claimed_refs.update(item["typed_ref"] for item in flow_items)
+        instance_prefix = f"{ir.flow_ref}__{ir.instance_id}"
+
+        # Classify every item that belongs to this flow instance
+        flow_items: list[dict] = []
+        for item in all_items:
+            if item["typed_ref"] in claimed_refs:
+                continue
+            belongs = (
+                item["typed_ref"] in flow_step_refs
+                or item.get("metadata", {}).get(ir.trace_key) == ir.trace_value
+                or instance_prefix in item["typed_ref"]
+            )
+            if not belongs:
+                continue
+            claimed_refs.add(item["typed_ref"])
+            if item["resource_type"] in _INFRA_RESOURCE_TYPES:
+                infra_bucket.append(item)
+            else:
+                flow_items.append(item)
 
         actors_data: list[dict] = []
         if fc:
@@ -210,24 +250,6 @@ def build_flow_grouped_preview(session: Any) -> list[dict]:
                     "is_instance": "{instance}" in ref,
                 })
 
-        infra_refs: set[str] = set()
-        if fc and fc.instance_resources:
-            for section, items in fc.instance_resources.items():
-                singular = section.rstrip("s")
-                if section.endswith("ies"):
-                    singular = section[:-3] + "y"
-                for tmpl in items:
-                    tmpl_ref = tmpl.get("ref", "")
-                    resolved_ref = tmpl_ref.replace("{instance}", ir.instance_id)
-                    typed = f"{singular}.{resolved_ref}"
-                    infra_refs.add(typed)
-
-        infra_items = [
-            item for item in all_items
-            if item["typed_ref"] in infra_refs and item["typed_ref"] not in claimed_refs
-        ]
-        claimed_refs.update(item["typed_ref"] for item in infra_items)
-
         groups.append({
             "flow_ref": ir.flow_ref,
             "pattern_type": ir.pattern_type,
@@ -237,24 +259,33 @@ def build_flow_grouped_preview(session: Any) -> list[dict]:
             "status": compute_flow_status(ir),
             "actors": actors_data,
             "flow_items": flow_items,
-            "infra_items": infra_items,
-            "total_items": len(flow_items) + len(infra_items),
+            "total_items": len(flow_items),
             "flow_diagram_idx": i,
         })
 
+    # Everything not claimed by a flow instance is shared infrastructure
     unclaimed = [item for item in all_items if item["typed_ref"] not in claimed_refs]
-    if unclaimed:
+    all_infra = infra_bucket + unclaimed
+    if all_infra:
+        type_counts: dict[str, int] = {}
+        for item in all_infra:
+            rt = item["resource_type"]
+            type_counts[rt] = type_counts.get(rt, 0) + 1
+        infra_summary = ", ".join(
+            f"{c} {t}" for t, c in sorted(type_counts.items())
+        )
         groups.insert(0, {
             "flow_ref": "Infrastructure",
             "pattern_type": "shared",
             "trace_key": "",
             "trace_value": "Shared resources",
             "step_count": 0,
-            "status": "preview",
+            "status": "infra",
             "actors": [],
             "flow_items": [],
-            "infra_items": unclaimed,
-            "total_items": len(unclaimed),
+            "total_items": len(all_infra),
+            "infra_items": all_infra,
+            "infra_summary": infra_summary,
             "flow_diagram_idx": -1,
         })
 

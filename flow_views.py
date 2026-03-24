@@ -120,6 +120,7 @@ class PaymentViewRow:
     amount: int
     direction: str | None = None
     payment_type: str | None = None
+    effective_date: str | None = None
     has_auto_lt: bool = False
     account_impacts: tuple[AccountImpact, ...] = ()
     child_lt_rows: tuple[LedgerViewRow, ...] = ()
@@ -357,6 +358,7 @@ def _build_payment_rows(
             amount=step.payload.get("amount", 0),
             direction=step.payload.get("direction"),
             payment_type=step.payload.get("type") or step.payload.get("payment_type"),
+            effective_date=step.payload.get("effective_date"),
             has_auto_lt=has_lt,
             account_impacts=impacts,
             child_lt_rows=child_lts,

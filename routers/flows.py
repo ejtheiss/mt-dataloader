@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from engine import all_resources, dry_run, typed_ref_for
 from flow_compiler import (
+    GenerationResult,
     actor_display_name,
     compile_diagnostics,
     compute_flow_status,
@@ -18,6 +19,7 @@ from flow_compiler import (
     flow_account_deltas,
     generate_from_recipe,
 )
+from flow_views import compute_view_data
 from helpers import (
     build_preview,
     fmt_amt,
@@ -44,7 +46,7 @@ def _count_resources(config: DataLoaderConfig) -> dict[str, int]:
 
 async def _parse_and_compile_recipe(
     request: Request,
-) -> tuple[str, Any, GenerationRecipeV1, DataLoaderConfig, list[str], dict[str, list[int]]] | JSONResponse:
+) -> tuple[str, Any, GenerationRecipeV1, GenerationResult] | JSONResponse:
     """Shared parse -> compile -> reconcile helper for generation endpoints.
 
     After ``generate_from_recipe`` (post-faker), runs single-pass
@@ -76,7 +78,7 @@ async def _parse_and_compile_recipe(
             base.funds_flows = list(session.expanded_flows)
 
     try:
-        compiled, diagrams, edge_case_map = generate_from_recipe(recipe, base_config=base)
+        gen_result = generate_from_recipe(recipe, base_config=base)
     except (ValueError, KeyError) as e:
         return JSONResponse(
             content={"error": "Generation failed", "detail": str(e)},
@@ -84,7 +86,7 @@ async def _parse_and_compile_recipe(
         )
 
     if session.discovery is not None:
-        reconciliation = reconcile_config(compiled, session.discovery)
+        reconciliation = reconcile_config(gen_result.config, session.discovery)
         skip_refs: set[str] = set()
         for m in reconciliation.matches:
             if m.use_existing:
@@ -93,7 +95,7 @@ async def _parse_and_compile_recipe(
         session.reconciliation = reconciliation
         session.skip_refs = skip_refs
 
-    return token, session, recipe, compiled, diagrams, edge_case_map
+    return token, session, recipe, gen_result
 
 
 @router.get("/flows", include_in_schema=False)
@@ -376,12 +378,12 @@ async def generate_preview(request: Request):
     result = await _parse_and_compile_recipe(request)
     if isinstance(result, JSONResponse):
         return result
-    session_token, session, recipe, compiled, diagrams, edge_case_map = result
+    session_token, session, recipe, gen = result
 
-    counts = _count_resources(compiled)
+    counts = _count_resources(gen.config)
     total = sum(counts.values())
     known = set(session.org_registry.refs.keys()) if session.org_registry else None
-    batches = dry_run(compiled, known, skip_refs=session.skip_refs)
+    batches = dry_run(gen.config, known, skip_refs=session.skip_refs)
     api_calls = sum(len(b) for b in batches)
     needs_confirmation = api_calls > 10000
 
@@ -391,8 +393,8 @@ async def generate_preview(request: Request):
         "estimated_batches": len(batches),
         "estimated_api_calls": api_calls,
         "staged_count": recipe.staged_count,
-        "mermaid_diagrams": diagrams,
-        "edge_case_map": edge_case_map,
+        "mermaid_diagrams": gen.diagrams,
+        "edge_case_map": gen.edge_case_map,
         "needs_confirmation": needs_confirmation,
         "confirm_token": secrets.token_urlsafe(16) if needs_confirmation else None,
     }
@@ -404,26 +406,32 @@ async def recipe_to_working_config(request: Request):
     result = await _parse_and_compile_recipe(request)
     if isinstance(result, JSONResponse):
         return result
-    session_token, session, recipe, compiled, diagrams, edge_case_map = result
+    session_token, session, recipe, gen = result
 
-    session.config = compiled
-    config_json_text = compiled.model_dump_json(indent=2, exclude_none=True)
+    session.config = gen.config
+    config_json_text = gen.config.model_dump_json(indent=2, exclude_none=True)
     session.config_json_text = config_json_text
     session.working_config_json = config_json_text
-    session.mermaid_diagrams = diagrams
+    session.mermaid_diagrams = gen.diagrams
     session.generation_recipe = recipe.model_dump()
+    session.flow_ir = gen.flow_irs
+    session.expanded_flows = gen.expanded_flows
+    session.view_data_cache = [
+        compute_view_data(ir, fc)
+        for ir, fc in zip(gen.flow_irs, gen.expanded_flows)
+    ]
 
     known = set(session.org_registry.refs.keys()) if session.org_registry else None
-    batches = dry_run(compiled, known, skip_refs=session.skip_refs)
+    batches = dry_run(gen.config, known, skip_refs=session.skip_refs)
     session.batches = batches
-    resource_map = {typed_ref_for(r): r for r in all_resources(compiled)}
+    resource_map = {typed_ref_for(r): r for r in all_resources(gen.config)}
     session.preview_items = build_preview(batches, resource_map)
 
     return {
         "status": "ok",
-        "total_resources": sum(_count_resources(compiled).values()),
-        "mermaid_count": len(diagrams),
-        "edge_case_map": edge_case_map,
+        "total_resources": sum(_count_resources(gen.config).values()),
+        "mermaid_count": len(gen.diagrams),
+        "edge_case_map": gen.edge_case_map,
     }
 
 
@@ -433,13 +441,15 @@ async def generate_execute(request: Request):
     result = await _parse_and_compile_recipe(request)
     if isinstance(result, JSONResponse):
         return result
-    session_token, session, recipe, compiled, diagrams, _ecm = result
+    session_token, session, recipe, gen = result
 
-    session.config = compiled
-    session.mermaid_diagrams = diagrams
+    session.config = gen.config
+    session.mermaid_diagrams = gen.diagrams
     session.generation_recipe = recipe.model_dump()
+    session.flow_ir = gen.flow_irs
+    session.expanded_flows = gen.expanded_flows
     known = set(session.org_registry.refs.keys()) if session.org_registry else None
-    batches = dry_run(compiled, known, skip_refs=session.skip_refs)
+    batches = dry_run(gen.config, known, skip_refs=session.skip_refs)
     session.batches = batches
 
     return {

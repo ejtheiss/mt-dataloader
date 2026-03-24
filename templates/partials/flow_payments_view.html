@@ -9,13 +9,14 @@
             </div>
         </div>
         <div class="flow-col-subheader">
-            <span class="flow-th" style="width: 28%;">Description</span>
-            <span class="flow-th" style="width: 14%;">Type</span>
-            <span class="flow-th" style="width: 12%;">Status</span>
-            <span class="flow-th" style="width: 16%;">Amount</span>
-            <span class="flow-th" style="width: 14%;">Direction</span>
-            <span class="flow-th" style="width: 8%;">LT</span>
+            <span class="flow-th" style="width: 24%;">Description</span>
+            <span class="flow-th" style="width: 12%;">Type</span>
+            <span class="flow-th" style="width: 10%;">Status</span>
+            <span class="flow-th" style="width: 14%;">Amount</span>
+            <span class="flow-th" style="width: 12%;">Direction</span>
+            <span class="flow-th" style="width: 6%;">LT</span>
             <span class="flow-th" style="width: 8%;">Rail</span>
+            <span class="flow-th" style="width: 14%;">Day</span>
         </div>
         <div class="flow-col-body" id="flow-scroll-tx" onscroll="syncFlowScroll(this)">
             {% set ns_og = namespace(current_og=None) %}
@@ -32,23 +33,23 @@
             <div class="flow-row {% if row.optional_group %}flow-og-row{% endif %}"
                  data-step-ref="{{ row.step_ref }}"
                  {% if row.optional_group %}data-og="{{ row.optional_group }}" style="display: none; height: 48px;"{% else %}style="height: 48px;"{% endif %}>
-                <span class="flow-td" style="width: 28%;" title="{{ row.description }}">
+                <span class="flow-td" style="width: 24%;" title="{{ row.description }}">
                     {{ row.description or '—' }}
                 </span>
-                <span class="flow-td" style="width: 14%;">
+                <span class="flow-td" style="width: 12%;">
                     <span class="ledgerable-pill ledgerable-{{ row.resource_type }}">{{ source_badge.get(row.resource_type, row.resource_type) }}</span>
                 </span>
-                <span class="flow-td" style="width: 12%;">
+                <span class="flow-td" style="width: 10%;">
                     <span class="status-dot pending"></span>
                     <span class="status-text">{{ row.status }}</span>
                 </span>
-                <span class="flow-td" style="width: 16%;">
+                <span class="flow-td" style="width: 14%;">
                     {{ fmt_amt(row.amount) }}
                 </span>
-                <span class="flow-td" style="width: 14%;">
+                <span class="flow-td" style="width: 12%;">
                     {{ row.direction or '—' }}
                 </span>
-                <span class="flow-td" style="width: 8%;">
+                <span class="flow-td" style="width: 6%;">
                     {% if row.has_auto_lt %}
                     <button class="lt-expand-btn" onclick="toggleLtSubRow(this)" title="Show ledger entries">&#10003;</button>
                     {% else %}
@@ -57,6 +58,9 @@
                 </span>
                 <span class="flow-td" style="width: 8%;">
                     {{ row.payment_type or '—' }}
+                </span>
+                <span class="flow-td" style="width: 14%;">
+                    {{ row.effective_date or '—' }}
                 </span>
             </div>
             {% if row.has_auto_lt and row.child_lt_rows %}

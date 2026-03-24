@@ -270,3 +270,18 @@ CurrencyCode = Annotated[
 ]
 PaymentDirection = Literal["credit", "debit"]
 LedgerStatus = Literal["pending", "posted"]
+
+
+# ---------------------------------------------------------------------------
+# Timing configuration (Step 9: Seasoning & Date Configuration)
+# ---------------------------------------------------------------------------
+
+
+class StepTimingConfig(BaseModel):
+    """Timing for a single step relative to its dependencies."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    delay_days: float = 0.0
+    delay_jitter_days: float = 0.0
+    business_days_only: bool = True

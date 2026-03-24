@@ -94,9 +94,8 @@
               hx-indicator="#revalidate-spinner-flows"
               hx-disabled-elt="button[type=submit]">
             <input type="hidden" name="session_token" value="{{ session_token }}">
-            <textarea id="flows-json-editor" name="config_json"
-                      class="json-editor" rows="24"
-                      spellcheck="false">{{ working_config_json }}</textarea>
+            <div id="flows-json-container" class="monaco-container" style="height: 480px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;"></div>
+            <input type="hidden" id="flows-json-editor" name="config_json" value="">
             <div id="flows-json-status" class="json-parse-status"></div>
             <div class="json-editor-actions">
                 <button type="submit" class="btn btn-secondary btn-sm">
@@ -121,25 +120,29 @@
 
 <script>
 (function() {
-    var editor = document.getElementById("flows-json-editor");
+    var hiddenInput = document.getElementById("flows-json-editor");
     var status = document.getElementById("flows-json-status");
-    if (!editor) return;
-    var debounce;
-    editor.addEventListener("input", function() {
-        clearTimeout(debounce);
-        debounce = setTimeout(function() {
-            var val = editor.value.trim();
+    var container = document.getElementById("flows-json-container");
+    if (!container) return;
+    var monacoHandle = null;
+
+    initMonacoEditor(container, {
+        value: {{ working_config_json|tojson }},
+        hiddenInput: hiddenInput,
+        onChange: function(val) {
+            val = val.trim();
             if (!val) { status.textContent = ""; status.className = "json-parse-status"; return; }
             try { JSON.parse(val); status.textContent = "Valid JSON"; status.className = "json-parse-status valid"; }
             catch(e) { status.textContent = e.message; status.className = "json-parse-status invalid"; }
-        }, 300);
-    });
+        },
+    }).then(function(h) { monacoHandle = h; });
+
     document.getElementById("btn-format-flows-json").addEventListener("click", function() {
-        try { editor.value = JSON.stringify(JSON.parse(editor.value), null, 2); status.textContent = "Formatted"; status.className = "json-parse-status valid"; }
-        catch(e) { status.textContent = e.message; status.className = "json-parse-status invalid"; }
+        if (monacoHandle) monacoHandle.format();
     });
     document.getElementById("btn-copy-flows-json").addEventListener("click", function() {
-        navigator.clipboard.writeText(editor.value).then(function() { showToast('JSON copied!'); });
+        var val = monacoHandle ? monacoHandle.getValue() : hiddenInput.value;
+        navigator.clipboard.writeText(val).then(function() { showToast('JSON copied!'); });
     });
 })();
 </script>

@@ -69,6 +69,39 @@ Break the cycle by removing one `depends_on` or `$ref:` edge.
 
 ---
 
+## Funds Flows errors
+
+When the config includes `funds_flows`, the compiler validates the flow
+definitions and reports errors with `path` pointing at the flow.
+
+### `duplicate_step_id`
+
+Two steps (or optional group steps) share the same `step_id` within one
+flow. Fix: rename one to be unique.
+
+### `unbalanced_ledger_entries`
+
+A step's `ledger_entries[]` has unequal debit and credit totals. Fix:
+adjust amounts so total debits equal total credits.
+
+### `unknown_step_type`
+
+A step's `type` is not one of: `payment_order`, `incoming_payment_detail`,
+`expected_payment`, `ledger_transaction`, `return`, `reversal`,
+`transition_ledger_transaction`. Fix: use a valid type.
+
+### `missing_status` on `transition_ledger_transaction`
+
+A `transition_ledger_transaction` step requires a `status` field
+(`pending`, `posted`, or `archived`). Fix: add the `status` field.
+
+### `invalid_depends_on`
+
+A step's `depends_on` references a `step_id` that doesn't exist in the
+flow. Fix: check spelling or ensure the target step is defined.
+
+---
+
 ## Repair workflow
 
 1. Read each error's `path` to locate the resource and field.

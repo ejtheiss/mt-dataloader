@@ -126,16 +126,53 @@
         </div>
     </div>
 
+    <div class="scenario-section">
+        <div class="scenario-section-label">Timing</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Base date</label>
+                <select id="gen-timing-base-{{ flow_idx }}">
+                    <option value="today" selected>Today</option>
+                    <option value="today-30d">Today − 30d</option>
+                    <option value="today-60d">Today − 60d</option>
+                    <option value="today-90d">Today − 90d</option>
+                    <option value="today-180d">Today − 180d</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Spread days</label>
+                <input type="number" id="gen-timing-spread-{{ flow_idx }}" value="0" min="0" max="365" step="1">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Spread pattern</label>
+                <select id="gen-timing-pattern-{{ flow_idx }}">
+                    <option value="uniform" selected>Uniform</option>
+                    <option value="ramp_up">Ramp up</option>
+                    <option value="ramp_down">Ramp down</option>
+                    <option value="clustered">Clustered</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Spread jitter (days)</label>
+                <input type="number" id="gen-timing-jitter-{{ flow_idx }}" value="0" min="0" max="30" step="0.5">
+            </div>
+        </div>
+    </div>
+
     <div class="canned-commands">
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(10, 0, 0, 0)">10 instances</button>
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 0, 0)">100 instances</button>
+        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(10, 0, 0, 0, {})">10 instances</button>
+        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 0, 0, {})">100 instances</button>
         {% if fs.optional_groups %}
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 5, 0, 0)">100 + 5 edges</button>
+        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 5, 0, 0, {})">100 + 5 edges</button>
         {% endif %}
         {% if fs.amount_steps %}
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 5, 0)">100 + 5% variance</button>
+        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 5, 0, {})">100 + 5% variance</button>
         {% endif %}
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, {% if fs.optional_groups %}5{% else %}0{% endif %}, {% if fs.amount_steps %}5{% else %}0{% endif %}, 1)">100 + 1 staged</button>
+        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, {% if fs.optional_groups %}5{% else %}0{% endif %}, {% if fs.amount_steps %}5{% else %}0{% endif %}, 1, {})">100 + 1 staged</button>
+        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 0, 0, {base_date:'today-90d', spread_days:90, spread_pattern:'uniform'})">90d seasoned</button>
+        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 0, 0, {base_date:'today-30d', spread_days:30, spread_pattern:'ramp_up', spread_jitter:1})">Realistic ACH</button>
     </div>
 
     <div class="scenario-actions">
@@ -231,15 +268,32 @@
         if (Object.keys(overrides).length > 0) {
             recipe.actor_overrides = overrides;
         }
+
+        var spreadDays = parseInt(el('gen-timing-spread').value) || 0;
+        var baseDate = el('gen-timing-base').value;
+        if (spreadDays > 0 || baseDate !== 'today') {
+            recipe.timing = {
+                base_date: baseDate,
+                instance_spread_days: spreadDays,
+                spread_pattern: el('gen-timing-pattern').value,
+                spread_jitter_days: parseFloat(el('gen-timing-jitter').value) || 0,
+            };
+        }
+
         return recipe;
     }
 
-    window['setPreset' + idx] = function(instances, edge, variance, staged) {
+    window['setPreset' + idx] = function(instances, edge, variance, staged, timing) {
         el('gen-instances').value = instances;
         var edgeInputs = document.querySelectorAll('#scenario-builder-' + idx + ' .edge-case-count-input');
         edgeInputs.forEach(function(input) { input.value = edge; input.max = instances; });
         if (el('gen-variance')) el('gen-variance').value = variance;
         el('gen-staged').value = staged;
+        timing = timing || {};
+        el('gen-timing-base').value = timing.base_date || 'today';
+        el('gen-timing-spread').value = timing.spread_days || 0;
+        el('gen-timing-pattern').value = timing.spread_pattern || 'uniform';
+        el('gen-timing-jitter').value = timing.spread_jitter || 0;
     };
 
     window['genPreview' + idx] = async function() {
@@ -296,12 +350,14 @@
                 body: JSON.stringify(recipe)
             });
             var data = await resp.json();
+            var out = document.getElementById('gen-result-' + idx);
             if (data.error) {
-                document.getElementById('gen-result-' + idx).innerHTML =
-                    '<div class="error-alert"><h3>Error</h3><p>' + data.error + (data.detail ? '<br>' + data.detail : '') + '</p></div>';
+                out.innerHTML =
+                    '<div class="error-alert"><h3>Generation failed</h3><p>' + data.error + (data.detail ? '<br>' + data.detail : '') + '</p></div>';
                 return;
             }
-            window.location.href = '/flows?session_token={{ session_token }}';
+            out.innerHTML = '';
+            showToast('Config applied — ' + data.total_resources + ' resources, ' + data.mermaid_count + ' diagram(s)');
         } finally {
             btn.disabled = false; btn.textContent = 'Apply to Config';
         }

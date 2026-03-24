@@ -441,8 +441,8 @@ class TestEdgeCaseProvenance:
             "steps": [{"step_id": "ret", "type": "return", "depends_on": ["deposit"]}],
         }])
         recipe = _make_recipe(instances=1, seed=42, edge_case_count=1)
-        compiled, _, _ = generate_from_recipe(recipe, config)
-        returns = compiled.returns
+        result = generate_from_recipe(recipe, config)
+        returns = result.config.returns
         if returns:
             ret = returns[0]
             ret_dict = ret.model_dump(exclude_none=True)
@@ -457,8 +457,8 @@ class TestEdgeCaseProvenance:
             "steps": [{"step_id": "ret", "type": "return", "depends_on": ["deposit"]}],
         }])
         recipe = _make_recipe(instances=1, seed=42, edge_case_count=0)
-        compiled, _, _ = generate_from_recipe(recipe, config)
-        for ipd in compiled.incoming_payment_details:
+        result = generate_from_recipe(recipe, config)
+        for ipd in result.config.incoming_payment_details:
             ipd_dict = ipd.model_dump(exclude_none=True)
             meta = ipd_dict.get("metadata", {})
             assert "_flow_optional_group" not in meta
@@ -512,8 +512,8 @@ class TestStagingAtScale:
     def test_staged_instances_have_staged_in_compiled(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=3, seed=42, staged_count=1, staged_selection="all")
-        compiled, _, _ = generate_from_recipe(recipe, config)
-        ipds = compiled.incoming_payment_details
+        result = generate_from_recipe(recipe, config)
+        ipds = result.config.incoming_payment_details
         staged_ipds = [i for i in ipds if i.staged]
         assert len(staged_ipds) >= 1
 
@@ -552,34 +552,34 @@ class TestGenerateFromRecipe:
     def test_single_instance(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=1, seed=42)
-        compiled, diagrams, _ = generate_from_recipe(recipe, config)
-        assert isinstance(compiled, DataLoaderConfig)
-        assert len(compiled.incoming_payment_details) >= 1
+        result = generate_from_recipe(recipe, config)
+        assert isinstance(result.config, DataLoaderConfig)
+        assert len(result.config.incoming_payment_details) >= 1
 
     def test_ten_instances_produce_10x_resources(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=10, seed=42)
-        compiled, diagrams, _ = generate_from_recipe(recipe, config)
-        assert len(compiled.incoming_payment_details) == 10
-        assert len(compiled.ledger_transactions) >= 10
+        result = generate_from_recipe(recipe, config)
+        assert len(result.config.incoming_payment_details) == 10
+        assert len(result.config.ledger_transactions) >= 10
 
     def test_all_refs_unique(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=5, seed=42)
-        compiled, _, _ = generate_from_recipe(recipe, config)
+        result = generate_from_recipe(recipe, config)
         refs = []
-        for ipd in compiled.incoming_payment_details:
+        for ipd in result.config.incoming_payment_details:
             refs.append(ipd.ref)
-        for lt in compiled.ledger_transactions:
+        for lt in result.config.ledger_transactions:
             refs.append(lt.ref)
         assert len(refs) == len(set(refs))
 
     def test_all_trace_values_unique(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=5, seed=42)
-        compiled, _, _ = generate_from_recipe(recipe, config)
+        result = generate_from_recipe(recipe, config)
         trace_vals = set()
-        for ipd in compiled.incoming_payment_details:
+        for ipd in result.config.incoming_payment_details:
             ipd_dict = ipd.model_dump(exclude_none=True)
             meta = ipd_dict.get("metadata", {})
             tv = meta.get("deal_id")
@@ -593,8 +593,8 @@ class TestGenerateFromRecipe:
             "steps": [{"step_id": "ret", "type": "return", "depends_on": ["deposit"]}],
         }])
         recipe = _make_recipe(instances=20, seed=42, edge_case_count=20)
-        compiled, _, _ = generate_from_recipe(recipe, config)
-        assert len(compiled.returns) == 20
+        result = generate_from_recipe(recipe, config)
+        assert len(result.config.returns) == 20
 
     def test_edge_case_zero_no_groups(self):
         config = _make_config_with_flow(optional_groups=[{
@@ -602,8 +602,8 @@ class TestGenerateFromRecipe:
             "steps": [{"step_id": "ret", "type": "return", "depends_on": ["deposit"]}],
         }])
         recipe = _make_recipe(instances=5, seed=42, edge_case_count=0)
-        compiled, _, _ = generate_from_recipe(recipe, config)
-        assert len(compiled.returns) == 0
+        result = generate_from_recipe(recipe, config)
+        assert len(result.config.returns) == 0
 
     def test_payment_mix_filters(self):
         config = _make_config_with_flow()
@@ -611,30 +611,30 @@ class TestGenerateFromRecipe:
             instances=3, seed=42,
             payment_mix={"include_ipds": False}
         )
-        compiled, _, _ = generate_from_recipe(recipe, config)
-        assert len(compiled.incoming_payment_details) == 0
-        assert len(compiled.ledger_transactions) >= 3
+        result = generate_from_recipe(recipe, config)
+        assert len(result.config.incoming_payment_details) == 0
+        assert len(result.config.ledger_transactions) >= 3
 
     def test_output_validates_against_pydantic(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=5, seed=42)
-        compiled, _, _ = generate_from_recipe(recipe, config)
-        revalidated = DataLoaderConfig.model_validate(compiled.model_dump())
+        result = generate_from_recipe(recipe, config)
+        revalidated = DataLoaderConfig.model_validate(result.config.model_dump())
         assert isinstance(revalidated, DataLoaderConfig)
 
     def test_mermaid_diagrams_returned(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=3, seed=42)
-        _, diagrams, _ = generate_from_recipe(recipe, config)
-        assert len(diagrams) == 3
-        for d in diagrams:
+        result = generate_from_recipe(recipe, config)
+        assert len(result.diagrams) == 3
+        for d in result.diagrams:
             assert d.startswith("sequenceDiagram")
 
     def test_mermaid_capped_at_ten(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=15, seed=42)
-        _, diagrams, _ = generate_from_recipe(recipe, config)
-        assert len(diagrams) == 10
+        result = generate_from_recipe(recipe, config)
+        assert len(result.diagrams) == 10
 
     def test_unknown_flow_ref_raises(self):
         config = _make_config_with_flow()
@@ -645,8 +645,8 @@ class TestGenerateFromRecipe:
     def test_staged_count_marks_instances(self):
         config = _make_config_with_flow()
         recipe = _make_recipe(instances=5, seed=42, staged_count=2, staged_selection="all")
-        compiled, _, _ = generate_from_recipe(recipe, config)
-        all_ipds = compiled.incoming_payment_details
+        result = generate_from_recipe(recipe, config)
+        all_ipds = result.config.incoming_payment_details
         staged = [i for i in all_ipds if i.staged]
         assert len(staged) == 2
 
@@ -671,9 +671,9 @@ class TestFlowMetadataStripping:
             "steps": [{"step_id": "ret", "type": "return", "depends_on": ["deposit"]}],
         }])
         recipe = _make_recipe(instances=1, seed=42, edge_case_count=1)
-        compiled, _, _ = generate_from_recipe(recipe, config)
-        if compiled.returns:
-            ret_dict = compiled.returns[0].model_dump(exclude_none=True)
+        result = generate_from_recipe(recipe, config)
+        if result.config.returns:
+            ret_dict = result.config.returns[0].model_dump(exclude_none=True)
             meta = ret_dict.get("metadata", {})
             assert "_flow_optional_group" in meta
 

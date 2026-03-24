@@ -799,9 +799,9 @@ class TestLifecycleIntegration:
         recipe = GenerationRecipeV1(
             flow_ref="test_flow", instances=3, seed=42,
         )
-        compiled, diagrams, _ = generate_from_recipe(recipe, config)
-        assert len(compiled.transition_ledger_transactions) == 3
-        assert len(compiled.incoming_payment_details) == 3
+        result = generate_from_recipe(recipe, config)
+        assert len(result.config.transition_ledger_transactions) == 3
+        assert len(result.config.incoming_payment_details) == 3
 
     def test_demo_json_compiles_end_to_end(self):
         demo_path = EXAMPLES_DIR / "funds_flow_demo.json"

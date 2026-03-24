@@ -559,7 +559,7 @@ def emit_dataloader_config(
             }
             if resource_type in ("incoming_payment_detail", "expected_payment"):
                 resource_dict.pop("originating_account_id", None)
-            if resource_type == "transition_ledger_transaction":
+            if resource_type in ("return", "reversal", "transition_ledger_transaction"):
                 resource_dict.pop("description", None)
             if step.depends_on:
                 resource_dict["depends_on"] = step.depends_on

@@ -128,22 +128,69 @@ Consult uploaded `validation_fixes.md` for common fix patterns.
 
 ---
 
-## Funds Flows DSL
+## Funds Flows DSL (preferred for lifecycle demos)
 
-When the demo involves lifecycle patterns (deposit → settle, payment →
-ledger → return), use `funds_flows` instead of manually building resource
-arrays. The compiler handles ref generation, trace metadata, and lifecycle
-ordering. Include `optional_groups` for return/reversal/NSF scenarios.
-The SE can then scale the pattern in the UI without regenerating JSON.
+When the demo involves 2+ related payment/ledger steps (deposit → settle,
+payment → ledger → return), use `funds_flows` instead of manually building
+resource arrays. The compiler handles ref generation, trace metadata, scaling,
+and lifecycle ordering.
+
+**Structure:** Each flow has `actors` (typed participants with named `slots`),
+`steps` (the happy-path resource chain), and `optional_groups` (edge cases
+and alternative payment methods).
+
+**Actor frames:** `user_N` for per-instance actors (scaled by recipe),
+`direct_N` for shared/platform actors. Each frame has an `alias` (display
+name), `frame_type`, and `slots` (short name → `$ref:` string).
+
+**Step payloads** use `@actor:frame.slot` syntax:
+`"internal_account_id": "@actor:user_1.wallet"`.
+
+**Step types:**
+
+| `type` | Resource | Notes |
+|--------|----------|-------|
+| `payment_order` | PO | Set `payment_type` + `direction` |
+| `incoming_payment_detail` | IPD | Sandbox inbound sim |
+| `expected_payment` | EP | Reconciliation matcher |
+| `ledger_transaction` | LT | Standalone double-entry |
+| `return` | Return | IPD return |
+| `reversal` | Reversal | PO reversal |
+| `transition_ledger_transaction` | TLT | Status change on existing LT (`status`: `pending`/`posted`/`archived`) |
+
+**`optional_groups` fields:** `position` (`after`/`before`/`replace`),
+`insert_after` (anchor step_id), `exclusion_group` (mutually exclusive
+groups share the same string), `weight` (proportional selection within an
+exclusion_group), `trigger` (`manual`/`system`/`webhook`), `applicable_when`
+(conditional activation).
+
+**`instance_resources`:** Templates for per-user infrastructure (LEs, CPs,
+IAs, LAs) using `{instance}`, `{first_name}`, `{last_name}` placeholders.
+
+**Key rules:**
+- Use `depends_on` between steps (references `step_id`, not `$ref:`)
+- Do NOT emit expanded resource arrays — the compiler handles expansion
+- Use `exclusion_group` for mutually exclusive alternatives (e.g., payout methods)
+- Use `position: "replace"` + `insert_after` to swap a default step with an alternative
 
 ---
 
 ## Knowledge files
 
-Consult the uploaded files for reference: schema (field names, enums, required
-keys), `decision_rubrics.md` (which resource for which intent, connection
-capabilities, `ledger_entries[]` payload examples), `naming_conventions.md`
-(ref patterns), `ordering_rules.md` (DAG / depends_on),
-`metadata_patterns.md` (vertical metadata keys), `generation_profiles.md`
-(scope), `validation_fixes.md` (common errors), and `examples/*.json`
-(including `tradeify.json` for ledger transaction patterns).
+Consult the uploaded files for reference:
+
+| File | Purpose |
+|------|---------|
+| JSON schema (`GET /api/schema`) | Field names, enums, required keys |
+| `decision_rubrics.md` | Which resource for which intent, connection capabilities, `ledger_entries[]` examples |
+| `naming_conventions.md` | Ref patterns |
+| `ordering_rules.md` | DAG / `depends_on` |
+| `metadata_patterns.md` | Vertical metadata keys |
+| `generation_profiles.md` | Scope (A/B/C) |
+| `validation_fixes.md` | Common validation errors |
+| `examples/funds_flow_demo.json` | Funds Flows DSL starter (actors, optional_groups, transition_ledger_transaction) |
+| `examples/marketplace_demo.json` | PSP marketplace with instance_resources and NSF return edge case |
+| `examples/stablecoin_ramp.json` | Fiat↔stablecoin with exclusion_group payout alternatives |
+| `examples/tradeify.json` | Ledger-heavy brokerage with categories and per-user scaling |
+| `examples/staged_demo.json` | Staged demo with "Fire" buttons |
+| `examples/psp_minimal.json` | Minimal book-transfer-only config |

@@ -10,9 +10,9 @@ function showToast(msg) {
     setTimeout(function() { el.remove(); }, 2000);
 }
 
-function renderMermaidAccordion(panel) {
-    var container = panel.querySelector('.mermaid-render');
-    var source = panel.querySelector('.mermaid-source');
+function renderMermaidAccordion(details) {
+    var container = details.querySelector('.mermaid-render');
+    var source = details.querySelector('.mermaid-source');
     if (!container || !source || container.dataset.rendered) return;
     var mermaidId = 'mmd-' + (container.id || Math.random().toString(36).slice(2, 8));
     container.innerHTML = '<span class="spinner-sm" style="display:inline-block"></span>';
@@ -25,13 +25,9 @@ function renderMermaidAccordion(panel) {
     });
 }
 
-document.querySelectorAll('.mermaid-accordion .accordion-header').forEach(function(header) {
-    header.addEventListener('click', function() {
-        var panel = this.parentNode;
-        panel.classList.toggle('open');
-        if (panel.classList.contains('open')) {
-            renderMermaidAccordion(panel);
-        }
+document.querySelectorAll('.mermaid-accordion').forEach(function(details) {
+    details.addEventListener('toggle', function() {
+        if (this.open) renderMermaidAccordion(this);
     });
 });
 

@@ -28,7 +28,7 @@ through **internal accounts** (wallet-like balances). Canonical shape:
 `examples/marketplace_demo.json` — connection `modern_treasury_bank`, IA refs
 like `buyer_maya_wallet`, MT **`name`** fields like *Buyer Maya Payment Account*.
 
-**Do not** add `expected_payment` metadata for “normal” marketplace flows —
+**Do not** add `expected_payment` metadata for "normal" marketplace flows —
 EPs are only for **reconciliation** demos. IPDs do not support metadata.
 
 ### On legal entities (buyer/seller)
@@ -51,7 +51,7 @@ EPs are only for **reconciliation** demos. IPDs do not support metadata.
 }
 ```
 
-### On internal accounts (sub-accounts / “wallets”)
+### On internal accounts (sub-accounts / "wallets")
 ```json
 {
     "metadata": {
