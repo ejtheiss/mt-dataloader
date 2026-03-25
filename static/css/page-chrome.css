@@ -1,0 +1,311 @@
+/* ============================================================
+   MT Page Chrome — CSS
+   Canonical sources:
+     - Page.tsx              (lines 67-89)   — PageHeaderContainer
+     - PageHeader.tsx        (lines 13-64)   — PageHeader (title row)
+     - PageBody.tsx          (lines 13-28)   — PageBody
+     - Page.tsx line 80      — bg-background-default pl-6 pr-4 pt-4
+     - Page.tsx line 81      — border-b border-alpha-black-100
+     - PageBody.tsx line 21  — flex flex-col gap-default px-8 py-6
+     - Page.tsx line 99      — breadcrumbs zone: flex items-center pb-4
+     - Page.tsx line 141     — subtitle: pb-4 text-xs text-gray-500
+   ============================================================ */
+
+/* --- Page Header Container --- */
+/* Source: Page.tsx lines 77-88 — PageHeaderContainer */
+.page-header-container {
+  background: var(--background-default, #fff);
+  padding: 16px 16px 0 24px;                /* pt-4 pr-4 pl-6 */
+  color: var(--text-default, #303030);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.09);  /* border-alpha-black-100 */
+}
+
+.page-header-container--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.page-header-container--no-border {
+  border-bottom: none;
+}
+
+/* --- Breadcrumbs zone inside page header --- */
+/* Source: Page.tsx line 99 — className="flex items-center pb-4" */
+.page-header-container .breadcrumbs {
+  display: flex;
+  align-items: center;
+  padding-bottom: 16px;                      /* pb-4 */
+}
+
+/* --- Breadcrumbs (standalone) --- */
+/* Source: Breadcrumbs.tsx lines 17-37 */
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+  color: #6B695D;                            /* text-gray-500 */
+  font-size: 0.875rem;                       /* text-sm */
+}
+
+.breadcrumb-item a {
+  color: #6B695D;                            /* text-gray-500 */
+  text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+  color: #386FB1;                            /* text-blue-500 on hover */
+}
+
+.breadcrumb-item:last-child {
+  color: #303030;                            /* text-gray-800 — current page */
+}
+
+.breadcrumb-separator {
+  margin: 0 4px;                             /* mx-1 */
+  color: #ADAC9F;                            /* text-gray-400 */
+}
+
+/* --- Page Header Body (title + subtitle + tabs area) --- */
+/* Source: Page.tsx lines 197-223 — gap logic */
+.page-header-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;                                 /* gap-4 (default when no subtitle) */
+  padding-bottom: 8px;                       /* pb-2 */
+}
+
+.page-header-body--with-subtitle {
+  gap: 8px;                                  /* gap-2 when subtitle present */
+}
+
+.page-header-body--no-sections-no-subtitle {
+  padding-bottom: 20px;                      /* pb-5 */
+}
+
+.page-header-body--no-sections {
+  padding-bottom: 8px;                       /* pb-2 */
+}
+
+/* --- Page Header Title Row --- */
+/* Source: PageHeader.tsx lines 22-62 */
+.page-header-title-row {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;                                 /* gap-3 */
+}
+
+/* Left side: title + left slot */
+.page-header-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;                                 /* gap-4 */
+}
+
+.page-header-left h1 {
+  font-size: 1.25rem;                        /* text-xl (Heading size="xl") */
+  font-weight: 600;                          /* font-semibold */
+  max-width: 40ch;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Right side: right + action slots */
+.page-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;                                 /* gap-4 */
+}
+
+/* --- Page Subtitle --- */
+/* Source: Page.tsx lines 138-144 */
+.page-header-subtitle {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  padding-bottom: 16px;                      /* pb-4 */
+  font-size: 0.75rem;                        /* text-xs */
+  color: #6B695D;                            /* text-gray-500 */
+}
+
+/* --- Page Body --- */
+/* Source: PageBody.tsx line 21 — className="flex flex-col gap-default px-8 py-6" */
+.page-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;                                 /* gap-default (typically 6 = 24px) */
+  padding: 24px 32px;                        /* py-6 px-8 */
+}
+
+/* --- Badge/Card CSS (inline since they're already in the kit as partials) --- */
+/* See badge.css and card.css if they need separate files */
+
+/* --- Badge --- */
+/* Source: Badge.tsx — 8 variants */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;                                  /* gap-1 */
+  padding: 1px 8px;                          /* py-px px-2 */
+  border-radius: 9999px;                     /* rounded-full */
+  font-size: 0.75rem;                        /* text-xs */
+  font-weight: 500;                          /* font-medium */
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+.badge--default {
+  background: #F5F5F0;                       /* bg-gray-50 */
+  color: #504E43;                            /* text-gray-700 */
+}
+
+.badge--success {
+  background: #DCFCE7;                       /* bg-green-100 */
+  color: #166534;                            /* text-green-800 */
+}
+
+.badge--critical {
+  background: #FEE2E2;                       /* bg-red-100 */
+  color: #991B1B;                            /* text-red-800 */
+}
+
+.badge--warning {
+  background: #FEF9C3;                       /* bg-yellow-100 */
+  color: #854D0E;                            /* text-yellow-800 */
+}
+
+.badge--warm {
+  background: #FFEDD5;                       /* bg-orange-100 */
+  color: #9A3412;                            /* text-orange-800 */
+}
+
+.badge--cool {
+  background: #DBEAFE;                       /* bg-blue-100 */
+  color: #1E40AF;                            /* text-blue-800 */
+}
+
+.badge--info {
+  background: #E0E7FF;                       /* bg-indigo-100 */
+  color: #3730A3;                            /* text-indigo-800 */
+}
+
+.badge--purple,
+.badge--internal {
+  background: #EDE9FE;                       /* bg-purple-100 */
+  color: #6B21A8;                            /* text-purple-800 */
+}
+
+/* --- Card --- */
+/* Source: Card.tsx */
+.card {
+  background: var(--background-default, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.09);    /* border-alpha-black-100 */
+  border-radius: 8px;                        /* rounded-lg */
+  overflow: hidden;
+}
+
+.card--clickable {
+  cursor: pointer;
+  transition: border-color 150ms;
+}
+
+.card--clickable:hover {
+  border-color: rgba(0, 0, 0, 0.18);        /* border-alpha-black-200 */
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;                             /* p-4 */
+  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+}
+
+.card-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-title {
+  font-size: 0.875rem;                       /* text-sm */
+  font-weight: 500;                          /* font-medium */
+  color: #303030;
+}
+
+.card-description {
+  font-size: 0.75rem;                        /* text-xs */
+  color: #6B695D;                            /* text-gray-500 */
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-content {
+  padding: 16px;                             /* p-4 */
+}
+
+.card-footer {
+  padding: 12px 16px;                        /* py-3 px-4 */
+  border-top: 1px solid rgba(0, 0, 0, 0.09);
+  background: #FAFAFA;                       /* bg-gray-25 */
+}
+
+/* --- Empty State --- */
+/* Source: EmptyState.tsx + Surface.tsx */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;                        /* py-12 px-6 */
+  gap: 16px;
+  min-height: 200px;
+  border: 1px dashed rgba(0, 0, 0, 0.09);   /* dashed border */
+  border-radius: 8px;
+  background: #FAFAFA;                       /* bg-gray-25 */
+}
+
+.empty-state-icon {
+  font-size: 2rem;
+  color: #ADAC9F;                            /* text-gray-400 */
+}
+
+.empty-state-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.empty-state-title {
+  font-size: 0.875rem;                       /* text-sm */
+  font-weight: 500;                          /* font-medium */
+  color: #303030;                            /* text-gray-800 */
+  margin: 0;
+}
+
+.empty-state-description {
+  font-size: 0.75rem;                        /* text-xs */
+  color: #6B695D;                            /* text-gray-500 */
+  max-width: 40ch;
+  margin: 0;
+}
+
+.empty-state-links {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}

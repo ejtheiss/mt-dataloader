@@ -1,30 +1,110 @@
-{% if manifests %}
-    {% for m in manifests %}
-    <div class="card" style="margin-bottom: 8px;">
-        <div class="card-header">
-            <div class="card-heading">
-                <span class="card-title" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.9rem;">{{ m.run_id }}</span>
-                <span class="card-description">
-                    Created: {{ m.resources_created|length }} resource(s)
-                    {% if m.resources_staged %} &middot; {{ m.resources_staged|length }} staged{% endif %}
-                    {% if m.resources_failed %} &middot; {{ m.resources_failed|length }} failed{% endif %}
-                </span>
-            </div>
-            <div class="card-actions">
-                <span class="badge badge--{{ 'success' if m.status.value == 'completed' else 'critical' if m.status.value == 'failed' else 'cool' if m.status.value == 'running' else 'default' }}">{{ m.status.value }}</span>
-                <a href="/runs/{{ m.run_id }}" class="btn btn-sm btn-outline">Details</a>
-                <button class="btn btn-sm btn-danger"
-                        hx-post="/api/cleanup/{{ m.run_id }}"
-                        hx-target="#content"
-                        hx-swap="innerHTML"
-                        hx-include="[name=api_key],[name=org_id]"
-                        hx-disabled-elt="this">
-                    Cleanup
+{% set _sort = sort_key | default('') %}
+{% set _dir = sort_dir | default('asc') %}
+{% set _status = active_status | default('') %}
+
+<div class="mt-filter-bar" style="margin-bottom: 12px;">
+    <div class="mt-filter-bar-inner">
+        <div class="mt-filter-bar-left">
+            <div class="mt-filter-pills" id="runs-status-pills">
+                <button type="button" class="mt-chip {% if not _status %}mt-chip--active{% endif %}"
+                        hx-get="/api/runs" hx-target="#runs-list" hx-swap="innerHTML">
+                    <div class="mt-chip-content"><span class="mt-chip-label">All</span></div>
                 </button>
+                {% for s in ['completed', 'failed', 'running'] %}
+                <button type="button" class="mt-chip {% if _status == s %}mt-chip--active{% endif %}"
+                        hx-get="/api/runs?status={{ s }}" hx-target="#runs-list" hx-swap="innerHTML">
+                    <div class="mt-chip-content"><span class="mt-chip-label">{{ s|capitalize }}</span></div>
+                </button>
+                {% endfor %}
             </div>
         </div>
     </div>
-    {% endfor %}
+</div>
+
+{% if manifests %}
+<div class="ui-table-container" id="runs-table" role="table">
+    <div class="ui-table-container__inner">
+        <div role="rowgroup" class="ui-table-head">
+            <div role="row" class="ui-table-row header">
+                <div role="columnheader" class="ui-table-header {% if _sort == 'run_id' %}sort-{{ _dir }}{% endif %}" style="width: 260px; min-width: 260px; flex: none; cursor: pointer;"
+                     data-sort-column="run_id"
+                     hx-get="/api/runs?sort=run_id&dir={{ 'desc' if _sort == 'run_id' and _dir == 'asc' else 'asc' }}{% if _status %}&status={{ _status }}{% endif %}"
+                     hx-target="#runs-list" hx-swap="innerHTML">
+                    Run ID
+                    {% if _sort == 'run_id' %}<span class="sort-indicator">{{ '▲' if _dir == 'asc' else '▼' }}</span>{% endif %}
+                </div>
+                <div role="columnheader" class="ui-table-header {% if _sort == 'status' %}sort-{{ _dir }}{% endif %}" style="cursor: pointer;"
+                     data-sort-column="status"
+                     hx-get="/api/runs?sort=status&dir={{ 'desc' if _sort == 'status' and _dir == 'asc' else 'asc' }}{% if _status %}&status={{ _status }}{% endif %}"
+                     hx-target="#runs-list" hx-swap="innerHTML">
+                    Status
+                    {% if _sort == 'status' %}<span class="sort-indicator">{{ '▲' if _dir == 'asc' else '▼' }}</span>{% endif %}
+                </div>
+                <div role="columnheader" class="ui-table-header {% if _sort == 'resources' %}sort-{{ _dir }}{% endif %}" style="cursor: pointer;"
+                     data-sort-column="resources"
+                     hx-get="/api/runs?sort=resources&dir={{ 'desc' if _sort == 'resources' and _dir == 'asc' else 'asc' }}{% if _status %}&status={{ _status }}{% endif %}"
+                     hx-target="#runs-list" hx-swap="innerHTML">
+                    Resources
+                    {% if _sort == 'resources' %}<span class="sort-indicator">{{ '▲' if _dir == 'asc' else '▼' }}</span>{% endif %}
+                </div>
+                <div role="columnheader" class="ui-table-header {% if _sort == 'staged' %}sort-{{ _dir }}{% endif %}" style="cursor: pointer;"
+                     data-sort-column="staged"
+                     hx-get="/api/runs?sort=staged&dir={{ 'desc' if _sort == 'staged' and _dir == 'asc' else 'asc' }}{% if _status %}&status={{ _status }}{% endif %}"
+                     hx-target="#runs-list" hx-swap="innerHTML">
+                    Staged
+                    {% if _sort == 'staged' %}<span class="sort-indicator">{{ '▲' if _dir == 'asc' else '▼' }}</span>{% endif %}
+                </div>
+                <div role="columnheader" class="ui-table-header {% if _sort == 'failed' %}sort-{{ _dir }}{% endif %}" style="cursor: pointer;"
+                     data-sort-column="failed"
+                     hx-get="/api/runs?sort=failed&dir={{ 'desc' if _sort == 'failed' and _dir == 'asc' else 'asc' }}{% if _status %}&status={{ _status }}{% endif %}"
+                     hx-target="#runs-list" hx-swap="innerHTML">
+                    Failed
+                    {% if _sort == 'failed' %}<span class="sort-indicator">{{ '▲' if _dir == 'asc' else '▼' }}</span>{% endif %}
+                </div>
+                <div role="columnheader" class="ui-table-header text-right" style="width: 160px; min-width: 160px; flex: none;">Actions</div>
+            </div>
+        </div>
+        <div role="rowgroup" class="ui-table-body" id="runs-table-body">
+            {% for m in manifests %}
+            <div role="row" class="ui-table-row linked"
+                 data-url="/runs/{{ m.run_id }}"
+                 hx-get="/api/runs/{{ m.run_id }}/drawer"
+                 hx-target="#drawer-content"
+                 hx-swap="innerHTML"
+                 hx-push-url="false"
+                 onclick="handleRowClick(event, this)">
+                <div role="cell" class="ui-table-cell truncate" style="width: 260px; min-width: 260px; flex: none; font-family: ui-monospace, SFMono-Regular, monospace;">
+                    {{ m.run_id }}
+                </div>
+                <div role="cell" class="ui-table-cell">
+                    <span class="badge badge--{{ 'success' if m.status == 'completed' else 'critical' if m.status == 'failed' else 'cool' if m.status == 'running' else 'default' }}">{{ m.status }}</span>
+                </div>
+                <div role="cell" class="ui-table-cell">
+                    {{ m.resources_created|length }}
+                </div>
+                <div role="cell" class="ui-table-cell">
+                    {% if m.resources_staged %}{{ m.resources_staged|length }}{% else %}&mdash;{% endif %}
+                </div>
+                <div role="cell" class="ui-table-cell">
+                    {% if m.resources_failed %}<span style="color: var(--mt-red-500);">{{ m.resources_failed|length }}</span>{% else %}&mdash;{% endif %}
+                </div>
+                <div role="cell" class="ui-table-cell text-right" style="width: 160px; min-width: 160px; flex: none;">
+                    <a href="/runs/{{ m.run_id }}" class="btn btn-sm btn-outline" onclick="event.stopPropagation()">Details</a>
+                    <button class="btn btn-sm btn-danger"
+                            hx-post="/api/cleanup/{{ m.run_id }}"
+                            hx-target="#content"
+                            hx-swap="innerHTML"
+                            hx-include="[name=api_key],[name=org_id]"
+                            hx-disabled-elt="this"
+                            onclick="event.stopPropagation()">
+                        Cleanup
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
 {% else %}
     {% set empty_title = "No runs found" %}
     {% set empty_description = "Execute a config to create a run." %}

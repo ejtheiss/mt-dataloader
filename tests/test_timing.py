@@ -8,8 +8,8 @@ import pytest
 
 from flow_compiler.timing import (
     _advance_business_days,
+    _hours_to_days,
     _is_business_day,
-    _parse_base_date,
     _resolve_step_delay,
     _skip_to_business_day,
     compute_effective_dates,
@@ -132,24 +132,32 @@ class TestBusinessDays:
 
 
 # ---------------------------------------------------------------------------
-# Base date parsing
+# Hours → days conversion
 # ---------------------------------------------------------------------------
 
 
-class TestParseBaseDate:
-    def test_today(self):
-        assert _parse_base_date("today") == date.today()
+class TestHoursToDays:
+    def test_zero(self):
+        assert _hours_to_days(0.0) == 0
 
-    def test_iso_date(self):
-        assert _parse_base_date("2025-01-15") == date(2025, 1, 15)
+    def test_24h_is_1_day(self):
+        assert _hours_to_days(24.0) == 1
 
-    def test_today_minus(self):
-        expected = date.today() - timedelta(days=30)
-        assert _parse_base_date("today-30d") == expected
+    def test_48h_is_2_days(self):
+        assert _hours_to_days(48.0) == 2
+
+    def test_rounding(self):
+        assert _hours_to_days(36.0) == 2   # 1.5 rounds to 2
+        assert _hours_to_days(11.0) == 0   # 0.46 rounds to 0
+        assert _hours_to_days(12.0) == 0   # 0.5 rounds to 0 (banker's rounding)
+        assert _hours_to_days(13.0) == 1   # 0.54 rounds to 1
+
+    def test_negative_clamps_to_zero(self):
+        assert _hours_to_days(-10.0) == 0
 
 
 # ---------------------------------------------------------------------------
-# Payment-type default delays
+# Payment-type default delays (now in hours)
 # ---------------------------------------------------------------------------
 
 
@@ -157,7 +165,7 @@ class TestResolveStepDelay:
     def test_ach_payment_order_default(self):
         step = {"step_id": "pay", "type": "payment_order", "payment_type": "ach"}
         delay, jitter, biz = _resolve_step_delay(step, None, None)
-        assert delay == 2.0
+        assert delay == 48.0  # 2 days in hours
         assert jitter == 0.0
         assert biz is True
 
@@ -169,37 +177,37 @@ class TestResolveStepDelay:
     def test_return_ach_default(self):
         step = {"step_id": "ret", "type": "return", "payment_type": "ach"}
         delay, _, _ = _resolve_step_delay(step, None, None)
-        assert delay == 3.0
+        assert delay == 72.0  # 3 days in hours
 
     def test_step_timing_overrides_default(self):
         step = {
             "step_id": "pay",
             "type": "payment_order",
             "payment_type": "ach",
-            "timing": {"delay_days": 5.0, "delay_jitter_days": 1.0, "business_days_only": False},
+            "timing": {"delay_hours": 120.0, "delay_jitter_hours": 24.0, "business_days_only": False},
         }
         delay, jitter, biz = _resolve_step_delay(step, None, None)
-        assert delay == 5.0
-        assert jitter == 1.0
+        assert delay == 120.0
+        assert jitter == 24.0
         assert biz is False
 
     def test_flow_timing_defaults(self):
         step = {"step_id": "pay", "type": "payment_order", "payment_type": "book"}
-        flow_timing = FlowTimingConfig(default_delay_days=3.0, default_jitter_days=0.5)
+        flow_timing = FlowTimingConfig(default_delay_hours=72.0, default_jitter_hours=12.0)
         delay, jitter, _ = _resolve_step_delay(step, flow_timing, None)
-        assert delay == 3.0
-        assert jitter == 0.5
+        assert delay == 72.0
+        assert jitter == 12.0
 
     def test_recipe_override_takes_precedence(self):
         step = {
             "step_id": "pay",
             "type": "payment_order",
             "payment_type": "ach",
-            "timing": {"delay_days": 5.0},
+            "timing": {"delay_hours": 120.0},
         }
-        overrides = {"pay": 10.0}
+        overrides = {"pay": 240.0}
         delay, _, _ = _resolve_step_delay(step, None, overrides)
-        assert delay == 10.0
+        assert delay == 240.0
 
 
 # ---------------------------------------------------------------------------
@@ -239,7 +247,6 @@ class TestComputeEffectiveDates:
         base = date.today() + timedelta(days=10)
         compute_effective_dates(flow, spread_offset_days=10, seed=1)
         computed = date.fromisoformat(flow["steps"][0]["effective_date"])
-        # Should be at least 10 days from today (possibly more if weekend skip)
         assert computed >= base or computed == _skip_to_business_day(base)
 
     def test_depends_on_chains_dates(self):
@@ -278,18 +285,19 @@ class TestComputeEffectiveDates:
         ]
         flow = self._make_flow_dict(steps)
         recipe = RecipeTimingConfig(
-            base_date="2025-01-06",
-            step_delay_overrides={"a": 5},
+            step_delay_overrides={"a": 120.0},  # 5 days in hours
         )
         compute_effective_dates(flow, recipe_timing=recipe, seed=1)
         computed = date.fromisoformat(flow["steps"][0]["effective_date"])
-        assert computed == date(2025, 1, 13)  # 5 business days from Jan 6
+        # 120h = 5 days → 5 business days from today
+        expected = _advance_business_days(date.today(), 5)
+        assert computed == expected
 
     def test_deterministic_jitter(self):
         def run():
             steps = [
                 {"step_id": "a", "type": "payment_order", "payment_type": "book",
-                 "depends_on": [], "timing": {"delay_days": 5, "delay_jitter_days": 2}},
+                 "depends_on": [], "timing": {"delay_hours": 120, "delay_jitter_hours": 48}},
             ]
             flow = {"steps": steps}
             compute_effective_dates(flow, seed=42)

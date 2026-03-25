@@ -1,0 +1,241 @@
+/* ============================================================
+   MT Buttons — CSS
+   Canonical source: Button.tsx (lines 68-168)
+   ============================================================
+   Button types: primary, secondary, destructive, internal, text, link
+   Button heights: extra-small (h-6), small (h-7), medium (h-8), large (h-10), extra-large (h-11)
+   ============================================================ */
+
+/* --- Base Button --- */
+/* Source: Button.tsx line 99 — shared across all types */
+.mt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;                                  /* gap-2 */
+  padding: 4px 12px;                         /* py-1 px-3 */
+  border-radius: 6px;                        /* rounded-md */
+  outline: none;
+  transition: all 150ms;
+  font-size: 0.875rem;                       /* text-sm */
+  font-weight: 500;                          /* font-medium */
+  text-decoration: none;
+  cursor: pointer;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.25rem;
+}
+
+.mt-btn:focus {
+  box-shadow: 0 0 0 1px var(--blue-500, #386FB1);  /* ring-1 ring-blue-500 */
+}
+
+/* --- Heights --- */
+/* Source: Button.tsx lines 107-115 */
+.mt-btn--xs {
+  height: 24px;                              /* h-6 */
+  gap: 4px;                                  /* gap-1 */
+  padding: 4px 8px;                          /* py-1 px-2 */
+}
+
+.mt-btn--sm {
+  height: 28px;                              /* h-7 */
+}
+
+.mt-btn--md,
+.mt-btn {
+  height: 32px;                              /* h-8 (default) */
+}
+
+.mt-btn--lg {
+  height: 40px;                              /* h-10 */
+}
+
+.mt-btn--xl {
+  height: 44px;                              /* h-11 */
+}
+
+/* --- Primary --- */
+/* Source: Button.tsx lines 118-122 */
+.mt-btn--primary {
+  border: 1px solid var(--primary-interactive, #386FB1);
+  background: var(--primary-interactive, #386FB1);
+  color: #fff;
+}
+
+.mt-btn--primary:hover:not(:disabled) {
+  border-color: var(--primary-hover, #2F5E99);
+  background: var(--primary-interactive-hover, #2F5E99);
+}
+
+.mt-btn--primary:active:not(:disabled) {
+  border-color: var(--primary-interactive, #386FB1);
+  background: var(--primary-interactive-pressed, #265083);
+}
+
+.mt-btn--primary:focus {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px var(--primary-interactive, #386FB1);
+}
+
+.mt-btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Secondary --- */
+/* Source: Button.tsx lines 123-127 */
+.mt-btn--secondary {
+  border: 1px solid rgba(0, 0, 0, 0.18);    /* border-alpha-black-200 */
+  background: var(--button-background-default, #fff);
+  color: inherit;
+}
+
+.mt-btn--secondary:hover:not(:disabled) {
+  border-color: #C4C3BB;                     /* gray-200 */
+  background: #FAFAFA;                       /* gray-25 */
+}
+
+.mt-btn--secondary:active:not(:disabled) {
+  border-color: #ADAC9F;                     /* gray-300 */
+  background: #F5F5F0;                       /* gray-50 */
+}
+
+.mt-btn--secondary:focus {
+  border-color: transparent;
+  box-shadow: 0 0 0 2px var(--cyan-500, #06b6d4);
+}
+
+.mt-btn--secondary:disabled {
+  background: #F5F5F0;                       /* gray-50 */
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Destructive --- */
+/* Source: Button.tsx lines 128-132 */
+.mt-btn--destructive {
+  border: 1px solid #C4381D;                 /* red-600 */
+  background: #D44020;                       /* red-500 */
+  color: #fff;
+}
+
+.mt-btn--destructive:hover:not(:disabled) {
+  border-color: #A5301A;                     /* red-700 */
+  background: #C4381D;                       /* red-600 */
+}
+
+.mt-btn--destructive:active:not(:disabled) {
+  border-color: #A5301A;                     /* red-700 */
+  background: #A5301A;                       /* red-700 */
+}
+
+.mt-btn--destructive:focus {
+  border-color: transparent;
+  box-shadow: 0 0 0 2px var(--cyan-500, #06b6d4);
+}
+
+.mt-btn--destructive:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Internal --- */
+/* Source: Button.tsx lines 133-137 */
+.mt-btn--internal {
+  border: 1px solid #7C3AED;                 /* purple-600 */
+  background: #8B5CF6;                       /* purple-500 */
+  color: #fff;
+}
+
+.mt-btn--internal:hover:not(:disabled) {
+  border-color: #6D28D9;                     /* purple-700 */
+  background: #7C3AED;                       /* purple-600 */
+}
+
+.mt-btn--internal:active:not(:disabled) {
+  border-color: #6D28D9;                     /* purple-700 */
+  background: #6D28D9;                       /* purple-700 */
+}
+
+.mt-btn--internal:focus {
+  border-color: transparent;
+  box-shadow: 0 0 0 2px var(--cyan-500, #06b6d4);
+}
+
+.mt-btn--internal:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Text (no outline) --- */
+/* Source: Button.tsx lines 138-141 */
+.mt-btn--text {
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+}
+
+.mt-btn--text:hover:not(:disabled) {
+  background: #F5F5F0;                       /* gray-50 */
+}
+
+.mt-btn--text:active:not(:disabled) {
+  background: #EDEDEA;                       /* gray-75 */
+  border-color: #ADAC9F;                     /* gray-400 */
+}
+
+.mt-btn--text:focus {
+  border-color: transparent;
+  box-shadow: 0 0 0 2px var(--cyan-500, #06b6d4);
+}
+
+.mt-btn--text:disabled {
+  background: #FAFAFA;                       /* gray-25 */
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Link --- */
+/* Source: Button.tsx lines 142-145 */
+.mt-btn--link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  height: auto;
+  color: #386FB1;                            /* blue-500 */
+  font-size: inherit;
+}
+
+.mt-btn--link:hover:not(:disabled) {
+  color: #2F5E99;                            /* blue-600 */
+}
+
+.mt-btn--link:disabled {
+  color: #6B695D;                            /* gray-600 */
+  cursor: not-allowed;
+}
+
+/* --- Full Width --- */
+/* Source: Button.tsx line 146 */
+.mt-btn--full {
+  width: 100%;
+}
+
+/* --- Icon Only --- */
+/* Source: Button.tsx line 147 */
+.mt-btn--icon-only {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* --- Button Icon --- */
+.mt-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.mt-btn-icon svg {
+  width: 16px;
+  height: 16px;
+}

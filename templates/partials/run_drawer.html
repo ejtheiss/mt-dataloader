@@ -1,0 +1,53 @@
+<h2 class="drawer-section-title" style="margin-top: 0;">
+    Run <code>{{ manifest.run_id }}</code>
+    <span class="badge badge--{{ 'success' if manifest.status == 'completed' else 'critical' if manifest.status == 'failed' else 'cool' if manifest.status == 'running' else 'default' }}" style="margin-left: 8px;">{{ manifest.status }}</span>
+</h2>
+
+<div class="key-value-table" style="margin-bottom: 16px;">
+    <div class="key-value-table-row">
+        <div class="row-label">Run ID</div>
+        <div class="row-value"><code>{{ manifest.run_id }}</code></div>
+    </div>
+    <div class="key-value-table-row">
+        <div class="row-label">Status</div>
+        <div class="row-value">
+            <span class="badge badge--{{ 'success' if manifest.status == 'completed' else 'critical' if manifest.status == 'failed' else 'cool' if manifest.status == 'running' else 'default' }}">{{ manifest.status }}</span>
+        </div>
+    </div>
+    <div class="key-value-table-row">
+        <div class="row-label">Started</div>
+        <div class="row-value">{{ manifest.started_at }}</div>
+    </div>
+    {% if manifest.completed_at %}
+    <div class="key-value-table-row">
+        <div class="row-label">Completed</div>
+        <div class="row-value">{{ manifest.completed_at }}</div>
+    </div>
+    {% endif %}
+    <div class="key-value-table-row">
+        <div class="row-label">Resources</div>
+        <div class="row-value"><span class="chip">{{ manifest.resources_created|length }} created</span></div>
+    </div>
+    {% if manifest.resources_staged %}
+    <div class="key-value-table-row">
+        <div class="row-label">Staged</div>
+        <div class="row-value"><span class="chip">{{ manifest.resources_staged|length }} staged</span></div>
+    </div>
+    {% endif %}
+    {% if manifest.resources_failed %}
+    <div class="key-value-table-row">
+        <div class="row-label">Failed</div>
+        <div class="row-value"><span class="chip chip--warning">{{ manifest.resources_failed|length }} failed</span></div>
+    </div>
+    {% endif %}
+    {% if manifest.config_hash %}
+    <div class="key-value-table-row">
+        <div class="row-label">Config Hash</div>
+        <div class="row-value"><code>{{ manifest.config_hash[:16] }}&hellip;</code></div>
+    </div>
+    {% endif %}
+</div>
+
+<div style="padding-top: 16px; border-top: 1px solid var(--mt-border);">
+    <a href="/runs/{{ manifest.run_id }}" class="btn btn-sm btn-outline">View Full Detail &rarr;</a>
+</div>

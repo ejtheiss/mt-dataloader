@@ -33,28 +33,50 @@
             {% if phase_items %}
             <div class="phase-group">
                 <h3 class="phase-header">{{ phase_name }}</h3>
-                {% for item in phase_items %}
-                {% set row_id = "row-" + item.typed_ref|replace(".", "-")|replace("[", "_")|replace("]", "") %}
-                <div id="{{ row_id }}" class="resource-row pending">
-                    <span class="batch-badge">B{{ item.batch }}</span>
-                    {% if item.resource_type in mt_docs %}
-                    <a href="{{ mt_docs[item.resource_type] }}" target="_blank" rel="noopener" class="doc-link">
-                        <span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span>
-                    </a>
-                    {% else %}
-                    <span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span>
-                    {% endif %}
-                    {% if item.display_name %}
-                    <span class="resource-display-name" title="{{ item.typed_ref }}">{{ item.display_name }}</span>
-                    {% else %}
-                    <span class="ref-name" title="{{ item.typed_ref }}">{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</span>
-                    {% endif %}
-                    <span class="status-indicator">
-                        <span class="status-dot pending"></span>
-                        <span class="status-text">Pending</span>
-                    </span>
+                <div class="ui-table-container" role="table">
+                    <div class="ui-table-container__inner">
+                        <div role="rowgroup" class="ui-table-head">
+                            <div role="row" class="ui-table-row header">
+                                <div role="columnheader" class="ui-table-header" style="width: 50px; flex: none;">Batch</div>
+                                <div role="columnheader" class="ui-table-header" style="width: 130px; flex: none;">Type</div>
+                                <div role="columnheader" class="ui-table-header">Name</div>
+                                <div role="columnheader" class="ui-table-header" style="width: 160px; flex: none;">Status</div>
+                            </div>
+                        </div>
+                        <div role="rowgroup" class="ui-table-body">
+                            {% for item in phase_items %}
+                            {% set row_id = "row-" + item.typed_ref|replace(".", "-")|replace("[", "_")|replace("]", "") %}
+                            <div id="{{ row_id }}" role="row" class="ui-table-row resource-row pending">
+                                <div role="cell" class="ui-table-cell" style="width: 50px; flex: none;">
+                                    <span class="badge badge--default">B{{ item.batch }}</span>
+                                </div>
+                                <div role="cell" class="ui-table-cell" style="width: 130px; flex: none;">
+                                    {% if item.resource_type in mt_docs %}
+                                    <a href="{{ mt_docs[item.resource_type] }}" target="_blank" rel="noopener" class="doc-link">
+                                        <span class="badge badge--cool">{{ item.resource_type }}</span>
+                                    </a>
+                                    {% else %}
+                                    <span class="badge badge--cool">{{ item.resource_type }}</span>
+                                    {% endif %}
+                                </div>
+                                <div role="cell" class="ui-table-cell truncate">
+                                    {% if item.display_name %}
+                                    <span title="{{ item.typed_ref }}">{{ item.display_name }}</span>
+                                    {% else %}
+                                    <code title="{{ item.typed_ref }}">{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</code>
+                                    {% endif %}
+                                </div>
+                                <div role="cell" class="ui-table-cell" style="width: 160px; flex: none;">
+                                    <span class="status-indicator">
+                                        <span class="status-dot pending"></span>
+                                        <span class="status-text">Pending</span>
+                                    </span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
-                {% endfor %}
             </div>
             {% endif %}
         {% endfor %}

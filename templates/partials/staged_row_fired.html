@@ -1,18 +1,23 @@
 {% set row_id = "staged-" + s_typed_ref|replace(".", "-")|replace("[", "_")|replace("]", "") %}
 
-<div id="{{ row_id }}" class="staged-row fired">
-    <span class="type-badge type-{{ resource_type }}">{{ resource_type }}</span>
-    <span class="ref-name">{{ s_typed_ref.split(".", 1)[1] if "." in s_typed_ref else s_typed_ref }}</span>
-    <span class="status-indicator">
-        <span class="status-dot created"></span>
-        <span class="status-text">Fired</span>
-    </span>
-    <code class="created-id" title="{{ created_id }}">{{ created_id[:12] }}&hellip;</code>
-    {% if child_refs %}
-    <span class="child-refs">
-        {% for key, val in child_refs.items() %}
-        <span class="child-ref" title="{{ val }}">+{{ key }}</span>
-        {% endfor %}
-    </span>
-    {% endif %}
+<div id="{{ row_id }}" role="row" class="ui-table-row staged-row fired">
+    <div role="cell" class="ui-table-cell" style="width: 120px; flex: none;">
+        <span class="badge badge--cool">{{ resource_type }}</span>
+    </div>
+    <div role="cell" class="ui-table-cell truncate">
+        <code>{{ s_typed_ref.split(".", 1)[1] if "." in s_typed_ref else s_typed_ref }}</code>
+    </div>
+    <div role="cell" class="ui-table-cell" style="width: 80px; flex: none;">
+        <span class="badge badge--success">Fired</span>
+    </div>
+    <div role="cell" class="ui-table-cell text-right" style="width: 80px; flex: none;">
+        <code title="{{ created_id }}">{{ created_id[:12] }}&hellip;</code>
+        {% if child_refs %}
+        <span class="child-refs">
+            {% for key, val in child_refs.items() %}
+            <span class="child-ref" title="{{ val }}">+{{ key }}</span>
+            {% endfor %}
+        </span>
+        {% endif %}
+    </div>
 </div>

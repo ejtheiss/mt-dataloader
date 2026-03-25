@@ -1,0 +1,68 @@
+{#
+  MT StatusIndicator — Jinja2 partial
+  ============================================================
+  Canonical source: StatusIndicator.tsx (lines 67-237)
+
+  MT's StatusIndicator maps a status string to an icon+color+badgeVariant.
+  Since we don't have MT's icon font, we use a colored dot.
+
+  Parameters:
+    status          — string matching MT statuses: "approved", "complete", "completed",
+                      "failed", "pending", "processing", "cancelled", "denied",
+                      "archived", "inactive", "reversed", "paused", "needs_approval",
+                      "incomplete", "healthy", "sent", "posted", "passed",
+                      "successful", "locked", "editable", "deleted", etc.
+    descriptor      — text to display (status label)
+    verbose         — bool, if true shows dot+text; if false shows dot with title tooltip (default: false)
+
+  Status → Badge variant mapping (from StatusIndicator.tsx):
+    success:   approved, complete, completed, healthy, passed, posted, sent, successful, partiallyComplete
+    critical:  cancelled, denied, failed, unresponsive, unstable
+    warning:   completedWithErrors, pendingEdits, processing, returned, tentativelyComplete, held
+    warm:      needs_approval, incomplete
+    default:   archived, inactive, reversed, archiving, deleted, paused, pending, locked, editable, mtManaged
+
+  Usage:
+    {% set status = "completed" %}
+    {% set descriptor = "Completed" %}
+    {% set verbose = true %}
+    {% include "partials/status_indicator.html" %}
+
+    {% set status = "failed" %}
+    {% set descriptor = "Failed" %}
+    {% include "partials/status_indicator.html" %}
+  ============================================================
+#}
+
+{% set _verbose = verbose | default(false) %}
+
+{# Map status to badge variant for verbose mode #}
+{% set _success = ["approved", "complete", "completed", "healthy", "passed", "posted", "sent", "successful", "partiallyComplete"] %}
+{% set _critical = ["cancelled", "denied", "failed", "unresponsive", "unstable"] %}
+{% set _warning = ["completedWithErrors", "pendingEdits", "processing", "returned", "tentativelyComplete", "held"] %}
+{% set _warm = ["needs_approval", "incomplete"] %}
+
+{% if status in _success %}
+  {% set badge_variant = "success" %}
+{% elif status in _critical %}
+  {% set badge_variant = "critical" %}
+{% elif status in _warning %}
+  {% set badge_variant = "warning" %}
+{% elif status in _warm %}
+  {% set badge_variant = "warm" %}
+{% else %}
+  {% set badge_variant = "default" %}
+{% endif %}
+
+{% if _verbose %}
+{# Verbose mode: Badge wrapping dot + text #}
+<span class="mt-badge mt-badge--{{ badge_variant }}">
+  <span class="mt-status-dot mt-status-dot--{{ status }}"></span>
+  {{ descriptor }}
+</span>
+{% else %}
+{# Icon-only mode: dot with tooltip #}
+<span class="mt-status-indicator mt-status-indicator--icon-only" title="{{ descriptor }}">
+  <span class="mt-status-dot mt-status-dot--{{ status }}"></span>
+</span>
+{% endif %}

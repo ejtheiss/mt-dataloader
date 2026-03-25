@@ -1,0 +1,101 @@
+/* ============================================================
+   MT Toggle/Switch — CSS
+   Canonical source: RadixSwitch.tsx (lines 10-41)
+   ============================================================
+   MT's toggle is a small pill-shaped switch (h-4, w-7) with
+   a sliding thumb that shows a checkmark when checked.
+   ============================================================ */
+
+/* --- Switch Track --- */
+/* Source: RadixSwitch.tsx line 16 */
+.mt-toggle {
+  display: inline-flex;
+  height: 16px;                              /* h-4 */
+  width: 28px;                               /* w-7 */
+  flex-shrink: 0;
+  cursor: pointer;
+  align-items: center;
+  border-radius: 9999px;                     /* rounded-full */
+  border: 2px solid transparent;
+  transition: background-color 150ms, border-color 150ms;
+  padding: 0;
+  background: #EDEDEA;                       /* bg-gray-100 (unchecked) */
+  position: relative;
+  appearance: none;
+  outline: none;
+}
+
+/* Checked state */
+.mt-toggle[aria-checked="true"],
+.mt-toggle.mt-toggle--checked {
+  background: #386FB1;                       /* bg-blue-500 */
+}
+
+/* Focus ring */
+/* Source: RadixSwitch.tsx line 16 — focus-visible:ring-2 ring-blue-500 ring-offset-1 */
+.mt-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px #fff, 0 0 0 3px #386FB1;  /* ring-2 ring-blue-500 ring-offset-1 */
+}
+
+/* Disabled */
+.mt-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* --- Switch Thumb --- */
+/* Source: RadixSwitch.tsx line 23 */
+.mt-toggle-thumb {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 12px;                               /* w-3 */
+  height: 12px;                              /* h-3 */
+  border-radius: 50%;                        /* rounded-full */
+  background: #fff;
+  pointer-events: none;
+  transition: transform 150ms;
+  transform: translateX(0);                  /* unchecked position */
+  position: absolute;
+  left: 0;
+}
+
+/* Checked thumb position */
+/* Source: RadixSwitch.tsx line 23 — data-[state=checked]:translate-x-3 */
+.mt-toggle[aria-checked="true"] .mt-toggle-thumb,
+.mt-toggle.mt-toggle--checked .mt-toggle-thumb {
+  transform: translateX(12px);               /* translate-x-3 (12px) */
+}
+
+/* --- Checkmark SVG inside thumb --- */
+/* Source: RadixSwitch.tsx lines 24-38 */
+.mt-toggle-thumb svg {
+  width: 8px;
+  height: 6px;
+  opacity: 0;
+  transition: opacity 150ms;
+  color: #386FB1;                            /* text-blue-500 */
+}
+
+.mt-toggle[aria-checked="true"] .mt-toggle-thumb svg,
+.mt-toggle.mt-toggle--checked .mt-toggle-thumb svg {
+  opacity: 1;
+}
+
+/* --- Toggle with label --- */
+.mt-toggle-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;                                  /* gap-2 */
+}
+
+.mt-toggle-label {
+  font-size: 0.875rem;                       /* text-sm */
+  color: #504E43;                            /* text-gray-700 */
+  cursor: pointer;
+}
+
+.mt-toggle-label:hover {
+  color: #303030;                            /* text-gray-900 */
+}

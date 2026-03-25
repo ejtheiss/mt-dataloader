@@ -1,0 +1,204 @@
+/*
+  MT IndexTable CSS — Plain CSS translation of MT's Tailwind-based table styles
+  ==============================================================================
+
+  CANONICAL SOURCES:
+
+  table.css — platform/app/frontend/common/stylesheets/ui/table.css
+    All .ui-table-* classes below are direct translations of the @apply directives
+    in this file. Line numbers reference the original source.
+
+  tables.css — platform/app/frontend/common/stylesheets/tables.css
+    Legacy .index-table classes still used in the codebase alongside the newer
+    .ui-table-* classes. Included here for completeness.
+
+  MT Design Tokens (from Tailwind config):
+    --color-alpha-black-50:  rgba(0, 0, 0, 0.04)
+    --color-alpha-black-100: rgba(0, 0, 0, 0.09)
+    --color-background-default: #FFFFFF
+    --color-background-light: #FAFAFA   (gray-25)
+    --color-gray-25:  #FAFAFA
+    --color-gray-50:  #F1F0EC
+    --color-gray-100: #DEDDD7
+    --color-gray-500: #807E72
+    --color-gray-600: #6B695D
+    --color-gray-800: #303030
+    --color-blue-500: #386FB1
+*/
+
+/* ===== TableContainer — table.css line 6-7 ===== */
+/* @apply mb-0 flex h-full min-h-20 w-full justify-start border border-alpha-black-100 bg-white rounded-lg */
+.ui-table-container {
+  margin-bottom: 0;
+  display: flex;
+  height: 100%;
+  min-height: 5rem; /* min-h-20 = 80px */
+  width: 100%;
+  justify-content: flex-start;
+  border: 1px solid rgba(0, 0, 0, 0.09); /* border-alpha-black-100 */
+  background-color: #FFFFFF;
+  border-radius: 0.5rem; /* rounded-lg */
+}
+
+/* When pagination is shown below, remove bottom rounding — EntityTableView.tsx line 564 */
+.ui-table-container.rounded-b-none {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Inner wrapper — table.css line 10-12 */
+/* @apply h-full w-full */
+.ui-table-container__inner {
+  height: 100%;
+  width: 100%;
+}
+
+/* Outer wrapper — table.css line 58-59 */
+/* @apply relative */
+.ui-table-container__wrapper {
+  position: relative;
+}
+
+/* ===== Thead — table.css line 67-69 ===== */
+/* @apply rounded-t-lg border-b border-alpha-black-100 bg-background-light font-medium */
+.ui-table-head {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+  background-color: #FAFAFA; /* bg-background-light = gray-25 */
+  font-weight: 500;
+}
+
+/* ===== Tbody — table.css line 72-74 ===== */
+/* @apply h-full */
+.ui-table-body {
+  height: 100%;
+}
+
+/* ===== Tr (Table Row) — table.css line 92-93 ===== */
+/* @apply flex gap-5 px-6 text-xs border-b border-alpha-black-100 bg-background-default last:rounded-b-lg last:border-b-0 */
+.ui-table-row {
+  display: flex;
+  gap: 1.25rem; /* gap-5 = 20px */
+  padding-left: 1.5rem; /* px-6 */
+  padding-right: 1.5rem;
+  font-size: 0.75rem; /* text-xs = 12px */
+  line-height: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+  background-color: #FFFFFF; /* bg-background-default */
+}
+
+.ui-table-row:last-child {
+  border-bottom-left-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+  border-bottom: 0;
+}
+
+/* Header row — table.css line 96-98 */
+/* @apply rounded-t-lg rounded-b-none border-b-0 bg-background-light font-medium */
+.ui-table-row.header {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: 0;
+  background-color: #FAFAFA;
+  font-weight: 500;
+}
+
+/* Empty row — table.css line 101-103 */
+/* @apply h-full w-full border-b-0 italic */
+.ui-table-row.empty {
+  height: 100%;
+  width: 100%;
+  border-bottom: 0;
+  font-style: italic;
+}
+
+/* Linked/clickable row — table.css line 106-108 */
+/* @apply cursor-pointer hover:bg-background-light */
+.ui-table-row.linked {
+  cursor: pointer;
+}
+
+.ui-table-row.linked:hover {
+  background-color: #FAFAFA; /* bg-background-light */
+}
+
+/* ===== Th (Table Header Cell) — table.css line 133-134 ===== */
+/* @apply flex flex-1 basis-0 py-2 */
+.ui-table-header {
+  display: flex;
+  flex: 1 1 0%;
+  padding-top: 0.5rem; /* py-2 */
+  padding-bottom: 0.5rem;
+  align-items: center;
+}
+
+.ui-table-header.text-right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+/* ===== Td (Table Data Cell) — table.css line 183-184 ===== */
+/* @apply flex flex-1 basis-0 py-3 */
+.ui-table-cell {
+  display: flex;
+  flex: 1 1 0%;
+  padding-top: 0.75rem; /* py-3 */
+  padding-bottom: 0.75rem;
+  align-items: center;
+}
+
+/* Empty cell — table.css line 192-194 */
+/* @apply text-gray-500 */
+.ui-table-cell.empty {
+  color: #807E72;
+}
+
+/* Truncate — table.css line 197-202 */
+.ui-table-cell.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: break-word;
+}
+
+.ui-table-cell.text-right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+/* ===== Sort Button — IndexTable.tsx line 891-909 ===== */
+/* Button[buttonType="link"] with sort icon */
+.index-table-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+  color: #6B695D; /* text-gray-600 */
+}
+
+.index-table-sort-btn:hover {
+  color: #303030; /* text-gray-800 */
+}
+
+/* Sort icon — IndexTable.tsx sortIconName line 758-776 */
+.sort-icon {
+  display: inline-flex;
+  flex-direction: column;
+  font-size: 0.5rem;
+  line-height: 0.5;
+  opacity: 0.4;
+  letter-spacing: -0.15em;
+}
+
+.sort-icon--active {
+  opacity: 1;
+  color: #386FB1; /* blue-500 */
+}

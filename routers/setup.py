@@ -212,6 +212,7 @@ async def validate(
         expanded_flows=expanded_flows,
         pattern_flow_ir=flow_irs,
         pattern_expanded_flows=expanded_flows,
+        base_config_json=config_json_text,
         mermaid_diagrams=mermaid_diagrams,
         view_data_cache=view_data_cache,
         working_config_json=working_config_json,
@@ -380,10 +381,11 @@ async def revalidate(
         expanded_flows=expanded_flows_reval,
         pattern_flow_ir=flow_irs_reval,
         pattern_expanded_flows=expanded_flows_reval,
+        base_config_json=config_json_text,
         mermaid_diagrams=mermaid_diagrams_reval,
         view_data_cache=view_data_reval,
         working_config_json=session.working_config_json,
-        generation_recipe=session.generation_recipe,
+        generation_recipes=session.generation_recipes,
     )
 
     del sessions[session_token]
@@ -468,4 +470,25 @@ async def preview_page(request: Request):
             "discovered_by_type": build_discovered_by_type(session.discovery),
             "has_funds_flows": False,
         },
+    )
+
+
+@router.get("/api/resource-detail", include_in_schema=False)
+async def resource_detail_drawer(request: Request):
+    """Return a drawer-friendly KV table for a single resource."""
+    templates = get_templates()
+    session_token = request.query_params.get("session_token", "")
+    typed_ref = request.query_params.get("ref", "")
+    session = sessions.get(session_token)
+    if not session:
+        return HTMLResponse("<p>Session expired</p>", status_code=404)
+
+    item = next((i for i in session.preview_items if i["typed_ref"] == typed_ref), None)
+    if not item:
+        return HTMLResponse(f"<p>Resource not found: {typed_ref}</p>", status_code=404)
+
+    return templates.TemplateResponse(
+        request,
+        "partials/resource_drawer.html",
+        {"item": item, "session_token": session_token},
     )

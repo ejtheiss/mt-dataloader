@@ -1,0 +1,320 @@
+/* ============================================================
+   MT Forms — CSS
+   Canonical sources:
+     - Form.tsx              (lines 23-103)   — Form.Section, Form.SectionHeading, Form.SectionRow, Form.Field, Form.SectionSeparator
+     - FieldGroup.tsx         (lines 24-66)    — label + field layout (direction: left-to-right, top-to-bottom, etc.)
+     - FieldsRow.tsx          (lines 22-50)    — grid columns (1-4) with gap
+     - FormSurface.tsx        (lines 42-112)   — card wrapper with optional heading + "Add" button
+     - Input.tsx              (lines 104-225)   — text input with label, helpText, prefix/suffix icons
+     - Label.tsx              (lines 28-71)     — form label with optional helpText tooltip + fieldConditional
+   ============================================================ */
+
+/* --- Form Root --- */
+/* Source: Form.tsx line 29 — className="form" */
+.mt-form {
+  /* FormikForm wrapper — no special styles, just a container */
+}
+
+/* --- Form Section --- */
+/* Source: Form.tsx line 41 — className="form-sec" */
+.mt-form-section {
+  /* Section grouping — no special styles in MT */
+}
+
+/* --- Form Section Heading --- */
+/* Source: Form.tsx lines 54-63 — Heading level="h2" size="m" */
+.mt-form-section-heading {
+  font-size: 1rem;
+  font-weight: 500;                          /* font-medium */
+  line-height: 1.5;
+  color: #303030;                            /* text-gray-800 */
+  margin-bottom: 8px;
+}
+
+.mt-form-section-heading .mt-form-optional {
+  font-size: 0.75rem;                        /* text-xs */
+  color: #6B695D;                            /* text-gray-500 */
+  margin-left: 4px;
+}
+
+/* --- Form Section Row --- */
+/* Source: Form.tsx line 72 — className="form-section-row" */
+.mt-form-section-row {
+  /* Row within a section — no special styles in MT */
+}
+
+/* --- Form Section Separator --- */
+/* Source: Form.tsx line 82 — className="form-section-separator" */
+.mt-form-section-separator {
+  border-top: 1px solid rgba(0, 0, 0, 0.09); /* border-alpha-black-100 */
+  margin: 16px 0;
+}
+
+/* --- Form Field --- */
+/* Source: Form.tsx line 91 — className="form-field" */
+.mt-form-field {
+  /* Field wrapper — no special styles in MT */
+}
+
+/* --- FieldGroup --- */
+/* Source: FieldGroup.tsx lines 24-66 */
+.mt-field-group {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.mt-field-group-inner {
+  display: flex;
+  width: 100%;
+}
+
+/* Direction: top-to-bottom (default) */
+.mt-field-group--vertical .mt-field-group-inner {
+  flex-direction: column;
+  gap: 8px;                                  /* gap-y-2 */
+}
+
+/* Direction: left-to-right */
+.mt-field-group--horizontal .mt-field-group-inner {
+  flex-direction: row;
+  gap: 8px;                                  /* gap-x-2 */
+  align-items: center;
+}
+
+/* Direction: right-to-left */
+.mt-field-group--horizontal-reverse .mt-field-group-inner {
+  flex-direction: row-reverse;
+  gap: 8px;
+  align-items: center;
+}
+
+/* --- FieldsRow — grid columns --- */
+/* Source: FieldsRow.tsx lines 22-50 */
+.mt-fields-row {
+  display: grid;
+  margin-bottom: 24px;                       /* mb-6 */
+}
+
+.mt-fields-row--1col { grid-template-columns: 1fr; }
+.mt-fields-row--2col { grid-template-columns: repeat(2, 1fr); }
+.mt-fields-row--3col { grid-template-columns: repeat(3, 1fr); }
+.mt-fields-row--4col { grid-template-columns: repeat(4, 1fr); }
+
+.mt-fields-row--gap-2 { gap: 8px; }
+.mt-fields-row--gap-4 { gap: 16px; }
+.mt-fields-row--gap-6 { gap: 24px; }         /* default */
+.mt-fields-row--gap-8 { gap: 32px; }
+
+/* --- FormSurface — card wrapper --- */
+/* Source: FormSurface.tsx lines 57-63 */
+.mt-form-surface {
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px;                        /* rounded */
+  border: 1px solid rgba(0, 0, 0, 0.09);    /* border-alpha-black-100 */
+  background: #F5F5F0;                       /* bg-gray-50 */
+  padding: 12px;                             /* p-3 */
+}
+
+.mt-form-surface--invalid {
+  border-color: #E25C4B;                     /* red-400 */
+}
+
+.mt-form-surface-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mt-form-surface-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.mt-form-surface-heading h2 {
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.mt-form-surface-heading .mt-form-optional {
+  font-size: 0.75rem;
+  color: #6B695D;                            /* text-gray-500 */
+}
+
+/* --- Label --- */
+/* Source: Label.tsx lines 41-69 */
+.mt-label {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  color: #504E43;                            /* text-gray-700 */
+  margin-bottom: 4px;
+}
+
+.mt-label:hover {
+  color: #303030;                            /* hover:text-gray-900 — approximation (MT uses gray-900) */
+}
+
+.mt-label label {
+  display: flex;
+  cursor: pointer;
+  font-size: 0.875rem;                       /* text-sm (inherited from form context) */
+  font-weight: 500;
+}
+
+.mt-label-prefix {
+  margin-right: 4px;                         /* mr-1 */
+  font-size: 0.875rem;                       /* text-sm */
+  font-weight: 500;                          /* font-medium */
+  color: #6B695D;                            /* text-gray-500 */
+}
+
+.mt-label-conditional {
+  font-size: 0.75rem;                        /* text-xs */
+  color: #6B695D;                            /* text-gray-500 */
+}
+
+.mt-label-help {
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+  color: #6B695D;
+}
+
+.mt-label-help svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* --- Input --- */
+/* Source: Input.tsx lines 179-194 */
+.mt-input {
+  height: 32px;                              /* h-8 */
+  width: 100%;
+  border-radius: 2px;                        /* rounded-sm */
+  border: 1px solid var(--border-default, #DEDDD7);
+  padding: 4px 8px;                          /* py-1 px-2 */
+  font-size: 0.875rem;                       /* text-sm */
+  color: #303030;                            /* text-gray-800 */
+  outline: none;
+  background: #fff;
+}
+
+.mt-input::placeholder {
+  color: #ADAC9F;                            /* placeholder-gray-400 */
+}
+
+.mt-input:hover:not(:disabled) {
+  border-color: #ADAC9F;                     /* hover:border-gray-300 */
+}
+
+.mt-input:active:not(:disabled),
+.mt-input:focus:not(:disabled),
+.mt-input:focus-within:not(:disabled) {
+  border-color: #386FB1;                     /* focus:border-blue-500 */
+}
+
+.mt-input:disabled {
+  cursor: not-allowed;
+  border-color: #DEDDD7;                     /* border-gray-100 */
+  background: #F5F5F0;
+}
+
+/* Invalid state */
+/* Source: Input.tsx lines 190-192 */
+.mt-input--invalid {
+  border-color: #E25C4B;                     /* border-red-400 */
+}
+
+.mt-input--invalid::placeholder {
+  color: #6B695D;                            /* placeholder-gray-500 */
+}
+
+.mt-input--invalid:hover:not(:disabled) {
+  border-color: #D44020;                     /* hover:border-red-500 */
+}
+
+/* With prefix icon */
+.mt-input--has-prefix {
+  padding-left: 32px;                        /* pl-8 */
+}
+
+/* With suffix icon */
+.mt-input--has-suffix {
+  padding-right: 32px;                       /* pr-8 */
+}
+
+/* No outline variant */
+.mt-input--no-outline {
+  border: none;
+}
+
+/* --- Input wrapper for icons --- */
+.mt-input-wrapper {
+  position: relative;
+}
+
+.mt-input-prefix-icon {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  height: 100%;
+  align-items: center;
+  padding-left: 8px;
+  color: #ADAC9F;                            /* text-gray-400 */
+}
+
+.mt-input-suffix-icon {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: flex;
+  height: 100%;
+  align-items: center;
+  padding-right: 8px;
+  color: #ADAC9F;                            /* text-gray-400 */
+}
+
+/* --- Textarea (same styling as input, just taller) --- */
+.mt-textarea {
+  width: 100%;
+  min-height: 80px;
+  border-radius: 2px;
+  border: 1px solid var(--border-default, #DEDDD7);
+  padding: 8px;
+  font-size: 0.875rem;
+  color: #303030;
+  outline: none;
+  background: #fff;
+  resize: vertical;
+}
+
+.mt-textarea:focus {
+  border-color: #386FB1;
+}
+
+/* --- Select --- */
+.mt-select {
+  height: 32px;
+  width: 100%;
+  border-radius: 2px;
+  border: 1px solid var(--border-default, #DEDDD7);
+  padding: 4px 8px;
+  font-size: 0.875rem;
+  color: #303030;
+  outline: none;
+  background: #fff;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236B695D' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+}
+
+.mt-select:focus {
+  border-color: #386FB1;
+}

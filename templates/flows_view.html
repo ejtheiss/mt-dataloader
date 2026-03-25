@@ -18,16 +18,18 @@
 
 {% block page_tabs %}
 {% if available_views %}
-<div class="tab-strip tab-strip--no-border">
-    <div class="tab-strip-inner">
+<div class="mt-tabs">
+    <div class="mt-tabs__row">
         {% for v in available_views %}
-        <button class="tab-btn {% if v == default_view %}active{% endif %}"
-                hx-get="/api/flows/{{ flow_idx }}/view/{{ v }}?session_token={{ session_token }}"
-                hx-target="#view-content"
-                hx-swap="innerHTML"
-                onclick="document.querySelectorAll('.tab-strip .tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');">
-            {{ v|capitalize }}
-        </button>
+        <div class="mt-tab {% if v == default_view %}mt-tab--active{% endif %}">
+            <button class="mt-tab__btn"
+                    hx-get="/api/flows/{{ flow_idx }}/view/{{ v }}?session_token={{ session_token }}"
+                    hx-target="#view-content"
+                    hx-swap="innerHTML"
+                    onclick="setActiveTab(this)">
+                {{ v|capitalize }}
+            </button>
+        </div>
         {% endfor %}
     </div>
 </div>

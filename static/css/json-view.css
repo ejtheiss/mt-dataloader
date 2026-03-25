@@ -1,0 +1,124 @@
+/* ============================================================
+   MT JSON View — CSS
+   Canonical sources:
+     - JsonView.tsx          (lines 39-69)    — ReactJson wrapper defaults
+     - JsonView.tsx          (lines 41-44)    — collapsed=false, name=false, displayObjectSize=false
+     - WebhookDeliveryAttemptsView.tsx (lines 48-61) — JsonView for headers/body in accordion
+     - EventView.tsx         (lines 102-108)  — JsonView for event data
+   ============================================================ */
+
+/* --- JSON View Container --- */
+.mt-json-view {
+  border: 1px solid rgba(0, 0, 0, 0.09);   /* border-alpha-black-100 */
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+
+/* --- JSON View Toolbar --- */
+.mt-json-view-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+  background: #F5F5F0;                      /* bg-gray-50 */
+}
+
+.mt-json-view-name {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #504E43;                            /* text-gray-700 */
+  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+}
+
+.mt-json-copy-btn,
+.mt-json-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #6B695D;                            /* text-gray-600 */
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mt-json-copy-btn:hover,
+.mt-json-toggle-btn:hover {
+  background: #DEDDD7;                       /* bg-gray-100 */
+  color: #303030;
+}
+
+/* --- JSON Pre Block --- */
+.mt-json-pre {
+  margin: 0;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #303030;                            /* text-gray-800 */
+  background: #fff;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* --- JSON Accordion (for webhook headers/body) --- */
+/* Source: WebhookDeliveryAttemptsView.tsx lines 48-64 — collapsible sections */
+.mt-json-accordion {
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mt-json-accordion + .mt-json-accordion {
+  margin-top: 8px;
+}
+
+.mt-json-accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #504E43;                            /* text-gray-700 */
+  background: #F5F5F0;                       /* bg-gray-50 */
+  cursor: pointer;
+  user-select: none;
+  list-style: none;                          /* remove default marker */
+}
+
+.mt-json-accordion-header::-webkit-details-marker {
+  display: none;
+}
+
+/* Rotate chevron when open */
+.mt-json-accordion[open] > .mt-json-accordion-header svg {
+  transform: rotate(0deg);
+}
+
+.mt-json-accordion:not([open]) > .mt-json-accordion-header svg {
+  transform: rotate(-90deg);
+}
+
+.mt-json-accordion-header svg {
+  transition: transform 150ms ease;
+  flex-shrink: 0;
+  color: #6B695D;
+}
+
+.mt-json-accordion-panel {
+  border-top: 1px solid rgba(0, 0, 0, 0.09);
+}
+
+/* Remove nested json-view border when inside accordion */
+.mt-json-accordion-panel > .mt-json-view {
+  border: 0;
+  border-radius: 0;
+}

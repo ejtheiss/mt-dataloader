@@ -1,0 +1,55 @@
+{#
+  MT Pill — Jinja2 partial
+  ============================================================
+  Canonical source: Pill.tsx (lines 30-77)
+
+  Pill is an entity link component with optional tooltip.
+  Used for inline references to related entities.
+
+  Parameters:
+    label     — display text
+    href      — optional link URL (renders as <a> if set)
+    icon      — optional SVG icon HTML
+    tooltip   — optional tooltip text (rendered via title attr)
+    class     — additional CSS classes
+
+  Usage:
+    {# Simple pill #}
+    {% set label = "Acme Corp" %}
+    {% include "partials/pill.html" %}
+
+    {# Pill with link #}
+    {% set label = "PMT-12345" %}
+    {% set href = "/payment_orders/PMT-12345" %}
+    {% include "partials/pill.html" %}
+
+    {# Pill with icon and tooltip #}
+    {% set label = "Internal Account" %}
+    {% set icon = '<svg ...>...</svg>' %}
+    {% set tooltip = "Account ID: acct_abc123" %}
+    {% include "partials/pill.html" %}
+
+    {# Pill group #}
+    <div class="mt-pill-group">
+      {% for entity in entities %}
+        {% set label = entity.name %}
+        {% set href = entity.url %}
+        {% include "partials/pill.html" %}
+      {% endfor %}
+    </div>
+  ============================================================
+#}
+
+<span class="mt-pill" {% if tooltip is defined and tooltip %}title="{{ tooltip }}"{% endif %}>
+  {% if href is defined and href %}
+  <a href="{{ href }}" class="mt-pill-content {{ class | default('') }}">
+    {% if icon is defined and icon %}<span class="mt-pill-icon">{{ icon }}</span>{% endif %}
+    {{ label }}
+  </a>
+  {% else %}
+  <span class="mt-pill-content {{ class | default('') }}">
+    {% if icon is defined and icon %}<span class="mt-pill-icon">{{ icon }}</span>{% endif %}
+    {{ label }}
+  </span>
+  {% endif %}
+</span>

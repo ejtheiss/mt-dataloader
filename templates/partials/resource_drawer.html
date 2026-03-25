@@ -1,0 +1,66 @@
+<h2 class="drawer-section-title" style="margin-top: 0;">
+    {% if item.display_name %}
+    {{ item.display_name }}
+    {% else %}
+    <code>{{ item.typed_ref }}</code>
+    {% endif %}
+</h2>
+
+<div class="key-value-table" style="margin-bottom: 16px;">
+    <div class="key-value-table-row">
+        <div class="row-label">Type</div>
+        <div class="row-value"><span class="badge badge--cool">{{ item.resource_type }}</span></div>
+    </div>
+    <div class="key-value-table-row">
+        <div class="row-label">Ref</div>
+        <div class="row-value"><code>{{ item.typed_ref }}</code></div>
+    </div>
+    <div class="key-value-table-row">
+        <div class="row-label">Batch</div>
+        <div class="row-value"><span class="badge badge--default">B{{ item.batch }}</span></div>
+    </div>
+    <div class="key-value-table-row">
+        <div class="row-label">Cleanup</div>
+        <div class="row-value">
+            {% if item.deletable %}
+            <span class="badge badge--success">Deletable</span>
+            {% else %}
+            <span class="badge badge--warning">Persistent</span>
+            {% endif %}
+        </div>
+    </div>
+    {% if item.deps %}
+    <div class="key-value-table-row">
+        <div class="row-label">Dependencies</div>
+        <div class="row-value">
+            {% for dep in item.deps %}
+            <code>{{ dep }}</code>{% if not loop.last %}, {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% if item.sandbox_info %}
+    <div class="key-value-table-row">
+        <div class="row-label">Sandbox</div>
+        <div class="row-value"><code>{{ item.sandbox_info }}</code></div>
+    </div>
+    {% endif %}
+</div>
+
+{% if item.metadata %}
+<h3 class="drawer-section-title">Metadata</h3>
+<div class="key-value-table">
+    {% for k, v in item.metadata.items() %}
+    <div class="key-value-table-row">
+        <div class="row-label">{{ k }}</div>
+        <div class="row-value">
+            {% if '{' in v|string and '}' in v|string %}
+            <code class="metadata-tpl-value">{{ v }}</code>
+            {% else %}
+            {{ v }}
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

@@ -1,21 +1,30 @@
 <div class="resource-table" id="resource-table">
-    <div class="table-toolbar">
-        <input type="text" id="resource-search" placeholder="Search refs, types..."
-               class="resource-search" oninput="searchResources(this.value)"
-               style="padding: 6px 10px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); width: 200px;">
-        <div class="flow-filter-toolbar" style="margin-left: 8px;">
-            <select id="edge-case-filter" onchange="filterEdgeCases(this.value)"
-                    style="padding: 6px 10px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);">
-                <option value="all">Show all</option>
-                <option value="happy">Happy path only</option>
-                <option value="edge">Edge cases only</option>
-            </select>
+    <div class="mt-filter-bar">
+        <div class="mt-filter-bar-inner">
+            <div class="mt-filter-bar-left">
+                <div class="mt-filter-dropdown">
+                    <button type="button" class="mt-filter-trigger" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="4" y1="6" x2="20" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/>
+                        </svg>
+                        <span class="sr-only">Filter</span>
+                    </button>
+                    <div class="mt-filter-panel hidden">
+                        <button type="button" class="mt-filter-option" onclick="filterEdgeCases('all'); this.closest('.mt-filter-panel').classList.add('hidden')">Show all</button>
+                        <button type="button" class="mt-filter-option" onclick="filterEdgeCases('happy'); this.closest('.mt-filter-panel').classList.add('hidden')">Happy path only</button>
+                        <button type="button" class="mt-filter-option" onclick="filterEdgeCases('edge'); this.closest('.mt-filter-panel').classList.add('hidden')">Edge cases only</button>
+                    </div>
+                </div>
+                <input type="text" id="resource-search" placeholder="Search refs, types..."
+                       class="mt-filter-search" oninput="searchResources(this.value)">
+                <div class="mt-filter-pills" id="active-filters"></div>
+            </div>
+            <div class="mt-filter-bar-right">
+                <button type="button" class="btn btn-sm btn-outline" id="btn-toggle-view">Show Advanced</button>
+                {% set exports = [{"label": "Export JSON", "onclick": "exportJSON()"}, {"label": "Export CSV", "onclick": "exportCSV()"}] %}
+                {% include "partials/export_button.html" %}
+            </div>
         </div>
-        <button type="button" class="btn btn-sm btn-outline" id="btn-toggle-view" style="margin-left: 8px;">
-            Show Advanced
-        </button>
-        <button class="btn btn-sm btn-outline" onclick="exportPreviewJSON()" style="margin-left: auto;">Export JSON</button>
-        <button class="btn btn-sm btn-outline" onclick="exportPreviewCSV()">Export CSV</button>
     </div>
 
     {% for phase_value, phase_name in [(1, "Setup"), (2, "Business"), (3, "Lifecycle"), (4, "Mutations")] %}
@@ -26,77 +35,95 @@
                 {{ phase_name }}
                 <span class="phase-count">{{ phase_items|length }}</span>
             </h3>
-            <table class="preview-table">
-                <thead>
-                    <tr>
-                        <th data-sort="batch" class="sortable" onclick="sortTable(this, 'num')">Batch</th>
-                        <th data-sort="type" class="sortable" onclick="sortTable(this, 'text')">Type</th>
-                        <th data-sort="ref" class="sortable" onclick="sortTable(this, 'text')">Name</th>
-                        <th>Metadata</th>
-                        <th class="col-adv">Dependencies</th>
-                        <th class="col-adv">Sandbox</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {% for item in phase_items %}
-                <tr>
-                    <td><span class="batch-badge">B{{ item.batch }}</span></td>
-                    <td>
-                        {% if item.resource_type in mt_docs %}
-                        <a href="{{ mt_docs[item.resource_type] }}" target="_blank" rel="noopener" class="doc-link">
-                            <span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span>
-                        </a>
-                        {% else %}
-                        <span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if item.display_name %}
-                        <span class="resource-display-name" title="{{ item.typed_ref }}">{{ item.display_name }}</span>
-                        {% else %}
-                        <code class="resource-ref-fallback" title="{{ item.typed_ref }}">{{ item.typed_ref }}</code>
-                        {% endif %}
-                        {% if item.deletable %}
-                        <span class="cleanup-icon deletable" title="Deletable after run">&#x1f5d1;</span>
-                        {% else %}
-                        <span class="cleanup-icon persistent" title="Persistent — cannot be deleted via API">&#x1f512;</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if item.metadata and item.metadata.get("_flow_optional_group") %}
-                        <span class="edge-case-badge" title="Edge case: {{ item.metadata._flow_optional_group }}">
-                            Edge: {{ item.metadata._flow_optional_group }}
-                        </span>
-                        {% endif %}
-                        {% if item.has_metadata %}
-                        <details class="metadata-expand">
-                            <summary>{{ item.metadata|length }} key(s)</summary>
-                            <dl class="metadata-list">
-                            {% for k, v in item.metadata.items() %}
-                                <dt>{{ k }}:</dt>
-                                <dd{% if '{' in v|string and '}' in v|string %} class="metadata-tpl-value"{% endif %}>{{ v }}</dd>
-                            {% endfor %}
-                            </dl>
-                        </details>
-                        {% else %}&mdash;{% endif %}
-                    </td>
-                    <td class="col-adv">
-                        {% for dep in item.deps %}
-                        <code class="dep-ref">{{ dep }}</code>
-                        {% endfor %}
-                        {% if not item.deps %}&mdash;{% endif %}
-                    </td>
-                    <td class="col-adv">
-                        {% if item.sandbox_info %}
-                        <a href="{{ mt_docs.test_counterparties }}" target="_blank" rel="noopener" class="doc-link">
-                            <span class="sandbox-badge">{{ item.sandbox_info }}</span>
-                        </a>
-                        {% else %}&mdash;{% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+            <div class="ui-table-container" role="table">
+                <div class="ui-table-container__inner">
+                    <div role="rowgroup" class="ui-table-head">
+                        <div role="row" class="ui-table-row header">
+                            <div role="columnheader" class="ui-table-header" style="width: 60px; flex: none;" data-sort-column="batch" onclick="handleSortClick(this, 'batch')">
+                                <span>Batch</span>
+                                <span class="sort-icon" aria-hidden="true">&#9650;&#9660;</span>
+                            </div>
+                            <div role="columnheader" class="ui-table-header" style="width: 130px; flex: none;" data-sort-column="type" onclick="handleSortClick(this, 'type')">
+                                <span>Type</span>
+                                <span class="sort-icon" aria-hidden="true">&#9650;&#9660;</span>
+                            </div>
+                            <div role="columnheader" class="ui-table-header" data-sort-column="ref" onclick="handleSortClick(this, 'ref')">
+                                <span>Name</span>
+                                <span class="sort-icon" aria-hidden="true">&#9650;&#9660;</span>
+                            </div>
+                            <div role="columnheader" class="ui-table-header">Metadata</div>
+                            <div role="columnheader" class="ui-table-header col-adv">Dependencies</div>
+                            <div role="columnheader" class="ui-table-header col-adv">Sandbox</div>
+                        </div>
+                    </div>
+                    <div role="rowgroup" class="ui-table-body">
+                    {% for item in phase_items %}
+                        <div role="row" class="ui-table-row linked"
+                             hx-get="/api/resource-detail?session_token={{ session_token }}&ref={{ item.typed_ref|urlencode }}"
+                             hx-target="#drawer-content"
+                             hx-swap="innerHTML"
+                             hx-push-url="false"
+                             onclick="handleRowClick(event, this)">
+                            <div role="cell" class="ui-table-cell" style="width: 60px; flex: none;">
+                                <span class="badge badge--default">B{{ item.batch }}</span>
+                            </div>
+                            <div role="cell" class="ui-table-cell" style="width: 130px; flex: none;">
+                                {% if item.resource_type in mt_docs %}
+                                <a href="{{ mt_docs[item.resource_type] }}" target="_blank" rel="noopener" class="doc-link" onclick="event.stopPropagation()">
+                                    <span class="badge badge--cool">{{ item.resource_type }}</span>
+                                </a>
+                                {% else %}
+                                <span class="badge badge--cool">{{ item.resource_type }}</span>
+                                {% endif %}
+                            </div>
+                            <div role="cell" class="ui-table-cell truncate">
+                                {% if item.display_name %}
+                                <span class="resource-display-name" title="{{ item.typed_ref }}">{{ item.display_name }}</span>
+                                {% else %}
+                                <code class="resource-ref-fallback" title="{{ item.typed_ref }}">{{ item.typed_ref }}</code>
+                                {% endif %}
+                                {% if item.deletable %}
+                                <span class="cleanup-icon deletable" title="Deletable after run">&#x1f5d1;</span>
+                                {% else %}
+                                <span class="cleanup-icon persistent" title="Persistent — cannot be deleted via API">&#x1f512;</span>
+                                {% endif %}
+                            </div>
+                            <div role="cell" class="ui-table-cell">
+                                {% if item.metadata and item.metadata.get("_flow_optional_group") %}
+                                <span class="badge badge--warning" style="margin-right: 4px;" title="Edge case: {{ item.metadata._flow_optional_group }}">
+                                    Edge: {{ item.metadata._flow_optional_group }}
+                                </span>
+                                {% endif %}
+                                {% if item.has_metadata %}
+                                <span class="pill"
+                                      hx-get="/api/resource-detail?session_token={{ session_token }}&ref={{ item.typed_ref|urlencode }}"
+                                      hx-target="#drawer-content"
+                                      hx-swap="innerHTML"
+                                      hx-on::after-request="openDrawer(null, this)"
+                                      style="cursor: pointer;"
+                                      onclick="event.stopPropagation()">
+                                    <span class="pill-content">{{ item.metadata|length }} key{{ 's' if item.metadata|length != 1 }}</span>
+                                </span>
+                                {% else %}&mdash;{% endif %}
+                            </div>
+                            <div role="cell" class="ui-table-cell col-adv">
+                                {% for dep in item.deps %}
+                                <code class="dep-ref">{{ dep }}</code>
+                                {% endfor %}
+                                {% if not item.deps %}&mdash;{% endif %}
+                            </div>
+                            <div role="cell" class="ui-table-cell col-adv">
+                                {% if item.sandbox_info %}
+                                <a href="{{ mt_docs.test_counterparties }}" target="_blank" rel="noopener" class="doc-link" onclick="event.stopPropagation()">
+                                    <span class="sandbox-badge">{{ item.sandbox_info }}</span>
+                                </a>
+                                {% else %}&mdash;{% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                    </div>
+                </div>
+            </div>
         </div>
         {% endif %}
     {% endfor %}
@@ -115,41 +142,43 @@
 
 function searchResources(query) {
     var q = query.toLowerCase();
-    document.querySelectorAll('.preview-table tbody tr').forEach(function(row) {
+    document.querySelectorAll('.ui-table-body .ui-table-row').forEach(function(row) {
+        if (row.classList.contains('header')) return;
         row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
     });
 }
 
 function filterEdgeCases(filter) {
-    document.querySelectorAll('.preview-table tbody tr').forEach(function(row) {
-        var badge = row.querySelector('.edge-case-badge');
+    document.querySelectorAll('.ui-table-body .ui-table-row').forEach(function(row) {
+        if (row.classList.contains('header')) return;
+        var badge = row.querySelector('.badge--warning');
         if (filter === 'all') { row.style.display = ''; }
         else if (filter === 'happy') { row.style.display = badge ? 'none' : ''; }
         else if (filter === 'edge') { row.style.display = badge ? '' : 'none'; }
     });
 }
 
-function sortTable(header, type) {
-    var table = header.closest('table');
-    var tbody = table.querySelector('tbody');
-    var rows = Array.from(tbody.querySelectorAll('tr'));
-    var colIdx = Array.from(header.parentNode.children).indexOf(header);
-    var asc = !header.classList.contains('sort-asc');
-
-    header.parentNode.querySelectorAll('th').forEach(function(th) {
-        th.classList.remove('sort-asc', 'sort-desc');
+document.addEventListener('mt:sortChanged', function(e) {
+    var column = e.detail.column;
+    var order = e.detail.order;
+    document.querySelectorAll('.ui-table-body').forEach(function(tbody) {
+        var rows = Array.from(tbody.querySelectorAll('.ui-table-row'));
+        if (!rows.length) return;
+        var colMap = {batch: 0, type: 1, ref: 2};
+        var colIdx = colMap[column];
+        if (colIdx === undefined) return;
+        var type = column === 'batch' ? 'num' : 'text';
+        if (order) {
+            rows.sort(function(a, b) {
+                var aVal = a.children[colIdx].textContent.trim();
+                var bVal = b.children[colIdx].textContent.trim();
+                if (type === 'num') { aVal = parseInt(aVal) || 0; bVal = parseInt(bVal) || 0; }
+                return order === 'ASC' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
+            });
+        }
+        rows.forEach(function(row) { tbody.appendChild(row); });
     });
-    header.classList.add(asc ? 'sort-asc' : 'sort-desc');
-
-    rows.sort(function(a, b) {
-        var aVal = a.children[colIdx].textContent.trim();
-        var bVal = b.children[colIdx].textContent.trim();
-        if (type === 'num') { aVal = parseInt(aVal) || 0; bVal = parseInt(bVal) || 0; }
-        if (asc) return aVal > bVal ? 1 : -1;
-        return aVal < bVal ? 1 : -1;
-    });
-    rows.forEach(function(row) { tbody.appendChild(row); });
-}
+});
 
 function csvEscape(val) {
     var s = String(val);

@@ -1,0 +1,104 @@
+{#
+  MT IndexTable — Jinja2 partial
+  ===============================
+  Renders a div-based table matching MT's IndexTable pattern.
+
+  CANONICAL SOURCES (cross-referenced from MT monorepo):
+
+  TableUI.tsx — platform/app/frontend/dashboard/components/ui-components/IndexTable/TableUI.tsx
+    TableContainer: div.ui-table-container.rb_index-table > div.ui-table-container__inner  (line 47-63)
+    Thead:  div[role="rowgroup"].ui-table-head                                              (line 73-79)
+    Tbody:  div[role="rowgroup"].ui-table-body.rb_table-body                                (line 85-94)
+    Tr:     div[role="row"].ui-table-row.rb_table-row.table-ui-row                          (line 247-264)
+            headerRow adds "header" class; linked adds "linked" class
+    Th:     div[role="columnheader"].ui-table-header.rb_table-entry                         (line 180-231)
+    Td:     div[role="cell"].ui-table-cell.rb_table-entry                                   (line 290-305)
+
+  table.css — platform/app/frontend/common/stylesheets/ui/table.css
+    .ui-table-container: flex, border border-alpha-black-100, bg-white, rounded-lg          (line 6-7)
+    .ui-table-head: rounded-t-lg, border-b border-alpha-black-100, bg-background-light      (line 67-69)
+    .ui-table-row: flex, gap-5, px-6, text-xs, border-b border-alpha-black-100             (line 92-93)
+    .ui-table-row.header: rounded-t-lg, bg-background-light, font-medium                   (line 96-98)
+    .ui-table-row.linked: cursor-pointer, hover:bg-background-light                        (line 106-108)
+    .ui-table-header: flex, flex-1, basis-0, py-2                                           (line 133-134)
+    .ui-table-cell: flex, flex-1, basis-0, py-3                                             (line 183-184)
+
+  IndexTable.tsx — platform/app/frontend/dashboard/components/ui-components/IndexTable/IndexTable.tsx
+    TableHeader sort logic:
+      Sort icons: caret_up (asc), caret_down (desc), double_caret_vertical (unsorted)       (line 758-776)
+      Sort cycle: unsorted -> desc -> asc -> unsorted                                       (line 778-792)
+      Sort button: Button[buttonType="link"] with Icon[size="s"], text-gray-600             (line 891-909)
+    Row click behavior (TableRow, line 388-453):
+      Normal click -> opens drawer via RadixDrawerRoot (shouldRenderInDrawer)
+      Cmd/Ctrl+click or Shift+click -> window.open(path, "_blank")                          (line 408-415)
+
+  EntityTableView.tsx — platform/app/frontend/dashboard/components/ui-components/EntityTableView/EntityTableView.tsx
+    Pagination footer: div.rounded-b-lg.border.border-t-0.bg-white.p-s > PaginationRow     (line 717-732)
+    Table gets className "rounded-b-none" when pagination is shown                          (line 564)
+
+  HTMX integration:
+  - Sort: Each sortable header gets hx-get with ?sort=col&dir=asc|desc targeting table body
+  - Pagination: Separate partial (pagination.html) placed in border div below table
+  - Row click: Row gets hx-get loading detail into #drawer-content
+
+  Usage:
+    {% set table_id = "runs-table" %}
+    {% set columns = [
+        {"key": "id",       "label": "ID",       "sortable": true,  "width": "200px"},
+        {"key": "status",   "label": "Status",   "sortable": true},
+        {"key": "flow",     "label": "Flow",     "sortable": false},
+        {"key": "started",  "label": "Started",  "sortable": true,  "align": "right"},
+    ] %}
+    {% set sort_key = request.args.get('sort', '') %}
+    {% set sort_dir = request.args.get('dir', 'asc') %}
+    {% set sort_base_url = "/api/runs" %}
+    {% set hx_target = "#runs-table-body" %}
+    {% include "partials/index_table.html" %}
+#}
+
+{# Table Container — TableUI.tsx line 47-63 #}
+<div class="ui-table-container__wrapper">
+  <div class="ui-table-container{% if has_pagination %} rounded-b-none{% endif %}"
+       id="{{ table_id }}" role="table">
+    <div class="ui-table-container__inner">
+
+      {# Header — TableUI.tsx Thead (line 73-79) + Tr headerRow (line 247-264) #}
+      <div role="rowgroup" class="ui-table-head">
+        <div role="row" class="ui-table-row header">
+          {% for col in columns %}
+          <div role="columnheader"
+               class="ui-table-header{% if col.align == 'right' %} text-right{% endif %}"
+               {% if col.width %}style="width: {{ col.width }}; min-width: {{ col.width }}; flex: none;"{% endif %}>
+            {% if col.sortable and sort_base_url %}
+            {# Sort button — IndexTable.tsx line 891-909 #}
+            <span>{{ col.label }}</span>
+            <button class="index-table-sort-btn"
+                    hx-get="{{ sort_base_url }}?sort={{ col.key }}&dir={% if sort_key == col.key and sort_dir == 'desc' %}asc{% elif sort_key == col.key and sort_dir == 'asc' %}desc{% else %}desc{% endif %}"
+                    hx-target="{{ hx_target | default('#' ~ table_id ~ '-body') }}"
+                    hx-swap="innerHTML"
+                    aria-label="Sort {{ col.label }}">
+              {# Sort icon — IndexTable.tsx sortIconName (line 758-776) #}
+              {# Cycle: unsorted -> desc -> asc -> unsorted (line 778-792) #}
+              <span class="sort-icon" aria-hidden="true">
+                {% if sort_key == col.key and sort_dir == 'asc' %}&#9650;
+                {% elif sort_key == col.key and sort_dir == 'desc' %}&#9660;
+                {% else %}&#9650;&#9660;
+                {% endif %}
+              </span>
+            </button>
+            {% else %}
+            <span>{{ col.label }}</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# Body — TableUI.tsx Tbody (line 85-94) #}
+      <div role="rowgroup" class="ui-table-body" id="{{ table_id }}-body">
+        {{ caller() if caller is defined else '' }}
+      </div>
+
+    </div>
+  </div>
+</div>

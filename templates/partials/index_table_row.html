@@ -1,0 +1,79 @@
+{#
+  MT IndexTable Row — Jinja2 partial (documentation + example)
+  =============================================================
+  Renders a single row for the IndexTable.
+
+  CANONICAL SOURCES:
+
+  TableUI.tsx — platform/app/frontend/dashboard/components/ui-components/IndexTable/TableUI.tsx
+    Tr:  div[role="row"].ui-table-row.rb_table-row.table-ui-row                  (line 247-264)
+         linked=true adds "linked" class -> cursor-pointer, hover:bg-background-light
+    Td:  div[role="cell"].ui-table-cell.rb_table-entry                            (line 290-305)
+         empty=true adds "empty" class -> text-gray-500
+         truncate=true (default) -> overflow hidden, text-overflow ellipsis
+
+  table.css — platform/app/frontend/common/stylesheets/ui/table.css
+    .ui-table-row: flex, gap-5, px-6, text-xs, border-b border-alpha-black-100   (line 92-93)
+    .ui-table-row.linked: cursor-pointer, hover:bg-background-light              (line 106-108)
+    .ui-table-cell: flex, flex-1, basis-0, py-3                                   (line 183-184)
+    .ui-table-cell.empty: text-gray-500                                           (line 192-194)
+
+  IndexTable.tsx — platform/app/frontend/dashboard/components/ui-components/IndexTable/IndexTable.tsx
+    TableRow (line 302-672):
+      RadixDrawerRoot wraps each row for drawer support                           (line 365)
+      Row click logic (line 388-453):
+        - overrideRowLinkClickHandler check first                                 (line 393-396)
+        - hasNesting + nestingClickBehavior="expand" -> expand/collapse            (line 400-407)
+        - metaKey || ctrlKey || shiftKey -> window.open(path, "_blank")           (line 408-415)
+        - associated-entity pill click -> prevent double drawer                   (line 420-425)
+        - shouldRenderInDrawer -> handleTriggerClick (opens drawer)               (line 444-445)
+        - else onClick with path                                                  (line 446-452)
+
+  DrawerActions.tsx — platform/app/frontend/dashboard/components/ui-components/Drawer/DrawerActions.tsx
+    Actions strip: Close, Open as page, Open in new tab, Copy link                (line 49-140)
+    Button props: buttonType="text", buttonHeight="extra-small", text-gray-500    (line 18-22)
+
+  HTMX integration for row click + drawer:
+
+    <div role="row"
+         class="ui-table-row linked"
+         data-url="/runs/{{ run.id }}"
+         hx-get="/api/runs/{{ run.id }}/drawer"
+         hx-target="#drawer-content"
+         hx-swap="innerHTML"
+         hx-push-url="false"
+         onclick="handleRowClick(event, this)">
+
+      <div role="cell" class="ui-table-cell" style="width: 200px; flex: none;">
+        {{ run.id[:8] }}...
+      </div>
+      <div role="cell" class="ui-table-cell">
+        <span class="badge badge--success">completed</span>
+      </div>
+      <div role="cell" class="ui-table-cell">
+        {{ run.flow_name }}
+      </div>
+      <div role="cell" class="ui-table-cell text-right" style="width: 180px; flex: none;">
+        {{ run.started_at }}
+      </div>
+
+    </div>
+
+  Row click modifier JS (matches IndexTable.tsx line 408-415):
+
+    function handleRowClick(event, row) {
+      var url = row.getAttribute('data-url');
+      if (!url) return;
+
+      // Cmd/Ctrl+click or Shift+click -> new tab (matches IndexTable.tsx line 408-415)
+      if (event.metaKey || event.ctrlKey || event.shiftKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        window.open(url, '_blank');
+        return;
+      }
+
+      // Normal click -> let HTMX handle it (opens drawer)
+      openDrawer(event, row);
+    }
+#}

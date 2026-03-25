@@ -1,0 +1,65 @@
+{#
+  MT Section Navigator — Jinja2 partial
+  ============================================================
+  Canonical sources:
+    - SectionNavigator.tsx        (lines 100-112)  — outer div with Tabs
+    - SectionNavigator.tsx        (lines 28-42)    — sections map, currentSection state
+    - SectionNavigator.tsx        (lines 54-62)    — URL-based navigation (searchParams)
+    - SectionNavigator.tsx        (lines 68-80)    — controlled state via onClick
+    - Tabs.tsx                    (lines 44-70)    — Tab button: border-b-3, blue-500 active
+    - WebhookEndpointView.tsx     (lines 279-296)  — usage: "Webhook Delivery Attempts" section
+    - EventView.tsx               (lines 79-85)    — usage: "Webhook Delivery Attempts" + "Event Data"
+
+  MT SectionNavigator structure:
+    <div class="mb-4" id="section-navigator">
+      <Tabs>
+        <Tab active={currentSection === key} onClick={...}>
+          {label}
+        </Tab>
+      </Tabs>
+    </div>
+
+  Parameters:
+    sections          — dict of {key: label} pairs
+    current_section   — currently active section key
+    use_url           — bool, use URL hash for state (default: true)
+    id                — element ID (default: "section-navigator")
+  ============================================================
+#}
+
+{% set _id = id | default('section-navigator') %}
+{% set _current = current_section | default(sections.keys() | first if sections else '') %}
+{% set _use_url = use_url | default(true) %}
+
+{# Source: SectionNavigator.tsx lines 100-112 #}
+<div class="mt-section-navigator" id="{{ _id }}">
+  {# Source: Tabs.tsx — tab list container #}
+  <div class="mt-tabs" role="tablist">
+    {% for key, label in sections.items() %}
+    {# Source: Tabs.tsx lines 44-70 — individual tab button #}
+    {# Active: border-b-3 border-blue-500 text-gray-800 #}
+    {# Inactive: border-b-3 border-transparent text-gray-600 hover:border-gray-100 #}
+    <button type="button"
+            role="tab"
+            class="mt-tab{% if key == _current %} mt-tab--active{% endif %}"
+            data-section="{{ key }}"
+            aria-selected="{{ 'true' if key == _current else 'false' }}"
+            aria-controls="section-{{ key }}"
+            onclick="switchSection('{{ _id }}', '{{ key }}', {{ 'true' if _use_url else 'false' }})">
+      {{ label }}
+    </button>
+    {% endfor %}
+  </div>
+</div>
+
+{# Section panels — each section's content is rendered in a panel below #}
+{% for key, label in sections.items() %}
+<div class="mt-section-panel{% if key == _current %} mt-section-panel--active{% endif %}"
+     id="section-{{ key }}"
+     role="tabpanel"
+     aria-labelledby="{{ key }}"
+     {% if key != _current %}hidden{% endif %}>
+  {# Content is provided by the including template via caller() or separate blocks #}
+  {{ caller(key) if caller is defined else '' }}
+</div>
+{% endfor %}

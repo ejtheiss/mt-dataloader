@@ -29,14 +29,6 @@
 
 {% block content %}
 
-    {% if discovery %}
-        {% include "partials/discovery_summary.html" %}
-    {% endif %}
-
-    {% if reconciliation %}
-        {% include "partials/reconciliation_panel.html" %}
-    {% endif %}
-
     <div class="stats-bar">
         <div class="stat">
             <span class="stat-value">{{ resource_count }}</span>
@@ -56,47 +48,89 @@
         </div>
     </div>
 
-    {# --- Reusable resource table macro --- #}
+    <div class="mt-tabs" id="preview-flow-tabs">
+        <div class="mt-tabs__row">
+            <div class="mt-tab mt-tab--active">
+                <button class="mt-tab__btn" data-panel="pf-panel-flows" onclick="setActiveTab(this); switchPfTab('pf-panel-flows')">Flow Groups</button>
+            </div>
+            {% if discovery %}
+            <div class="mt-tab">
+                <button class="mt-tab__btn" data-panel="pf-panel-discovery" onclick="setActiveTab(this); switchPfTab('pf-panel-discovery')">Discovery</button>
+            </div>
+            {% endif %}
+            {% if reconciliation %}
+            <div class="mt-tab">
+                <button class="mt-tab__btn" data-panel="pf-panel-recon" onclick="setActiveTab(this); switchPfTab('pf-panel-recon')">Reconciliation</button>
+            </div>
+            {% endif %}
+            <div class="mt-tab">
+                <button class="mt-tab__btn" data-panel="pf-panel-config" onclick="setActiveTab(this); switchPfTab('pf-panel-config')">JSON Config</button>
+            </div>
+        </div>
+    </div>
+
+    {# --- Reusable resource table macro (IndexTable pattern) --- #}
     {% macro resource_rows(items, show_batch=false) %}
-    <table class="preview-table preview-table-compact">
-        <thead>
-            <tr>
-                {% if show_batch %}<th style="width: 50px;">Batch</th>{% endif %}
-                <th>Type</th>
-                <th>Name</th>
-                <th>Info</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for item in items %}
-        <tr>
-            {% if show_batch %}<td><span class="batch-badge">B{{ item.batch }}</span></td>{% endif %}
-            <td><span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span></td>
-            <td>
-                {% if item.display_name %}
-                <span class="resource-display-name" title="{{ item.typed_ref }}">{{ item.display_name }}</span>
-                {% else %}
-                <code class="resource-ref-fallback" title="{{ item.typed_ref }}">{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</code>
-                {% endif %}
-                {% if item.deletable %}
-                <span class="cleanup-icon deletable" title="Deletable">&#x1f5d1;</span>
-                {% else %}
-                <span class="cleanup-icon persistent" title="Persistent">&#x1f512;</span>
-                {% endif %}
-            </td>
-            <td>
-                {% if item.metadata and item.metadata.get("_flow_optional_group") %}
-                <span class="edge-case-badge">Edge: {{ item.metadata._flow_optional_group }}</span>
-                {% elif item.has_metadata %}
-                <span class="text-muted">{{ item.metadata|length }} key(s)</span>
-                {% else %}&mdash;{% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    <div class="ui-table-container" role="table">
+        <div class="ui-table-container__inner">
+            <div role="rowgroup" class="ui-table-head">
+                <div role="row" class="ui-table-row header">
+                    {% if show_batch %}<div role="columnheader" class="ui-table-header" style="width: 50px; flex: none;">Batch</div>{% endif %}
+                    <div role="columnheader" class="ui-table-header" style="width: 120px; flex: none;">Type</div>
+                    <div role="columnheader" class="ui-table-header">Name</div>
+                    <div role="columnheader" class="ui-table-header" style="width: 180px; flex: none;">Info</div>
+                </div>
+            </div>
+            <div role="rowgroup" class="ui-table-body">
+                {% for item in items %}
+                <div role="row" class="ui-table-row linked"
+                     data-url="/api/resource-detail?session_token={{ session_token }}&ref={{ item.typed_ref|urlencode }}"
+                     hx-get="/api/resource-detail?session_token={{ session_token }}&ref={{ item.typed_ref|urlencode }}"
+                     hx-target="#drawer-content"
+                     hx-swap="innerHTML"
+                     onclick="handleRowClick(event, this)">
+                    {% if show_batch %}
+                    <div role="cell" class="ui-table-cell" style="width: 50px; flex: none;">
+                        <span class="batch-badge">B{{ item.batch }}</span>
+                    </div>
+                    {% endif %}
+                    <div role="cell" class="ui-table-cell" style="width: 120px; flex: none;">
+                        <span class="type-badge type-{{ item.resource_type }}">{{ item.resource_type }}</span>
+                    </div>
+                    <div role="cell" class="ui-table-cell truncate">
+                        {% if item.display_name %}
+                        <span class="resource-display-name" title="{{ item.typed_ref }}">{{ item.display_name }}</span>
+                        {% else %}
+                        <code class="resource-ref-fallback" title="{{ item.typed_ref }}">{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</code>
+                        {% endif %}
+                        {% if item.deletable %}
+                        <span class="cleanup-icon deletable" title="Deletable">&#x1f5d1;</span>
+                        {% else %}
+                        <span class="cleanup-icon persistent" title="Persistent">&#x1f512;</span>
+                        {% endif %}
+                    </div>
+                    <div role="cell" class="ui-table-cell" style="width: 180px; flex: none;">
+                        {% if item.metadata and item.metadata.get("_flow_optional_group") %}
+                        <span class="badge badge--warning" style="margin-right: 4px;">Edge: {{ item.metadata._flow_optional_group }}</span>
+                        {% endif %}
+                        {% if item.has_metadata %}
+                        <span class="pill" onclick="event.stopPropagation();"
+                              hx-get="/api/resource-detail?session_token={{ session_token }}&ref={{ item.typed_ref|urlencode }}"
+                              hx-target="#drawer-content"
+                              hx-swap="innerHTML"
+                              style="cursor: pointer;">
+                            <span class="pill-content">{{ item.metadata|length }} key{{ 's' if item.metadata|length != 1 }}</span>
+                        </span>
+                        {% elif not item.metadata or not item.metadata.get("_flow_optional_group") %}&mdash;{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
     {% endmacro %}
 
+    <div class="tab-panel" id="pf-panel-flows">
     {% for group in flow_groups %}
     {% if group.pattern_type == 'shared' %}
     {# --- Shared Infrastructure (collapsible, open by default) --- #}
@@ -164,9 +198,21 @@
     </div>
     {% endif %}
     {% endfor %}
+    </div>{# /pf-panel-flows #}
 
-    <details class="json-editor-panel">
-        <summary>View / Edit JSON Config</summary>
+    {% if discovery %}
+    <div class="tab-panel" id="pf-panel-discovery" hidden>
+        {% include "partials/discovery_summary.html" %}
+    </div>
+    {% endif %}
+
+    {% if reconciliation %}
+    <div class="tab-panel" id="pf-panel-recon" hidden>
+        {% include "partials/reconciliation_panel.html" %}
+    </div>
+    {% endif %}
+
+    <div class="tab-panel" id="pf-panel-config" hidden>
         <form id="revalidate-form"
               hx-post="/api/revalidate"
               hx-target="#content"
@@ -187,11 +233,17 @@
                 <button type="button" class="btn btn-sm btn-outline" id="btn-copy-json">Copy</button>
             </div>
         </form>
-    </details>
+    </div>{# /pf-panel-config #}
 
 {% include "partials/mermaid_scripts.html" %}
 
 <script>
+function switchPfTab(panelId) {
+    document.querySelectorAll('#pf-panel-flows, #pf-panel-discovery, #pf-panel-recon, #pf-panel-config').forEach(function(p) {
+        if (p) p.hidden = (p.id !== panelId);
+    });
+}
+
 (function() {
     var hiddenInput = document.getElementById("preview-json-editor");
     var status = document.getElementById("preview-json-status");

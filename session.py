@@ -40,7 +40,8 @@ class SessionState:
     expanded_flows: list | None = None
     pattern_flow_ir: list[FlowIR] | None = None
     pattern_expanded_flows: list | None = None
-    generation_recipe: dict | None = None
+    base_config_json: str | None = None
+    generation_recipes: dict[str, dict] = field(default_factory=dict)
     working_config_json: str | None = None
     mermaid_diagrams: list[str] | None = None
     view_data_cache: list | None = None

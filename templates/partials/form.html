@@ -1,0 +1,98 @@
+{#
+  MT Form Components — Jinja2 partial
+  ============================================================
+  Canonical sources:
+    - Form.tsx              (lines 23-103)   — Form compound component
+    - FieldGroup.tsx         (lines 24-66)    — label + field layout
+    - FieldsRow.tsx          (lines 22-50)    — grid columns
+    - FormSurface.tsx        (lines 42-112)   — card wrapper
+    - Input.tsx              (lines 104-225)   — text input
+    - Label.tsx              (lines 28-71)     — form label
+
+  Usage examples:
+  ============================================================
+
+  {# --- Simple form field (vertical label + input) --- #}
+  <div class="mt-field-group mt-field-group--vertical">
+    <div class="mt-field-group-inner">
+      <div class="mt-label">
+        <label for="api_key">API Key</label>
+        <span class="mt-label-conditional">Required</span>
+      </div>
+      <input type="text" id="api_key" name="api_key" class="mt-input"
+             placeholder="Enter API key" value="{{ api_key }}">
+    </div>
+  </div>
+
+  {# --- Two-column row --- #}
+  <div class="mt-fields-row mt-fields-row--2col mt-fields-row--gap-6">
+    <div class="mt-field-group mt-field-group--vertical">
+      <div class="mt-field-group-inner">
+        <div class="mt-label"><label for="org_id">Org ID</label></div>
+        <input type="text" id="org_id" name="org_id" class="mt-input" value="{{ org_id }}">
+      </div>
+    </div>
+    <div class="mt-field-group mt-field-group--vertical">
+      <div class="mt-field-group-inner">
+        <div class="mt-label"><label for="display_name">Display Name</label></div>
+        <input type="text" id="display_name" name="display_name" class="mt-input" value="{{ display_name }}">
+      </div>
+    </div>
+  </div>
+
+  {# --- Form with sections --- #}
+  <form class="mt-form">
+    <div class="mt-form-section">
+      <h2 class="mt-form-section-heading">
+        Credentials
+        <span class="mt-form-optional">Optional</span>
+      </h2>
+      <div class="mt-form-section-row">
+        {# fields here #}
+      </div>
+    </div>
+    <div class="mt-form-section-separator"></div>
+    <div class="mt-form-section">
+      <h2 class="mt-form-section-heading">Configuration</h2>
+      <div class="mt-form-section-row">
+        {# fields here #}
+      </div>
+    </div>
+  </form>
+
+  {# --- FormSurface (card wrapper for grouped fields) --- #}
+  <div class="mt-form-surface">
+    <div class="mt-form-surface-header">
+      <div class="mt-form-surface-heading">
+        <h2>Account Details</h2>
+        <span class="mt-form-optional">Optional</span>
+      </div>
+    </div>
+    {# fields inside the surface #}
+  </div>
+
+  {# --- Input with prefix icon --- #}
+  <div class="mt-input-wrapper">
+    <div class="mt-input-prefix-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    </div>
+    <input type="text" class="mt-input mt-input--has-prefix" placeholder="Search...">
+  </div>
+
+  {# --- Invalid input --- #}
+  <div class="mt-field-group mt-field-group--vertical">
+    <div class="mt-field-group-inner">
+      <div class="mt-label"><label for="email">Email</label></div>
+      <input type="email" id="email" class="mt-input mt-input--invalid"
+             placeholder="Enter email" value="">
+      <span style="color: #D44020; font-size: 0.75rem;">Email is required</span>
+    </div>
+  </div>
+  ============================================================
+#}
+
+{# This file is a documentation/example partial. The actual CSS classes are in forms.css.
+   Unlike other partials that render a single component, forms are composed from the
+   CSS classes documented above. Include this partial for reference, or use the classes directly. #}

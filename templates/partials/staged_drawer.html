@@ -1,0 +1,55 @@
+{% set resource_type = typed_ref.split(".")[0] %}
+{% set ref_name = typed_ref.split(".", 1)[1] if "." in typed_ref else typed_ref %}
+
+<div class="drawer-header">
+    <div class="drawer-header-title">
+        <span class="badge badge--cool">{{ resource_type }}</span>
+        <span style="margin-left: 8px;">{{ ref_name }}</span>
+    </div>
+</div>
+
+<div class="key-value-table" style="margin: 16px 0;">
+    <div class="key-value-table-row">
+        <div class="row-label">Type</div>
+        <div class="row-value"><code>{{ resource_type }}</code></div>
+    </div>
+    <div class="key-value-table-row">
+        <div class="row-label">Typed Ref</div>
+        <div class="row-value"><code>{{ typed_ref }}</code></div>
+    </div>
+    {% if staged_at %}
+    <div class="key-value-table-row">
+        <div class="row-label">Staged At</div>
+        <div class="row-value">{{ staged_at }}</div>
+    </div>
+    {% endif %}
+    {% for key, val in payload.items() %}
+    <div class="key-value-table-row">
+        <div class="row-label">{{ key }}</div>
+        <div class="row-value">
+            {% if val is mapping or val is iterable and val is not string %}
+            <code>{{ val | tojson }}</code>
+            {% else %}
+            {{ val }}
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if payload %}
+<div class="drawer-section-label" style="margin-top: 16px;">Full Payload</div>
+<div id="staged-payload-monaco" class="monaco-container"
+     style="height: 320px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;"></div>
+<script>
+(function() {
+    var el = document.getElementById('staged-payload-monaco');
+    if (el && typeof initMonacoEditor === 'function') {
+        initMonacoEditor(el, {
+            value: {{ payload | tojson(indent=2) | tojson }},
+            readOnly: true
+        });
+    }
+})();
+</script>
+{% endif %}

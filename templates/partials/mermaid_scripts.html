@@ -2,14 +2,6 @@
 <script>
 mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
 
-function showToast(msg) {
-    var el = document.createElement('div');
-    el.className = 'toast-notification';
-    el.textContent = msg;
-    document.body.appendChild(el);
-    setTimeout(function() { el.remove(); }, 2000);
-}
-
 function renderMermaidAccordion(details) {
     var container = details.querySelector('.mermaid-render');
     var source = details.querySelector('.mermaid-source');
@@ -25,7 +17,7 @@ function renderMermaidAccordion(details) {
     });
 }
 
-document.querySelectorAll('.mermaid-accordion').forEach(function(details) {
+document.querySelectorAll('.accordion[data-mermaid]').forEach(function(details) {
     details.addEventListener('toggle', function() {
         if (this.open) renderMermaidAccordion(this);
     });

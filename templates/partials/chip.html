@@ -1,0 +1,72 @@
+{#
+  MT Chip — Jinja2 partial
+  ============================================================
+  Canonical source: Chip.tsx (lines 52-153)
+
+  Chip displays granular information with optional remove and condition operators.
+
+  Parameters:
+    label       — chip label (e.g. "Status")
+    value       — chip value (e.g. "Active")
+    removable   — bool, shows remove button (default: false)
+    clickable   — bool, adds hover state (default: false)
+    onclick     — JS onclick for clickable chips
+    remove_url  — URL for hx-delete on remove button
+    variant     — "default" | "warning" (default: "default")
+    class       — additional CSS classes
+
+  Usage:
+    {# Simple chip #}
+    {% set label = "Status" %}
+    {% set value = "Active" %}
+    {% include "partials/chip.html" %}
+
+    {# Removable chip (filter pill) #}
+    {% set label = "Type" %}
+    {% set value = "payment_order" %}
+    {% set removable = true %}
+    {% set remove_url = "/api/filters/remove?key=type" %}
+    {% include "partials/chip.html" %}
+
+    {# Warning chip #}
+    {% set label = "Edge Cases" %}
+    {% set value = "3 found" %}
+    {% set variant = "warning" %}
+    {% include "partials/chip.html" %}
+
+    {# Chip group #}
+    <div class="mt-chip-group">
+      {% for filter in active_filters %}
+        {% set label = filter.key %}
+        {% set value = filter.value %}
+        {% set removable = true %}
+        {% include "partials/chip.html" %}
+      {% endfor %}
+    </div>
+  ============================================================
+#}
+
+{% set _variant = variant | default("default") %}
+{% set _removable = removable | default(false) %}
+{% set _clickable = clickable | default(false) %}
+
+<span class="mt-chip{% if _clickable %} mt-chip--clickable{% endif %}{% if _variant == 'warning' %} mt-chip--warning{% endif %}{% if class is defined and class %} {{ class }}{% endif %}">
+  <span class="mt-chip-content"
+        {% if _clickable and onclick is defined %}onclick="{{ onclick }}"{% endif %}>
+    {% if label is defined and label %}
+      <span class="mt-chip-label">{{ label }}</span>
+    {% endif %}
+    {% if value is defined and value %}
+      <span class="mt-chip-value">{{ value }}</span>
+    {% endif %}
+  </span>
+  {% if _removable %}
+  <button class="mt-chip-remove"
+          {% if remove_url is defined %}hx-delete="{{ remove_url }}"{% endif %}
+          aria-label="Remove">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
+  {% endif %}
+</span>

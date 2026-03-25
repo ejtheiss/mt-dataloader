@@ -1,0 +1,63 @@
+{#
+  MT Toggle/Switch — Jinja2 partial
+  ============================================================
+  Canonical source: RadixSwitch.tsx (lines 10-41)
+
+  Small pill-shaped toggle switch with sliding thumb and checkmark.
+
+  Parameters:
+    name        — input name attribute
+    id          — element id (defaults to name)
+    checked     — bool (default: false)
+    disabled    — bool (default: false)
+    label       — optional label text
+    onchange    — optional JS handler
+    attrs       — additional HTML attributes string (e.g. hx-post="..." hx-trigger="change")
+
+  Usage:
+    {# Simple toggle #}
+    {% set name = "auto_approve" %}
+    {% set checked = flow.auto_approve %}
+    {% set label = "Auto-approve" %}
+    {% include "partials/toggle_switch.html" %}
+
+    {# Toggle with HTMX #}
+    {% set name = "enabled" %}
+    {% set checked = webhook.enabled %}
+    {% set label = "Enabled" %}
+    {% set attrs = 'hx-post="/api/webhooks/' ~ webhook.id ~ '/toggle" hx-swap="none"' %}
+    {% include "partials/toggle_switch.html" %}
+  ============================================================
+#}
+
+{% set _id = id | default(name) %}
+{% set _checked = checked | default(false) %}
+{% set _disabled = disabled | default(false) %}
+
+{% if label is defined and label %}
+<div class="mt-toggle-field">
+{% endif %}
+
+<button type="button"
+        role="switch"
+        id="{{ _id }}"
+        class="mt-toggle{% if _checked %} mt-toggle--checked{% endif %}"
+        aria-checked="{{ 'true' if _checked else 'false' }}"
+        {% if _disabled %}disabled{% endif %}
+        {% if onchange is defined %}onclick="{{ onchange }}"{% endif %}
+        {% if attrs is defined %}{{ attrs }}{% endif %}
+        onclick="this.classList.toggle('mt-toggle--checked'); this.setAttribute('aria-checked', this.getAttribute('aria-checked') === 'true' ? 'false' : 'true');">
+  <span class="mt-toggle-thumb">
+    <svg width="8" height="6" viewBox="0 0 8 6" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+      <path d="M7.906.983L2.971 5.907a.327.327 0 01-.451 0L.094 3.506a.316.316 0 010-.446l.444-.44a.327.327 0 01.451 0L2.742 4.355 7.011.09a.327.327 0 01.45 0l.445.446a.316.316 0 010 .446z"/>
+    </svg>
+  </span>
+</button>
+
+{# Hidden input for form submission #}
+<input type="hidden" name="{{ name }}" value="{{ 'true' if _checked else 'false' }}">
+
+{% if label is defined and label %}
+<label class="mt-toggle-label" for="{{ _id }}">{{ label }}</label>
+</div>
+{% endif %}

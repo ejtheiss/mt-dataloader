@@ -1,0 +1,133 @@
+/*
+  MT Pagination CSS — Plain CSS translation of MT's PaginationRow styles
+  =======================================================================
+
+  CANONICAL SOURCES:
+
+  PaginationRow.tsx — platform/app/frontend/dashboard/components/ui-components/Pagination/PaginationRow.tsx
+    Outer layout: div.flex.items-center.justify-between                        (line 59)
+    Left side — page size: Popover trigger "Page size: {perPage}"               (line 61-88)
+      Trigger styled as text button, text-gray-700, with caret_down icon
+      Panel: ActionItem per perPageOptions (default [25, 50, 100])              (line 35)
+    Right side — nav: div.flex.items-center.gap-1[role="group"]                 (line 93)
+      Prev: Button[buttonType="text"] text-gray-600, Icon chevron_left          (line 94-102)
+      Range: currentCountDisplay "{lower}–{upper} of {total}"                   (line 50-56, 103)
+      Next: Button[buttonType="text"] text-gray-600, Icon chevron_right         (line 104-112)
+
+  EntityTableView.tsx — platform/app/frontend/dashboard/components/ui-components/EntityTableView/EntityTableView.tsx
+    Footer wrapper (line 718):
+      div.h-fit.rounded-b-lg.border.border-t-0.border-alpha-black-100.bg-white.p-s
+
+  MT Design Tokens:
+    --spacing-s: 0.75rem (12px)     (p-s in footer wrapper)
+    --color-alpha-black-100: rgba(0, 0, 0, 0.09)
+    --color-gray-600: #6B695D
+    --color-gray-700: #504E43
+    --color-gray-800: #303030
+    --color-blue-500: #386FB1
+*/
+
+/* ===== Pagination Footer Wrapper — EntityTableView.tsx line 718 ===== */
+/*
+  Original: @apply h-fit rounded-b-lg border border-t-0 border-alpha-black-100 bg-white p-s
+  This wraps the pagination below the table container.
+*/
+.pagination-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: fit-content;
+  border-bottom-left-radius: 0.5rem; /* rounded-b-lg */
+  border-bottom-right-radius: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.09); /* border-alpha-black-100 */
+  border-top: 0; /* border-t-0 */
+  background-color: #FFFFFF;
+  padding: 0.75rem; /* p-s = 12px */
+}
+
+/* ===== Page Size Selector — PaginationRow.tsx line 61-88 ===== */
+/*
+  MT uses a Popover trigger styled as a text button.
+  HTMX equivalent: <select> with same visual treatment.
+*/
+.pagination-size {
+  display: flex;
+  align-items: center;
+}
+
+.pagination-size-select {
+  appearance: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem; /* text-xs */
+  line-height: 1rem;
+  color: #504E43; /* text-gray-700 — matches PopoverTrigger */
+  font-weight: 400;
+  padding: 0.25rem 1.25rem 0.25rem 0.5rem;
+  /* Inline caret icon to match MT's Icon caret_down */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23504E43' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.25rem center;
+}
+
+.pagination-size-select:focus {
+  outline: none;
+}
+
+.pagination-size-select:hover {
+  color: #303030; /* text-gray-800 */
+}
+
+/* ===== Nav Controls — PaginationRow.tsx line 93 ===== */
+/*
+  Original: div.flex.items-center.gap-1[role="group"]
+*/
+.pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem; /* gap-1 = 4px */
+}
+
+/* ===== Prev/Next Buttons — PaginationRow.tsx line 94-102, 104-112 ===== */
+/*
+  MT: Button[buttonType="text"] with Icon chevron_left / chevron_right
+  Text button style: no background, no border, text-gray-600
+*/
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem; /* w-8 */
+  height: 2rem;
+  background: none;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  color: #6B695D; /* text-gray-600 */
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.pagination-btn:hover:not([disabled]) {
+  background-color: #F1F0EC; /* bg-gray-50 */
+  color: #303030; /* text-gray-800 */
+}
+
+.pagination-btn[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ===== Range Display — PaginationRow.tsx line 50-56 ===== */
+/*
+  Shows "{pageLowerBound}–{pageUpperBound} of {totalCount}"
+  Styled inline: text-xs text-gray-700
+*/
+.pagination-range {
+  font-size: 0.75rem; /* text-xs */
+  line-height: 1rem;
+  color: #504E43; /* text-gray-700 */
+  padding: 0 0.25rem;
+  white-space: nowrap;
+}

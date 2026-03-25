@@ -1,42 +1,48 @@
 {% set fs = flow_summaries[flow_idx] %}
-<div class="scenario-builder" id="scenario-builder-{{ flow_idx }}">
-    <h3>Scale: {{ fs.flow_ref }}</h3>
+<details class="accordion" id="scenario-builder-{{ flow_idx }}">
+    <summary class="accordion-toggle">
+        <span class="accordion-toggle-title">Scale: {{ fs.flow_ref }}</span>
+        {% if generation_recipes and fs.flow_ref in generation_recipes %}
+        <span class="chip">{{ generation_recipes[fs.flow_ref].get('instances', '?') }} instances</span>
+        {% endif %}
+    </summary>
+    <div class="accordion-body">
 
-    <div class="scenario-section">
-        <div class="scenario-section-label">Instances</div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>Count</label>
-                <input type="number" id="gen-instances-{{ flow_idx }}" class="input input-border" value="10" min="1" max="5000">
+        <div class="field-section">
+            <div class="field-section-label">Instances</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Count</label>
+                    <input type="number" id="gen-instances-{{ flow_idx }}" class="input input-border" value="10" min="1" max="5000">
+                </div>
             </div>
+            <input type="hidden" id="gen-seed-{{ flow_idx }}" value="424242">
         </div>
-        <input type="hidden" id="gen-seed-{{ flow_idx }}" value="424242">
-    </div>
 
-    {% if fs.actors %}
-    <div class="scenario-section">
-        <div class="scenario-section-label">Actors</div>
-        <div class="edge-case-list">
+        {% if fs.actors %}
+        <div class="field-section">
+            <div class="field-section-label">Actors</div>
             {% for actor in fs.actors %}
-            <div class="actor-frame-row" data-frame="{{ actor.frame_name }}" data-frame-type="{{ actor.frame_type }}">
-                <code class="actor-alias">{{ actor.frame_name }}</code>
-                <span class="actor-frame-alias">{{ actor.alias }}</span>
-                <span class="actor-slot-pills">{% for st in actor.slot_types %}<span class="slot-pill">{{ st }}</span>{% endfor %}</span>
+            <div class="field-row" data-frame="{{ actor.frame_name }}" data-frame-type="{{ actor.frame_type }}">
+                <code>{{ actor.frame_name }}</code>
+                <span class="chip chip--muted">{{ actor.alias }}</span>
+                {% for st in actor.slot_types %}<span class="badge badge--cool">{{ st }}</span>{% endfor %}
                 {% if actor.frame_type == 'direct' %}
-                <input type="text" class="actor-customer-name"
+                <input type="text" class="actor-customer-name input input-border"
                        data-frame="{{ actor.frame_name }}"
                        id="gen-actor-cn-{{ flow_idx }}-{{ loop.index0 }}"
                        value="{{ actor.customer_name }}"
-                       placeholder="Customer name">
+                       placeholder="Customer name"
+                       style="flex: 1; min-width: 120px;">
                 {% else %}
-                <select class="actor-entity-type"
+                <select class="actor-entity-type input input-border"
                         data-frame="{{ actor.frame_name }}"
                         id="gen-actor-et-{{ flow_idx }}-{{ loop.index0 }}"
                         onchange="cascadeDataset{{ flow_idx }}(this)">
                     <option value="business" selected>Business</option>
                     <option value="individual">Individual</option>
                 </select>
-                <select class="actor-dataset-select"
+                <select class="actor-dataset-select input input-border"
                         data-frame="{{ actor.frame_name }}"
                         id="gen-actor-ds-{{ flow_idx }}-{{ loop.index0 }}">
                     {% if seed_datasets %}
@@ -63,131 +69,135 @@
             </div>
             {% endfor %}
         </div>
-    </div>
-    {% endif %}
+        {% endif %}
 
-    {% if fs.optional_groups %}
-    <div class="scenario-section">
-        <div class="scenario-section-label">Edge Cases</div>
-        <div class="edge-case-list">
+        {% if fs.optional_groups %}
+        <div class="field-section">
+            <div class="field-section-label">Edge Cases</div>
             {% for og in fs.optional_groups %}
-            <div class="edge-case-item">
-                <span class="edge-case-badge">{{ og.label }}</span>
-                <span class="edge-case-detail">{{ og.step_count }} step{{ 's' if og.step_count != 1 else '' }} ({{ og.step_types|join(', ') }})</span>
+            <div class="field-row">
+                <span class="badge badge--warning">{{ og.label }}</span>
+                <span style="color: var(--mt-gray-500); font-size: 0.78rem;">{{ og.step_count }} step{{ 's' if og.step_count != 1 else '' }} ({{ og.step_types|join(', ') }})</span>
                 <input type="number" class="edge-case-count-input"
                        data-label="{{ og.label }}"
                        id="gen-edge-{{ flow_idx }}-{{ loop.index0 }}"
                        value="0" min="0" max="5000" step="1"
-                       title="Number of instances with this edge case">
+                       title="Number of instances with this edge case"
+                       style="width: 64px; margin-left: auto;">
             </div>
             {% endfor %}
         </div>
-    </div>
-    {% endif %}
-
-    {% if fs.amount_steps %}
-    <div class="scenario-section">
-        <div class="scenario-section-label">Money Movement</div>
-        <div class="amount-step-list">
-            <div class="amount-step-header">
-                <span>Step</span>
-                <span class="amount-header-right">Amount</span>
-            </div>
-            {% for as in fs.amount_steps %}
-            <div class="amount-step-item" data-base-amount="{{ as.amount }}" data-step-id="{{ as.step_id }}" data-variance-mode="global" data-step-index="{{ loop.index0 }}">
-                <button type="button" class="variance-lock-btn" title="Click to lock amount">
-                    <svg class="lock-icon lock-icon-unlocked" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
-                    <svg class="lock-icon lock-icon-locked" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <svg class="lock-icon lock-icon-custom" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                </button>
-                <code class="ref-name">{{ as.step_id }}</code>
-                <span class="ledgerable-pill ledgerable-{{ as.type }}">{{ as.type }}</span>
-                {% if loop.first %}
-                <span class="timing-pill timing-pill-t0" title="Base date — click calendar to change">T0</span>
-                <button type="button" class="timing-date-btn" title="Set base date">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                </button>
-                <input type="date" class="timing-date-input" style="display:none;">
-                {% else %}
-                <span class="timing-pill timing-pill-offset" title="Click to edit day offset">T+{{ loop.index0 }}</span>
-                <input type="number" class="timing-offset-input" value="{{ loop.index0 }}" min="0" max="365" step="1">
-                {% endif %}
-                <input type="number" class="variance-custom-input" min="0" max="100" step="0.5" placeholder="%">
-                <span class="amount-display">${{ '{:,.2f}'.format(as.amount / 100) }}</span>
-            </div>
-            {% endfor %}
-        </div>
-        <div class="form-row" style="margin-top: 8px;">
-            <div class="form-group">
-                <label>Variance % (±)</label>
-                <input type="number" id="gen-variance-{{ flow_idx }}" class="input input-border" value="0.0" min="0" max="100" step="0.5"
-                       onchange="updateAmountRanges{{ flow_idx }}()" oninput="updateAmountRanges{{ flow_idx }}()">
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <div class="scenario-section">
-        <div class="scenario-section-label">Staging</div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>Staged count</label>
-                <input type="number" id="gen-staged-{{ flow_idx }}" class="input input-border" value="0" min="0">
-            </div>
-            <div class="form-group">
-                <label>Stage from</label>
-                <select id="gen-staged-sel-{{ flow_idx }}" class="input input-border">
-                    <option value="happy_path">Happy path</option>
-                    <option value="all">All instances</option>
-                    {% for og in fs.optional_groups %}
-                    <option value="{{ og.label }}">{{ og.label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <div class="scenario-section">
-        <div class="scenario-section-label">Timing</div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>Base date (T0)</label>
-                <select id="gen-timing-base-{{ flow_idx }}" class="input input-border">
-                    <option value="today" selected>Today</option>
-                    <option value="today-30d">Today − 30d</option>
-                    <option value="today-60d">Today − 60d</option>
-                    <option value="today-90d">Today − 90d</option>
-                    <option value="today-180d">Today − 180d</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Spread instances over (days)</label>
-                <input type="number" id="gen-timing-spread-{{ flow_idx }}" class="input input-border" value="0" min="0" max="365" step="1">
-            </div>
-        </div>
-    </div>
-
-    <div class="canned-commands">
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(10, 0, 0, 0, {})">10 instances</button>
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 0, 0, {})">100 instances</button>
-        {% if fs.optional_groups %}
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 5, 0, 0, {})">100 + 5 edges</button>
         {% endif %}
+
         {% if fs.amount_steps %}
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 5, 0, {})">100 + 5% variance</button>
+        <div class="field-section">
+            <div class="field-section-label">Money Movement</div>
+            <div class="amount-step-list">
+                <div class="amount-step-header">
+                    <span>Step</span>
+                    <span class="amount-header-right">Amount</span>
+                </div>
+                {% for as in fs.amount_steps %}
+                <div class="amount-step-item" data-base-amount="{{ as.amount }}" data-step-id="{{ as.step_id }}" data-variance-mode="global" data-step-index="{{ loop.index0 }}">
+                    <button type="button" class="variance-lock-btn" title="Click to lock amount">
+                        <svg class="lock-icon lock-icon-unlocked" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                        <svg class="lock-icon lock-icon-locked" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <svg class="lock-icon lock-icon-custom" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </button>
+                    <code class="ref-name">{{ as.step_id }}</code>
+                    <span class="badge badge--cool">{{ as.type }}</span>
+                    {% if loop.first %}
+                    <span class="timing-pill timing-pill-t0" title="Base date — click calendar to change">T0</span>
+                    <button type="button" class="timing-date-btn" title="Set base date">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    </button>
+                    <input type="date" class="timing-date-input" style="display:none;">
+                    {% else %}
+                    <span class="timing-pill timing-pill-offset" title="Click to edit day offset">T+{{ loop.index0 }}</span>
+                    <input type="number" class="timing-offset-input" value="{{ loop.index0 }}" min="0" max="365" step="1">
+                    {% endif %}
+                    <span class="variance-custom-inputs" style="display:none;">
+                        <input type="number" class="variance-custom-min" min="-100" max="0" step="0.5" placeholder="min %" style="width:60px;">
+                        <input type="number" class="variance-custom-max" min="0" max="100" step="0.5" placeholder="max %" style="width:60px;">
+                    </span>
+                    <span class="amount-display">${{ '{:,.2f}'.format(as.amount / 100) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="form-row" style="margin-top: 8px; gap: 12px;">
+                <div class="form-group">
+                    <label title="How much amounts can decrease from base. E.g. -10 means amounts can drop to 90% of base.">Min %</label>
+                    <input type="number" id="gen-variance-min-{{ flow_idx }}" class="input input-border" value="0" min="-100" max="0" step="0.5"
+                           onchange="updateAmountRanges{{ flow_idx }}()" oninput="updateAmountRanges{{ flow_idx }}()">
+                    <span class="field-hint">e.g. −10 = down to 90%</span>
+                </div>
+                <div class="form-group">
+                    <label title="How much amounts can increase from base. E.g. 10 means amounts can rise to 110% of base.">Max %</label>
+                    <input type="number" id="gen-variance-max-{{ flow_idx }}" class="input input-border" value="0" min="0" max="100" step="0.5"
+                           onchange="updateAmountRanges{{ flow_idx }}()" oninput="updateAmountRanges{{ flow_idx }}()">
+                    <span class="field-hint">e.g. 10 = up to 110%</span>
+                </div>
+            </div>
+        </div>
         {% endif %}
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, {% if fs.optional_groups %}5{% else %}0{% endif %}, {% if fs.amount_steps %}5{% else %}0{% endif %}, 1, {})">100 + 1 staged</button>
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 0, 0, {base_date:'today-90d', spread_days:90})">90d seasoned</button>
-        <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 0, 0, {base_date:'today-30d', spread_days:30})">30d seasoned</button>
-    </div>
 
-    <div class="scenario-actions">
-        <button class="btn btn-secondary" onclick="genPreview{{ flow_idx }}()">Preview</button>
-        <button class="btn btn-primary" onclick="genApply{{ flow_idx }}()">Apply to Config</button>
-    </div>
+        <div class="field-section">
+            <div class="field-section-label">Staging</div>
+            <div id="staging-rules-{{ flow_idx }}">
+                <div class="staging-rule form-row" style="gap: 8px; align-items: flex-end;">
+                    <div class="form-group" style="flex: 0 0 80px;">
+                        <label title="How many instances from this pool to hold for manual fire.">Count</label>
+                        <input type="number" class="staging-count input input-border" value="0" min="0">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label title="Which instances to stage — happy path, all, or a specific edge case group.">Stage from</label>
+                        <select class="staging-selection input input-border">
+                            <option value="happy_path">Happy path</option>
+                            <option value="all">All instances</option>
+                            {% for og in fs.optional_groups %}
+                            <option value="{{ og.label }}">{{ og.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" style="margin-top: 6px;" onclick="addStagingRule{{ flow_idx }}()">+ Add condition</button>
+            <span class="field-hint" style="margin-top: 2px;">Each rule stages instances independently; results are combined</span>
+        </div>
 
-    <div id="gen-result-{{ flow_idx }}"></div>
-</div>
+        <div class="field-section">
+            <div class="field-section-label">Timing</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label title="Distribute instances across this many days so they don't all share the same dates. 0 = all instances use the same base date (today).">Spread over (days)</label>
+                    <input type="number" id="gen-timing-spread-{{ flow_idx }}" class="input input-border" value="0" min="0" max="365" step="1">
+                    <span class="field-hint">0 = all same day; base is always today</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="preset-bar">
+            <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(10, 0, 0, 0, 0, {})">10 instances</button>
+            <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 0, 0, 0, {})">100 instances</button>
+            {% if fs.optional_groups %}
+            <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 5, 0, 0, 0, {})">100 + 5 edges</button>
+            {% endif %}
+            {% if fs.amount_steps %}
+            <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, -5, 5, 0, {})">100 + ±5% variance</button>
+            {% endif %}
+            <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, {% if fs.optional_groups %}5{% else %}0{% endif %}, {% if fs.amount_steps %}-5{% else %}0{% endif %}, {% if fs.amount_steps %}5{% else %}0{% endif %}, 1, {})">100 + 1 staged</button>
+            <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 0, 0, 0, {spread_days:30})">30d spread</button>
+            <button class="btn btn-sm btn-outline" onclick="setPreset{{ flow_idx }}(100, 0, 0, 0, 0, {spread_days:90})">90d spread</button>
+        </div>
+
+        <div class="accordion-footer">
+            <button class="btn btn-secondary btn-sm" onclick="genPreview{{ flow_idx }}()">Preview</button>
+            <button class="btn btn-primary btn-sm" onclick="genApply{{ flow_idx }}()">Apply to Config</button>
+        </div>
+
+        <div id="gen-result-{{ flow_idx }}"></div>
+    </div>
+</details>
 
 <script>
 (function() {
@@ -215,6 +225,31 @@
         }
     };
 
+    var stagingSelectionOptions = [
+        {value: "happy_path", label: "Happy path"},
+        {value: "all", label: "All instances"}{% for og in fs.optional_groups %},
+        {value: {{ og.label|tojson }}, label: {{ og.label|tojson }}}{% endfor %}
+    ];
+
+    window['addStagingRule' + idx] = function(count, selection) {
+        var container = document.getElementById('staging-rules-' + idx);
+        var row = document.createElement('div');
+        row.className = 'staging-rule form-row';
+        row.style.cssText = 'gap: 8px; align-items: flex-end; margin-top: 4px;';
+        var opts = stagingSelectionOptions.map(function(o) {
+            return '<option value="' + o.value + '"' + (o.value === (selection || 'happy_path') ? ' selected' : '') + '>' + o.label + '</option>';
+        }).join('');
+        row.innerHTML =
+            '<div class="form-group" style="flex: 0 0 80px;">' +
+                '<input type="number" class="staging-count input input-border" value="' + (count || 0) + '" min="0">' +
+            '</div>' +
+            '<div class="form-group" style="flex: 1;">' +
+                '<select class="staging-selection input input-border">' + opts + '</select>' +
+            '</div>' +
+            '<button type="button" class="btn btn-sm btn-outline" style="margin-bottom: 2px;" onclick="this.closest(\'.staging-rule\').remove()">✕</button>';
+        container.appendChild(row);
+    };
+
     function syncEdgeMax() {
         var max = parseInt(el('gen-instances').value) || 1;
         var edgeInputs = document.querySelectorAll('#scenario-builder-' + idx + ' .edge-case-count-input');
@@ -230,28 +265,37 @@
         return '$' + (cents / 100).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     }
 
-    function renderRowAmount(row, globalPct) {
+    function getGlobalVariance() {
+        var lo = parseFloat((el('gen-variance-min') || {value:'0'}).value) || 0;
+        var hi = parseFloat((el('gen-variance-max') || {value:'0'}).value) || 0;
+        return {min: lo, max: hi};
+    }
+
+    function renderRowAmount(row, gv) {
         var base = parseInt(row.getAttribute('data-base-amount')) || 0;
         var display = row.querySelector('.amount-display');
         if (!display) return;
         var mode = row.getAttribute('data-variance-mode');
-        var pct = 0;
-        if (mode === 'global') pct = globalPct;
-        else if (mode === 'custom') pct = parseFloat(row.querySelector('.variance-custom-input').value) || 0;
+        var lo = 0, hi = 0;
+        if (mode === 'global') { lo = gv.min; hi = gv.max; }
+        else if (mode === 'custom') {
+            lo = parseFloat(row.querySelector('.variance-custom-min').value) || 0;
+            hi = parseFloat(row.querySelector('.variance-custom-max').value) || 0;
+        }
 
-        if (pct <= 0) {
+        if (lo >= 0 && hi <= 0) {
             display.textContent = fmtAmt(base);
             display.classList.remove('amount-range');
         } else {
-            display.textContent = fmtAmt(base * (1 - pct / 100)) + ' – ' + fmtAmt(base * (1 + pct / 100));
+            display.textContent = fmtAmt(Math.round(base * (1 + lo/100))) + ' – ' + fmtAmt(Math.round(base * (1 + hi/100)));
             display.classList.add('amount-range');
         }
     }
 
     window['updateAmountRanges' + idx] = function() {
-        var globalPct = parseFloat((el('gen-variance') || {value: '0'}).value) || 0;
+        var gv = getGlobalVariance();
         var items = document.querySelectorAll('#scenario-builder-' + idx + ' .amount-step-item');
-        items.forEach(function(row) { renderRowAmount(row, globalPct); });
+        items.forEach(function(row) { renderRowAmount(row, gv); });
     };
 
     (function() {
@@ -262,17 +306,23 @@
             if (!btn) return;
             var row = btn.closest('.amount-step-item');
             var mode = row.getAttribute('data-variance-mode');
-            if (mode === 'global') row.setAttribute('data-variance-mode', 'locked');
-            else if (mode === 'locked') row.setAttribute('data-variance-mode', 'custom');
-            else row.setAttribute('data-variance-mode', 'global');
-            var globalPct = parseFloat((el('gen-variance') || {value: '0'}).value) || 0;
-            renderRowAmount(row, globalPct);
+            var customInputs = row.querySelector('.variance-custom-inputs');
+            if (mode === 'global') {
+                row.setAttribute('data-variance-mode', 'locked');
+                if (customInputs) customInputs.style.display = 'none';
+            } else if (mode === 'locked') {
+                row.setAttribute('data-variance-mode', 'custom');
+                if (customInputs) customInputs.style.display = '';
+            } else {
+                row.setAttribute('data-variance-mode', 'global');
+                if (customInputs) customInputs.style.display = 'none';
+            }
+            renderRowAmount(row, getGlobalVariance());
         });
         container.addEventListener('input', function(e) {
-            if (!e.target.classList.contains('variance-custom-input')) return;
+            if (!e.target.classList.contains('variance-custom-min') && !e.target.classList.contains('variance-custom-max')) return;
             var row = e.target.closest('.amount-step-item');
-            var globalPct = parseFloat((el('gen-variance') || {value: '0'}).value) || 0;
-            renderRowAmount(row, globalPct);
+            renderRowAmount(row, getGlobalVariance());
         });
     })();
 
@@ -323,18 +373,33 @@
             seed: parseInt(el('gen-seed').value),
             seed_dataset: "standard",
             edge_case_count: 0,
-            amount_variance_pct: parseFloat((el('gen-variance') || {value: '0'}).value),
-            staged_count: parseInt(el('gen-staged').value),
-            staged_selection: el('gen-staged-sel').value,
+            amount_variance_min_pct: parseFloat((el('gen-variance-min') || {value: '0'}).value) || 0,
+            amount_variance_max_pct: parseFloat((el('gen-variance-max') || {value: '0'}).value) || 0,
         };
+        var stagingRules = [];
+        document.querySelectorAll('#staging-rules-' + idx + ' .staging-rule').forEach(function(row) {
+            var count = parseInt(row.querySelector('.staging-count').value) || 0;
+            if (count > 0) {
+                stagingRules.push({
+                    count: count,
+                    selection: row.querySelector('.staging-selection').value,
+                });
+            }
+        });
+        if (stagingRules.length > 0) recipe.staging_rules = stagingRules;
         var stepVariance = {};
         document.querySelectorAll('#scenario-builder-' + idx + ' .amount-step-item').forEach(function(row) {
             var mode = row.getAttribute('data-variance-mode');
             var stepId = row.getAttribute('data-step-id');
-            if (mode === 'locked') stepVariance[stepId] = 0;
-            else if (mode === 'custom') stepVariance[stepId] = parseFloat(row.querySelector('.variance-custom-input').value) || 0;
+            if (mode === 'locked') stepVariance[stepId] = {};
+            else if (mode === 'custom') {
+                stepVariance[stepId] = {
+                    min_pct: parseFloat(row.querySelector('.variance-custom-min').value) || 0,
+                    max_pct: parseFloat(row.querySelector('.variance-custom-max').value) || 0,
+                };
+            }
         });
-        if (Object.keys(stepVariance).length > 0) recipe.step_variance_pct = stepVariance;
+        if (Object.keys(stepVariance).length > 0) recipe.step_variance = stepVariance;
         var edgeInputs = document.querySelectorAll('#scenario-builder-' + idx + ' .edge-case-count-input');
         var edgeOverrides = {};
         edgeInputs.forEach(function(input) {
@@ -350,7 +415,7 @@
         }
 
         var overrides = {};
-        document.querySelectorAll('#scenario-builder-' + idx + ' .actor-frame-row').forEach(function(row) {
+        document.querySelectorAll('#scenario-builder-' + idx + ' .field-row[data-frame]').forEach(function(row) {
             var frame = row.getAttribute('data-frame');
             var frameType = row.getAttribute('data-frame-type');
             if (frameType === 'direct') {
@@ -372,18 +437,14 @@
         }
 
         var spreadDays = parseInt(el('gen-timing-spread').value) || 0;
-        var baseDate = el('gen-timing-base').value;
-        var dateInput = document.querySelector('#scenario-builder-' + idx + ' .timing-date-input');
-        var customDate = dateInput && dateInput.value ? dateInput.value : null;
         var stepOffsets = {};
         document.querySelectorAll('#scenario-builder-' + idx + ' .amount-step-item').forEach(function(row) {
             var stepId = row.getAttribute('data-step-id');
             var offsetInput = row.querySelector('.timing-offset-input');
             if (offsetInput) stepOffsets[stepId] = parseInt(offsetInput.value) || 0;
         });
-        if (spreadDays > 0 || baseDate !== 'today' || customDate || Object.keys(stepOffsets).length > 0) {
+        if (spreadDays > 0 || Object.keys(stepOffsets).length > 0) {
             recipe.timing = {
-                base_date: customDate || baseDate,
                 instance_spread_days: spreadDays,
             };
             if (Object.keys(stepOffsets).length > 0) recipe.timing.step_offsets = stepOffsets;
@@ -392,15 +453,40 @@
         return recipe;
     }
 
-    window['setPreset' + idx] = function(instances, edge, variance, staged, timing) {
+    function resetStagingRules(rules) {
+        var container = document.getElementById('staging-rules-' + idx);
+        var rows = container.querySelectorAll('.staging-rule');
+        if (rules && rules.length > 0) {
+            // Set first row from first rule
+            rows[0].querySelector('.staging-count').value = rules[0].count || 0;
+            rows[0].querySelector('.staging-selection').value = rules[0].selection || 'happy_path';
+            // Remove extra rows
+            for (var i = rows.length - 1; i > 0; i--) rows[i].remove();
+            // Add remaining rules
+            for (var j = 1; j < rules.length; j++) {
+                window['addStagingRule' + idx](rules[j].count, rules[j].selection);
+            }
+        } else {
+            rows[0].querySelector('.staging-count').value = 0;
+            rows[0].querySelector('.staging-selection').value = 'happy_path';
+            for (var k = rows.length - 1; k > 0; k--) rows[k].remove();
+        }
+    }
+
+    window['setPreset' + idx] = function(instances, edge, varMin, varMax, staged, timing) {
         el('gen-instances').value = instances;
         var edgeInputs = document.querySelectorAll('#scenario-builder-' + idx + ' .edge-case-count-input');
         edgeInputs.forEach(function(input) { input.value = edge; input.max = instances; });
-        if (el('gen-variance')) el('gen-variance').value = variance;
-        el('gen-staged').value = staged;
+        if (el('gen-variance-min')) el('gen-variance-min').value = varMin;
+        if (el('gen-variance-max')) el('gen-variance-max').value = varMax;
+        if (staged > 0) {
+            resetStagingRules([{count: staged, selection: 'happy_path'}]);
+        } else {
+            resetStagingRules([]);
+        }
         timing = timing || {};
-        el('gen-timing-base').value = timing.base_date || 'today';
         el('gen-timing-spread').value = timing.spread_days || 0;
+        window['updateAmountRanges' + idx]();
     };
 
     window['genPreview' + idx] = async function() {
@@ -416,26 +502,26 @@
             var data = await resp.json();
             var out = document.getElementById('gen-result-' + idx);
             if (data.error) {
-                out.innerHTML = '<div class="error-alert"><h3>Error</h3><p>' + data.error + (data.detail ? '<br>' + data.detail : '') + '</p></div>';
+                out.innerHTML = '<div class="alert alert--critical"><p>' + data.error + (data.detail ? '<br>' + data.detail : '') + '</p></div>';
                 return;
             }
-            var html = '<div class="gen-preview-stats">' +
+            var html = '<div style="font-size: 0.85rem; padding: 10px 0;">' +
                 '<strong>' + data.total_resources + '</strong> resources, ' +
                 '<strong>' + data.estimated_api_calls + '</strong> API calls, ' +
                 '<strong>' + data.estimated_batches + '</strong> batches';
             if (data.needs_confirmation) {
-                html += '<br><span class="warning-badge">Large run — will require confirmation</span>';
+                html += '<br><span class="badge badge--warning" style="margin-top: 4px;">Large run — will require confirmation</span>';
             }
             if (data.edge_case_map && Object.keys(data.edge_case_map).length > 0) {
-                html += '<div class="edge-case-map">';
+                html += '<div style="margin-top: 8px;">';
                 html += '<strong>Edge case assignments:</strong>';
                 for (var label in data.edge_case_map) {
                     var indices = data.edge_case_map[label];
                     var display = indices.length <= 20
                         ? indices.map(function(i) { return '#' + String(i).padStart(4, '0'); }).join(', ')
                         : indices.length + ' instances';
-                    html += '<div class="edge-map-row"><span class="edge-case-badge">' + label +
-                        '</span> <span class="edge-map-instances">' + display + '</span></div>';
+                    html += '<div style="display:flex; align-items:center; gap:6px; margin-top:4px;"><span class="badge badge--warning">' + label +
+                        '</span> <span style="color:var(--mt-gray-500); font-size:0.8rem;">' + display + '</span></div>';
                 }
                 html += '</div>';
             }
@@ -460,25 +546,43 @@
             var out = document.getElementById('gen-result-' + idx);
             if (data.error) {
                 out.innerHTML =
-                    '<div class="error-alert"><h3>Generation failed</h3><p>' + data.error + (data.detail ? '<br>' + data.detail : '') + '</p></div>';
+                    '<div class="alert alert--critical"><p>' + data.error + (data.detail ? '<br>' + data.detail : '') + '</p></div>';
                 return;
             }
             out.innerHTML = '';
-            showToast('Config applied — ' + data.total_resources + ' resources, ' + data.mermaid_count + ' diagram(s)');
+            var recipeNote = data.recipe_count > 1 ? ' (' + data.recipe_count + ' flows scaled)' : '';
+            showToast('Config applied — ' + data.total_resources + ' resources, ' + data.mermaid_count + ' diagram(s)' + recipeNote);
+            var toggle = document.querySelector('#scenario-builder-' + idx + ' > .accordion-toggle');
+            if (toggle) {
+                var existing = toggle.querySelector('.chip');
+                var instances = parseInt(el('gen-instances').value) || 0;
+                if (existing) { existing.textContent = instances + ' instances'; }
+                else {
+                    var chip = document.createElement('span');
+                    chip.className = 'chip';
+                    chip.textContent = instances + ' instances';
+                    toggle.appendChild(chip);
+                }
+            }
         } finally {
             btn.disabled = false; btn.textContent = 'Apply to Config';
         }
     };
 
-    var savedRecipe = {{ generation_recipe|default('null')|tojson }};
-    if (savedRecipe && savedRecipe.flow_ref === flowRef) {
+    var allRecipes = {{ generation_recipes|default('{}')|tojson }};
+    var savedRecipe = allRecipes[flowRef] || null;
+    if (savedRecipe) {
         el('gen-instances').value = savedRecipe.instances || 10;
         el('gen-seed').value = savedRecipe.seed || 424242;
-        if (savedRecipe.amount_variance_pct != null && el('gen-variance'))
-            el('gen-variance').value = savedRecipe.amount_variance_pct;
-        el('gen-staged').value = savedRecipe.staged_count || 0;
-        if (savedRecipe.staged_selection)
-            el('gen-staged-sel').value = savedRecipe.staged_selection;
+        if (savedRecipe.amount_variance_min_pct != null && el('gen-variance-min'))
+            el('gen-variance-min').value = savedRecipe.amount_variance_min_pct;
+        if (savedRecipe.amount_variance_max_pct != null && el('gen-variance-max'))
+            el('gen-variance-max').value = savedRecipe.amount_variance_max_pct;
+        if (savedRecipe.staging_rules && savedRecipe.staging_rules.length > 0) {
+            resetStagingRules(savedRecipe.staging_rules);
+        } else if (savedRecipe.staged_count > 0) {
+            resetStagingRules([{count: savedRecipe.staged_count, selection: savedRecipe.staged_selection || 'happy_path'}]);
+        }
         if (savedRecipe.edge_case_overrides) {
             for (var label in savedRecipe.edge_case_overrides) {
                 var inp = document.querySelector(
@@ -488,29 +592,29 @@
                 if (inp) inp.value = savedRecipe.edge_case_overrides[label].count || 0;
             }
         }
-        if (savedRecipe.step_variance_pct) {
-            for (var sid in savedRecipe.step_variance_pct) {
+        if (savedRecipe.step_variance) {
+            for (var sid in savedRecipe.step_variance) {
                 var row = document.querySelector(
                     '#scenario-builder-' + idx + ' .amount-step-item[data-step-id="' + sid + '"]'
                 );
                 if (!row) continue;
-                var v = savedRecipe.step_variance_pct[sid];
-                if (v === 0) {
+                var sv = savedRecipe.step_variance[sid];
+                if (!sv || (Object.keys(sv).length === 0)) {
                     row.setAttribute('data-variance-mode', 'locked');
                 } else {
                     row.setAttribute('data-variance-mode', 'custom');
-                    row.querySelector('.variance-custom-input').value = v;
+                    var customInputs = row.querySelector('.variance-custom-inputs');
+                    if (customInputs) customInputs.style.display = '';
+                    var minInput = row.querySelector('.variance-custom-min');
+                    var maxInput = row.querySelector('.variance-custom-max');
+                    if (minInput) minInput.value = sv.min_pct || 0;
+                    if (maxInput) maxInput.value = sv.max_pct || 0;
                 }
             }
         }
         if (savedRecipe.timing) {
             var t = savedRecipe.timing;
-            if (el('gen-timing-base')) el('gen-timing-base').value = t.base_date || 'today';
             if (el('gen-timing-spread')) el('gen-timing-spread').value = t.instance_spread_days || 0;
-            if (t.base_date && t.base_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                var dateInput = document.querySelector('#scenario-builder-' + idx + ' .timing-date-input');
-                if (dateInput) { dateInput.value = t.base_date; dateInput.style.display = ''; }
-            }
             if (t.step_offsets) {
                 document.querySelectorAll('#scenario-builder-' + idx + ' .amount-step-item').forEach(function(row) {
                     var stepId = row.getAttribute('data-step-id');

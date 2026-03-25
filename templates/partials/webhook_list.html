@@ -1,0 +1,153 @@
+{#
+  MT Webhook List — Jinja2 partial (Listener → Webhooks migration)
+  ============================================================
+  Canonical sources:
+    - WebhookEndpointsHome.tsx    (lines 36-142)   — ListView with enableFilters
+    - WebhookEndpointsHome.tsx    (lines 68-85)    — health alerts for unresponsive endpoints
+    - ListView.tsx                                  — EntityTableView + PaginationRow wrapper
+    - EntityTableView.tsx                           — IndexTable + SearchContainer
+    - IndexTable.tsx              (lines 1595-1640) — sortable headers, clickable rows
+    - WebhookEndpointView.tsx     (lines 248-299)  — detail page pattern (target for row click)
+
+  Migration: listen.html → webhook_list.html
+  ============================================================
+  CURRENT (listen.html):
+    - tunnel banner (keep as-is, domain-specific)
+    - dropdown filter by run ID
+    - "Send Test Webhook" button
+    - Live feed of webhook_card.html cards via SSE
+    - Cards show: event_type, time, resource_type, resource_id, typed_ref, run_id link, payload accordion
+
+  TARGET (MT Webhooks pattern):
+    - Page header with title + breadcrumbs + actions
+    - Filter bar with Chip pills (filter by run, event type, resource type)
+    - IndexTable with columns: Event, Resource, ID, Run, Time, Status
+    - Clickable rows → drawer with full webhook detail (headers, body as JsonView)
+    - Pagination row
+    - SSE still works — new webhooks insert as table rows, not cards
+
+  Parameters:
+    webhooks          — list of webhook dicts from server
+    run_ids           — list of available run IDs for filtering
+    selected_run_id   — currently selected run filter
+    tunnel_url        — tunnel URL (for banner)
+    webhook_path      — webhook endpoint path
+  ============================================================
+#}
+
+{# --- Tunnel Banner (domain-specific, no MT equivalent — keep) --- #}
+{% if tunnel_url %}
+<div class="alert alert-info" style="margin-bottom: 16px;">
+  <strong>Tunnel active:</strong>
+  <code>{{ tunnel_url }}{{ webhook_path }}</code>
+  <button type="button" class="btn btn-sm btn-outline" style="margin-left: 8px;"
+          onclick="navigator.clipboard.writeText('{{ tunnel_url }}{{ webhook_path }}'); showToast({message: 'URL copied', status: 'success', duration: 2000})">
+    Copy
+  </button>
+</div>
+{% else %}
+<div class="alert alert-warning" style="margin-bottom: 16px;">
+  <strong>No tunnel detected.</strong> Start ngrok to receive webhooks: <code>ngrok http 8000</code>
+</div>
+{% endif %}
+
+{# --- Filter Bar --- #}
+{# Source: WebhookEndpointsHome.tsx lines 36-55 — enableFilters on ListView #}
+{# Source: SearchContainer.tsx — FilterArea + ColumnSelectorDropdown #}
+{# Source: FilterArea.tsx — filter pills #}
+<div class="mt-filter-bar">
+  <div class="mt-filter-bar-inner">
+    <div class="mt-filter-bar-left">
+      {# Run ID filter as dropdown (app-specific, but styled as MT filter) #}
+      <div class="mt-filter-dropdown">
+        <button type="button" class="mt-filter-trigger" onclick="this.nextElementSibling.classList.toggle('hidden')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="4" y1="6" x2="20" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/>
+          </svg>
+        </button>
+        <div class="mt-filter-panel hidden">
+          <button type="button" class="mt-filter-option" onclick="addFilter('event_type', 'Event Type'); this.closest('.mt-filter-panel').classList.add('hidden')">Event Type</button>
+          <button type="button" class="mt-filter-option" onclick="addFilter('resource_type', 'Resource Type'); this.closest('.mt-filter-panel').classList.add('hidden')">Resource Type</button>
+        </div>
+      </div>
+
+      {# Run ID select — styled as MT chip-like selector #}
+      <select id="run-filter" class="mt-filter-search" style="min-width: 220px;"
+              onchange="filterByRun(this.value)">
+        <option value="">All webhooks</option>
+        {% for rid in run_ids %}
+        <option value="{{ rid }}" {% if selected_run_id == rid %}selected{% endif %}>
+          {{ rid[:8] }}…{{ rid[-8:] }}
+        </option>
+        {% endfor %}
+      </select>
+
+      {# Applied filter pills #}
+      <div class="mt-filter-pills" id="active-filters"></div>
+    </div>
+
+    <div class="mt-filter-bar-right">
+      {# Source: WebhookEndpointView.tsx line 245 — ActionDropdown #}
+      <button type="button" class="btn btn-sm btn-outline" id="btn-test-webhook">
+        Send Test Webhook
+      </button>
+    </div>
+  </div>
+</div>
+
+{# --- Webhook IndexTable --- #}
+{# Source: IndexTable.tsx — sortable headers, clickable rows #}
+{# Source: EntityTableView.tsx — table wrapper #}
+{# Replaces: div#live-webhooks with webhook_card.html cards #}
+<div class="mt-index-table" role="table" id="webhook-table">
+  {# Source: IndexTable.tsx Thead — header row #}
+  <div class="mt-index-table-header" role="row">
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 25%;"
+         data-sort-column="event_type" onclick="handleSortClick(this, 'event_type')">
+      <span>Event</span>
+      <span class="mt-sort-icon">&#8597;</span>
+    </div>
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 15%;"
+         data-sort-column="resource_type" onclick="handleSortClick(this, 'resource_type')">
+      <span>Resource</span>
+      <span class="mt-sort-icon">&#8597;</span>
+    </div>
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 20%;">
+      <span>ID</span>
+    </div>
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 20%;"
+         data-sort-column="run_id">
+      <span>Run</span>
+    </div>
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 12%;"
+         data-sort-column="received_at" onclick="handleSortClick(this, 'received_at')">
+      <span>Time</span>
+      <span class="mt-sort-icon">&#8597;</span>
+    </div>
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 8%;">
+      <span>Status</span>
+    </div>
+  </div>
+
+  {# Source: IndexTable.tsx Tbody — data rows #}
+  <div class="mt-index-table-body" role="rowgroup" id="live-webhooks">
+    {% if webhook_history is defined and webhook_history %}
+      {% for wh in webhook_history %}
+      {% include "partials/webhook_row.html" %}
+      {% endfor %}
+    {% else %}
+      <div class="mt-index-table-empty" id="webhook-empty">
+        {% set empty_title = "Waiting for webhooks" %}
+        {% set empty_description = "Webhooks will appear here as they are received." %}
+        {% include "partials/empty_state.html" %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# --- Drawer for webhook detail --- #}
+{# Source: WebhookEndpointView.tsx lines 261-274 — DetailsTable #}
+{# Source: WebhookDeliveryAttemptsView.tsx lines 44-73 — JsonView for headers/body #}
+{# Source: DrawerActions.tsx — close, open-as-page, open-in-new-tab, copy-link #}
+{% set drawer_id = "webhook-detail-drawer" %}
+{% include "partials/drawer.html" %}

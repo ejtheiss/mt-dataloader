@@ -282,6 +282,78 @@ class StepTimingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    delay_days: float = 0.0
-    delay_jitter_days: float = 0.0
+    delay_hours: float = 0.0
+    delay_jitter_hours: float = 0.0
     business_days_only: bool = True
+
+
+class SettlementDefaultsConfig(BaseModel):
+    """Default settlement delays (hours) by payment rail.
+
+    Lookup key can be ``"payment_type"`` or ``"payment_type:direction"``
+    for direction-specific overrides.  Most-specific key wins:
+
+        settlement_hours["ach:debit"]  →  settlement_hours["ach"]  →  0.0
+
+    Step types listed in ``no_delay_step_types`` always resolve to 0
+    regardless of payment_type (e.g. IPDs are inbound detections, not
+    outbound settlements).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    settlement_hours: dict[str, float] = Field(
+        default_factory=lambda: {
+            "ach": 48.0,
+            "ach:debit": 48.0,
+            "ach:credit": 24.0,
+            "wire": 0.0,
+            "book": 0.0,
+            "rtp": 0.0,
+            "check": 120.0,
+            "eft": 72.0,
+            "sepa": 24.0,
+            "bacs": 72.0,
+        },
+        description=(
+            "Keys are 'payment_type' or 'payment_type:direction'. "
+            "Direction-specific keys take priority over bare payment_type. "
+            "Values are in hours."
+        ),
+    )
+
+    return_hours: dict[str, float] = Field(
+        default_factory=lambda: {
+            "ach": 72.0,
+            "wire": 120.0,
+            "book": 0.0,
+            "check": 240.0,
+        },
+    )
+
+    no_delay_step_types: set[str] = Field(
+        default_factory=lambda: {
+            "incoming_payment_detail",
+            "expected_payment",
+            "ledger_transaction",
+            "transition_ledger_transaction",
+        },
+        description=(
+            "Step types that never receive default settlement delay. "
+            "IPDs are inbound detections, EPs are expectations — "
+            "neither has an outbound settlement window."
+        ),
+    )
+
+    def lookup_settlement(
+        self, payment_type: str, direction: str, step_type: str,
+    ) -> float:
+        """Resolve the default settlement delay (hours) for a step."""
+        if step_type in self.no_delay_step_types:
+            return 0.0
+        if step_type == "return":
+            return self.return_hours.get(payment_type, 0.0)
+        specific = f"{payment_type}:{direction}"
+        if specific in self.settlement_hours:
+            return self.settlement_hours[specific]
+        return self.settlement_hours.get(payment_type, 0.0)

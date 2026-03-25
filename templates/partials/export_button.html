@@ -1,0 +1,73 @@
+{#
+  MT Export Button — Jinja2 partial
+  ============================================================
+  Canonical sources:
+    - ExportDataButton.tsx        (lines 113-279)  — full component
+    - ExportCSVButton             (lines 48-87)    — single export button
+    - ExportDataButton.tsx        (lines 232-278)  — multi-option dropdown
+    - ExportDataButton.tsx        (lines 72-81)    — download_to icon
+    - ExportDataButton.tsx        (lines 180-195)  — toast after export
+
+  MT ExportDataButton structure:
+    Single option:
+      <Button onClick={initiateExport}>
+        <Icon iconName="download_to" className="text-gray-700" />
+        Export CSV
+      </Button>
+
+    Multiple options:
+      <Popover>
+        <PopoverTrigger>
+          <Icon iconName="download_to" /> Export CSV <Icon iconName="chevron_down" />
+        </PopoverTrigger>
+        <PopoverPanel>
+          <ActionItem onClick={...}>Export as JSON</ActionItem>
+          <ActionItem onClick={...}>Export as CSV</ActionItem>
+        </PopoverPanel>
+      </Popover>
+
+  Parameters:
+    exports       — list of dicts: [{label, onclick}] or single {label, onclick}
+                    onclick is a JS function name string
+    button_class  — optional extra classes
+  ============================================================
+#}
+
+{% if exports is defined and exports is iterable and exports is not string %}
+  {% if exports | length == 1 %}
+  {# Single export button — Source: ExportCSVButton lines 48-87 #}
+  <button type="button"
+          class="mt-export-btn {{ button_class | default('') }}"
+          onclick="{{ exports[0].onclick }}"
+          id="export-btn">
+    <svg class="mt-export-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    {{ exports[0].label | default('Export') }}
+  </button>
+  {% else %}
+  {# Multi-option dropdown — Source: ExportDataButton lines 232-278 #}
+  <div class="mt-export-dropdown">
+    <button type="button"
+            class="mt-export-btn {{ button_class | default('') }}"
+            onclick="this.nextElementSibling.classList.toggle('hidden')"
+            id="export-btn">
+      <svg class="mt-export-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Export
+      <svg class="mt-export-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </button>
+    <div class="mt-export-panel hidden">
+      {% for exp in exports %}
+      <button type="button" class="mt-export-option"
+              onclick="{{ exp.onclick }}; this.closest('.mt-export-panel').classList.add('hidden')">
+        {{ exp.label }}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+{% endif %}

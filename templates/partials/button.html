@@ -1,0 +1,76 @@
+{#
+  MT Button — Jinja2 partial
+  ============================================================
+  Canonical source: Button.tsx (lines 68-168)
+
+  Button types: primary, secondary, destructive, internal, text, link
+  Button heights: xs (h-6), sm (h-7), md (h-8, default), lg (h-10), xl (h-11)
+
+  Parameters:
+    label         — button text
+    type          — "primary" | "secondary" | "destructive" | "internal" | "text" | "link" (default: "secondary")
+    height        — "xs" | "sm" | "md" | "lg" | "xl" (default: "md")
+    icon          — optional SVG icon HTML to prepend
+    disabled      — bool (default: false)
+    full_width    — bool (default: false)
+    icon_only     — bool (default: false)
+    href          — if set, renders as <a> instead of <button>
+    onclick       — JS onclick handler
+    submit        — bool, renders type="submit" (default: false)
+    class         — additional CSS classes
+    attrs         — additional HTML attributes string (e.g. hx-post="..." hx-target="...")
+  ============================================================
+
+  Usage:
+    {# Primary button #}
+    {% set label = "Save" %}
+    {% set type = "primary" %}
+    {% include "partials/button.html" %}
+
+    {# Secondary with icon #}
+    {% set label = "Export" %}
+    {% set type = "secondary" %}
+    {% set icon = '<svg ...>...</svg>' %}
+    {% include "partials/button.html" %}
+
+    {# Destructive small #}
+    {% set label = "Delete" %}
+    {% set type = "destructive" %}
+    {% set height = "sm" %}
+    {% include "partials/button.html" %}
+
+    {# Link button (as anchor) #}
+    {% set label = "View Details" %}
+    {% set type = "link" %}
+    {% set href = "/runs/123" %}
+    {% include "partials/button.html" %}
+  ============================================================
+#}
+
+{% set _type = type | default("secondary") %}
+{% set _height = height | default("md") %}
+{% set _disabled = disabled | default(false) %}
+{% set _full = full_width | default(false) %}
+{% set _icon_only = icon_only | default(false) %}
+{% set _submit = submit | default(false) %}
+
+{% set _classes = "mt-btn mt-btn--" ~ _type ~ " mt-btn--" ~ _height %}
+{% if _full %}{% set _classes = _classes ~ " mt-btn--full" %}{% endif %}
+{% if _icon_only %}{% set _classes = _classes ~ " mt-btn--icon-only" %}{% endif %}
+{% if class is defined and class %}{% set _classes = _classes ~ " " ~ class %}{% endif %}
+
+{% if href is defined and href %}
+<a href="{{ href }}" class="{{ _classes }}" {{ attrs | default('') }}>
+  {% if icon is defined and icon %}<span class="mt-btn-icon">{{ icon }}</span>{% endif %}
+  {{ label }}
+</a>
+{% else %}
+<button type="{{ 'submit' if _submit else 'button' }}"
+        class="{{ _classes }}"
+        {% if _disabled %}disabled{% endif %}
+        {% if onclick is defined and onclick %}onclick="{{ onclick }}"{% endif %}
+        {{ attrs | default('') }}>
+  {% if icon is defined and icon %}<span class="mt-btn-icon">{{ icon }}</span>{% endif %}
+  {{ label }}
+</button>
+{% endif %}

@@ -1,0 +1,61 @@
+{#
+  MT JSON View — Jinja2 partial
+  ============================================================
+  Canonical sources:
+    - JsonView.tsx                (lines 39-69)    — ReactJson wrapper with defaults
+    - JsonView.tsx                (lines 41-44)    — defaults: collapsed=false, name=false, displayObjectSize=false, displayDataTypes=false
+    - WebhookDeliveryAttemptsView.tsx (lines 48-61) — JsonView for headers & body
+    - EventView.tsx               (lines 102-108)  — JsonView for event data
+
+  MT JsonView defaults:
+    collapsed: false (or number for nested level)
+    name: false (hide root name)
+    displayObjectSize: false
+    displayDataTypes: false
+    enableClipboard: true
+
+  In HTMX, we replicate collapsible JSON with <details> elements
+  and syntax-highlighted <pre> blocks. For large objects, we
+  auto-collapse nested levels.
+
+  Parameters:
+    json_data     — the data (dict/list) to render as JSON
+    json_string   — alternative: pre-serialized JSON string
+    collapsed     — bool or int, default false. If int, collapse beyond that depth
+    name          — root label (false/empty = hidden)
+    show_copy     — show copy-to-clipboard button (default: true)
+    id            — element ID for targeting
+  ============================================================
+#}
+
+{% set _json_str = json_string if json_string is defined else (json_data | tojson(indent=2) if json_data is defined else '{}') %}
+{% set _id = id | default('json-view-' ~ range(10000) | random) %}
+{% set _collapsed = collapsed | default(false) %}
+{% set _show_copy = show_copy | default(true) %}
+
+{# Source: JsonView.tsx — collapsible JSON tree #}
+{# Source: WebhookDeliveryAttemptsView.tsx lines 48-61 — usage pattern #}
+<div class="mt-json-view" id="{{ _id }}">
+  {% if name is defined and name %}
+  <div class="mt-json-view-name">{{ name }}</div>
+  {% endif %}
+
+  <div class="mt-json-view-toolbar">
+    {% if _show_copy %}
+    <button type="button" class="mt-json-copy-btn"
+            onclick="navigator.clipboard.writeText(document.getElementById('{{ _id }}-pre').textContent); showToast({message: 'Copied to clipboard', status: 'success', duration: 2000})">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg>
+      Copy
+    </button>
+    {% endif %}
+    <button type="button" class="mt-json-toggle-btn"
+            onclick="toggleJsonCollapse('{{ _id }}')">
+      <span class="mt-json-toggle-label">Collapse All</span>
+    </button>
+  </div>
+
+  <pre class="mt-json-pre thin-scrollbar" id="{{ _id }}-pre"
+       {% if _collapsed %}data-collapsed="true"{% endif %}>{{ _json_str }}</pre>
+</div>

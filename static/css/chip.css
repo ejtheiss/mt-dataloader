@@ -1,0 +1,115 @@
+/* ============================================================
+   MT Chip — CSS
+   Canonical source: Chip.tsx (lines 52-153)
+   ============================================================
+   Chip is for displaying granular information, with optional
+   remove icon, condition operators, and clickable behavior.
+   ============================================================ */
+
+/* --- Chip Container --- */
+/* Source: Chip.tsx lines 75-79 — outer flex wrapper */
+.mt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;                                  /* gap-px */
+}
+
+/* --- Chip Content --- */
+/* Source: Chip.tsx lines 92-102 */
+.mt-chip-content {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 8px;                                  /* gap-2 */
+  background: #F5F5F0;                       /* bg-gray-50 */
+  padding: 4px 8px;                          /* px-2 py-1 */
+  color: #504E43;                            /* text-gray-700 */
+  font-size: 0.75rem;                        /* text-xs */
+  border-radius: 4px;
+}
+
+/* First child — left rounded */
+/* Source: Chip.tsx lines 80-84 */
+.mt-chip-content:first-child {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+
+/* Last child — right rounded */
+.mt-chip-content:last-child {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+/* Clickable chip */
+/* Source: Chip.tsx line 98 — hover:bg-gray-100 cursor-pointer */
+.mt-chip--clickable .mt-chip-content {
+  cursor: pointer;
+}
+
+.mt-chip--clickable .mt-chip-content:hover {
+  background: #EDEDEA;                       /* bg-gray-100 (approximation) */
+}
+
+/* --- Chip Label --- */
+.mt-chip-label {
+  font-weight: 500;                          /* font-medium */
+  white-space: nowrap;
+}
+
+/* --- Chip Value --- */
+.mt-chip-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Chip Remove Button --- */
+/* Source: Chip.tsx lines 110-124 */
+.mt-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0 2px;
+  color: #6B695D;                            /* text-gray-500 */
+  background: none;
+  border: none;
+  flex-shrink: 0;
+}
+
+.mt-chip-remove:hover {
+  color: #303030;                            /* text-gray-800 */
+}
+
+.mt-chip-remove svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* --- Chip Condition Operator --- */
+/* Source: Chip.tsx lines 126-145 — condition operators between chip segments */
+.mt-chip-operator {
+  display: flex;
+  align-items: center;
+  background: #F5F5F0;                       /* bg-gray-50 */
+  padding: 4px 4px;                          /* px-1 py-1 */
+  font-size: 0.625rem;                       /* text-[10px] */
+  font-weight: 600;                          /* font-semibold */
+  color: #6B695D;                            /* text-gray-500 */
+  text-transform: uppercase;
+}
+
+/* --- Chip Group --- */
+.mt-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;                                  /* gap-1 */
+  align-items: center;
+}
+
+/* --- Warning variant --- */
+.mt-chip--warning .mt-chip-content {
+  background: #FEF9C3;                       /* yellow-50-ish */
+  color: #92400E;                            /* amber-800 */
+}

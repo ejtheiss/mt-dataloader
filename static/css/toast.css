@@ -1,0 +1,155 @@
+/* ============================================================
+   MT Toast — CSS
+   Canonical sources:
+     - Toast.tsx          (lines 128-142)  — outer: flex, bg-gray-800, text-white, rounded, border-gray-700
+     - Toast.tsx          (lines 59-112)   — ToastPanel: flex, gap-3, px-3, py-1, min-h-8
+     - Toast.tsx          (lines 20-43)    — ToastButton: rounded-bl-none rounded-tl-none, bg-gray-700, px-3, text-xs
+     - useToast.ts        (lines 28)       — default duration: 4000ms
+     - useToast.ts        (lines 26)       — default className: justify-self-center
+   ============================================================ */
+
+/* --- Toast Container (fixed bottom-center) --- */
+/* Source: useToast.ts line 53 → Chakra position: "bottom" */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast-container > * {
+  pointer-events: auto;
+}
+
+/* --- Toast Outer --- */
+/* Source: Toast.tsx lines 133-136 */
+/* Original: flex flex-row items-center justify-between rounded border border-gray-700 bg-gray-800 text-xs font-medium text-white */
+.mt-toast {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 6px;                    /* rounded */
+  border: 1px solid #504E43;             /* border-gray-700 */
+  background-color: #303030;             /* bg-gray-800 */
+  font-size: 0.75rem;                    /* text-xs */
+  font-weight: 500;                      /* font-medium */
+  color: #fff;                           /* text-white */
+  min-width: 300px;
+  max-width: 500px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: mt-toast-in 200ms ease-out;
+}
+
+.mt-toast.mt-toast-out {
+  animation: mt-toast-out 150ms ease-in forwards;
+}
+
+/* --- Toast Panel (icon + message) --- */
+/* Source: Toast.tsx ToastPanel lines 94-111 */
+/* Original: flex min-h-8 flex-row items-center gap-3 px-3 py-1 */
+.mt-toast-panel {
+  display: flex;
+  min-height: 32px;                      /* min-h-8 */
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;                             /* gap-3 */
+  padding: 4px 12px;                     /* px-3 py-1 */
+}
+
+/* --- Toast Status Icons --- */
+/* Source: Toast.tsx lines 62-91 */
+.mt-toast-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* text-green-300 */
+.mt-toast-icon-success { color: #73C28F; }
+/* text-red-300 */
+.mt-toast-icon-error { color: #E57373; }
+/* text-yellow-200 */
+.mt-toast-icon-warning { color: #FFD54F; }
+/* text-blue-300 */
+.mt-toast-icon-info { color: #64B5F6; }
+
+.mt-toast-message {
+  flex: 1;
+}
+
+/* --- Toast Action Button --- */
+/* Source: Toast.tsx ToastButton lines 23-41 */
+/* Original: rounded-bl-none rounded-tl-none border-0 px-3 text-xs font-medium bg-gray-700 */
+.mt-toast-action {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;                             /* gap-3 from wrapper */
+}
+
+.mt-toast-action-btn {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 4px 12px;                     /* px-3 */
+  background: #504E43;                   /* bg-gray-700 */
+  color: #fff;
+  border: 0;
+  border-radius: 0 6px 6px 0;           /* rounded-bl-none rounded-tl-none */
+  font-size: 0.75rem;                    /* text-xs */
+  font-weight: 500;                      /* font-medium */
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mt-toast-action-btn:hover {
+  background: #6B695D;                   /* hover:bg-gray-600 */
+}
+
+.mt-toast-action-btn:active {
+  background: #7D7B6F;                   /* active:bg-gray-500 */
+}
+
+/* --- Toast Close Button --- */
+/* Source: Toast.tsx ToastButton closeButton lines 28-29 */
+/* Original: bg-gray-800 hover:bg-gray-800 active:bg-gray-800 */
+.mt-toast-close {
+  display: flex;
+  align-items: center;
+}
+
+.mt-toast-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 4px 12px;
+  background: #303030;                   /* bg-gray-800 (same as toast bg) */
+  color: #DEDDD7;                        /* text-gray-100 */
+  border: 0;
+  border-radius: 0 6px 6px 0;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.mt-toast-close-btn:hover {
+  color: #fff;
+}
+
+/* --- Animations --- */
+@keyframes mt-toast-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes mt-toast-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(12px); }
+}

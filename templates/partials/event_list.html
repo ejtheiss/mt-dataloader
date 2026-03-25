@@ -1,0 +1,126 @@
+{#
+  MT Event List — Jinja2 partial (Runs → Events migration)
+  ============================================================
+  Canonical sources:
+    - EventsHome.tsx              (lines 7-42)     — ListView with enableFilters, enableExportData
+    - EventsHome.tsx              (lines 20-37)    — overrideFilterValue, disableMetadata
+    - ListView.tsx                                  — EntityTableView + PaginationRow wrapper
+    - EntityTableView.tsx                           — IndexTable + SearchContainer
+    - IndexTable.tsx              (lines 1595-1640) — sortable headers, clickable rows
+    - EventView.tsx               (lines 57-118)   — detail page pattern (target for row click)
+
+  Migration: runs.html → event_list.html
+  ============================================================
+  CURRENT (runs.html):
+    - Card-based layout: each run is a .card with card-header, card-heading, card-actions
+    - Status badge, Details link, Cleanup button
+    - No sorting, no pagination, no filtering
+
+  TARGET (MT Events pattern):
+    - Filter bar with status filter pills
+    - IndexTable with columns: Run ID, Status, Created, Staged, Failed, Actions
+    - Clickable rows → drawer with run summary (KV table + config JSON)
+    - OR clickable rows → navigate to run detail page
+    - Pagination row (when many runs)
+
+  Parameters:
+    manifests         — list of run manifest dicts from server
+    show_pagination   — bool, show pagination (default: true if > 20 runs)
+    page              — current page number
+    page_size         — items per page
+    total             — total run count
+  ============================================================
+#}
+
+{# --- Filter Bar --- #}
+{# Source: EventsHome.tsx lines 20-37 — enableFilters #}
+{# Source: SearchContainer.tsx — FilterArea + ExportDataButton #}
+<div class="mt-filter-bar">
+  <div class="mt-filter-bar-inner">
+    <div class="mt-filter-bar-left">
+      {# Filter trigger #}
+      <div class="mt-filter-dropdown">
+        <button type="button" class="mt-filter-trigger" onclick="this.nextElementSibling.classList.toggle('hidden')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="4" y1="6" x2="20" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/>
+          </svg>
+        </button>
+        <div class="mt-filter-panel hidden">
+          <button type="button" class="mt-filter-option" onclick="addFilter('status', 'Status'); this.closest('.mt-filter-panel').classList.add('hidden')">Status</button>
+          <button type="button" class="mt-filter-option" onclick="addFilter('has_staged', 'Has Staged'); this.closest('.mt-filter-panel').classList.add('hidden')">Has Staged</button>
+          <button type="button" class="mt-filter-option" onclick="addFilter('has_failed', 'Has Failed'); this.closest('.mt-filter-panel').classList.add('hidden')">Has Failed</button>
+        </div>
+      </div>
+
+      {# Search #}
+      <input type="text" class="mt-filter-search" placeholder="Search runs..."
+             oninput="filterRunRows(this.value)">
+
+      {# Applied filter pills #}
+      <div class="mt-filter-pills" id="active-filters"></div>
+    </div>
+
+    <div class="mt-filter-bar-right">
+      {# Export — no MT equivalent needed for runs, but keeping slot open #}
+    </div>
+  </div>
+</div>
+
+{# --- Runs IndexTable --- #}
+{# Source: IndexTable.tsx — sortable headers, clickable rows #}
+{# Source: EventsHome.tsx — ListView wrapping EntityTableView #}
+{# Replaces: card-based run list from runs.html #}
+<div class="mt-index-table" role="table" id="runs-table">
+  {# Source: IndexTable.tsx Thead — header row #}
+  <div class="mt-index-table-header" role="row">
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 30%;">
+      <span>Run ID</span>
+    </div>
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 12%;"
+         data-sort-column="status" onclick="handleSortClick(this, 'status')">
+      <span>Status</span>
+      <span class="mt-sort-icon">&#8597;</span>
+    </div>
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 14%;">
+      <span>Created</span>
+    </div>
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 14%;">
+      <span>Staged</span>
+    </div>
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 14%;">
+      <span>Failed</span>
+    </div>
+    <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 16%;">
+      <span>Actions</span>
+    </div>
+  </div>
+
+  {# Source: IndexTable.tsx Tbody — data rows #}
+  <div class="mt-index-table-body" role="rowgroup" id="runs-list">
+    {% if manifests %}
+      {% for m in manifests %}
+      {% include "partials/event_row.html" %}
+      {% endfor %}
+    {% else %}
+      <div class="mt-index-table-empty">
+        {% set empty_title = "No runs found" %}
+        {% set empty_description = "Execute a config to create a run." %}
+        {% include "partials/empty_state.html" %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# --- Pagination --- #}
+{# Source: PaginationRow.tsx — page size dropdown, prev/next, range display #}
+{% if show_pagination is defined and show_pagination and manifests | length > 0 %}
+{% set total_items = total | default(manifests | length) %}
+{% set current_page = page | default(1) %}
+{% set items_per_page = page_size | default(20) %}
+{% include "partials/pagination.html" %}
+{% endif %}
+
+{# --- Drawer for run detail preview --- #}
+{# Source: EventView.tsx lines 69-115 — Layout with DetailsTable + SectionNavigator #}
+{% set drawer_id = "run-detail-drawer" %}
+{% include "partials/drawer.html" %}

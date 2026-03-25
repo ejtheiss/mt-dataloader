@@ -442,10 +442,12 @@ class RunManifest:
     @classmethod
     def load(cls, path: str | Path) -> RunManifest:
         """Load a manifest from a JSON file for resume or cleanup."""
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        path = Path(path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        run_id = data.get("run_id") or path.stem.replace("manifest_", "")
         manifest = cls(
-            run_id=data["run_id"],
-            config_hash=data["config_hash"],
+            run_id=run_id,
+            config_hash=data.get("config_hash", ""),
             started_at=data["started_at"],
             completed_at=data.get("completed_at"),
             status=data["status"],

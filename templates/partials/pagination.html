@@ -1,0 +1,102 @@
+{#
+  MT Pagination — Jinja2 partial
+  ================================
+  Renders pagination controls matching MT's PaginationRow + EntityTableView footer.
+
+  CANONICAL SOURCES:
+
+  PaginationRow.tsx — platform/app/frontend/dashboard/components/ui-components/Pagination/PaginationRow.tsx
+    Layout: div.flex.items-center.justify-between                                          (line 59)
+    Left side (page size): Popover > PopoverTrigger "Page size: {perPage}"                  (line 61-88)
+      - PopoverTrigger: disabled={perPageOptions.length === 0}, text-gray-700               (line 63-66)
+      - Icon: iconName="caret_down"                                                         (line 68)
+      - PopoverPanel > ActionItem per option                                                (line 71-84)
+      - Default perPageOptions: [25, 50, 100]                                               (line 35)
+    Right side (nav): div.flex.items-center.gap-1[role="group"]                             (line 93)
+      - Prev button: Button[buttonType="text"] text-gray-600, Icon "chevron_left"           (line 94-102)
+      - Count display: "{pageLowerBound}–{pageUpperBound} of {totalCount}"                  (line 50-56, 103)
+      - Next button: Button[buttonType="text"] text-gray-600, Icon "chevron_right"          (line 104-112)
+
+  EntityTableView.tsx — platform/app/frontend/dashboard/components/ui-components/EntityTableView/EntityTableView.tsx
+    Pagination wrapper: div.h-fit.rounded-b-lg.border.border-t-0.border-alpha-black-100.bg-white.p-s (line 718)
+    pageLowerBound = perPage * (page - 1) + (data.length > 0 ? 1 : 0)                      (line 526-527)
+    pageUpperBound = Math.min(data.length, perPage) + perPage * (page - 1)                  (line 528-530)
+    showPagination = !!(bounds) && (showDisabledPagination || hasPrevPage || hasNextPage)    (line 532-536)
+
+  Usage:
+    {% set pagination_id = "runs-pagination" %}
+    {% set page = current_page | default(1) %}
+    {% set page_size = current_page_size | default(25) %}
+    {% set total_count = total_items | default(0) %}
+    {% set page_sizes = [25, 50, 100] %}
+    {% set base_url = "/api/runs" %}
+    {% set hx_target = "#runs-table-body" %}
+    {% set extra_params = "" %}
+    {% include "partials/pagination.html" %}
+#}
+
+{# Calculate bounds — EntityTableView.tsx line 526-530 #}
+{% set page_lower = page_size * (page - 1) + 1 %}
+{% set page_upper = [page_lower + page_size - 1, total_count] | min %}
+{% set has_prev = page > 1 %}
+{% set has_next = page_upper < total_count %}
+
+{# Pagination wrapper — EntityTableView.tsx line 718 #}
+<div class="pagination-footer" id="{{ pagination_id | default('pagination') }}">
+
+  {# Left: page size selector — PaginationRow.tsx line 61-88 #}
+  <div class="pagination-size">
+    <select class="pagination-size-select"
+            {% if base_url %}
+            hx-get="{{ base_url }}"
+            hx-target="{{ hx_target | default('#table-body') }}"
+            hx-swap="innerHTML"
+            hx-include="[name=sort],[name=dir]"
+            name="page_size"
+            {% endif %}>
+      {% for size in (page_sizes or [25, 50, 100]) %}
+      <option value="{{ size }}" {% if size == page_size %}selected{% endif %}>
+        Page size: {{ size }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  {# Right: nav controls — PaginationRow.tsx line 93-113 #}
+  <div class="pagination-nav" role="group">
+    {# Prev button — PaginationRow.tsx line 94-102 #}
+    <button class="pagination-btn"
+            {% if has_prev and base_url %}
+            hx-get="{{ base_url }}?page={{ page - 1 }}&page_size={{ page_size }}{{ extra_params | default('') }}"
+            hx-target="{{ hx_target | default('#table-body') }}"
+            hx-swap="innerHTML"
+            {% else %}
+            disabled
+            {% endif %}
+            aria-label="Previous page">
+      &#x2039;
+    </button>
+
+    {# Count display — PaginationRow.tsx line 50-56 #}
+    <span class="pagination-range">
+      {% if total_count > 0 %}
+        {{ page_lower }}&ndash;{{ page_upper }}{% if total_count %} of {{ total_count }}{% endif %}
+      {% else %}
+        0 items
+      {% endif %}
+    </span>
+
+    {# Next button — PaginationRow.tsx line 104-112 #}
+    <button class="pagination-btn"
+            {% if has_next and base_url %}
+            hx-get="{{ base_url }}?page={{ page + 1 }}&page_size={{ page_size }}{{ extra_params | default('') }}"
+            hx-target="{{ hx_target | default('#table-body') }}"
+            hx-swap="innerHTML"
+            {% else %}
+            disabled
+            {% endif %}
+            aria-label="Next page">
+      &#x203A;
+    </button>
+  </div>
+</div>

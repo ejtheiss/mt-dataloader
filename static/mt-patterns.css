@@ -78,255 +78,7 @@
 }
 
 
-/* ============================================================
-   1. PAGE HEADER — from Page.tsx PageHeaderContainer
-   Source: monorepo/.../Page/Page.tsx lines 67-89
-   Tailwind: bg-background-default pl-6 pr-4 pt-4 text-text-default
-             border-b border-alpha-black-100
-   ============================================================ */
-.page-header-container {
-  background-color: var(--mt-white);
-  padding: var(--mt-spacing-4) var(--mt-spacing-4) 0 var(--mt-spacing-6);
-  color: var(--mt-gray-800);
-  border-bottom: 1px solid var(--mt-border-alpha);
-}
-
-.page-header-container--no-border {
-  border-bottom: none;
-}
-
-.page-header-container--sticky {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-/*
- * PageHeaderBody — from Page.tsx lines 129-136
- * Tailwind: Stack component (flex flex-col)
- * gap-2 when subtitle, gap-4 otherwise
- * pb-2 when no sections, pb-5 when no sections and no subtitle
- */
-.page-header-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mt-spacing-4);
-}
-
-.page-header-body--with-subtitle {
-  gap: var(--mt-spacing-2);
-}
-
-.page-header-body--no-sections {
-  padding-bottom: var(--mt-spacing-2);
-}
-
-.page-header-body--no-sections-no-subtitle {
-  padding-bottom: var(--mt-spacing-5);
-}
-
-/*
- * PageHeader title row — from PageHeader.tsx lines 13-64
- * Tailwind: flex w-full flex-wrap items-center justify-between gap-3
- */
-.page-header-title-row {
-  display: flex;
-  width: 100%;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mt-spacing-3);
-}
-
-.page-header-title-row .page-header-left {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--mt-spacing-4);
-}
-
-.page-header-title-row h1 {
-  font-size: var(--mt-text-xl);
-  font-weight: 600;
-  line-height: 1.4;
-  max-width: 40ch;
-  margin: 0;
-}
-
-.page-header-title-row .page-header-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: var(--mt-spacing-4);
-}
-
-/*
- * PageSubtitle — from Page.tsx lines 138-144
- * Tailwind: pb-4 text-xs text-gray-500
- */
-.page-header-subtitle {
-  padding-bottom: var(--mt-spacing-4);
-  font-size: var(--mt-text-xs);
-  color: var(--mt-gray-500);
-}
-
-
-/* ============================================================
-   2. PAGE BODY — from PageBody.tsx lines 13-28
-   Source: monorepo/.../Page/PageBody.tsx
-   Tailwind: flex flex-col gap-default px-8 py-6
-   ============================================================ */
-.page-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mt-spacing-4);
-  padding: var(--mt-spacing-6) var(--mt-spacing-8);
-  background-color: var(--mt-gray-25);
-  min-height: 0;
-}
-
-.page-body--full-height {
-  min-height: calc(100dvh - var(--header-height, 78px));
-}
-
-
-/* ============================================================
-   3. BREADCRUMBS — from Breadcrumbs.tsx lines 20-37
-   Source: monorepo/.../Breadcrumbs/Breadcrumbs.tsx
-   Tailwind: flex items-center / text-gray-500 / mx-1 text-gray-400
-   ============================================================ */
-.breadcrumbs {
-  display: flex;
-  align-items: center;
-  padding-bottom: var(--mt-spacing-4);
-  font-size: var(--mt-text-xs);
-}
-
-.breadcrumb-item {
-  display: flex;
-  align-items: center;
-  color: var(--mt-gray-500);
-}
-
-.breadcrumb-item a {
-  color: var(--mt-blue-500);
-  text-decoration: none;
-}
-
-.breadcrumb-item a:hover {
-  text-decoration: underline;
-}
-
-.breadcrumb-separator {
-  margin: 0 var(--mt-spacing-1);
-  color: var(--mt-gray-400);
-}
-
-
-/* ============================================================
-   4. TABS — from Tabs.tsx lines 82-188
-   Source: monorepo/.../Tabs/Tabs.tsx
-   Tailwind: border-b border-alpha-black-50
-             border-b-3 border-transparent text-gray-500 hover:text-gray-700
-             selected: border-blue-500 text-gray-700
-   ============================================================ */
-.tab-strip {
-  width: 100%;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.tab-strip--no-border {
-  border-bottom: none;
-}
-
-.tab-strip-inner {
-  display: flex;
-  gap: var(--mt-spacing-2);
-  margin-bottom: -1px;
-}
-
-.tab-btn {
-  background: none;
-  border: none;
-  border-bottom: 3px solid transparent;
-  color: var(--mt-gray-500);
-  cursor: pointer;
-  font-size: var(--mt-text-sm);
-  font-weight: 500;
-  padding: var(--mt-spacing-2) var(--mt-spacing-3);
-  white-space: nowrap;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.tab-btn:hover {
-  color: var(--mt-gray-700);
-}
-
-.tab-btn[aria-selected="true"],
-.tab-btn.active {
-  border-bottom-color: var(--mt-blue-500);
-  color: var(--mt-gray-700);
-}
-
-.tab-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-
-/* ============================================================
-   5. CARD — from Card.tsx lines 13-101
-   Source: monorepo/.../Card/Card.tsx
-   Tailwind: flex flex-col gap-4 rounded-lg border border-alpha-black-100 bg-white p-4
-   ============================================================ */
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mt-spacing-4);
-  border-radius: var(--mt-radius-lg);
-  border: 1px solid var(--mt-border-alpha);
-  background-color: var(--mt-white);
-  padding: var(--mt-spacing-4);
-}
-
-.card-header {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  gap: var(--mt-spacing-4);
-}
-
-.card-heading {
-  display: flex;
-  flex-direction: column;
-}
-
-.card-title {
-  font-size: var(--mt-text-base);
-  font-weight: 500;
-}
-
-.card-description {
-  font-size: var(--mt-text-xs);
-  font-weight: 500;
-  color: var(--mt-gray-400);
-}
-
-.card-actions {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--mt-spacing-2);
-}
-
-.card-content {
-  /* No default styles — container only */
-}
-
-.card-footer {
-  /* No default styles — container only */
-}
+/* Sections 1-5 (Page Header, Page Body, Breadcrumbs, Tabs, Card) removed — now in static/css/page-chrome.css */
 
 
 /* ============================================================
@@ -410,67 +162,7 @@
 }
 
 
-/* ============================================================
-   7. BADGE — from Badge.tsx lines 51-67
-   Source: monorepo/.../Badge/Badge.tsx
-   Tailwind: flex h-6 items-center gap-1 whitespace-nowrap rounded border px-2 py-0.5 text-xs font-medium
-   ============================================================ */
-.badge {
-  display: inline-flex;
-  height: 1.5rem;
-  align-items: center;
-  gap: var(--mt-spacing-1);
-  white-space: nowrap;
-  border-radius: var(--mt-radius-md);
-  border: 1px solid;
-  padding: 0.125rem var(--mt-spacing-2);
-  font-size: var(--mt-text-xs);
-  font-weight: 500;
-}
-
-/* Badge variants — from Badge.tsx getBadgeColor() lines 24-44 */
-.badge--default {
-  background-color: var(--mt-gray-50);
-  color: var(--mt-gray-700);
-  border-color: var(--mt-gray-100);
-}
-
-.badge--cool {
-  background-color: var(--mt-blue-50);
-  color: var(--mt-blue-700);
-  border-color: var(--mt-blue-100);
-}
-
-.badge--warm {
-  background-color: var(--mt-orange-50);
-  color: var(--mt-orange-700);
-  border-color: var(--mt-orange-100);
-}
-
-.badge--purple,
-.badge--internal {
-  background-color: var(--mt-purple-50);
-  color: var(--mt-purple-700);
-  border-color: var(--mt-purple-100);
-}
-
-.badge--success {
-  background-color: var(--mt-green-50);
-  color: var(--mt-green-700);
-  border-color: var(--mt-green-100);
-}
-
-.badge--warning {
-  background-color: var(--mt-yellow-50);
-  color: var(--mt-yellow-700);
-  border-color: var(--mt-yellow-100);
-}
-
-.badge--critical {
-  background-color: var(--mt-red-50);
-  color: var(--mt-red-700);
-  border-color: var(--mt-red-100);
-}
+/* Section 7 (BADGE) removed — now in static/css/page-chrome.css */
 
 
 /* ============================================================
@@ -524,11 +216,13 @@
 }
 .alert--warning .alert-icon { color: var(--mt-yellow-300); }
 
-.alert--danger {
+.alert--danger,
+.alert--critical {
   background-color: var(--mt-red-50);
   border-color: var(--mt-red-100);
 }
-.alert--danger .alert-icon { color: var(--mt-red-500); }
+.alert--danger .alert-icon,
+.alert--critical .alert-icon { color: var(--mt-red-500); }
 
 .alert-dismiss {
   background: none;
@@ -543,69 +237,211 @@
 }
 
 
+/* Section 9 (EMPTY STATE) removed — now in static/css/page-chrome.css */
+
+
 /* ============================================================
-   9. EMPTY STATE — from EmptyState.tsx + Surface.tsx + surface.css
-   Source: monorepo/.../EmptyState/EmptyState.tsx
-   Source: monorepo/.../Surface/Surface.tsx
-   Source: monorepo/.../common/stylesheets/ui/surface.css
-   Tailwind: flex h-full flex-col items-center justify-center gap-3
-             rounded-lg border border-dashed border-alpha-black-200 bg-white p-6
+   10. CHIP — from Chip.tsx
+   Source: monorepo/.../Chip/Chip.tsx
+   Tailwind: bg-gray-50 px-2 py-1 text-gray-700 text-xs font-medium
    ============================================================ */
-.empty-state {
-  display: flex;
-  height: 100%;
-  flex-direction: column;
+.chip {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--mt-spacing-3);
-  border-radius: var(--mt-radius-lg);
-  border: 1px dashed var(--mt-border-alpha-2);
-  background-color: var(--mt-white);
-  padding: var(--mt-spacing-6);
-}
-
-.empty-state-icon {
-  margin-bottom: var(--mt-spacing-1);
-  display: flex;
-  height: 2.5rem;
-  width: 2.5rem;
-  align-items: center;
-  justify-content: center;
-  color: var(--mt-gray-400);
-}
-
-.empty-state-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--mt-spacing-4);
-  text-align: center;
-}
-
-.empty-state-title {
-  font-size: var(--mt-text-lg);
+  gap: var(--mt-spacing-1);
+  background: var(--mt-gray-50);
+  padding: 2px var(--mt-spacing-2);
+  font-size: var(--mt-text-xs);
   font-weight: 500;
-  color: var(--mt-gray-800);
-  margin: 0;
-}
-
-.empty-state-description {
-  max-width: 28rem;
-  font-size: var(--mt-text-sm);
   color: var(--mt-gray-700);
-  text-wrap: pretty;
+  border-radius: var(--mt-radius-sm);
 }
 
-.empty-state-links {
-  display: flex;
+.chip--warning {
+  background: color-mix(in srgb, #F59E0B 12%, transparent);
+  color: #92400E;
+}
+
+.chip--muted {
+  color: var(--mt-gray-500);
+  font-style: italic;
+}
+
+
+/* ============================================================
+   11. PILL — from Pill.tsx
+   Source: monorepo/.../Pill/Pill.tsx
+   Tailwind: rounded-2xl border border-alpha-black-100 bg-white
+             px-3 py-1 text-xs font-medium
+   ============================================================ */
+.pill {
+  display: inline-flex;
   align-items: center;
+  min-height: 1.5rem;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: default;
+  border-radius: 16px;
+}
+
+.pill-content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mt-spacing-1);
+  border: 1px solid var(--mt-border-alpha);
+  background: var(--mt-white);
+  padding: 3px var(--mt-spacing-3);
+  border-radius: 16px;
+  font-size: var(--mt-text-xs);
+  font-weight: 500;
+  transition: background-color 0.15s;
+}
+
+.pill:hover .pill-content {
+  background: var(--mt-gray-50);
+}
+
+.pill-content strong {
+  font-weight: 600;
+}
+
+.pill-secondary {
+  font-size: 0.7rem;
+  color: var(--mt-gray-500);
+  font-style: italic;
+}
+
+.pill-group {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--mt-spacing-2);
 }
 
-/* Full-height variant for page bodies */
-.page-body--full-height > .empty-state {
-  flex: 1 1 auto;
-  align-self: stretch;
-  min-height: 0;
+.pill .badge {
+  font-size: 0.6rem;
+  padding: 0 4px;
+  height: auto;
+  line-height: 1.3;
+}
+
+
+/* Sections 12 (DRAWER) and 13 (KEY-VALUE TABLE) removed — now in static/css/drawer.css and static/css/kv-table.css */
+
+
+/* ============================================================
+   14. ACCORDION — reusable <details> pattern
+   ============================================================ */
+.accordion {
+  border: 1px solid var(--mt-border);
+  border-radius: var(--mt-radius-md);
+  background: var(--mt-white);
+}
+
+.accordion-toggle {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--mt-spacing-2);
+  padding: var(--mt-spacing-3) var(--mt-spacing-4);
+  font-size: var(--mt-text-sm);
+  font-weight: 500;
+  color: var(--mt-gray-700);
+  user-select: none;
+  transition: background-color 0.15s;
+}
+
+.accordion-toggle::-webkit-details-marker { display: none; }
+
+.accordion-toggle:hover {
+  background: var(--mt-gray-50);
+}
+
+.accordion-toggle::before {
+  content: '';
+  display: inline-block;
+  width: 0; height: 0;
+  border-left: 5px solid var(--mt-gray-400);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.accordion[open] > .accordion-toggle::before {
+  transform: rotate(90deg);
+}
+
+.accordion-toggle-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.accordion-body {
+  padding: 0 var(--mt-spacing-4) var(--mt-spacing-4);
+}
+
+.accordion--muted {
+  background: var(--mt-gray-50);
+  border-color: var(--mt-border);
+}
+
+/* Fieldset-like sections within an accordion or card */
+.field-section {
+  margin-bottom: var(--mt-spacing-4);
+}
+
+.field-section:last-child {
+  margin-bottom: 0;
+}
+
+.field-section-label {
+  font-size: var(--mt-text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mt-gray-500);
+  margin-bottom: var(--mt-spacing-2);
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--mt-spacing-2);
+  padding: var(--mt-spacing-2) var(--mt-spacing-3);
+  border-bottom: 1px solid var(--mt-gray-100, #DEDDD7);
+  font-size: var(--mt-text-sm);
+}
+
+.field-row:last-child {
+  border-bottom: 0;
+}
+
+.field-row + .field-row {
+  margin-top: 0;
+}
+
+.field-row code {
+  font-size: 0.8em;
+}
+
+.field-row .badge {
+  flex-shrink: 0;
+}
+
+.preset-bar {
+  display: flex;
+  gap: var(--mt-spacing-2);
+  flex-wrap: wrap;
+  padding-top: var(--mt-spacing-2);
+}
+
+.accordion-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--mt-spacing-2);
+  padding-top: var(--mt-spacing-3);
+  border-top: 1px solid var(--mt-border);
 }

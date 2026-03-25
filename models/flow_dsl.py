@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 # Timing configuration (Step 9: Seasoning & Date Configuration)
 # ---------------------------------------------------------------------------
 
-from models.shared import StepTimingConfig  # noqa: E402 (re-export)
+from models.shared import SettlementDefaultsConfig, StepTimingConfig  # noqa: E402 (re-export)
 
 
 class FlowTimingConfig(BaseModel):
@@ -20,10 +20,13 @@ class FlowTimingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    base_date: str = "today"
-    default_delay_days: float = 0.0
-    default_jitter_days: float = 0.0
+    default_delay_hours: float = 0.0
+    default_jitter_hours: float = 0.0
     business_days_only: bool = True
+    settlement_defaults: SettlementDefaultsConfig = Field(
+        default_factory=SettlementDefaultsConfig,
+        description="Per-rail settlement delays (hours) and step-type exclusions",
+    )
 
 
 class RecipeTimingConfig(BaseModel):
@@ -31,7 +34,6 @@ class RecipeTimingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    base_date: str = "today"
     instance_spread_days: int = 0
     spread_pattern: Literal["uniform", "ramp_up", "ramp_down", "clustered"] = (
         "uniform"
@@ -39,11 +41,11 @@ class RecipeTimingConfig(BaseModel):
     spread_jitter_days: float = 0.0
     step_delay_overrides: dict[str, float] = Field(
         default_factory=dict,
-        description="step_id -> delay_days override for this recipe",
+        description="step_id -> delay_hours override for this recipe",
     )
     step_offsets: dict[str, int] = Field(
         default_factory=dict,
-        description="step_id -> T+N day offset set in the scenario builder UI",
+        description="step_id -> T+N business-day offset from the scenario builder UI",
     )
 
 
@@ -390,6 +392,22 @@ class EdgeCaseOverride(BaseModel):
     value_overrides: dict[str, Any] = Field(default_factory=dict)
 
 
+class StagingRule(BaseModel):
+    """One staging condition — stage `count` instances from `selection`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    count: int = Field(ge=0, description="Number of instances to stage from this pool")
+    selection: str = Field(
+        default="happy_path",
+        description=(
+            "'happy_path' — instances without edge cases; "
+            "'all' — first N regardless; "
+            "or an edge case label"
+        ),
+    )
+
+
 class GenerationRecipeV1(BaseModel):
     """Compact, UI-facing recipe for generating N flow instances."""
 
@@ -419,21 +437,35 @@ class GenerationRecipeV1(BaseModel):
         default_factory=dict,
         description="Per-group overrides keyed by optional group label",
     )
-    amount_variance_pct: float = Field(
+    amount_variance_min_pct: float = Field(
+        default=0.0, ge=-100.0, le=0.0,
+        description="Minimum percentage variance on amounts (e.g. -10.0 = down to 90% of base)",
+    )
+    amount_variance_max_pct: float = Field(
         default=0.0, ge=0.0, le=100.0,
-        description="Percentage jitter on amounts (e.g. 5.0 = +/-5%)",
+        description="Maximum percentage variance on amounts (e.g. 10.0 = up to 110% of base)",
+    )
+    step_variance: dict[str, dict[str, float]] = Field(
+        default_factory=dict,
+        description=(
+            "Per-step variance overrides keyed by step_id. "
+            "Each value is {\"min_pct\": ..., \"max_pct\": ...} or empty dict to lock (no variance)."
+        ),
+    )
+    staging_rules: list[StagingRule] = Field(
+        default_factory=list,
+        description=(
+            "Each rule stages `count` instances drawn from `selection`. "
+            "Multiple rules are unioned — e.g. 3 happy-path + 2 late-return."
+        ),
     )
     staged_count: int = Field(
         default=0, ge=0,
-        description="How many instances have money-movement steps marked staged: true",
+        description="(Legacy) Shorthand for a single staging rule — prefer staging_rules.",
     )
     staged_selection: str = Field(
         default="happy_path",
-        description=(
-            "'happy_path' stages instances without edge cases; "
-            "'all' stages first N instances regardless; "
-            "an edge case label stages instances assigned to that group"
-        ),
+        description="(Legacy) Selection for the single staging rule shorthand.",
     )
     payment_mix: PaymentMixConfig | None = None
     actor_overrides: dict[str, ActorDatasetOverride] = Field(
@@ -444,10 +476,16 @@ class GenerationRecipeV1(BaseModel):
     overrides: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def _cap_edge_case_counts(self) -> GenerationRecipeV1:
+    def _normalize(self) -> GenerationRecipeV1:
         if self.edge_case_count > self.instances:
             self.edge_case_count = self.instances
         for ov in self.edge_case_overrides.values():
             if ov.count is not None and ov.count > self.instances:
                 ov.count = self.instances
+
+        # Legacy: promote staged_count/staged_selection into staging_rules
+        if not self.staging_rules and self.staged_count > 0:
+            self.staging_rules = [
+                StagingRule(count=self.staged_count, selection=self.staged_selection),
+            ]
         return self

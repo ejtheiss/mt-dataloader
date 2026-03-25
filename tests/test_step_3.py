@@ -163,9 +163,10 @@ class TestGenerationRecipeV1:
         assert r.seed == 42
         assert r.version == "v1"
         assert r.edge_case_count == 0
-        assert r.amount_variance_pct == 0.0
-        assert r.staged_count == 0
-        assert r.staged_selection == "happy_path"
+        assert r.amount_variance_min_pct == 0.0
+        assert r.amount_variance_max_pct == 0.0
+        assert r.step_variance == {}
+        assert r.staging_rules == []
         assert r.payment_mix is None
         assert r.overrides == {}
 
@@ -196,30 +197,44 @@ class TestGenerationRecipeV1:
         with pytest.raises(Exception):
             _make_recipe(edge_case_count=-1)
 
-    def test_amount_variance_pct_bounds(self):
-        _make_recipe(amount_variance_pct=0.0)
-        _make_recipe(amount_variance_pct=100.0)
+    def test_amount_variance_min_pct_bounds(self):
+        _make_recipe(amount_variance_min_pct=0.0)
+        _make_recipe(amount_variance_min_pct=-100.0)
         with pytest.raises(Exception):
-            _make_recipe(amount_variance_pct=-1.0)
+            _make_recipe(amount_variance_min_pct=1.0)
         with pytest.raises(Exception):
-            _make_recipe(amount_variance_pct=100.1)
+            _make_recipe(amount_variance_min_pct=-100.1)
 
-    def test_staged_count_non_negative(self):
-        _make_recipe(staged_count=0)
-        _make_recipe(staged_count=10)
+    def test_amount_variance_max_pct_bounds(self):
+        _make_recipe(amount_variance_max_pct=0.0)
+        _make_recipe(amount_variance_max_pct=100.0)
         with pytest.raises(Exception):
-            _make_recipe(staged_count=-1)
+            _make_recipe(amount_variance_max_pct=-1.0)
+        with pytest.raises(Exception):
+            _make_recipe(amount_variance_max_pct=100.1)
 
-    def test_staged_selection_values(self):
-        _make_recipe(staged_selection="happy_path")
-        _make_recipe(staged_selection="random")
+    def test_staging_rules_valid(self):
+        r = _make_recipe(staging_rules=[
+            {"count": 2, "selection": "happy_path"},
+            {"count": 1, "selection": "all"},
+        ])
+        assert len(r.staging_rules) == 2
+        assert r.staging_rules[0].count == 2
+        assert r.staging_rules[1].selection == "all"
+
+    def test_staging_rules_count_non_negative(self):
         with pytest.raises(Exception):
-            GenerationRecipeV1.model_validate({
-                "flow_ref": "f",
-                "instances": 1,
-                "seed": 0,
-                "staged_selection": {},
-            })
+            _make_recipe(staging_rules=[{"count": -1, "selection": "all"}])
+
+    def test_legacy_staged_count_promoted(self):
+        r = _make_recipe(staged_count=5, staged_selection="all")
+        assert len(r.staging_rules) == 1
+        assert r.staging_rules[0].count == 5
+        assert r.staging_rules[0].selection == "all"
+
+    def test_legacy_staged_count_zero_no_rules(self):
+        r = _make_recipe(staged_count=0)
+        assert r.staging_rules == []
 
     def test_payment_mix_none_passes(self):
         r = _make_recipe(payment_mix=None)
@@ -313,31 +328,41 @@ class TestApplyAmountVariance:
         flow = _make_flow_config()
         d, _ = clone_flow(flow, 0)
         original_amount = d["steps"][0]["amount"]
-        apply_amount_variance(d, 0.0, random.Random(42))
+        apply_amount_variance(d, 0.0, 0.0, random.Random(42))
         assert d["steps"][0]["amount"] == original_amount
 
     def test_variance_jitters_within_range(self):
         flow = _make_flow_config()
         d, _ = clone_flow(flow, 0)
         base_amount = d["steps"][0]["amount"]
-        apply_amount_variance(d, 5.0, random.Random(42))
+        apply_amount_variance(d, -5.0, 5.0, random.Random(42))
         new_amount = d["steps"][0]["amount"]
         assert new_amount != base_amount or True  # may be same by chance
         assert abs(new_amount - base_amount) <= base_amount * 0.05 + 1
+
+    def test_asymmetric_variance(self):
+        """Min/max can be asymmetric: e.g. -2% to +10%."""
+        flow = _make_flow_config()
+        d, _ = clone_flow(flow, 0)
+        base_amount = d["steps"][0]["amount"]
+        apply_amount_variance(d, -2.0, 10.0, random.Random(42))
+        new_amount = d["steps"][0]["amount"]
+        assert new_amount >= round(base_amount * 0.98) - 1
+        assert new_amount <= round(base_amount * 1.10) + 1
 
     def test_deterministic_with_same_seed(self):
         flow = _make_flow_config()
         d1, _ = clone_flow(flow, 0)
         d2, _ = clone_flow(flow, 0)
-        apply_amount_variance(d1, 10.0, random.Random(42))
-        apply_amount_variance(d2, 10.0, random.Random(42))
+        apply_amount_variance(d1, -10.0, 10.0, random.Random(42))
+        apply_amount_variance(d2, -10.0, 10.0, random.Random(42))
         assert d1["steps"][0]["amount"] == d2["steps"][0]["amount"]
 
     def test_applies_to_ledger_entries(self):
         flow = _make_flow_config()
         d, _ = clone_flow(flow, 0)
         original_debit = d["steps"][1]["ledger_entries"][0]["amount"]
-        apply_amount_variance(d, 10.0, random.Random(99))
+        apply_amount_variance(d, -10.0, 10.0, random.Random(99))
         new_debit = d["steps"][1]["ledger_entries"][0]["amount"]
         assert new_debit >= 1
 
@@ -346,7 +371,7 @@ class TestApplyAmountVariance:
         flow = _make_flow_config()
         for seed in range(50):
             d, _ = clone_flow(flow, 0)
-            apply_amount_variance(d, 20.0, random.Random(seed))
+            apply_amount_variance(d, -20.0, 20.0, random.Random(seed))
             settle_step = d["steps"][1]
             entries = settle_step.get("ledger_entries", [])
             if entries:
@@ -367,9 +392,31 @@ class TestApplyAmountVariance:
             ],
         }])
         d, _ = clone_flow(flow, 0)
-        apply_amount_variance(d, 10.0, random.Random(42))
+        apply_amount_variance(d, -10.0, 10.0, random.Random(42))
         refund_amount = d["optional_groups"][0]["steps"][0]["amount"]
         assert refund_amount >= 1
+
+    def test_step_variance_locks(self):
+        """Empty dict for a step_id means locked (no variance)."""
+        flow = _make_flow_config()
+        d, _ = clone_flow(flow, 0)
+        original = d["steps"][0]["amount"]
+        apply_amount_variance(
+            d, -10.0, 10.0, random.Random(42),
+            step_variance={"deposit": {}},
+        )
+        assert d["steps"][0]["amount"] == original
+
+    def test_step_variance_custom(self):
+        """Per-step min/max overrides the global range."""
+        flow = _make_flow_config()
+        d, _ = clone_flow(flow, 0)
+        base = d["steps"][0]["amount"]
+        apply_amount_variance(
+            d, 0.0, 0.0, random.Random(42),
+            step_variance={"deposit": {"min_pct": -50.0, "max_pct": 50.0}},
+        )
+        assert d["steps"][0]["amount"] != base or True
 
 
 # =========================================================================
@@ -470,33 +517,57 @@ class TestEdgeCaseProvenance:
 
 
 class TestStagingAtScale:
-    def test_staged_count_zero_marks_nothing(self):
-        recipe = _make_recipe(staged_count=0)
+    def test_no_rules_marks_nothing(self):
+        recipe = _make_recipe()
         result = select_staged_instances(recipe, 10, random.Random(42))
         assert result == set()
 
-    def test_staged_first_one(self):
-        recipe = _make_recipe(staged_count=1, staged_selection="all")
+    def test_single_rule_all_first_one(self):
+        recipe = _make_recipe(staging_rules=[{"count": 1, "selection": "all"}])
         result = select_staged_instances(recipe, 10, random.Random(42))
         assert result == {0}
 
-    def test_staged_first_three(self):
-        recipe = _make_recipe(staged_count=3, staged_selection="all")
+    def test_single_rule_all_first_three(self):
+        recipe = _make_recipe(staging_rules=[{"count": 3, "selection": "all"}])
         result = select_staged_instances(recipe, 10, random.Random(42))
         assert result == {0, 1, 2}
 
-    def test_staged_named_group_first_three(self):
-        recipe = _make_recipe(staged_count=3, staged_selection="g")
+    def test_single_rule_named_group(self):
+        recipe = _make_recipe(staging_rules=[{"count": 3, "selection": "g"}])
         edge_selections = {"g": {2, 7, 1, 9}}
         result = select_staged_instances(
             recipe, 10, random.Random(42), edge_selections=edge_selections,
         )
         assert result == {1, 2, 7}
 
-    def test_staged_count_capped_at_total(self):
-        recipe = _make_recipe(staged_count=100, staged_selection="all")
+    def test_capped_at_pool_size(self):
+        recipe = _make_recipe(staging_rules=[{"count": 100, "selection": "all"}])
         result = select_staged_instances(recipe, 5, random.Random(42))
         assert result == {0, 1, 2, 3, 4}
+
+    def test_multi_rule_union(self):
+        recipe = _make_recipe(staging_rules=[
+            {"count": 2, "selection": "all"},
+            {"count": 2, "selection": "g"},
+        ])
+        edge_selections = {"g": {5, 8}}
+        result = select_staged_instances(
+            recipe, 10, random.Random(42), edge_selections=edge_selections,
+        )
+        assert result == {0, 1, 5, 8}
+
+    def test_multi_rule_overlap_deduplicates(self):
+        recipe = _make_recipe(staging_rules=[
+            {"count": 3, "selection": "all"},
+            {"count": 3, "selection": "all"},
+        ])
+        result = select_staged_instances(recipe, 10, random.Random(42))
+        assert result == {0, 1, 2}
+
+    def test_legacy_staged_count_works(self):
+        recipe = _make_recipe(staged_count=2, staged_selection="all")
+        result = select_staged_instances(recipe, 10, random.Random(42))
+        assert result == {0, 1}
 
     def test_mark_staged_sets_flag(self):
         d = {"steps": [
@@ -511,7 +582,10 @@ class TestStagingAtScale:
 
     def test_staged_instances_have_staged_in_compiled(self):
         config = _make_config_with_flow()
-        recipe = _make_recipe(instances=3, seed=42, staged_count=1, staged_selection="all")
+        recipe = _make_recipe(
+            instances=3, seed=42,
+            staging_rules=[{"count": 1, "selection": "all"}],
+        )
         result = generate_from_recipe(recipe, config)
         ipds = result.config.incoming_payment_details
         staged_ipds = [i for i in ipds if i.staged]

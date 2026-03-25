@@ -10,20 +10,28 @@
         </div>
         <form id="conn-editor-form">
             <div class="modal-body">
-                <div class="form-group">
-                    <label>API Key</label>
-                <input type="password" name="api_key" class="input input-border"
-                       value="{{ api_key or '' }}" placeholder="Enter MT API key">
-            </div>
-            <div class="form-group">
-                <label>Organization ID</label>
-                <input type="text" name="org_id" class="input input-border"
-                       value="{{ org_id or '' }}" placeholder="Enter org ID">
-            </div>
-            <div class="form-group">
-                <label>Organization Name (optional)</label>
-                <input type="text" name="org_name" class="input input-border"
-                       value="{{ org_name or '' }}" placeholder="Display name">
+                <div class="key-value-table">
+                    <div class="key-value-table-row">
+                        <div class="row-label"><label>API Key</label></div>
+                        <div class="row-value">
+                            <input type="password" name="api_key" class="mt-input"
+                                   value="{{ api_key or '' }}" placeholder="Enter MT API key">
+                        </div>
+                    </div>
+                    <div class="key-value-table-row">
+                        <div class="row-label"><label>Organization ID</label></div>
+                        <div class="row-value">
+                            <input type="text" name="org_id" class="mt-input"
+                                   value="{{ org_id or '' }}" placeholder="Enter org ID">
+                        </div>
+                    </div>
+                    <div class="key-value-table-row">
+                        <div class="row-label"><label>Org Name</label></div>
+                        <div class="row-value">
+                            <input type="text" name="org_name" class="mt-input"
+                                   value="{{ org_name or '' }}" placeholder="Display name (optional)">
+                        </div>
+                    </div>
                 </div>
                 <div id="conn-test-result" style="margin-top: 12px;"></div>
             </div>

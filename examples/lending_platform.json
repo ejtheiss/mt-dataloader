@@ -1,0 +1,320 @@
+{
+  "connections": [
+    {"ref": "bank", "entity_id": "example1", "nickname": "PSP Connection"}
+  ],
+  "internal_accounts": [
+    {
+      "ref": "ops",
+      "connection_id": "$ref:connection.bank",
+      "name": "Operating Account",
+      "party_name": "LendCo Inc.",
+      "currency": "USD"
+    },
+    {
+      "ref": "collections",
+      "connection_id": "$ref:connection.bank",
+      "name": "Collections Account",
+      "party_name": "LendCo Inc.",
+      "currency": "USD"
+    }
+  ],
+  "ledgers": [
+    {"ref": "main", "name": "LendCo General Ledger"}
+  ],
+  "ledger_accounts": [
+    {
+      "ref": "cash",
+      "ledger_id": "$ref:ledger.main",
+      "name": "Cash",
+      "normal_balance": "debit",
+      "currency": "USD"
+    },
+    {
+      "ref": "loans_receivable",
+      "ledger_id": "$ref:ledger.main",
+      "name": "Loans Receivable",
+      "normal_balance": "debit",
+      "currency": "USD"
+    },
+    {
+      "ref": "interest_income",
+      "ledger_id": "$ref:ledger.main",
+      "name": "Interest Income",
+      "normal_balance": "credit",
+      "currency": "USD"
+    },
+    {
+      "ref": "deposits_payable",
+      "ledger_id": "$ref:ledger.main",
+      "name": "Deposits Payable",
+      "normal_balance": "credit",
+      "currency": "USD"
+    }
+  ],
+  "funds_flows": [
+    {
+      "ref": "customer_deposit",
+      "pattern_type": "deposit",
+      "trace_key": "deposit_id",
+      "trace_value_template": "DEP-{instance}",
+      "actors": {
+        "user_1": {
+          "alias": "Depositor",
+          "frame_type": "user",
+          "entity_ref": "$ref:counterparty.depositor_{instance}",
+          "slots": {
+            "bank": "$ref:counterparty.depositor_{instance}.account[0]"
+          }
+        },
+        "direct_1": {
+          "alias": "Platform",
+          "frame_type": "direct",
+          "customer_name": "LendCo Inc.",
+          "slots": {
+            "ops": "$ref:internal_account.ops",
+            "cash": "$ref:ledger_account.cash",
+            "deposits_payable": "$ref:ledger_account.deposits_payable"
+          }
+        }
+      },
+      "instance_resources": {
+        "counterparties": [
+          {
+            "ref": "depositor_{instance}",
+            "name": "{first_name} {last_name}",
+            "accounts": [
+              {
+                "party_name": "{first_name} {last_name}",
+                "party_type": "individual",
+                "account_type": "savings",
+                "sandbox_behavior": "success"
+              }
+            ]
+          }
+        ]
+      },
+      "steps": [
+        {
+          "step_id": "receive_deposit",
+          "type": "incoming_payment_detail",
+          "payment_type": "ach",
+          "direction": "credit",
+          "amount": 250000,
+          "originating_account_id": "@actor:user_1.bank",
+          "internal_account_id": "@actor:direct_1.ops",
+          "description": "ACH deposit from {first_name} {last_name}"
+        },
+        {
+          "step_id": "book_deposit",
+          "type": "ledger_transaction",
+          "depends_on": ["receive_deposit"],
+          "description": "Record deposit liability",
+          "ledger_entries": [
+            {
+              "ledger_account_id": "@actor:direct_1.cash",
+              "amount": 250000,
+              "direction": "debit"
+            },
+            {
+              "ledger_account_id": "@actor:direct_1.deposits_payable",
+              "amount": 250000,
+              "direction": "credit"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "loan_disbursement",
+      "pattern_type": "disbursement",
+      "trace_key": "loan_id",
+      "trace_value_template": "LOAN-{instance}",
+      "actors": {
+        "user_1": {
+          "alias": "Borrower",
+          "frame_type": "user",
+          "entity_ref": "$ref:counterparty.borrower_{instance}",
+          "slots": {
+            "bank": "$ref:counterparty.borrower_{instance}.account[0]"
+          }
+        },
+        "direct_1": {
+          "alias": "Platform",
+          "frame_type": "direct",
+          "customer_name": "LendCo Inc.",
+          "slots": {
+            "ops": "$ref:internal_account.ops",
+            "cash": "$ref:ledger_account.cash",
+            "loans_receivable": "$ref:ledger_account.loans_receivable"
+          }
+        }
+      },
+      "instance_resources": {
+        "counterparties": [
+          {
+            "ref": "borrower_{instance}",
+            "name": "{business_name}",
+            "accounts": [
+              {
+                "party_name": "{business_name}",
+                "party_type": "business",
+                "account_type": "checking",
+                "sandbox_behavior": "success"
+              }
+            ]
+          }
+        ]
+      },
+      "steps": [
+        {
+          "step_id": "disburse",
+          "type": "payment_order",
+          "payment_type": "ach",
+          "direction": "credit",
+          "amount": 5000000,
+          "originating_account_id": "@actor:direct_1.ops",
+          "receiving_account_id": "@actor:user_1.bank",
+          "description": "Loan disbursement to {business_name}"
+        },
+        {
+          "step_id": "book_loan",
+          "type": "ledger_transaction",
+          "depends_on": ["disburse"],
+          "description": "Record loan receivable",
+          "ledger_entries": [
+            {
+              "ledger_account_id": "@actor:direct_1.loans_receivable",
+              "amount": 5000000,
+              "direction": "debit"
+            },
+            {
+              "ledger_account_id": "@actor:direct_1.cash",
+              "amount": 5000000,
+              "direction": "credit"
+            }
+          ]
+        }
+      ],
+      "optional_groups": [
+        {
+          "label": "Disbursement reversal",
+          "trigger": "system",
+          "steps": [
+            {
+              "step_id": "reverse_disburse",
+              "type": "reversal",
+              "depends_on": ["disburse"],
+              "description": "Reverse failed disbursement"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "loan_repayment",
+      "pattern_type": "repayment",
+      "trace_key": "repayment_id",
+      "trace_value_template": "REPAY-{instance}",
+      "actors": {
+        "user_1": {
+          "alias": "Borrower",
+          "frame_type": "user",
+          "entity_ref": "$ref:counterparty.repay_borrower_{instance}",
+          "slots": {
+            "bank": "$ref:counterparty.repay_borrower_{instance}.account[0]"
+          }
+        },
+        "direct_1": {
+          "alias": "Platform",
+          "frame_type": "direct",
+          "customer_name": "LendCo Inc.",
+          "slots": {
+            "collections": "$ref:internal_account.collections",
+            "cash": "$ref:ledger_account.cash",
+            "loans_receivable": "$ref:ledger_account.loans_receivable",
+            "interest_income": "$ref:ledger_account.interest_income"
+          }
+        }
+      },
+      "instance_resources": {
+        "counterparties": [
+          {
+            "ref": "repay_borrower_{instance}",
+            "name": "{business_name}",
+            "accounts": [
+              {
+                "party_name": "{business_name}",
+                "party_type": "business",
+                "account_type": "checking",
+                "sandbox_behavior": "success"
+              }
+            ]
+          }
+        ]
+      },
+      "steps": [
+        {
+          "step_id": "collect_payment",
+          "type": "incoming_payment_detail",
+          "payment_type": "ach",
+          "direction": "credit",
+          "amount": 525000,
+          "originating_account_id": "@actor:user_1.bank",
+          "internal_account_id": "@actor:direct_1.collections",
+          "description": "Monthly repayment from {business_name}"
+        },
+        {
+          "step_id": "book_principal",
+          "type": "ledger_transaction",
+          "depends_on": ["collect_payment"],
+          "description": "Apply principal payment",
+          "ledger_entries": [
+            {
+              "ledger_account_id": "@actor:direct_1.cash",
+              "amount": 500000,
+              "direction": "debit"
+            },
+            {
+              "ledger_account_id": "@actor:direct_1.loans_receivable",
+              "amount": 500000,
+              "direction": "credit"
+            }
+          ]
+        },
+        {
+          "step_id": "book_interest",
+          "type": "ledger_transaction",
+          "depends_on": ["collect_payment"],
+          "description": "Recognize interest income",
+          "ledger_entries": [
+            {
+              "ledger_account_id": "@actor:direct_1.cash",
+              "amount": 25000,
+              "direction": "debit"
+            },
+            {
+              "ledger_account_id": "@actor:direct_1.interest_income",
+              "amount": 25000,
+              "direction": "credit"
+            }
+          ]
+        }
+      ],
+      "optional_groups": [
+        {
+          "label": "Repayment NSF return",
+          "trigger": "system",
+          "steps": [
+            {
+              "step_id": "nsf_return",
+              "type": "return",
+              "depends_on": ["collect_payment"],
+              "code": "R01",
+              "description": "Repayment returned — insufficient funds"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

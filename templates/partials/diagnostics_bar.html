@@ -1,22 +1,10 @@
 {% if diagnostics %}
-<div class="diagnostics-bar">
-    <div class="stat">
-        <span class="stat-value">{{ diagnostics.total_steps }}</span>
-        <span class="stat-label">Steps</span>
-    </div>
+<div class="diagnostics-badges">
+    <span class="badge badge--default">{{ diagnostics.total_steps }} Steps</span>
     {% for rtype, count in diagnostics.type_counts.items() %}
-    <div class="stat">
-        <span class="stat-value">{{ count }}</span>
-        <span class="stat-label">{{ rtype }}</span>
-    </div>
+    <span class="badge badge--cool">{{ count }} {{ rtype }}</span>
     {% endfor %}
-    <div class="stat">
-        <span class="stat-value">{{ diagnostics.total_entries }}</span>
-        <span class="stat-label">Ledger Entries</span>
-    </div>
-    <div class="stat">
-        <span class="stat-value">{{ diagnostics.trace_value_count }}</span>
-        <span class="stat-label">Trace Values</span>
-    </div>
+    <span class="badge badge--default">{{ diagnostics.total_entries }} Ledger Entries</span>
+    <span class="badge badge--default">{{ diagnostics.trace_value_count }} Trace Values</span>
 </div>
 {% endif %}

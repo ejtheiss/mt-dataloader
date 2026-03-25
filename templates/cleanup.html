@@ -24,24 +24,43 @@
     <div sse-swap="cleanup_complete" hx-swap="innerHTML" hx-target="#cleanup-result"></div>
 
     <div id="cleanup-list">
-        {% for entry in resources %}
-        {% set row_id = "cleanup-" + entry.typed_ref|replace(".", "-")|replace("[", "_")|replace("]", "") %}
-        <div id="{{ row_id }}" class="cleanup-row pending">
-            <span class="type-badge type-{{ entry.resource_type }}">{{ entry.resource_type }}</span>
-            <span class="ref-name">{{ entry.typed_ref }}</span>
-            <span class="status-indicator">
-                {% if entry.resource_type == "ledger_transaction" %}
-                    <span class="status-text">Will archive</span>
-                {% elif entry.resource_type in ["category_membership", "nested_category"] %}
-                    <span class="status-text">Will remove</span>
-                {% elif entry.deletable %}
-                    <span class="status-text">Will delete</span>
-                {% else %}
-                    <span class="status-text">Will skip (not deletable)</span>
-                {% endif %}
-            </span>
+        <div class="ui-table-container" role="table">
+            <div class="ui-table-container__inner">
+                <div role="rowgroup" class="ui-table-head">
+                    <div role="row" class="ui-table-row header">
+                        <div role="columnheader" class="ui-table-header" style="width: 140px; flex: none;">Type</div>
+                        <div role="columnheader" class="ui-table-header">Reference</div>
+                        <div role="columnheader" class="ui-table-header" style="width: 180px; flex: none;">Status</div>
+                    </div>
+                </div>
+                <div role="rowgroup" class="ui-table-body">
+                    {% for entry in resources %}
+                    {% set row_id = "cleanup-" + entry.typed_ref|replace(".", "-")|replace("[", "_")|replace("]", "") %}
+                    <div id="{{ row_id }}" role="row" class="ui-table-row cleanup-row pending">
+                        <div role="cell" class="ui-table-cell" style="width: 140px; flex: none;">
+                            <span class="badge badge--cool">{{ entry.resource_type }}</span>
+                        </div>
+                        <div role="cell" class="ui-table-cell truncate">
+                            <code>{{ entry.typed_ref }}</code>
+                        </div>
+                        <div role="cell" class="ui-table-cell" style="width: 180px; flex: none;">
+                            <span class="status-indicator">
+                                {% if entry.resource_type == "ledger_transaction" %}
+                                    <span class="status-text">Will archive</span>
+                                {% elif entry.resource_type in ["category_membership", "nested_category"] %}
+                                    <span class="status-text">Will remove</span>
+                                {% elif entry.deletable %}
+                                    <span class="status-text">Will delete</span>
+                                {% else %}
+                                    <span class="status-text">Will skip (not deletable)</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
-        {% endfor %}
     </div>
 
     <div id="cleanup-result"></div>

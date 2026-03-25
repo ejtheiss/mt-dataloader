@@ -1,0 +1,122 @@
+{#
+  MT Key-Value Table — Jinja2 partial
+  =====================================
+  Renders a two-column key-value layout matching MT's KeyValueTable component.
+
+  CANONICAL SOURCES:
+
+  KeyValueTable.tsx — platform/app/frontend/dashboard/components/ui-components/KeyValueTable/KeyValueTable.tsx
+    Component props (line 61-72):
+      data: Record<string, unknown>       — raw key-value pairs
+      dataMapping: DataMapping[]          — [{id, label, format?, valueTransform?}] controls display
+      copyableData: string[] = ["id"]     — which keys get a copy button
+      expandable: boolean = false         — collapse beyond minRowsWhenExpandable
+      minRowsWhenExpandable: number = 3   — rows shown when collapsed
+      primaryColumns: string[] = []       — rendered in bold
+      placeholder: string = "N/A"         — shown when value is null/undefined
+      unformattedColumnIds: string[] = [] — skip formatting for these columns
+
+    Row structure (line 120-126):
+      div.key-value-table-row (or altRowClassNames) > 
+        div.row-label + div#key.row-value.flex.w-full.flex-col
+
+    Value rendering (line 128-192):
+      - null/undefined -> placeholder "N/A"                                     (line 136)
+      - copyableData includes key -> CopyableData wrapper                       (line 158-166)
+      - isValidUrl(value) -> <a> link with text-blue-500                        (line 140-155)
+      - primaryColumns includes key -> <strong>                                 (line 170-176)
+      - Array value -> join with ", "                                           (line 131-134)
+      - unformattedColumnIds -> raw toString()                                  (line 178-183)
+      - else -> humanize(value)                                                 (line 185-190)
+
+    Expandable logic (line 198-234):
+      Shows first minRowsWhenExpandable rows, then "Show X more" / "Show less" toggle
+
+  tables.css — platform/app/frontend/common/stylesheets/tables.css
+    .key-value-table (line 266-272):
+      display: flex; flex-direction: column; font-size: 12px; line-height: 22px;
+      @apply whitespace-pre-wrap text-gray-800;
+
+    .key-value-table .key-value-table-row (line 274-276):
+      grid-template-columns: 150px 1fr;
+      @apply grid w-full grid-flow-col gap-6 border-b border-gray-100 py-4;
+
+    .key-value-table .key-value-table-row .row-label (line 278-280):
+      @apply break-words font-medium;
+
+    .key-value-table .key-value-table-row .row-value (line 282-285):
+      font-weight: 400; word-break: break-all;
+
+    .key-value-table .key-value-table-row:last-child (line 288):
+      border-bottom: none;
+
+  Usage:
+    {% set kv_rows = [
+        {"label": "Status",    "value": '<span class="badge badge--success">Completed</span>', "raw": true},
+        {"label": "Run ID",    "value": run.id,    "copyable": true, "mono": true},
+        {"label": "Config",    "value": run.config_hash, "primary": true},
+        {"label": "Started",   "value": run.started_at},
+        {"label": "Duration",  "value": run.duration},
+        {"label": "URL",       "value": run.url},
+    ] %}
+    {% set kv_id = "run-summary" %}
+    {% set kv_expandable = true %}
+    {% set kv_min_rows = 3 %}
+    {% include "partials/kv_table.html" %}
+#}
+
+{# KV Table — tables.css line 266-272 #}
+<div class="key-value-table" {% if kv_id %}id="{{ kv_id }}"{% endif %}>
+  {% for row in kv_rows %}
+  {# Row — tables.css line 274-276: grid 150px 1fr, border-b, py-4 #}
+  <div class="key-value-table-row{% if kv_expandable and loop.index > (kv_min_rows | default(3)) %} kv-expandable-hidden{% endif %}">
+    {# Label — tables.css line 278-280: break-words, font-medium #}
+    <div class="row-label">{{ row.label }}</div>
+    {# Value — tables.css line 282-285: font-weight 400, word-break break-all #}
+    <div class="row-value">
+      {% if row.raw %}
+        {{ row.value | safe }}
+      {% elif row.editable %}
+        {# Editable field with HTMX save-on-change #}
+        <input class="kv-edit-input"
+               type="text"
+               name="{{ row.field_name | default(row.label | lower | replace(' ', '_')) }}"
+               value="{{ row.value }}"
+               {% if row.hx_post %}
+               hx-post="{{ row.hx_post }}"
+               hx-trigger="change"
+               hx-swap="none"
+               {% endif %} />
+      {% elif row.url or (row.value is string and row.value.startswith('http')) %}
+        {# URL detection — KeyValueTable.tsx line 140-155 #}
+        <a href="{{ row.url | default(row.value) }}" class="text-blue-500 hover:underline"
+           target="_blank" rel="noopener">{{ row.value }}</a>
+      {% elif row.primary %}
+        {# Primary column — KeyValueTable.tsx line 170-176 #}
+        <strong>{{ row.value if row.value is not none else 'N/A' }}</strong>
+      {% else %}
+        {{ row.value if row.value is not none else 'N/A' }}
+      {% endif %}
+
+      {% if row.copyable %}
+      {# Copy button — KeyValueTable.tsx CopyableData wrapper (line 158-166) #}
+      <button class="kv-copy-btn"
+              onclick="navigator.clipboard.writeText('{{ row.value }}')"
+              title="Copy to clipboard">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v7a1 1 0 001 1h2" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      </button>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if kv_expandable and kv_rows | length > (kv_min_rows | default(3)) %}
+  {# Expand/collapse toggle — KeyValueTable.tsx line 198-234 #}
+  <button class="kv-expand-toggle" onclick="toggleKvExpand(this)">
+    Show {{ kv_rows | length - (kv_min_rows | default(3)) }} more
+  </button>
+  {% endif %}
+</div>

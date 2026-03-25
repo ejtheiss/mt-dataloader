@@ -36,133 +36,190 @@
         </span>
     </div>
 
-    <p class="text-muted" style="margin: 8px 0 12px; padding: 0 20px;">
-        Match config resources to existing org resources. Expand sections to adjust.
+    <p class="text-muted" style="margin: 8px 0 0; padding: 0 20px;">
+        Match config resources to existing org resources. Switch tabs to adjust.
     </p>
 
+    <div class="mt-tabs" style="margin: 12px 20px 0;">
+        <div class="mt-tabs__row">
+            {% if reconciliation.matches %}
+            <div class="mt-tab mt-tab--active" data-tab="recon-matched">
+                <button type="button" class="mt-tab__btn" onclick="switchReconTab('recon-matched'); setActiveTab(this)">Matched ({{ match_count }})</button>
+            </div>
+            {% endif %}
+            {% if reconciliation.unmatched_config %}
+            <div class="mt-tab{% if not reconciliation.matches %} mt-tab--active{% endif %}" data-tab="recon-new">
+                <button type="button" class="mt-tab__btn" onclick="switchReconTab('recon-new'); setActiveTab(this)">Will Be Created ({{ create_count }})</button>
+            </div>
+            {% endif %}
+            {% if reconciliation.unmatched_discovered %}
+            <div class="mt-tab" data-tab="recon-org">
+                <button type="button" class="mt-tab__btn" onclick="switchReconTab('recon-org'); setActiveTab(this)">Org-Only ({{ existing_count }})</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
     {% if reconciliation.matches %}
-    <details class="recon-section">
-        <summary class="recon-section-toggle">
-            Matched Resources ({{ match_count }})
-            <span class="recon-section-types">
-                {% for t in ns.match_types %}<span class="type-badge type-{{ t }}">{{ t }}</span>{% endfor %}
-            </span>
-        </summary>
-        <div class="reconciliation-matches">
-            {% for m in reconciliation.matches %}
-            <details class="reconciliation-card{% if m.duplicates %} has-duplicates{% endif %}">
-                <summary class="recon-card-summary">
-                    <span class="type-badge type-{{ m.config_ref.split('.')[0] }}">{{ m.config_ref.split('.')[0] }}</span>
-                    <code class="recon-config-ref">{{ m.config_ref.split('.', 1)[1] if '.' in m.config_ref else m.config_ref }}</code>
-                    <span class="recon-arrow">&rarr;</span>
-                    <span class="recon-discovered-name">{{ m.discovered_name }}</span>
-                    {% if m.duplicates %}
-                    <span class="recon-dup-badge">{{ m.duplicates|length }} option{{ 's' if m.duplicates|length != 1 }}</span>
-                    {% else %}
-                    <span class="recon-chip {% if m.use_existing %}recon-chip-existing{% else %}recon-chip-new{% endif %}">
-                        {{ "existing" if m.use_existing else "new" }}
-                    </span>
-                    {% endif %}
-                </summary>
-                <div class="recon-card-body">
-                    <div class="recon-match-info">
-                        <span class="recon-label">Discovered ID:</span>
-                        <code class="recon-discovered-id" title="{{ m.discovered_id }}">{{ m.discovered_id[:20] }}&hellip;</code>
-                    </div>
-                    <div class="recon-match-reason">
-                        <span class="recon-label">Reason:</span>
-                        <span>{{ m.match_reason }}</span>
-                    </div>
-                    <div class="recon-card-toggle">
-                        {% if m.duplicates %}
-                        <select class="recon-dup-select"
-                                name="recon_dup_{{ m.config_ref }}"
-                                onchange="updateReconcileOverrides()">
-                            <option value="">Create new</option>
-                            {% for dup in m.duplicates %}
-                            <option value="{{ dup.id }}"
-                                    {% if dup.id == m.discovered_id %}selected{% endif %}>
-                                {{ dup.name }} ({{ dup.id[:12] }}&hellip;){% if dup.detail %} &mdash; {{ dup.detail }}{% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        {% else %}
-                        <label class="toggle-switch">
-                            <input type="checkbox"
-                                   name="recon_use_existing_{{ m.config_ref }}"
-                                   value="1"
-                                   {% if m.use_existing %}checked{% endif %}
-                                   onchange="updateReconcileOverrides()">
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span class="toggle-label">{{ "Use existing" if m.use_existing else "Create new" }}</span>
-                        {% endif %}
+    <div class="tab-panel active" id="recon-matched">
+        <div class="ui-table-container" role="table">
+            <div class="ui-table-container__inner">
+                <div role="rowgroup" class="ui-table-head">
+                    <div role="row" class="ui-table-row header">
+                        <div role="columnheader" class="ui-table-header" style="width: 100px; flex: none;">Type</div>
+                        <div role="columnheader" class="ui-table-header">Config Ref</div>
+                        <div role="columnheader" class="ui-table-header">Discovered</div>
+                        <div role="columnheader" class="ui-table-header" style="width: 120px; flex: none;">Action</div>
                     </div>
                 </div>
-            </details>
-            {% endfor %}
+                <div role="rowgroup" class="ui-table-body">
+                    {% for m in reconciliation.matches %}
+                    <details class="recon-row-detail{% if m.duplicates %} has-duplicates{% endif %}">
+                        <summary class="ui-table-row linked" role="row" style="list-style: none; cursor: pointer;">
+                            <div role="cell" class="ui-table-cell" style="width: 100px; flex: none;">
+                                <span class="type-badge type-{{ m.config_ref.split('.')[0] }}">{{ m.config_ref.split('.')[0] }}</span>
+                            </div>
+                            <div role="cell" class="ui-table-cell truncate">
+                                <code>{{ m.config_ref.split('.', 1)[1] if '.' in m.config_ref else m.config_ref }}</code>
+                            </div>
+                            <div role="cell" class="ui-table-cell truncate">{{ m.discovered_name }}</div>
+                            <div role="cell" class="ui-table-cell" style="width: 120px; flex: none;">
+                                {% if m.duplicates %}
+                                <span class="recon-dup-badge">{{ m.duplicates|length }} option{{ 's' if m.duplicates|length != 1 }}</span>
+                                {% else %}
+                                <span class="recon-chip {% if m.use_existing %}recon-chip-existing{% else %}recon-chip-new{% endif %}">
+                                    {{ "existing" if m.use_existing else "new" }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </summary>
+                        <div class="recon-card-body" style="padding: 8px 16px 12px; border-bottom: 1px solid var(--border, #eee);">
+                            <div class="recon-match-info">
+                                <span class="recon-label">Discovered ID:</span>
+                                <code class="recon-discovered-id" title="{{ m.discovered_id }}">{{ m.discovered_id[:20] }}&hellip;</code>
+                            </div>
+                            <div class="recon-match-reason">
+                                <span class="recon-label">Reason:</span>
+                                <span>{{ m.match_reason }}</span>
+                            </div>
+                            <div class="recon-card-toggle">
+                                {% if m.duplicates %}
+                                <select class="recon-dup-select"
+                                        name="recon_dup_{{ m.config_ref }}"
+                                        onchange="updateReconcileOverrides()">
+                                    <option value="">Create new</option>
+                                    {% for dup in m.duplicates %}
+                                    <option value="{{ dup.id }}"
+                                            {% if dup.id == m.discovered_id %}selected{% endif %}>
+                                        {{ dup.name }} ({{ dup.id[:12] }}&hellip;){% if dup.detail %} &mdash; {{ dup.detail }}{% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% else %}
+                                <label class="toggle-switch">
+                                    <input type="checkbox"
+                                           name="recon_use_existing_{{ m.config_ref }}"
+                                           value="1"
+                                           {% if m.use_existing %}checked{% endif %}
+                                           onchange="updateReconcileOverrides()">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span class="toggle-label">{{ "Use existing" if m.use_existing else "Create new" }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </details>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
-    </details>
+    </div>
     {% endif %}
 
     {% if reconciliation.unmatched_config %}
-    <details class="recon-section">
-        <summary class="recon-section-toggle">
-            Will Be Created ({{ create_count }})
-            <span class="recon-section-types">
-                {% for t in ns.create_types %}<span class="type-badge type-{{ t }}">{{ t }}</span>{% endfor %}
-            </span>
-        </summary>
-        <div class="recon-remap-list">
-            {% for ref in reconciliation.unmatched_config %}
-            {% set rtype = ref.split('.')[0] %}
-            <details class="recon-remap-row">
-                <summary class="recon-remap-summary">
-                    <span class="type-badge type-{{ rtype }}">{{ rtype }}</span>
-                    <code>{{ ref.split('.', 1)[1] if '.' in ref else ref }}</code>
-                    <span class="recon-chip recon-chip-new">new</span>
-                </summary>
-                <div class="recon-remap-body">
-                    {% if discovered_by_type and discovered_by_type.get(rtype) %}
-                    <span class="recon-label">Map to existing:</span>
-                    <select class="recon-remap-select"
-                            name="manual_map_{{ ref }}"
-                            onchange="updateReconcileOverrides()">
-                        <option value="">Create new{% if rtype == 'connection' %} (sandbox only){% endif %}</option>
-                        {% for d in discovered_by_type[rtype] %}
-                        <option value="{{ d.id }}">
-                            {{ d.name }} ({{ d.id[:12] }}&hellip;){% if d.detail %} &mdash; {{ d.detail }}{% endif %}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    {% else %}
-                    <span class="text-muted">No existing resources of this type in the org.</span>
-                    {% endif %}
+    <div class="tab-panel{% if not reconciliation.matches %} active{% endif %}" id="recon-new">
+        <div class="ui-table-container" role="table">
+            <div class="ui-table-container__inner">
+                <div role="rowgroup" class="ui-table-head">
+                    <div role="row" class="ui-table-row header">
+                        <div role="columnheader" class="ui-table-header" style="width: 100px; flex: none;">Type</div>
+                        <div role="columnheader" class="ui-table-header">Config Ref</div>
+                        <div role="columnheader" class="ui-table-header" style="width: 80px; flex: none;">Status</div>
+                    </div>
                 </div>
-            </details>
-            {% endfor %}
+                <div role="rowgroup" class="ui-table-body">
+                    {% for ref in reconciliation.unmatched_config %}
+                    {% set rtype = ref.split('.')[0] %}
+                    <details class="recon-row-detail">
+                        <summary class="ui-table-row linked" role="row" style="list-style: none; cursor: pointer;">
+                            <div role="cell" class="ui-table-cell" style="width: 100px; flex: none;">
+                                <span class="type-badge type-{{ rtype }}">{{ rtype }}</span>
+                            </div>
+                            <div role="cell" class="ui-table-cell truncate">
+                                <code>{{ ref.split('.', 1)[1] if '.' in ref else ref }}</code>
+                            </div>
+                            <div role="cell" class="ui-table-cell" style="width: 80px; flex: none;">
+                                <span class="recon-chip recon-chip-new">new</span>
+                            </div>
+                        </summary>
+                        <div class="recon-card-body" style="padding: 8px 16px 12px; border-bottom: 1px solid var(--border, #eee);">
+                            {% if discovered_by_type and discovered_by_type.get(rtype) %}
+                            <span class="recon-label">Map to existing:</span>
+                            <select class="recon-remap-select"
+                                    name="manual_map_{{ ref }}"
+                                    onchange="updateReconcileOverrides()">
+                                <option value="">Create new{% if rtype == 'connection' %} (sandbox only){% endif %}</option>
+                                {% for d in discovered_by_type[rtype] %}
+                                <option value="{{ d.id }}">
+                                    {{ d.name }} ({{ d.id[:12] }}&hellip;){% if d.detail %} &mdash; {{ d.detail }}{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <span class="text-muted">No existing resources of this type in the org.</span>
+                            {% endif %}
+                        </div>
+                    </details>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
-    </details>
+    </div>
     {% endif %}
 
     {% if reconciliation.unmatched_discovered %}
-    <details class="recon-section">
-        <summary class="recon-section-toggle">
-            Org Resources Not in Config ({{ existing_count }})
-            <span class="recon-section-types">
-                {% for t in ns.existing_types %}<span class="type-badge type-{{ t }}">{{ t }}</span>{% endfor %}
-            </span>
-        </summary>
-        <div class="recon-list">
-            {% for ref in reconciliation.unmatched_discovered %}
-            <span class="recon-chip recon-chip-existing">{{ ref }}</span>
-            {% endfor %}
+    <div class="tab-panel" id="recon-org">
+        <div class="ui-table-container" role="table">
+            <div class="ui-table-container__inner">
+                <div role="rowgroup" class="ui-table-head">
+                    <div role="row" class="ui-table-row header">
+                        <div role="columnheader" class="ui-table-header" style="width: 100px; flex: none;">Type</div>
+                        <div role="columnheader" class="ui-table-header">Reference</div>
+                    </div>
+                </div>
+                <div role="rowgroup" class="ui-table-body">
+                    {% for ref in reconciliation.unmatched_discovered %}
+                    <div role="row" class="ui-table-row">
+                        <div role="cell" class="ui-table-cell" style="width: 100px; flex: none;">
+                            <span class="type-badge type-{{ ref.split('.')[0] if '.' in ref else ref }}">{{ ref.split('.')[0] if '.' in ref else ref }}</span>
+                        </div>
+                        <div role="cell" class="ui-table-cell"><code>{{ ref }}</code></div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
-    </details>
+    </div>
     {% endif %}
 </div>
 
 <script>
+function switchReconTab(panelId) {
+    document.querySelectorAll('#recon-matched, #recon-new, #recon-org').forEach(function(p) {
+        p.classList.toggle('active', p.id === panelId);
+    });
+}
+
 function updateReconcileOverrides() {
     var overrides = {};
     var manualMappings = {};
@@ -172,7 +229,7 @@ function updateReconcileOverrides() {
         overrides[ref] = cb.checked;
         var label = cb.closest('.recon-card-toggle').querySelector('.toggle-label');
         if (label) label.textContent = cb.checked ? 'Use existing' : 'Create new';
-        var chip = cb.closest('.reconciliation-card').querySelector('summary .recon-chip');
+        var chip = cb.closest('.recon-row-detail').querySelector('summary .recon-chip');
         if (chip) {
             chip.textContent = cb.checked ? 'existing' : 'new';
             chip.className = 'recon-chip ' + (cb.checked ? 'recon-chip-existing' : 'recon-chip-new');

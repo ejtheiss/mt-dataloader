@@ -1,0 +1,51 @@
+{#
+  MT Layout — Jinja2 partial
+  ============================================================
+  Canonical sources:
+    - Layout.tsx                  (lines 20-52)    — two-column grid layout
+    - Layout.tsx                  (lines 32)       — outer: min-h-full @container/layout
+    - Layout.tsx                  (lines 36)       — inner: grid grid-cols-1 gap-4
+    - Layout.tsx                  (lines 37-43)    — ratio-based responsive grid
+    - Layout.tsx                  (lines 46)       — heading: col-span-full
+    - WebhookEndpointView.tsx     (lines 248-299)  — Layout usage: primaryContent + secondaryContent
+    - EventView.tsx               (lines 69-115)   — Layout usage: DetailsTable + SectionNavigator
+
+  MT Layout ratios (responsive at @5xl ~1024px):
+    "1/3" → grid-cols-[minmax(0,1fr),minmax(0,2fr)]  — 33% / 67%
+    "1/2" → grid-cols-[minmax(0,1fr),minmax(0,1fr)]  — 50% / 50% (default)
+    "2/3" → grid-cols-[minmax(0,2fr),minmax(0,1fr)]  — 67% / 33%
+    "3/3" → single column (no secondaryContent)
+
+  Parameters:
+    ratio             — "1/3" | "1/2" | "2/3" | "3/3" (default: "1/2")
+    heading           — optional heading block (spans full width)
+    primary_content   — left column content (required)
+    secondary_content — right column content (optional)
+  ============================================================
+#}
+
+{% set _ratio = ratio | default('1/2') %}
+
+{# Source: Layout.tsx line 32 — outer container #}
+<div class="mt-layout">
+  {# Source: Layout.tsx lines 34-44 — inner grid #}
+  <div class="mt-layout-grid mt-layout-{{ _ratio | replace('/', '-') }}">
+
+    {# Source: Layout.tsx line 46 — heading spans full width #}
+    {% if heading is defined and heading %}
+    <div class="mt-layout-heading">{{ heading }}</div>
+    {% endif %}
+
+    {# Primary content (left column) #}
+    <div class="mt-layout-primary">
+      {{ primary_content }}
+    </div>
+
+    {# Secondary content (right column) #}
+    {% if secondary_content is defined and secondary_content %}
+    <div class="mt-layout-secondary">
+      {{ secondary_content }}
+    </div>
+    {% endif %}
+  </div>
+</div>

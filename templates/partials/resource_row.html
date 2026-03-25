@@ -3,39 +3,29 @@
 {% set resource_type = parts[0] %}
 {% set ref_name = parts[1] if parts|length > 1 else ref %}
 
-<div id="{{ row_id }}" class="resource-row {{ status }}" hx-swap-oob="true">
-    {% if resource_type in mt_docs %}
-    <a href="{{ mt_docs[resource_type] }}" target="_blank" rel="noopener" class="doc-link">
-        <span class="type-badge type-{{ resource_type }}">{{ resource_type }}</span>
-    </a>
-    {% else %}
-    <span class="type-badge type-{{ resource_type }}">{{ resource_type }}</span>
-    {% endif %}
-    {% if display_name %}
-    <span class="resource-display-name" title="{{ ref }}">{{ display_name }}</span>
-    {% else %}
-    <span class="ref-name" title="{{ ref }}">{{ ref_name }}</span>
-    {% endif %}
-
-    {% if status == "pending" %}
-        <span class="status-indicator">
-            <span class="status-dot pending"></span>
-            <span class="status-text">Pending</span>
-        </span>
-
-    {% elif status == "creating" %}
-        <span class="status-indicator">
-            <span class="spinner-sm"></span>
-            <span class="status-text">Creating&hellip;</span>
-        </span>
-
-    {% elif status == "created" %}
-        <span class="status-indicator">
-            <span class="status-dot created"></span>
-            <span class="status-text">Created</span>
-        </span>
-        {% if id %}
-        <code class="created-id" title="{{ id }}">{{ id[:12] }}&hellip;</code>
+<div id="{{ row_id }}" role="row" class="ui-table-row resource-row {{ status }}" hx-swap-oob="true">
+    <div role="cell" class="ui-table-cell" style="width: 50px; flex: none;">
+        {% if batch is defined and batch is not none %}
+        <span class="badge badge--default">B{{ batch }}</span>
+        {% endif %}
+    </div>
+    <div role="cell" class="ui-table-cell" style="width: 130px; flex: none;">
+        {% if resource_type in mt_docs %}
+        <a href="{{ mt_docs[resource_type] }}" target="_blank" rel="noopener" class="doc-link">
+            <span class="badge badge--cool">{{ resource_type }}</span>
+        </a>
+        {% else %}
+        <span class="badge badge--cool">{{ resource_type }}</span>
+        {% endif %}
+    </div>
+    <div role="cell" class="ui-table-cell truncate">
+        {% if display_name %}
+        <span title="{{ ref }}">{{ display_name }}</span>
+        {% else %}
+        <code title="{{ ref }}">{{ ref_name }}</code>
+        {% endif %}
+        {% if status == "created" and id %}
+        <code class="created-id" title="{{ id }}" style="margin-left: 8px; font-size: 0.8em; opacity: 0.7;">{{ id[:12] }}&hellip;</code>
         {% endif %}
         {% if child_refs %}
         <span class="child-refs">
@@ -44,20 +34,34 @@
             {% endfor %}
         </span>
         {% endif %}
-
-    {% elif status == "waiting" %}
+    </div>
+    <div role="cell" class="ui-table-cell" style="width: 160px; flex: none;">
+        {% if status == "pending" %}
+        <span class="status-indicator">
+            <span class="status-dot pending"></span>
+            <span class="status-text">Pending</span>
+        </span>
+        {% elif status == "creating" %}
+        <span class="status-indicator">
+            <span class="spinner-sm"></span>
+            <span class="status-text">Creating&hellip;</span>
+        </span>
+        {% elif status == "created" %}
+        <span class="status-indicator">
+            <span class="status-dot created"></span>
+            <span class="status-text">Created</span>
+        </span>
+        {% elif status == "waiting" %}
         <span class="status-indicator">
             <span class="pulse"></span>
-            <span class="status-text">Waiting{% if attempt %} (attempt {{ attempt }}){% endif %}{% if detail %} &mdash; {{ detail }}{% endif %}</span>
+            <span class="status-text">Waiting{% if attempt %} ({{ attempt }}){% endif %}{% if detail %} &mdash; {{ detail }}{% endif %}</span>
         </span>
-
-    {% elif status == "staged" %}
+        {% elif status == "staged" %}
         <span class="status-indicator">
             <span class="status-dot staged"></span>
             <span class="status-text">Staged</span>
         </span>
-
-    {% elif status == "error" %}
+        {% elif status == "error" %}
         <span class="status-indicator">
             <span class="status-dot error"></span>
             <span class="status-text">Failed</span>
@@ -65,5 +69,6 @@
         {% if error %}
         <span class="error-detail">{{ error }}</span>
         {% endif %}
-    {% endif %}
+        {% endif %}
+    </div>
 </div>

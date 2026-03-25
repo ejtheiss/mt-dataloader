@@ -1,24 +1,27 @@
-<div class="webhook-card" data-run-id="{{ wh.run_id or '' }}" id="wh-{{ wh.webhook_id }}">
-    <div class="webhook-card-header">
-        <span class="wh-event">{{ wh.event_type }}</span>
-        <span class="wh-time">{{ wh.received_at.split("T")[1][:8] if "T" in wh.received_at else wh.received_at }}</span>
+<div role="row" class="ui-table-row linked" data-run-id="{{ wh.run_id or '' }}" id="wh-{{ wh.webhook_id }}"
+     data-url="/listen?wh={{ wh.webhook_id }}"
+     hx-get="/api/webhooks/{{ wh.webhook_id }}/drawer"
+     hx-target="#drawer-content"
+     hx-swap="innerHTML"
+     onclick="handleRowClick(event, this)">
+    <div role="cell" class="ui-table-cell" style="width: 200px; min-width: 200px; flex: none;">
+        <strong>{{ wh.event_type }}</strong>
     </div>
-    <div class="webhook-card-meta">
-        <span class="wh-resource-type">{{ wh.resource_type }}</span>
-        <span class="wh-resource-id">{{ (wh.resource_id[:12] ~ '&hellip;') if wh.resource_id else '?' }}</span>
+    <div role="cell" class="ui-table-cell" style="width: 120px; flex: none;">
+        <span class="badge badge--cool">{{ wh.resource_type }}</span>
+    </div>
+    <div role="cell" class="ui-table-cell truncate">
+        <code>{{ (wh.resource_id[:12] ~ '&hellip;') if wh.resource_id else '?' }}</code>
         {% if wh.typed_ref %}
-        <span class="wh-typed-ref">{{ wh.typed_ref }}</span>
+        <span style="margin-left: 4px; color: var(--mt-gray-500);">{{ wh.typed_ref }}</span>
         {% endif %}
+    </div>
+    <div role="cell" class="ui-table-cell" style="width: 80px; flex: none;">
         {% if wh.run_id %}
-        <a href="/listen?run_id={{ wh.run_id }}" class="wh-run-link" title="Filter by this run">{{ wh.run_id[:16] }}</a>
-        {% endif %}
+        <a href="/listen?run_id={{ wh.run_id }}" class="wh-run-link" title="Filter by this run" onclick="event.stopPropagation()">{{ wh.run_id[:8] }}&hellip;</a>
+        {% else %}&mdash;{% endif %}
     </div>
-    {% if wh.raw %}
-    <div class="accordion">
-        <div class="accordion-header" onclick="this.parentNode.classList.toggle('open')">Payload</div>
-        <div class="accordion-panel thin-scrollbar">
-            <pre>{{ wh.raw | tojson(indent=2) }}</pre>
-        </div>
+    <div role="cell" class="ui-table-cell text-right" style="width: 80px; flex: none;">
+        {{ wh.received_at.split("T")[1][:8] if "T" in wh.received_at else wh.received_at }}
     </div>
-    {% endif %}
 </div>

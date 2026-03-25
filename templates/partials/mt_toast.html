@@ -1,0 +1,83 @@
+{#
+  MT Toast — Jinja2 partial
+  ============================================================
+  Canonical sources:
+    - Toast.tsx          (lines 128-142)  — outer container
+    - Toast.tsx          (lines 59-112)   — ToastPanel with status icon
+    - Toast.tsx          (lines 20-43)    — ToastButton with action
+    - useToast.ts        (lines 17-67)    — toast invocation, 4s default duration
+    - ExportDataButton   (lines 180-195)  — example toast with action button
+
+  MT Toast structure:
+    <div class="toast">                                  — flex row, bg-gray-800, text-white, rounded, border-gray-700
+      <div class="toast-panel">                          — flex row, icon + message
+        <span class="toast-icon toast-icon-{status}">   — status icon (success/error/warning/info)
+        <div>{message}</div>
+      </div>
+      <div class="toast-button">                         — optional action button
+        <button>{action_label}</button>
+      </div>
+      <div class="toast-button toast-close">             — optional close button
+        <button>&times;</button>
+      </div>
+    </div>
+
+  Usage (server-rendered, hidden by default — shown via JS):
+    <div id="toast-container" class="toast-container"></div>
+
+  JS trigger:
+    mtToast("Your export is processing.", { status: "success", duration: 4000 })
+    mtToast("Error occurred.", { status: "error", actionLabel: "Retry", actionUrl: "/retry" })
+
+  Parameters (passed via JS, not Jinja2):
+    message     — toast text
+    status      — "success" | "error" | "warning" | "info" (optional)
+    duration    — auto-dismiss ms (default 4000, MT default from useToast.ts line 28)
+    actionLabel — optional button text (e.g. "View Details")
+    actionUrl   — optional button link
+  ============================================================
+#}
+
+{# Toast container — place once in base.html, toasts are injected via JS #}
+<div id="mt-toast-container" class="toast-container" aria-live="polite"></div>
+
+{#
+  Template used by JS to build toast HTML.
+  Not rendered directly — mtToast() in mt-interactions.js builds from this structure.
+
+  Example static toast (for reference / SSR flash messages):
+#}
+{%- macro toast(message, status=None, action_label=None, action_url=None, dismissable=True) -%}
+<div class="mt-toast" role="status" aria-live="polite">
+  <div class="mt-toast-panel">
+    {%- if status == "success" %}
+    <span class="mt-toast-icon mt-toast-icon-success" aria-label="Success">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    </span>
+    {%- elif status == "error" %}
+    <span class="mt-toast-icon mt-toast-icon-error" aria-label="Error">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+    </span>
+    {%- elif status == "warning" %}
+    <span class="mt-toast-icon mt-toast-icon-warning" aria-label="Warning">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </span>
+    {%- elif status == "info" %}
+    <span class="mt-toast-icon mt-toast-icon-info" aria-label="Info">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    </span>
+    {%- endif %}
+    <div class="mt-toast-message">{{ message }}</div>
+  </div>
+  {%- if action_label %}
+  <div class="mt-toast-action">
+    <a href="{{ action_url or '#' }}" class="mt-toast-action-btn">{{ action_label }}</a>
+  </div>
+  {%- endif %}
+  {%- if dismissable %}
+  <div class="mt-toast-close">
+    <button type="button" class="mt-toast-close-btn" onclick="this.closest('.mt-toast').remove()" aria-label="Close toast">&times;</button>
+  </div>
+  {%- endif %}
+</div>
+{%- endmacro -%}

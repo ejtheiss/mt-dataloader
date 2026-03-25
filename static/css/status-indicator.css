@@ -1,0 +1,118 @@
+/* ============================================================
+   MT StatusIndicator — CSS
+   Canonical source: StatusIndicator.tsx (lines 67-237)
+   ============================================================
+   StatusIndicator uses an icon + color + optional Badge (verbose mode).
+   In the Jinja2 port, we use a colored dot + text since we don't have
+   MT's icon font. The dot colors map directly from the MT status→color switch.
+   ============================================================ */
+
+/* --- Container --- */
+/* Source: StatusIndicator.tsx line 207 — className="flex items-center gap-3" */
+.mt-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;                                 /* gap-3 */
+}
+
+/* --- Dot (icon replacement) --- */
+.mt-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* --- Status Colors --- */
+/* Source: StatusIndicator.tsx lines 82-203 */
+
+/* Green — approved, complete, completed, healthy, passed, posted, sent, successful */
+.mt-status-dot--approved,
+.mt-status-dot--complete,
+.mt-status-dot--completed,
+.mt-status-dot--healthy,
+.mt-status-dot--passed,
+.mt-status-dot--posted,
+.mt-status-dot--sent,
+.mt-status-dot--successful {
+  background-color: #22C55E;                 /* green-500 */
+}
+
+/* Partial green — partiallyComplete */
+.mt-status-dot--partiallyComplete {
+  background-color: #4ADE80;                 /* green-400 */
+}
+
+/* Red — cancelled, denied, failed, unresponsive, unstable */
+.mt-status-dot--cancelled,
+.mt-status-dot--denied,
+.mt-status-dot--failed,
+.mt-status-dot--unresponsive,
+.mt-status-dot--unstable {
+  background-color: #D44020;                 /* red-500 */
+}
+
+/* Yellow/Warning — completedWithErrors, pendingEdits, returned, tentativelyComplete */
+.mt-status-dot--completedWithErrors,
+.mt-status-dot--pendingEdits,
+.mt-status-dot--returned,
+.mt-status-dot--tentativelyComplete {
+  background-color: #FDE047;                 /* yellow-300 */
+}
+
+/* Yellow processing */
+.mt-status-dot--processing {
+  background-color: #EAB308;                 /* yellow-500 */
+}
+
+/* Orange — needs_approval, incomplete */
+.mt-status-dot--needs_approval,
+.mt-status-dot--incomplete {
+  background-color: #FB923C;                 /* orange-300a approximation */
+}
+
+/* Yellow held (warning) */
+.mt-status-dot--held {
+  background-color: #FDE047;                 /* yellow-300 */
+}
+
+/* Gray — archived, inactive, reversed, archiving, deleted, paused, pending */
+.mt-status-dot--archived,
+.mt-status-dot--inactive,
+.mt-status-dot--reversed,
+.mt-status-dot--archiving,
+.mt-status-dot--deleted,
+.mt-status-dot--paused,
+.mt-status-dot--pending {
+  background-color: #D4D3CC;                 /* gray-300 */
+}
+
+/* Dark gray — locked, editable */
+.mt-status-dot--locked,
+.mt-status-dot--editable {
+  background-color: #303030;                 /* black-300 approximation */
+}
+
+/* MT managed — gray-500 */
+.mt-status-dot--mtManaged {
+  background-color: #6B695D;                 /* gray-500 */
+}
+
+/* --- Verbose mode (dot + text) --- */
+/* Source: StatusIndicator.tsx lines 208-219 — verbose uses Badge */
+.mt-status-indicator--verbose .mt-status-text {
+  font-size: 0.875rem;
+  color: #504E43;                            /* text-gray-700 */
+}
+
+/* --- Tooltip mode (dot only, with title attr) --- */
+.mt-status-indicator--icon-only {
+  cursor: default;
+}
+
+/* --- Badge-based verbose (uses mt-badge classes from badge.css) --- */
+/* When verbose=true, MT wraps the icon + text in a Badge.
+   In Jinja2, use: <span class="mt-badge mt-badge--{{ badge_variant }}">
+                     <span class="mt-status-dot mt-status-dot--{{ status }}"></span>
+                     {{ descriptor }}
+                   </span> */

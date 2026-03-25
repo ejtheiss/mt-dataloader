@@ -27,41 +27,83 @@
            target="_blank" rel="noopener">MT Dashboard &rarr; Webhooks</a>.
     </p>
 
-    <div class="listen-toolbar">
-        <div class="listen-filter">
-            <label for="run-filter">Filter by run:</label>
-            <select id="run-filter" class="input input-border">
-                <option value="">All webhooks</option>
-                {% for rid in run_ids %}
-                <option value="{{ rid }}"
-                        {% if selected_run_id == rid %}selected{% endif %}>
-                    {{ rid[:8] }}…{{ rid[-8:] }} ({{ rid[:4] }}-{{ rid[4:6] }}-{{ rid[6:8] }} {{ rid[9:11] }}:{{ rid[11:13] }}:{{ rid[13:15] }})
-                </option>
-                {% endfor %}
-            </select>
+    <div class="mt-filter-bar">
+        <div class="mt-filter-bar-inner">
+            <div class="mt-filter-bar-left">
+                <div class="mt-filter-dropdown">
+                    <button type="button" class="mt-filter-trigger" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="4" y1="6" x2="20" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/>
+                        </svg>
+                        Filter by run
+                    </button>
+                    <div class="mt-filter-panel hidden" id="run-filter-panel">
+                        <button type="button" class="mt-filter-option" onclick="setRunFilter('')">All webhooks</button>
+                        {% for rid in run_ids %}
+                        <button type="button" class="mt-filter-option"
+                                onclick="setRunFilter('{{ rid }}')">
+                            {{ rid[:8] }}&hellip;{{ rid[-8:] }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="mt-filter-pills" id="run-filter-pills">
+                    {% if selected_run_id %}
+                    <div class="mt-chip" data-filter-key="run_id">
+                        <div class="mt-chip-content">
+                            <span class="mt-chip-label">Run:</span>
+                            <span class="mt-chip-value">{{ selected_run_id[:12] }}&hellip;</span>
+                        </div>
+                        <button type="button" class="mt-chip-remove" onclick="setRunFilter('')" aria-label="Remove run filter">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="mt-filter-bar-right">
+                <button class="btn btn-sm btn-outline" id="btn-test-webhook">
+                    Send Test Webhook
+                </button>
+            </div>
         </div>
-        <button class="btn btn-sm btn-outline"
-                id="btn-test-webhook">
-            Send Test Webhook
-        </button>
     </div>
 
     <h3>Live Feed</h3>
-    <div id="live-webhooks">
-        {% if webhook_history %}
-            {% for wh in webhook_history %}
-            {% include "partials/webhook_card.html" %}
-            {% endfor %}
-        {% else %}
-            <p class="empty-state" id="webhook-empty">Waiting for webhooks&hellip;</p>
-        {% endif %}
+    <div class="ui-table-container" id="webhooks-table" role="table">
+        <div class="ui-table-container__inner">
+            <div role="rowgroup" class="ui-table-head">
+                <div role="row" class="ui-table-row header">
+                    <div role="columnheader" class="ui-table-header" style="width: 200px; min-width: 200px; flex: none;">Event</div>
+                    <div role="columnheader" class="ui-table-header" style="width: 120px; flex: none;">Type</div>
+                    <div role="columnheader" class="ui-table-header">Resource</div>
+                    <div role="columnheader" class="ui-table-header" style="width: 80px; flex: none;">Run</div>
+                    <div role="columnheader" class="ui-table-header text-right" style="width: 80px; flex: none;">Time</div>
+                </div>
+            </div>
+            <div role="rowgroup" class="ui-table-body" id="live-webhooks">
+                {% if webhook_history %}
+                    {% for wh in webhook_history %}
+                    {% include "partials/webhook_card.html" %}
+                    {% endfor %}
+                {% else %}
+                    <div role="row" class="ui-table-row empty" id="webhook-empty">
+                        <div role="cell" class="ui-table-cell" style="flex: 1; justify-content: center; padding: 24px;">
+                            Waiting for webhooks&hellip;
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
 <script>
 (function() {
     var source = null;
     var container = document.getElementById('live-webhooks');
-    var filter = document.getElementById('run-filter');
+    var pillsContainer = document.getElementById('run-filter-pills');
     var initialRunId = {{ selected_run_id | tojson }} || null;
 
     function connectSSE(runId) {
@@ -75,27 +117,41 @@
             var empty = document.getElementById('webhook-empty');
             if (empty) empty.remove();
             container.insertAdjacentHTML('afterbegin', e.data);
+            if (container.firstElementChild && typeof htmx !== 'undefined') {
+                htmx.process(container.firstElementChild);
+            }
         });
     }
 
-    filter.addEventListener('change', function() {
-        var runId = this.value || null;
+    window.setRunFilter = function(runId) {
+        var panel = document.getElementById('run-filter-panel');
+        if (panel) panel.classList.add('hidden');
+
         container.innerHTML = '';
         if (runId) {
+            pillsContainer.innerHTML =
+                '<div class="mt-chip" data-filter-key="run_id">' +
+                '  <div class="mt-chip-content"><span class="mt-chip-label">Run:</span>' +
+                '  <span class="mt-chip-value">' + runId.substring(0, 12) + '&hellip;</span></div>' +
+                '  <button type="button" class="mt-chip-remove" onclick="setRunFilter(\'\')" aria-label="Remove run filter">' +
+                '    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+                '  </button>' +
+                '</div>';
             window.history.replaceState(null, '', '/listen?run_id=' + encodeURIComponent(runId));
             fetch('/listen?run_id=' + encodeURIComponent(runId))
                 .then(function(r) { return r.text(); })
                 .then(function(html) {
                     var doc = new DOMParser().parseFromString(html, 'text/html');
-                    var cards = doc.getElementById('live-webhooks');
-                    if (cards) container.innerHTML = cards.innerHTML;
+                    var rows = doc.getElementById('live-webhooks');
+                    if (rows) container.innerHTML = rows.innerHTML;
                     connectSSE(runId);
                 });
         } else {
+            pillsContainer.innerHTML = '';
             window.history.replaceState(null, '', '/listen');
             connectSSE(null);
         }
-    });
+    };
 
     connectSSE(initialRunId);
 

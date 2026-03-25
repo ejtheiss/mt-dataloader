@@ -1,0 +1,72 @@
+/* ============================================================
+   MT Pill — CSS
+   Canonical source: Pill.tsx (lines 30-77)
+   ============================================================
+   Pill is an entity link component with optional tooltip.
+   Used for referencing related entities (e.g., counterparty, account).
+   ============================================================ */
+
+/* --- Pill Container --- */
+/* Source: Pill.tsx lines 38-42 — outer wrapper */
+.mt-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;                          /* min-h-6 */
+  min-width: 32px;                           /* min-w-8 */
+  max-width: 100%;
+  border-radius: 9999px;                     /* rounded-2xl */
+}
+
+/* --- Pill Content --- */
+/* Source: Pill.tsx lines 58-65 — inner content span */
+.mt-pill-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;                                  /* gap-1 */
+  border-radius: 9999px;                     /* rounded-2xl */
+  border: 1px solid rgba(0, 0, 0, 0.09);    /* border-alpha-black-100 */
+  background-color: #fff;                    /* bg-white */
+  padding: 4px 12px;                         /* px-3 py-1 */
+  font-size: 0.75rem;                        /* text-xs */
+  font-weight: 500;                          /* font-medium */
+  color: #303030;                            /* text-gray-800 */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 150ms;
+}
+
+/* Hover state */
+/* Source: Pill.tsx line 65 — group-hover/pill:bg-gray-50 */
+.mt-pill:hover .mt-pill-content,
+.mt-pill-content:hover {
+  background-color: #F5F5F0;                 /* bg-gray-50 */
+}
+
+/* --- Pill as link --- */
+a.mt-pill-content,
+.mt-pill a.mt-pill-content {
+  cursor: pointer;
+}
+
+/* --- Pill icon slot --- */
+.mt-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.mt-pill-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* --- Pill Group (multiple pills) --- */
+.mt-pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;                                  /* gap-1 */
+  align-items: center;
+}

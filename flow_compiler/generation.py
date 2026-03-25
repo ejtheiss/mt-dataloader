@@ -112,16 +112,25 @@ def apply_overrides(flow_dict: dict, overrides: dict[str, Any]) -> dict:
 
 
 def apply_amount_variance(
-    flow_dict: dict, variance_pct: float, rng: random.Random
+    flow_dict: dict,
+    min_pct: float,
+    max_pct: float,
+    rng: random.Random,
+    step_variance: dict[str, dict[str, float]] | None = None,
 ) -> dict:
-    """Apply +/- variance_pct jitter to all amount fields in steps.
+    """Apply min/max percentage variance to all amount fields in steps.
+
+    *min_pct* is negative or zero (e.g. -10.0 = down to 90% of base).
+    *max_pct* is positive or zero (e.g. 10.0 = up to 110% of base).
+
+    *step_variance* maps step_id → {"min_pct": ..., "max_pct": ...}.
+    An empty dict locks the step to zero variance.
 
     Uses the SAME jitter factor for all amounts within a single step
     to keep ledger entries balanced (DR and CR get the same percentage).
     """
-    if variance_pct <= 0:
+    if min_pct >= 0 and max_pct <= 0 and not step_variance:
         return flow_dict
-    factor = variance_pct / 100.0
     all_steps = list(flow_dict.get("steps") or [])
     for og in flow_dict.get("optional_groups") or []:
         all_steps.extend(og.get("steps") or [])
@@ -129,7 +138,19 @@ def apply_amount_variance(
         entries = step.get("ledger_entries") or []
         if not step.get("amount") and not entries:
             continue
-        jitter = rng.uniform(-factor, factor)
+        step_id = step.get("step_id", "")
+        sv = step_variance.get(step_id) if step_variance else None
+        if sv is not None:
+            if not sv:
+                continue
+            lo = sv.get("min_pct", 0.0) / 100.0
+            hi = sv.get("max_pct", 0.0) / 100.0
+        else:
+            lo = min_pct / 100.0
+            hi = max_pct / 100.0
+        if lo >= 0 and hi <= 0:
+            continue
+        jitter = rng.uniform(lo, hi)
         if "amount" in step and isinstance(step["amount"], (int, float)):
             step["amount"] = max(1, round(step["amount"] * (1 + jitter)))
         for entry in entries:
@@ -301,6 +322,31 @@ def mark_staged(flow_dict: dict) -> dict:
     return flow_dict
 
 
+def _select_from_pool(
+    selection: str,
+    count: int,
+    total: int,
+    edge_selections: dict[str, set[int]] | None,
+) -> set[int]:
+    """Return up to *count* instance indices for a single staging pool."""
+    if count <= 0:
+        return set()
+    edge_sel = edge_selections or {}
+
+    if selection == "all":
+        pool = list(range(total))
+    elif selection == "happy_path":
+        edge_indices: set[int] = set()
+        for indices in edge_sel.values():
+            edge_indices |= indices
+        pool = [i for i in range(total) if i not in edge_indices]
+    else:
+        pool = sorted(edge_sel.get(selection, set()))
+
+    n = min(count, len(pool))
+    return set(pool[:n]) if n > 0 else set()
+
+
 def select_staged_instances(
     recipe: GenerationRecipeV1,
     total: int,
@@ -309,31 +355,19 @@ def select_staged_instances(
 ) -> set[int]:
     """Return the set of instance indices to stage.
 
-    ``staged_selection`` controls the pool:
-      - ``"happy_path"`` — instances with *no* edge cases
-      - ``"all"``        — any instance (first N)
-      - an edge case label — instances assigned to that group
+    Evaluates each ``StagingRule`` independently and unions the results.
+    Legacy ``staged_count``/``staged_selection`` fields are promoted into
+    ``staging_rules`` by the model validator so they work identically.
     """
-    if recipe.staged_count <= 0:
+    if not recipe.staging_rules:
         return set()
 
-    sel = recipe.staged_selection
-    edge_sel = edge_selections or {}
-
-    if sel == "all":
-        pool = list(range(total))
-    elif sel == "happy_path":
-        edge_indices: set[int] = set()
-        for indices in edge_sel.values():
-            edge_indices |= indices
-        pool = [i for i in range(total) if i not in edge_indices]
-    else:
-        pool = sorted(edge_sel.get(sel, set()))
-
-    count = min(recipe.staged_count, len(pool))
-    if count <= 0:
-        return set()
-    return set(pool[:count])
+    result: set[int] = set()
+    for rule in recipe.staging_rules:
+        result |= _select_from_pool(
+            rule.selection, rule.count, total, edge_selections,
+        )
+    return result
 
 
 def _apply_payment_mix(flow_dict: dict, mix: PaymentMixConfig) -> dict:
@@ -503,8 +537,19 @@ def generate_from_recipe(
         if recipe.overrides:
             apply_overrides(flow_dict, recipe.overrides)
 
-        if recipe.amount_variance_pct > 0:
-            apply_amount_variance(flow_dict, recipe.amount_variance_pct, rng)
+        has_variance = (
+            recipe.amount_variance_min_pct < 0
+            or recipe.amount_variance_max_pct > 0
+            or recipe.step_variance
+        )
+        if has_variance:
+            apply_amount_variance(
+                flow_dict,
+                recipe.amount_variance_min_pct,
+                recipe.amount_variance_max_pct,
+                rng,
+                step_variance=recipe.step_variance or None,
+            )
 
         activated = {
             label for label, indices in edge_selections.items() if i in indices

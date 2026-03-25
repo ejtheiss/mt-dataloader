@@ -1,0 +1,90 @@
+{#
+  MT Webhook Detail Drawer Content
+  ================================
+  Loaded into the drawer via HTMX when a webhook row is clicked.
+    1. KV Table for metadata (event, resource, time, run)
+    2. Read-only Monaco editor for payload body
+    3. Read-only Monaco editor for headers (if available)
+
+  Parameters:
+    wh — WebhookEntry (dataclass or dict)
+#}
+
+{# --- KV Table: Webhook Metadata --- #}
+<div class="key-value-table">
+  <div class="key-value-table-row">
+    <div class="row-label">Event Type</div>
+    <div class="row-value">{{ wh.event_type }}</div>
+  </div>
+  <div class="key-value-table-row">
+    <div class="row-label">Resource Type</div>
+    <div class="row-value"><span class="badge badge--cool">{{ wh.resource_type }}</span></div>
+  </div>
+  <div class="key-value-table-row">
+    <div class="row-label">Resource ID</div>
+    <div class="row-value"><code>{{ wh.resource_id | default('—') }}</code></div>
+  </div>
+  {% if wh.typed_ref %}
+  <div class="key-value-table-row">
+    <div class="row-label">Typed Ref</div>
+    <div class="row-value"><code>{{ wh.typed_ref }}</code></div>
+  </div>
+  {% endif %}
+  {% if wh.run_id %}
+  <div class="key-value-table-row">
+    <div class="row-label">Run</div>
+    <div class="row-value"><a href="/runs/{{ wh.run_id }}">{{ wh.run_id }}</a></div>
+  </div>
+  {% endif %}
+  <div class="key-value-table-row">
+    <div class="row-label">Received At</div>
+    <div class="row-value">{{ wh.received_at }}</div>
+  </div>
+  {% if wh.webhook_id %}
+  <div class="key-value-table-row">
+    <div class="row-label">Webhook ID</div>
+    <div class="row-value"><code>{{ wh.webhook_id }}</code></div>
+  </div>
+  {% endif %}
+</div>
+
+{# --- Payload Body (read-only Monaco) --- #}
+{% if wh.raw %}
+<div style="margin-top: 16px;">
+  <h4 class="drawer-section-label">Payload Body</h4>
+  <div id="wh-payload-monaco-{{ wh.webhook_id }}" class="monaco-container"
+       style="height: 320px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;"></div>
+</div>
+{% endif %}
+
+{# --- Request Headers (read-only Monaco, if available) --- #}
+{% if wh.headers is defined and wh.headers %}
+<div style="margin-top: 16px;">
+  <h4 class="drawer-section-label">Request Headers</h4>
+  <div id="wh-headers-monaco-{{ wh.webhook_id }}" class="monaco-container"
+       style="height: 200px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;"></div>
+</div>
+{% endif %}
+
+<script>
+(function() {
+  {% if wh.raw %}
+  var payloadEl = document.getElementById('wh-payload-monaco-{{ wh.webhook_id }}');
+  if (payloadEl && typeof initMonacoEditor === 'function') {
+    initMonacoEditor(payloadEl, {
+      value: {{ wh.raw | tojson(indent=2) | tojson }},
+      readOnly: true
+    });
+  }
+  {% endif %}
+  {% if wh.headers is defined and wh.headers %}
+  var headersEl = document.getElementById('wh-headers-monaco-{{ wh.webhook_id }}');
+  if (headersEl && typeof initMonacoEditor === 'function') {
+    initMonacoEditor(headersEl, {
+      value: {{ wh.headers | tojson(indent=2) | tojson }},
+      readOnly: true
+    });
+  }
+  {% endif %}
+})();
+</script>

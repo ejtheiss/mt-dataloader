@@ -1,0 +1,207 @@
+/*
+  MT Drawer CSS — Plain CSS translation of MT's RadixDrawer + DrawerActions styles
+  ==================================================================================
+
+  CANONICAL SOURCES:
+
+  RadixDrawer.tsx — platform/app/frontend/dashboard/components/ui-components/Drawer/RadixDrawer.tsx
+
+    RadixDrawerOverlay (line 13-25):
+      className: "fixed inset-0 z-40 bg-black/50
+        data-[state=open]:animate-in data-[state=closed]:animate-out
+        data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+
+    getSheetSideClassnames(side="right") (line 29-40):
+      Base: "outline-none bg-white h-full fixed max-mint-md:w-full w-2/5 z-40
+            gap-4 shadow-lg transition ease-in-out
+            data-[state=open]:animate-in data-[state=closed]:animate-out
+            data-[state=closed]:duration-300 data-[state=open]:duration-500"
+      Right: "inset-y-0 right-0 h-full border-l
+             data-[state=closed]:slide-out-to-right
+             data-[state=open]:slide-in-from-right sm:max-w-sm"
+
+    RadixDrawerTitle (line 58-67):
+      className: "text-lg font-semibold"
+
+  DrawerActions.tsx — platform/app/frontend/dashboard/components/ui-components/Drawer/DrawerActions.tsx
+
+    Container (line 61):
+      className: "flex justify-center gap-1 py-2 text-xs font-normal
+                  mint-md:absolute mint-md:left-[-40px] mint-md:top-2
+                  mint-md:flex-col mint-md:py-0"
+
+    BUTTON_PROPS (line 18-22):
+      buttonType: "text", buttonHeight: "extra-small",
+      className: "text-xs bg-white text-gray-500"
+
+    ICON_PROPS (line 24-28):
+      color: "currentColor", className: "text-gray-500", size: "s"
+
+    Buttons: Close (sign_out), Open as page (multi_direction_diagonal),
+             Open in new tab (external_link), Copy link (link/done)
+
+  Drawer.tsx — platform/app/frontend/dashboard/components/ui-components/Drawer/Drawer.tsx
+    DrawerPadding: px-4 py-3                                                    (line 35)
+    Drawer content: overflow-y-auto h-full                                      (line 147)
+
+  MT Design Tokens:
+    --color-gray-500: #807E72
+    --color-gray-800: #303030
+    z-40 = z-index: 40
+    shadow-lg = 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)
+*/
+
+/* ===== Overlay — RadixDrawer.tsx line 13-25 ===== */
+/*
+  Original: fixed inset-0 z-40 bg-black/50
+  Animations: fade-in on open, fade-out on close
+*/
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background-color: rgba(0, 0, 0, 0.5); /* bg-black/50 */
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Animate overlay */
+.drawer-overlay.drawer-open {
+  opacity: 1;
+}
+
+.drawer-overlay.drawer-closing {
+  opacity: 0;
+}
+
+/* ===== Panel — RadixDrawer.tsx line 29-40 ===== */
+/*
+  Original: outline-none bg-white h-full fixed w-2/5 z-40 gap-4 shadow-lg
+            transition ease-in-out
+            inset-y-0 right-0 border-l
+  Open duration: 500ms, Close duration: 300ms
+  max-mint-md:w-full (full width on small screens)
+  sm:max-w-sm (max-width: 24rem on small desktop)
+*/
+.drawer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 40%; /* w-2/5 */
+  height: 100%;
+  z-index: 40;
+  background-color: #FFFFFF;
+  border-left: 1px solid rgba(0, 0, 0, 0.09);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); /* shadow-lg */
+  outline: none;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease-in-out; /* close = 300ms */
+  transform: translateX(100%);
+}
+
+.drawer-panel.drawer-open {
+  transform: translateX(0);
+  transition-duration: 0.5s; /* open = 500ms */
+}
+
+.drawer-panel.drawer-closing {
+  transform: translateX(100%);
+  transition-duration: 0.3s; /* close = 300ms */
+}
+
+/* Full width on small screens — max-mint-md:w-full */
+@media (max-width: 768px) {
+  .drawer-panel {
+    width: 100%;
+  }
+}
+
+/* ===== DrawerActions strip — DrawerActions.tsx line 61 ===== */
+/*
+  Original: flex justify-center gap-1 py-2 text-xs font-normal
+            mint-md:absolute mint-md:left-[-40px] mint-md:top-2 mint-md:flex-col mint-md:py-0
+
+  On mobile (<768px): horizontal row at top with py-2
+  On desktop (>=768px): absolute vertical column left of the panel
+*/
+.drawer-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem; /* gap-1 */
+  padding: 0.5rem 0; /* py-2 */
+  font-size: 0.75rem; /* text-xs */
+  font-weight: 400; /* font-normal */
+}
+
+/* Desktop: positioned left of the panel as a vertical column */
+@media (min-width: 769px) {
+  .drawer-actions {
+    position: absolute;
+    left: -40px; /* left-[-40px] */
+    top: 0.5rem; /* top-2 */
+    flex-direction: column; /* flex-col */
+    padding: 0; /* py-0 */
+  }
+}
+
+/* ===== DrawerAction Button — DrawerActions.tsx BUTTON_PROPS (line 18-22) ===== */
+/*
+  Original: buttonType="text", buttonHeight="extra-small",
+            className: "text-xs bg-white text-gray-500"
+  Icon: color="currentColor", className="text-gray-500", size="s"
+*/
+.drawer-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0.25rem;
+  background-color: #FFFFFF; /* bg-white */
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  color: #807E72; /* text-gray-500 */
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.drawer-action-btn:hover {
+  color: #303030; /* text-gray-800 */
+  background-color: #F1F0EC; /* bg-gray-50 */
+}
+
+.drawer-action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ===== Drawer Content — Drawer.tsx DrawerPadding (line 35): px-4 py-3 ===== */
+.drawer-content {
+  flex: 1;
+  overflow-y: auto; /* h-full overflow-y-auto from Drawer.tsx line 147 */
+  padding: 0.75rem 1rem; /* py-3 px-4 */
+}
+
+/* ===== Drawer Title — RadixDrawer.tsx RadixDrawerTitle (line 58-67) ===== */
+/* className: "text-lg font-semibold" */
+.drawer-title {
+  font-size: 1.125rem; /* text-lg */
+  line-height: 1.75rem;
+  font-weight: 600; /* font-semibold */
+  margin: 0;
+}
+
+/* ===== Screen reader only (for icon button labels) ===== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

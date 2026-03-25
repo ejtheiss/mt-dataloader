@@ -1,0 +1,79 @@
+{#
+  MT Event Row — Jinja2 partial (replaces run card in runs.html)
+  ============================================================
+  Canonical sources:
+    - IndexTable.tsx TableRow     (lines 1420-1500) — clickable row, hover state
+    - IndexTable.tsx Td           (lines 1515-1560) — cell rendering
+    - EventView.tsx               (lines 57-118)   — event detail page (target for row click)
+    - EventsHome.tsx              (lines 7-42)     — events list pattern
+
+  Migration: runs.html card → event_row.html IndexTable row
+  ============================================================
+  CURRENT (runs.html card):
+    - div.card with card-header, card-heading (run_id, description), card-actions (badge, Details link, Cleanup button)
+
+  TARGET (MT IndexTable row):
+    - div[role=row] with cells: Run ID, Status, Created count, Staged count, Failed count, Actions
+    - Click → opens drawer with run summary OR navigates to /runs/{run_id}
+    - Cmd/Ctrl+click → new tab to /runs/{run_id}
+
+  Parameters:
+    m — manifest dict with: run_id, status, resources_created, resources_staged, resources_failed
+  ============================================================
+#}
+
+{# Source: IndexTable.tsx TableRow lines 1420-1500 — clickable row #}
+<div class="mt-index-table-row" role="row"
+     data-run-id="{{ m.run_id }}"
+     onclick="handleRowClick(event, this, '/api/runs/{{ m.run_id }}/summary', 'run-detail-drawer')">
+
+  {# Run ID #}
+  <div class="mt-index-table-cell" role="cell" style="width: 30%;">
+    <code class="mt-row-primary" style="font-size: 0.8rem;">{{ m.run_id }}</code>
+  </div>
+
+  {# Status #}
+  <div class="mt-index-table-cell" role="cell" style="width: 12%;">
+    <span class="badge badge--{{ 'success' if m.status.value == 'completed' else 'critical' if m.status.value == 'failed' else 'cool' if m.status.value == 'running' else 'default' }}">
+      {{ m.status.value }}
+    </span>
+  </div>
+
+  {# Created count #}
+  <div class="mt-index-table-cell" role="cell" style="width: 14%;">
+    {{ m.resources_created | length }} resource{{ 's' if m.resources_created | length != 1 else '' }}
+  </div>
+
+  {# Staged count #}
+  <div class="mt-index-table-cell" role="cell" style="width: 14%;">
+    {% if m.resources_staged %}
+    {{ m.resources_staged | length }} staged
+    {% else %}
+    <span class="text-muted">—</span>
+    {% endif %}
+  </div>
+
+  {# Failed count #}
+  <div class="mt-index-table-cell" role="cell" style="width: 14%;">
+    {% if m.resources_failed %}
+    <span style="color: var(--danger, #C4381D);">{{ m.resources_failed | length }} failed</span>
+    {% else %}
+    <span class="text-muted">—</span>
+    {% endif %}
+  </div>
+
+  {# Actions #}
+  <div class="mt-index-table-cell" role="cell" style="width: 16%;">
+    <div class="mt-row-actions" onclick="event.stopPropagation()">
+      <a href="/runs/{{ m.run_id }}" class="btn btn-sm btn-outline">Details</a>
+      <button class="btn btn-sm btn-danger"
+              hx-post="/api/cleanup/{{ m.run_id }}"
+              hx-target="#content"
+              hx-swap="innerHTML"
+              hx-include="[name=api_key],[name=org_id]"
+              hx-disabled-elt="this">
+        Cleanup
+      </button>
+    </div>
+  </div>
+</div>

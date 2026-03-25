@@ -16,64 +16,115 @@
     </div>
     {% endif %}
 
-    <div class="discovered-resources">
-        {% if discovery.connections %}
-        <div class="discovered-group">
-            <h4>Connections ({{ discovery.connections|length }})</h4>
-            <table class="mini-table">
-                <thead><tr><th>Auto Ref</th><th>Vendor</th></tr></thead>
-                <tbody>
-                {% for c in discovery.connections %}
-                <tr>
-                    <td><code>{{ c.auto_ref }}</code></td>
-                    <td>{{ c.vendor_name }}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
+    {% set has_conn = discovery.connections|length > 0 if discovery.connections else false %}
+    {% set has_ia = discovery.internal_accounts|length > 0 if discovery.internal_accounts else false %}
+    {% set has_lg = discovery.ledgers|length > 0 if discovery.ledgers else false %}
 
-        {% if discovery.internal_accounts %}
-        <div class="discovered-group">
-            <h4>Internal Accounts ({{ discovery.internal_accounts|length }})</h4>
-            <table class="mini-table">
-                <thead><tr><th>Auto Ref</th><th>Name</th><th>Currency</th><th>Connection</th></tr></thead>
-                <tbody>
-                {% for ia in discovery.internal_accounts %}
-                <tr>
-                    <td><code>{{ ia.auto_ref }}</code></td>
-                    <td>{{ ia.name or "(unnamed)" }}</td>
-                    <td>{{ ia.currency }}</td>
-                    <td><code>{{ ia.connection_ref or "—" }}</code></td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+    {% if has_conn or has_ia or has_lg %}
+    <div class="mt-tabs" style="margin-top: 8px;">
+        <div class="mt-tabs__row">
+            {% if has_conn %}
+            <div class="mt-tab mt-tab--active" data-tab="disc-conn">
+                <button type="button" class="mt-tab__btn" onclick="switchDiscTab('disc-conn'); setActiveTab(this)">Connections ({{ discovery.connections|length }})</button>
+            </div>
+            {% endif %}
+            {% if has_ia %}
+            <div class="mt-tab{% if not has_conn %} mt-tab--active{% endif %}" data-tab="disc-ia">
+                <button type="button" class="mt-tab__btn" onclick="switchDiscTab('disc-ia'); setActiveTab(this)">Internal Accounts ({{ discovery.internal_accounts|length }})</button>
+            </div>
+            {% endif %}
+            {% if has_lg %}
+            <div class="mt-tab{% if not has_conn and not has_ia %} mt-tab--active{% endif %}" data-tab="disc-lg">
+                <button type="button" class="mt-tab__btn" onclick="switchDiscTab('disc-lg'); setActiveTab(this)">Ledgers ({{ discovery.ledgers|length }})</button>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
-
-        {% if discovery.ledgers %}
-        <div class="discovered-group">
-            <h4>Ledgers ({{ discovery.ledgers|length }})</h4>
-            <table class="mini-table">
-                <thead><tr><th>Auto Ref</th><th>Name</th></tr></thead>
-                <tbody>
-                {% for lg in discovery.ledgers %}
-                <tr>
-                    <td><code>{{ lg.auto_ref }}</code></td>
-                    <td>{{ lg.name }}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
-
-        {% if not discovery.connections and not discovery.internal_accounts and not discovery.ledgers %}
-        {% set empty_title = "No Resources Discovered" %}
-        {% set empty_description = "All resources will be created from config." %}
-        {% include "partials/empty_state.html" %}
-        {% endif %}
     </div>
+
+    {% if has_conn %}
+    <div class="tab-panel active" id="disc-conn">
+        <div class="ui-table-container" role="table">
+            <div class="ui-table-container__inner">
+                <div role="rowgroup" class="ui-table-head">
+                    <div role="row" class="ui-table-row header">
+                        <div role="columnheader" class="ui-table-header">Auto Ref</div>
+                        <div role="columnheader" class="ui-table-header">Vendor</div>
+                    </div>
+                </div>
+                <div role="rowgroup" class="ui-table-body">
+                    {% for c in discovery.connections %}
+                    <div role="row" class="ui-table-row">
+                        <div role="cell" class="ui-table-cell"><code>{{ c.auto_ref }}</code></div>
+                        <div role="cell" class="ui-table-cell">{{ c.vendor_name }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if has_ia %}
+    <div class="tab-panel{% if not has_conn %} active{% endif %}" id="disc-ia">
+        <div class="ui-table-container" role="table">
+            <div class="ui-table-container__inner">
+                <div role="rowgroup" class="ui-table-head">
+                    <div role="row" class="ui-table-row header">
+                        <div role="columnheader" class="ui-table-header">Auto Ref</div>
+                        <div role="columnheader" class="ui-table-header">Name</div>
+                        <div role="columnheader" class="ui-table-header" style="width: 80px; flex: none;">Currency</div>
+                        <div role="columnheader" class="ui-table-header">Connection</div>
+                    </div>
+                </div>
+                <div role="rowgroup" class="ui-table-body">
+                    {% for ia in discovery.internal_accounts %}
+                    <div role="row" class="ui-table-row">
+                        <div role="cell" class="ui-table-cell"><code>{{ ia.auto_ref }}</code></div>
+                        <div role="cell" class="ui-table-cell">{{ ia.name or "(unnamed)" }}</div>
+                        <div role="cell" class="ui-table-cell" style="width: 80px; flex: none;">{{ ia.currency }}</div>
+                        <div role="cell" class="ui-table-cell"><code>{{ ia.connection_ref or "—" }}</code></div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if has_lg %}
+    <div class="tab-panel{% if not has_conn and not has_ia %} active{% endif %}" id="disc-lg">
+        <div class="ui-table-container" role="table">
+            <div class="ui-table-container__inner">
+                <div role="rowgroup" class="ui-table-head">
+                    <div role="row" class="ui-table-row header">
+                        <div role="columnheader" class="ui-table-header">Auto Ref</div>
+                        <div role="columnheader" class="ui-table-header">Name</div>
+                    </div>
+                </div>
+                <div role="rowgroup" class="ui-table-body">
+                    {% for lg in discovery.ledgers %}
+                    <div role="row" class="ui-table-row">
+                        <div role="cell" class="ui-table-cell"><code>{{ lg.auto_ref }}</code></div>
+                        <div role="cell" class="ui-table-cell">{{ lg.name }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+    function switchDiscTab(panelId) {
+        document.querySelectorAll('#disc-conn, #disc-ia, #disc-lg').forEach(function(p) {
+            p.classList.toggle('active', p.id === panelId);
+        });
+    }
+    </script>
+
+    {% else %}
+    {% set empty_title = "No Resources Discovered" %}
+    {% set empty_description = "All resources will be created from config." %}
+    {% include "partials/empty_state.html" %}
+    {% endif %}
 </div>

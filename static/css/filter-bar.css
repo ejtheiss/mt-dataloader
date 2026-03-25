@@ -1,0 +1,250 @@
+/* ============================================================
+   MT Filter Bar — CSS
+   Canonical sources:
+     - FilterArea.tsx              (lines 58-185)   — filter area container
+     - FilterAreaLoadingWrapper    (lines 281-292)   — outer wrapper: border-b, bg-background-default, px-4, pt-3
+     - FilterSelectorDropdown.tsx  (lines 26-48)     — trigger button: h-6, grid, rounded-sm, border
+     - FilterPill.tsx              (lines 711-735)   — Chip wrapper
+     - Chip.tsx                    (lines 58-153)    — full Chip component
+     - Chip.tsx chipContent        (lines 118-136)   — inner: flex, gap-2, bg-gray-50, px-2, py-1, text-gray-700
+     - Chip.tsx RemoveIcon         (lines 11-35)     — dismiss: flex, bg-transparent, hover:bg-gray-100, rounded-r-sm
+   ============================================================ */
+
+/* --- Filter Bar Container --- */
+/* Source: FilterAreaLoadingWrapper lines 287-290 */
+/* Original: flex flex-wrap border-b border-alpha-black-100 bg-background-default px-4 pt-3 */
+.mt-filter-bar {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.09);  /* border-alpha-black-100 */
+  background: var(--bg-default, #FAFAFA);          /* bg-background-default */
+  padding: 12px 16px 0;                            /* px-4 pt-3 */
+}
+
+.mt-filter-bar-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;                                        /* gap-2 */
+  padding-bottom: 12px;                            /* pb-3 */
+}
+
+.mt-filter-bar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mt-filter-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* --- Filter Trigger Button --- */
+/* Source: FilterSelectorDropdown.tsx lines 28-40 */
+/* Original: grid h-6 grid-flow-col items-center gap-1 rounded-sm border border-alpha-black-100 px-2 text-xs text-gray-700 */
+.mt-filter-trigger {
+  display: grid;
+  grid-auto-flow: column;
+  height: 24px;                                    /* h-6 */
+  align-items: center;
+  gap: 4px;                                        /* gap-1 */
+  border-radius: 4px;                              /* rounded-sm */
+  border: 1px solid rgba(0, 0, 0, 0.09);          /* border-alpha-black-100 */
+  padding: 0 8px;                                  /* px-2 */
+  font-size: 0.75rem;                              /* text-xs */
+  color: #504E43;                                  /* text-gray-700 */
+  background: transparent;
+  cursor: pointer;
+}
+
+.mt-filter-trigger:hover {
+  background: rgba(0, 0, 0, 0.04);                /* hover:bg-alpha-black-50 */
+}
+
+/* --- Filter Dropdown Panel --- */
+/* Source: FilterSelectorDropdown.tsx PopoverPanel lines 85-96 */
+.mt-filter-dropdown {
+  position: relative;
+}
+
+.mt-filter-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 4px 0;
+}
+
+.mt-filter-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  color: #504E43;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.mt-filter-option:hover {
+  background: #F5F5F0;                             /* bg-gray-50 */
+}
+
+/* --- Filter Search Input --- */
+.mt-filter-search {
+  height: 24px;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 4px;
+  padding: 0 8px;
+  font-size: 0.75rem;
+  color: #303030;
+  background: #fff;
+  outline: none;
+  min-width: 180px;
+}
+
+.mt-filter-search:focus {
+  border-color: #386FB1;                           /* focus:border-blue-500 */
+  box-shadow: 0 0 0 1px #386FB1;
+}
+
+/* --- Filter Pills Container --- */
+.mt-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+/* --- Chip (Filter Pill) --- */
+/* Source: Chip.tsx lines 58-153 */
+/* Original outer: inline-flex items-center rounded-sm border border-alpha-black-100 text-xs */
+.mt-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;                              /* rounded-sm */
+  border: 1px solid rgba(0, 0, 0, 0.09);          /* border-alpha-black-100 */
+  font-size: 0.75rem;                              /* text-xs */
+  overflow: hidden;
+}
+
+/* Source: Chip.tsx chipContent lines 118-136 */
+/* Original: flex w-full items-start gap-2 bg-gray-50 px-2 py-1 text-gray-700 */
+.mt-chip-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;                                        /* gap-2 */
+  background: #F5F5F0;                             /* bg-gray-50 */
+  padding: 4px 8px;                                /* px-2 py-1 */
+  color: #504E43;                                  /* text-gray-700 */
+}
+
+.mt-chip-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.mt-chip-label {
+  font-weight: 500;                                /* font-medium */
+  white-space: nowrap;
+}
+
+.mt-chip-value {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Source: Chip.tsx RemoveIcon lines 11-35 */
+/* Original: flex items-center bg-transparent px-1 text-gray-600 hover:bg-gray-100 rounded-r-sm */
+.mt-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;                                /* px-1.5 py-1 */
+  background: #F5F5F0;                             /* same bg as chip content */
+  border: 0;
+  border-left: 1px solid rgba(0, 0, 0, 0.09);
+  color: #6B695D;                                  /* text-gray-600 */
+  cursor: pointer;
+  border-radius: 0 4px 4px 0;                     /* rounded-r-sm */
+}
+
+.mt-chip-remove:hover {
+  background: #DEDDD7;                             /* hover:bg-gray-100 */
+  color: #303030;
+}
+
+/* --- Export Button --- */
+/* Source: ExportDataButton.tsx ExportCSVButton lines 48-87 */
+/* Source: ExportDataButton.tsx lines 232-278 (multi-option) */
+.mt-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  padding: 0 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #504E43;                                  /* text-gray-700 */
+  background: transparent;
+  cursor: pointer;
+}
+
+.mt-export-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.mt-export-icon {
+  flex-shrink: 0;
+}
+
+.mt-export-caret {
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+/* --- Export Dropdown --- */
+.mt-export-dropdown {
+  position: relative;
+}
+
+.mt-export-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 100;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 4px 0;
+}
+
+.mt-export-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  color: #504E43;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.mt-export-option:hover {
+  background: #F5F5F0;
+}

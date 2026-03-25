@@ -20,61 +20,136 @@
 {% endblock %}
 
 {% block page_tabs %}
-<div class="tab-strip tab-strip--no-border">
-    <div class="tab-strip-inner">
-        <button class="tab-btn active" data-tab="config">Config</button>
-        <button class="tab-btn" data-tab="resources">Resources ({{ manifest.resources_created|length }})</button>
-        <button class="tab-btn" data-tab="staged">Staged ({{ manifest.resources_staged|length }})</button>
+<div class="mt-tabs" id="tabs">
+    <div class="mt-tabs__row">
+        <div class="mt-tab mt-tab--active" data-tab="overview">
+            <button role="tab" class="mt-tab__btn" aria-selected="true" onclick="activateTab('overview'); setActiveTab(this)">Overview</button>
+        </div>
+        <div class="mt-tab" data-tab="config">
+            <button role="tab" class="mt-tab__btn" onclick="activateTab('config'); setActiveTab(this)">Config</button>
+        </div>
+        <div class="mt-tab" data-tab="resources">
+            <button role="tab" class="mt-tab__btn" onclick="activateTab('resources'); setActiveTab(this)">Resources ({{ manifest.resources_created|length }})</button>
+        </div>
+        <div class="mt-tab" data-tab="staged">
+            <button role="tab" class="mt-tab__btn" onclick="activateTab('staged'); setActiveTab(this)">Staged ({{ manifest.resources_staged|length }})</button>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block content %}
-<!-- Config tab -->
-<div class="tab-panel active" id="tab-config">
-    <div class="config-viewer">
-        <div class="config-actions">
-            <button class="btn btn-sm btn-outline"
-                    onclick="navigator.clipboard.writeText(document.getElementById('config-json').textContent)">
-                Copy JSON
-            </button>
+<!-- Overview tab -->
+<div class="tab-panel active" id="tab-overview">
+    <div class="mt-layout">
+        <div class="mt-layout-grid mt-layout-2-3">
+            <div class="mt-layout-primary">
+                <div class="key-value-table">
+                    <div class="key-value-table-row">
+                        <div class="row-label">Run ID</div>
+                        <div class="row-value"><code>{{ run_id }}</code></div>
+                    </div>
+                    <div class="key-value-table-row">
+                        <div class="row-label">Status</div>
+                        <div class="row-value">
+                            <span class="badge badge--{{ 'success' if manifest.status == 'completed' else 'critical' if manifest.status == 'failed' else 'cool' if manifest.status == 'running' else 'default' }}">{{ manifest.status }}</span>
+                        </div>
+                    </div>
+                    <div class="key-value-table-row">
+                        <div class="row-label">Started</div>
+                        <div class="row-value">{{ manifest.started_at }}</div>
+                    </div>
+                    {% if manifest.completed_at %}
+                    <div class="key-value-table-row">
+                        <div class="row-label">Completed</div>
+                        <div class="row-value">{{ manifest.completed_at }}</div>
+                    </div>
+                    {% endif %}
+                    <div class="key-value-table-row">
+                        <div class="row-label">Resources</div>
+                        <div class="row-value"><span class="chip">{{ manifest.resources_created|length }} created</span></div>
+                    </div>
+                    {% if manifest.resources_staged %}
+                    <div class="key-value-table-row">
+                        <div class="row-label">Staged</div>
+                        <div class="row-value"><span class="chip">{{ manifest.resources_staged|length }} staged</span></div>
+                    </div>
+                    {% endif %}
+                    {% if manifest.resources_failed %}
+                    <div class="key-value-table-row">
+                        <div class="row-label">Failed</div>
+                        <div class="row-value"><span class="chip chip--warning">{{ manifest.resources_failed|length }} failed</span></div>
+                    </div>
+                    {% endif %}
+                    {% if manifest.config_hash %}
+                    <div class="key-value-table-row">
+                        <div class="row-label">Config Hash</div>
+                        <div class="row-value"><code>{{ manifest.config_hash[:16] }}&hellip;</code></div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="mt-layout-secondary">
+                <a href="/listen?run_id={{ run_id }}" class="btn btn-sm btn-outline" style="margin-bottom: 8px;">View Webhooks &rarr;</a>
+            </div>
         </div>
-        <pre id="config-json" class="config-json thin-scrollbar">{{ config_json }}</pre>
     </div>
+</div>
+
+<!-- Config tab -->
+<div class="tab-panel" id="tab-config">
+    <div id="run-detail-config-monaco" class="monaco-container"
+         style="height: 480px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;"></div>
 </div>
 
 <!-- Resources tab -->
 <div class="tab-panel" id="tab-resources">
     {% if manifest.resources_created %}
-    <table class="detail-table">
-        <thead>
-            <tr>
-                <th>Batch</th>
-                <th>Type</th>
-                <th>Ref</th>
-                <th>Created ID</th>
-                <th>Time</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for e in manifest.resources_created %}
-            <tr>
-                <td><span class="batch-badge">{% if e.batch >= 0 %}B{{ e.batch }}{% else %}Fired{% endif %}</span></td>
-                <td><span class="type-badge type-{{ e.resource_type }}">{{ e.resource_type }}</span></td>
-                <td>{{ e.typed_ref }}</td>
-                <td><code title="{{ e.created_id }}">{{ e.created_id[:12] }}&hellip;</code></td>
-                <td>{{ e.created_at.split("T")[1][:8] if "T" in e.created_at else e.created_at }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="ui-table-container" id="resources-table" role="table">
+        <div class="ui-table-container__inner">
+            <div role="rowgroup" class="ui-table-head">
+                <div role="row" class="ui-table-row header">
+                    <div role="columnheader" class="ui-table-header" style="width: 60px; flex: none;">Batch</div>
+                    <div role="columnheader" class="ui-table-header" style="width: 140px; flex: none;">Type</div>
+                    <div role="columnheader" class="ui-table-header">Ref</div>
+                    <div role="columnheader" class="ui-table-header" style="width: 140px; flex: none;">Created ID</div>
+                    <div role="columnheader" class="ui-table-header text-right" style="width: 80px; flex: none;">Time</div>
+                </div>
+            </div>
+            <div role="rowgroup" class="ui-table-body" id="resources-table-body">
+                {% for e in manifest.resources_created %}
+                <div role="row" class="ui-table-row linked"
+                     data-url="/runs/{{ run_id }}"
+                     hx-get="/api/runs/{{ run_id }}/resources/drawer?ref={{ e.typed_ref|urlencode }}"
+                     hx-target="#drawer-content"
+                     hx-swap="innerHTML"
+                     hx-push-url="false"
+                     onclick="handleRowClick(event, this)">
+                    <div role="cell" class="ui-table-cell" style="width: 60px; flex: none;">
+                        <span class="badge badge--default">{% if e.batch >= 0 %}B{{ e.batch }}{% else %}Fired{% endif %}</span>
+                    </div>
+                    <div role="cell" class="ui-table-cell" style="width: 140px; flex: none;">
+                        <span class="badge badge--cool">{{ e.resource_type }}</span>
+                    </div>
+                    <div role="cell" class="ui-table-cell truncate">{{ e.typed_ref }}</div>
+                    <div role="cell" class="ui-table-cell truncate" style="width: 140px; flex: none; font-family: ui-monospace, SFMono-Regular, monospace;">
+                        <code title="{{ e.created_id }}">{{ e.created_id[:12] }}&hellip;</code>
+                    </div>
+                    <div role="cell" class="ui-table-cell text-right" style="width: 80px; flex: none;">
+                        {{ e.created_at.split("T")[1][:8] if "T" in e.created_at else e.created_at }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
     {% else %}
     {% set empty_title = "No Resources Created" %}
     {% include "partials/empty_state.html" %}
     {% endif %}
 
     {% if manifest.resources_failed %}
-    <h4 style="margin-top: 16px; color: var(--danger);">Failed</h4>
+    <h4 style="margin-top: 16px; color: var(--mt-red-500);">Failed</h4>
     {% for f in manifest.resources_failed %}
     <div class="failed-entry">
         <code>{{ f.typed_ref }}</code>
@@ -106,10 +181,24 @@
 
     <div id="staged-list">
         {% if manifest.resources_staged %}
-            {% for s in manifest.resources_staged %}
-            {% set payload = staged_payloads.get(s.typed_ref, {}) %}
-            {% include "partials/staged_row.html" %}
-            {% endfor %}
+        <div class="ui-table-container" role="table">
+            <div class="ui-table-container__inner">
+                <div role="rowgroup" class="ui-table-head">
+                    <div role="row" class="ui-table-row header">
+                        <div role="columnheader" class="ui-table-header" style="width: 120px; flex: none;">Type</div>
+                        <div role="columnheader" class="ui-table-header">Ref</div>
+                        <div role="columnheader" class="ui-table-header" style="width: 80px; flex: none;">Time</div>
+                        <div role="columnheader" class="ui-table-header text-right" style="width: 80px; flex: none;">Action</div>
+                    </div>
+                </div>
+                <div role="rowgroup" class="ui-table-body">
+                    {% for s in manifest.resources_staged %}
+                    {% set payload = staged_payloads.get(s.typed_ref, {}) %}
+                    {% include "partials/staged_row.html" %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
         {% else %}
             {% set empty_title = "No Staged Resources" %}
             {% set empty_description = "No staged resources in this run." %}
@@ -120,29 +209,28 @@
 
 <script>
 (function() {
-    var tabs = document.querySelectorAll('.tab-strip .tab-btn');
     var panels = document.querySelectorAll('.tab-panel');
 
-    function activateTab(name) {
-        tabs.forEach(function(t) { t.classList.remove('active'); });
+    window.activateTab = function(name) {
         panels.forEach(function(p) { p.classList.remove('active'); });
-        var btn = document.querySelector('.tab-btn[data-tab="' + name + '"]');
-        if (btn) {
-            btn.classList.add('active');
-            document.getElementById('tab-' + name).classList.add('active');
-        }
-    }
-
-    tabs.forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            activateTab(btn.dataset.tab);
-            history.replaceState(null, '', '#' + btn.dataset.tab);
-        });
-    });
+        var panel = document.getElementById('tab-' + name);
+        if (panel) panel.classList.add('active');
+        history.replaceState(null, '', '#' + name);
+    };
 
     var hash = location.hash.replace('#', '');
     if (hash && document.getElementById('tab-' + hash)) {
         activateTab(hash);
+        var tabDiv = document.querySelector('.mt-tab[data-tab="' + hash + '"] .mt-tab__btn');
+        if (tabDiv) setActiveTab(tabDiv);
+    }
+
+    var monacoEl = document.getElementById('run-detail-config-monaco');
+    if (monacoEl && typeof initMonacoEditor === 'function') {
+        initMonacoEditor(monacoEl, {
+            value: {{ config_json | tojson }},
+            readOnly: true
+        });
     }
 })();
 </script>

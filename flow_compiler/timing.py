@@ -1,12 +1,17 @@
 """Timing, seasoning, and date configuration for funds flow instances.
 
-Resolution order (most specific wins):
-  recipe.step_delay_overrides[step_id]
-  → step.timing.delay_days
-  → optional_group.timing.delay_days (if step came from a group)
-  → flow.timing.default_delay_days
-  → payment-type default (ACH 2d, wire 0d, …)
+Resolution order for step gap (most specific wins):
+  recipe.step_delay_overrides[step_id]   (hours)
+  → step.timing.delay_hours
+  → flow.timing.default_delay_hours
+  → settlement_defaults (direction-aware, step-type-aware, hours)
   → 0
+
+All delays are specified in **hours** and converted to calendar days
+internally (hours / 24, rounded).  Settlement defaults are configurable
+via ``SettlementDefaultsConfig`` on ``FlowTimingConfig.settlement_defaults``.
+Step types in ``no_delay_step_types`` (IPDs, EPs, LTs) always resolve to 0.
+Lookup keys can be direction-specific (``"ach:debit"``) or generic (``"ach"``).
 
 Jitter is added *after* the delay is resolved, then business-day skipping
 applies to the final date.
@@ -20,29 +25,9 @@ from datetime import date, timedelta
 from typing import Literal
 
 from models.flow_dsl import FlowTimingConfig, RecipeTimingConfig
-from models.shared import StepTimingConfig
+from models.shared import SettlementDefaultsConfig, StepTimingConfig
 
-# ---------------------------------------------------------------------------
-# Payment-type default settlement delays (business days)
-# ---------------------------------------------------------------------------
-
-_DEFAULT_SETTLEMENT_DAYS: dict[str, float] = {
-    "ach": 2.0,
-    "wire": 0.0,
-    "book": 0.0,
-    "rtp": 0.0,
-    "check": 5.0,
-    "eft": 3.0,
-    "sepa": 1.0,
-    "bacs": 3.0,
-}
-
-_DEFAULT_RETURN_DAYS: dict[str, float] = {
-    "ach": 3.0,
-    "wire": 5.0,
-    "book": 0.0,
-    "check": 10.0,
-}
+_SETTLEMENT_DEFAULTS = SettlementDefaultsConfig()
 
 # US federal holidays (month, day) — static set; no bank-holiday API needed.
 _US_HOLIDAYS: set[tuple[int, int]] = {
@@ -84,21 +69,9 @@ def _skip_to_business_day(d: date) -> date:
     return d
 
 
-def _parse_base_date(spec: str) -> date:
-    """Parse a base_date string into a ``date``.
-
-    Accepts:
-      - ``"today"``
-      - ``"YYYY-MM-DD"``
-      - ``"today-Nd"`` (e.g. ``"today-30d"``)
-    """
-    spec = spec.strip().lower()
-    if spec == "today":
-        return date.today()
-    if spec.startswith("today-") and spec.endswith("d"):
-        n = int(spec[6:-1])
-        return date.today() - timedelta(days=n)
-    return date.fromisoformat(spec)
+def _hours_to_days(hours: float) -> int:
+    """Convert hours to whole calendar days, rounding to nearest."""
+    return max(0, round(hours / 24.0))
 
 
 # ---------------------------------------------------------------------------
@@ -132,20 +105,17 @@ def compute_spread_offsets(
             offsets = [i * step for i in range(instances)]
 
     elif pattern == "ramp_up":
-        # Quadratic ramp — early instances clustered near 0, later ones spread out.
         offsets = [
             spread_days * ((i / max(instances - 1, 1)) ** 2) for i in range(instances)
         ]
 
     elif pattern == "ramp_down":
-        # Inverse quadratic — early instances spread, later ones clustered near end.
         offsets = [
             spread_days * (1 - ((max(instances - 1, 1) - i) / max(instances - 1, 1)) ** 2)
             for i in range(instances)
         ]
 
     elif pattern == "clustered":
-        # 3 clusters at 0%, 50%, 100% of spread_days.
         cluster_centers = [0.0, spread_days / 2, float(spread_days)]
         offsets = []
         for i in range(instances):
@@ -169,13 +139,13 @@ def _resolve_step_delay(
     flow_timing: FlowTimingConfig | None,
     recipe_overrides: dict[str, float] | None,
 ) -> tuple[float, float, bool]:
-    """Resolve delay_days, jitter, and business_days_only for a single step.
+    """Resolve delay (hours), jitter (hours), and business_days_only for a step.
 
     Precedence (most specific wins):
-    1. recipe.step_delay_overrides[step_id]
-    2. step.timing
-    3. flow.timing defaults
-    4. payment-type defaults
+    1. recipe.step_delay_overrides[step_id]  (hours)
+    2. step.timing                           (hours)
+    3. flow.timing defaults                  (hours)
+    4. settlement_defaults                   (hours, direction-aware, step-type-aware)
     """
     step_id = step.get("step_id", "")
     step_timing_dict = step.get("timing")
@@ -185,36 +155,35 @@ def _resolve_step_delay(
         jitter = 0.0
         biz_days = True
         if step_timing_dict:
-            jitter = step_timing_dict.get("delay_jitter_days", 0.0)
+            jitter = step_timing_dict.get("delay_jitter_hours", 0.0)
             biz_days = step_timing_dict.get("business_days_only", True)
         elif flow_timing:
-            jitter = flow_timing.default_jitter_days
+            jitter = flow_timing.default_jitter_hours
             biz_days = flow_timing.business_days_only
         return delay, jitter, biz_days
 
     if step_timing_dict:
         return (
-            step_timing_dict.get("delay_days", 0.0),
-            step_timing_dict.get("delay_jitter_days", 0.0),
+            step_timing_dict.get("delay_hours", 0.0),
+            step_timing_dict.get("delay_jitter_hours", 0.0),
             step_timing_dict.get("business_days_only", True),
         )
 
-    if flow_timing and (flow_timing.default_delay_days > 0 or flow_timing.default_jitter_days > 0):
+    if flow_timing and (flow_timing.default_delay_hours > 0 or flow_timing.default_jitter_hours > 0):
         return (
-            flow_timing.default_delay_days,
-            flow_timing.default_jitter_days,
+            flow_timing.default_delay_hours,
+            flow_timing.default_jitter_hours,
             flow_timing.business_days_only,
         )
 
-    # Payment-type defaults
+    defaults = (
+        flow_timing.settlement_defaults if flow_timing else _SETTLEMENT_DEFAULTS
+    )
     step_type = step.get("type", "")
     payment_type = step.get("payment_type", "")
+    direction = step.get("direction", "")
 
-    if step_type == "return":
-        delay = _DEFAULT_RETURN_DAYS.get(payment_type, 0.0)
-    else:
-        delay = _DEFAULT_SETTLEMENT_DAYS.get(payment_type, 0.0)
-
+    delay = defaults.lookup_settlement(payment_type, direction, step_type)
     return delay, 0.0, True
 
 
@@ -232,13 +201,7 @@ def compute_effective_dates(
     Mutates and returns *flow_dict* for chaining.  Steps that already have an
     explicit ``effective_date`` or ``effective_at`` are left untouched.
     """
-    base_date_spec = "today"
-    if recipe_timing and recipe_timing.base_date:
-        base_date_spec = recipe_timing.base_date
-    elif flow_timing and flow_timing.base_date:
-        base_date_spec = flow_timing.base_date
-
-    base = _parse_base_date(base_date_spec)
+    base = date.today()
 
     recipe_overrides = (
         recipe_timing.step_delay_overrides if recipe_timing else None
@@ -249,14 +212,12 @@ def compute_effective_dates(
 
     rng = random.Random(seed + instance_index + 5555)
 
-    # Apply spread offset to the base date
     if spread_offset_days > 0:
         whole_days = int(spread_offset_days)
         base = base + timedelta(days=whole_days)
 
     all_steps = list(flow_dict.get("steps") or [])
 
-    # Build step_id -> computed date for depends_on chaining
     step_dates: dict[str, date] = {}
 
     for step in all_steps:
@@ -273,15 +234,15 @@ def compute_effective_dates(
                 if dep_id in step_dates and step_dates[dep_id] > dep_base:
                     dep_base = step_dates[dep_id]
 
-            delay, jitter, biz_days = _resolve_step_delay(
+            delay_hours, jitter_hours, biz_days = _resolve_step_delay(
                 step, flow_timing, recipe_overrides,
             )
 
-            if jitter > 0:
-                delay += rng.uniform(-jitter, jitter)
-                delay = max(0.0, delay)
+            if jitter_hours > 0:
+                delay_hours += rng.uniform(-jitter_hours, jitter_hours)
+                delay_hours = max(0.0, delay_hours)
 
-            delay_int = max(0, round(delay))
+            delay_int = _hours_to_days(delay_hours)
 
             if biz_days and delay_int > 0:
                 effective = _advance_business_days(dep_base, delay_int)
@@ -296,7 +257,6 @@ def compute_effective_dates(
             step_dates[step_id] = effective
         effective_str = effective.isoformat()
 
-        # Only stamp if the step doesn't already have an explicit value
         step_type = step.get("type", "")
         if step_type in (
             "payment_order", "expected_payment",
@@ -311,7 +271,6 @@ def compute_effective_dates(
             if not step.get("effective_date"):
                 step["effective_date"] = effective_str
 
-    # Store computed day offsets for UI display
     flow_dict["_computed_dates"] = {
         sid: d.isoformat() for sid, d in step_dates.items()
     }

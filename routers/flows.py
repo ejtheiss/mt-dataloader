@@ -44,15 +44,54 @@ def _count_resources(config: DataLoaderConfig) -> dict[str, int]:
     return {s: len(getattr(config, s, None) or []) for s in _GEN_SECTIONS}
 
 
-async def _parse_and_compile_recipe(
-    request: Request,
-) -> tuple[str, Any, GenerationRecipeV1, GenerationResult] | JSONResponse:
-    """Shared parse -> compile -> reconcile helper for generation endpoints.
+def _get_base_config(session: Any) -> DataLoaderConfig:
+    """Return the original validated config before any recipe was applied."""
+    source = session.base_config_json or session.config_json_text
+    try:
+        return DataLoaderConfig.model_validate_json(source)
+    except ValidationError:
+        return session.config.model_copy(deep=True)
 
-    After ``generate_from_recipe`` (post-faker), runs single-pass
-    reconciliation against the session's discovery data so that
-    ``skip_refs`` and the engine registry are accurate for ``dry_run``.
+
+def _compose_all_recipes(
+    base: DataLoaderConfig,
+    recipes: dict[str, dict],
+) -> GenerationResult:
+    """Generate from every stored recipe sequentially.
+
+    Each recipe is applied to the running config so that shared
+    infrastructure is emitted once and all flow instances accumulate.
+    Returns a merged ``GenerationResult`` with combined outputs.
     """
+    running_config = base
+    all_flow_irs: list = []
+    all_expanded_flows: list = []
+    all_diagrams: list[str] = []
+    combined_edge_map: dict[str, list[int]] = {}
+
+    for _flow_ref, recipe_dict in recipes.items():
+        recipe = GenerationRecipeV1.model_validate(recipe_dict)
+        gen = generate_from_recipe(recipe, base_config=running_config)
+        running_config = gen.config
+        all_flow_irs.extend(gen.flow_irs)
+        all_expanded_flows.extend(gen.expanded_flows)
+        all_diagrams.extend(gen.diagrams)
+        for label, indices in gen.edge_case_map.items():
+            combined_edge_map.setdefault(label, []).extend(indices)
+
+    return GenerationResult(
+        config=running_config,
+        diagrams=all_diagrams,
+        edge_case_map=combined_edge_map,
+        flow_irs=all_flow_irs,
+        expanded_flows=all_expanded_flows,
+    )
+
+
+async def _parse_recipe(
+    request: Request,
+) -> tuple[str, Any, GenerationRecipeV1] | JSONResponse:
+    """Parse and validate a recipe from the request body."""
     token = request.headers.get("x-session-token", "")
     session = sessions.get(token)
     if not session:
@@ -60,7 +99,6 @@ async def _parse_and_compile_recipe(
             content={"error": "Session not found. Please validate a config first."},
             status_code=401,
         )
-
     try:
         body = await request.body()
         recipe = GenerationRecipeV1.model_validate_json(body)
@@ -69,14 +107,19 @@ async def _parse_and_compile_recipe(
             content={"error": "Invalid recipe", "detail": format_validation_errors(e)},
             status_code=422,
         )
+    return token, session, recipe
 
-    try:
-        base = DataLoaderConfig.model_validate_json(session.config_json_text)
-    except ValidationError:
-        base = session.config.model_copy(deep=True)
-        if session.expanded_flows:
-            base.funds_flows = list(session.expanded_flows)
 
+async def _parse_and_compile_recipe(
+    request: Request,
+) -> tuple[str, Any, GenerationRecipeV1, GenerationResult] | JSONResponse:
+    """Shared parse -> compile -> reconcile helper for single-recipe endpoints."""
+    result = await _parse_recipe(request)
+    if isinstance(result, JSONResponse):
+        return result
+    token, session, recipe = result
+
+    base = _get_base_config(session)
     try:
         gen_result = generate_from_recipe(recipe, base_config=base)
     except (ValueError, KeyError) as e:
@@ -209,7 +252,7 @@ async def flows_page(request: Request):
             "mermaid_diagrams": session.mermaid_diagrams or [],
             "diagnostics": diagnostics,
             "working_config_json": session.working_config_json or session.config_json_text,
-            "generation_recipe": session.generation_recipe,
+            "generation_recipes": session.generation_recipes,
             "config_json_text": session.config_json_text,
             "seed_datasets": seed_datasets,
         },
@@ -270,6 +313,64 @@ async def flows_view_page(request: Request, flow_idx: int):
             "actor_aliases": actor_aliases,
             "fmt_amt": fmt_amt,
             "source_badge": SOURCE_BADGE,
+        },
+    )
+
+
+@router.get("/api/flows/{flow_idx}/drawer", include_in_schema=False)
+async def flow_drawer(request: Request, flow_idx: int):
+    """HTMX partial — flow summary for the slide-over drawer."""
+    templates = get_templates()
+    session_token = request.query_params.get("session_token", "")
+    session = sessions.get(session_token)
+    if not session:
+        return HTMLResponse("<p>Session expired</p>", status_code=404)
+
+    display_flow_ir = session.pattern_flow_ir or session.flow_ir or []
+    display_expanded = session.pattern_expanded_flows or session.expanded_flows or []
+
+    if flow_idx < 0 or flow_idx >= len(display_flow_ir):
+        return HTMLResponse("<p>Flow not found</p>", status_code=404)
+
+    ir = display_flow_ir[flow_idx]
+    fc = display_expanded[flow_idx] if flow_idx < len(display_expanded) else None
+
+    actors_list = []
+    if fc:
+        for frame_name, frame in fc.actors.items():
+            slot_types = []
+            for _sn, slot in frame.slots.items():
+                ref = slot.ref if hasattr(slot, "ref") else slot
+                if "$ref:" in ref:
+                    st = ref.replace("$ref:", "").split(".")[0]
+                    slot_types.append(st)
+            actors_list.append({
+                "alias": frame.alias,
+                "frame_type": frame.frame_type,
+                "customer_name": frame.customer_name or "",
+                "slot_types": sorted(set(slot_types)),
+            })
+
+    steps = []
+    for step in ir.steps:
+        steps.append({
+            "step_id": step.step_id,
+            "resource_type": step.resource_type,
+            "amount": getattr(step, "amount", None),
+        })
+
+    return templates.TemplateResponse(
+        request,
+        "partials/flow_drawer.html",
+        {
+            "session_token": session_token,
+            "flow_idx": flow_idx,
+            "ir": ir,
+            "actors": actors_list,
+            "steps": steps,
+            "deltas": flow_account_deltas(ir),
+            "status": compute_flow_status(ir),
+            "fmt_amt": fmt_amt,
         },
     )
 
@@ -398,7 +499,7 @@ async def generate_preview(request: Request):
         "total_resources": total,
         "estimated_batches": len(batches),
         "estimated_api_calls": api_calls,
-        "staged_count": recipe.staged_count,
+        "staged_count": sum(r.count for r in recipe.staging_rules),
         "mermaid_diagrams": gen.diagrams,
         "edge_case_map": gen.edge_case_map,
         "needs_confirmation": needs_confirmation,
@@ -408,17 +509,37 @@ async def generate_preview(request: Request):
 
 @router.post("/api/flows/recipe-to-working-config")
 async def recipe_to_working_config(request: Request):
-    """Compile recipe into a working config and store in session."""
-    result = await _parse_and_compile_recipe(request)
+    """Store a recipe for one flow, then compose all stored recipes."""
+    result = await _parse_recipe(request)
     if isinstance(result, JSONResponse):
         return result
-    session_token, session, recipe, gen = result
+    session_token, session, recipe = result
+
+    session.generation_recipes[recipe.flow_ref] = recipe.model_dump()
+
+    base = _get_base_config(session)
+    try:
+        gen = _compose_all_recipes(base, session.generation_recipes)
+    except (ValueError, KeyError) as e:
+        return JSONResponse(
+            content={"error": "Generation failed", "detail": str(e)},
+            status_code=400,
+        )
+
+    if session.discovery is not None:
+        reconciliation = reconcile_config(gen.config, session.discovery)
+        skip_refs: set[str] = set()
+        for m in reconciliation.matches:
+            if m.use_existing:
+                session.registry.register_or_update(m.config_ref, m.discovered_id)
+                skip_refs.add(m.config_ref)
+        session.reconciliation = reconciliation
+        session.skip_refs = skip_refs
 
     session.config = gen.config
     config_json_text = gen.config.model_dump_json(indent=2, exclude_none=True)
     session.config_json_text = config_json_text
     session.mermaid_diagrams = gen.diagrams
-    session.generation_recipe = recipe.model_dump()
     session.flow_ir = gen.flow_irs
     session.expanded_flows = gen.expanded_flows
     session.view_data_cache = [
@@ -432,25 +553,37 @@ async def recipe_to_working_config(request: Request):
     resource_map = {typed_ref_for(r): r for r in all_resources(gen.config)}
     session.preview_items = build_preview(batches, resource_map)
 
+    recipe_count = len(session.generation_recipes)
     return {
         "status": "ok",
         "total_resources": sum(_count_resources(gen.config).values()),
         "mermaid_count": len(gen.diagrams),
         "edge_case_map": gen.edge_case_map,
+        "recipe_count": recipe_count,
     }
 
 
 @router.post("/api/flows/generate-execute")
 async def generate_execute(request: Request):
     """Compile recipe and feed directly into the execution pipeline."""
-    result = await _parse_and_compile_recipe(request)
+    result = await _parse_recipe(request)
     if isinstance(result, JSONResponse):
         return result
-    session_token, session, recipe, gen = result
+    session_token, session, recipe = result
+
+    session.generation_recipes[recipe.flow_ref] = recipe.model_dump()
+
+    base = _get_base_config(session)
+    try:
+        gen = _compose_all_recipes(base, session.generation_recipes)
+    except (ValueError, KeyError) as e:
+        return JSONResponse(
+            content={"error": "Generation failed", "detail": str(e)},
+            status_code=400,
+        )
 
     session.config = gen.config
     session.mermaid_diagrams = gen.diagrams
-    session.generation_recipe = recipe.model_dump()
     session.flow_ir = gen.flow_irs
     session.expanded_flows = gen.expanded_flows
     known = set(session.org_registry.refs.keys()) if session.org_registry else None

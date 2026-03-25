@@ -1,16 +1,69 @@
-<div class="webhook-row" id="wh-{{ wh.webhook_id }}">
-    <div class="wh-summary">
-        <span class="wh-time">{{ wh.received_at.split("T")[1][:8] if "T" in wh.received_at else wh.received_at }}</span>
-        <span class="wh-event">{{ wh.event_type }}</span>
-        <span class="wh-ref">{{ wh.typed_ref or ((wh.resource_id[:12] ~ '&hellip;') if wh.resource_id else '?') }}</span>
-        {% if wh.run_id %}
-        <a href="/runs/{{ wh.run_id }}" class="wh-run-link" title="View run">{{ wh.run_id[:16] }}</a>
-        {% endif %}
-    </div>
-    {% if wh.raw %}
-    <details class="wh-body">
-        <summary>Payload</summary>
-        <pre class="wh-json">{{ wh.raw | tojson(indent=2) }}</pre>
-    </details>
+{#
+  MT Webhook Row — Jinja2 partial (replaces webhook_card.html)
+  ============================================================
+  Canonical sources:
+    - IndexTable.tsx TableRow     (lines 1420-1500) — clickable row, hover state
+    - IndexTable.tsx Td           (lines 1515-1560) — cell rendering
+    - WebhookDeliveryAttemptsView.tsx (lines 44-73) — delivery attempt row data
+    - DrawerActions.tsx                              — Cmd+click → new tab
+
+  Migration: webhook_card.html → webhook_row.html
+  ============================================================
+  CURRENT (webhook_card.html):
+    - div.webhook-card with header (event_type, time), meta (resource_type, resource_id, typed_ref, run link)
+    - Accordion for raw payload
+
+  TARGET (MT IndexTable row):
+    - div[role=row] with cells matching header columns
+    - Click → opens drawer with full detail (KV table + JSON accordion for payload)
+    - Cmd/Ctrl+click → new tab to /webhooks/{id}
+
+  Parameters:
+    wh — webhook dict with: webhook_id, event_type, resource_type, resource_id, typed_ref, run_id, received_at, raw
+  ============================================================
+#}
+
+{# Source: IndexTable.tsx TableRow lines 1420-1500 — clickable row #}
+<div class="mt-index-table-row" role="row"
+     data-webhook-id="{{ wh.webhook_id }}"
+     data-run-id="{{ wh.run_id or '' }}"
+     onclick="handleRowClick(event, this, '/api/webhooks/{{ wh.webhook_id }}/detail', 'webhook-detail-drawer')"
+     id="wh-{{ wh.webhook_id }}">
+
+  {# Event type #}
+  <div class="mt-index-table-cell" role="cell" style="width: 25%;">
+    <span class="mt-row-primary">{{ wh.event_type }}</span>
+  </div>
+
+  {# Resource type #}
+  <div class="mt-index-table-cell" role="cell" style="width: 15%;">
+    <span class="type-badge type-{{ wh.resource_type }}">{{ wh.resource_type }}</span>
+  </div>
+
+  {# Resource ID (truncated) #}
+  <div class="mt-index-table-cell" role="cell" style="width: 20%;">
+    <code title="{{ wh.resource_id }}">{{ (wh.resource_id[:12] ~ '&hellip;') if wh.resource_id else '—' }}</code>
+  </div>
+
+  {# Run ID #}
+  <div class="mt-index-table-cell" role="cell" style="width: 20%;">
+    {% if wh.run_id %}
+    <a href="/listen?run_id={{ wh.run_id }}" class="mt-row-link" title="{{ wh.run_id }}"
+       onclick="event.stopPropagation()">
+      {{ wh.run_id[:16] }}
+    </a>
+    {% else %}
+    <span class="text-muted">—</span>
     {% endif %}
+  </div>
+
+  {# Time #}
+  <div class="mt-index-table-cell" role="cell" style="width: 12%;">
+    {{ wh.received_at.split("T")[1][:8] if "T" in wh.received_at else wh.received_at }}
+  </div>
+
+  {# Status #}
+  <div class="mt-index-table-cell" role="cell" style="width: 8%;">
+    <span class="badge badge--success" style="font-size: 0.65rem;">received</span>
+  </div>
 </div>

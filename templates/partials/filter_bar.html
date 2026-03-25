@@ -1,0 +1,123 @@
+{#
+  MT Filter Bar — Jinja2 partial
+  ============================================================
+  Canonical sources:
+    - FilterArea.tsx              (lines 58-185)   — filter area wrapper
+    - FilterAreaLoadingWrapper    (lines 281-292)   — outer container styling
+    - FilterSelectorDropdown.tsx  (lines 26-48)     — PopoverTrigger button
+    - FilterPill.tsx              (lines 711-735)   — applied filter as Chip
+    - Chip.tsx                    (lines 58-153)    — Chip component structure
+    - Chip.tsx                    (lines 118-136)   — chipContent inner div
+    - Chip.tsx RemoveIcon         (lines 11-35)     — dismiss button
+    - SearchContainer.tsx         (lines 136-228)   — search + filter + column selector
+
+  MT FilterArea structure:
+    <div class="filter-bar">                                    — flex wrap, border-alpha-black-100, bg-background-default, px-4, pt-3
+      <button class="filter-trigger">                           — h-6, grid, rounded-sm, border, px-2
+        <svg>filter_list icon</svg>
+      </button>
+      <div class="filter-pills">                                — applied filters as Chips
+        <div class="mt-chip">
+          <div class="mt-chip-content">{icon} {label}: {value}</div>
+          <button class="mt-chip-remove">&times;</button>
+        </div>
+      </div>
+      <div class="filter-actions">                              — right side: export, column selector
+        {export_button} {column_selector}
+      </div>
+    </div>
+
+  Parameters:
+    filters         — list of dicts: [{key, label, value, icon}]
+    filter_options   — list of dicts for dropdown: [{key, label}]
+    show_search      — bool, show text search input
+    search_name      — input name for search
+    search_value     — current search value
+    search_url       — HTMX url for search
+    filter_url       — HTMX url for filter changes
+    target           — HTMX swap target ID
+    extra_actions    — block for additional buttons (export, etc.)
+  ============================================================
+#}
+
+{# --- Filter Bar Container --- #}
+{# Source: FilterAreaLoadingWrapper lines 281-292 #}
+<div class="mt-filter-bar">
+  <div class="mt-filter-bar-inner">
+    {# --- Left side: filter trigger + applied pills --- #}
+    <div class="mt-filter-bar-left">
+
+      {# Filter dropdown trigger #}
+      {# Source: FilterSelectorDropdown.tsx PopoverTrigger lines 26-48 #}
+      {% if filter_options is defined and filter_options %}
+      <div class="mt-filter-dropdown">
+        <button type="button" class="mt-filter-trigger" onclick="this.nextElementSibling.classList.toggle('hidden')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="4" y1="6" x2="20" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/>
+          </svg>
+          <span class="sr-only">Filter</span>
+        </button>
+        {# Source: FilterSelectorDropdown.tsx PopoverPanel lines 85-96 #}
+        <div class="mt-filter-panel hidden">
+          {% for opt in filter_options %}
+          <button type="button" class="mt-filter-option"
+                  onclick="addFilter('{{ opt.key }}', '{{ opt.label }}'); this.closest('.mt-filter-panel').classList.add('hidden')">
+            {{ opt.label }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {# Text search input (optional) #}
+      {# Source: SearchContainer.tsx — wraps filters, search is app-specific #}
+      {% if show_search is defined and show_search %}
+      <input type="text"
+             class="mt-filter-search"
+             name="{{ search_name | default('q') }}"
+             value="{{ search_value | default('') }}"
+             placeholder="Search..."
+             {% if filter_url is defined %}
+             hx-get="{{ filter_url }}"
+             hx-trigger="keyup changed delay:300ms"
+             hx-target="#{{ target | default('content') }}"
+             hx-swap="innerHTML"
+             {% else %}
+             oninput="searchResources(this.value)"
+             {% endif %}>
+      {% endif %}
+
+      {# Applied filter pills #}
+      {# Source: FilterPill.tsx lines 711-735 → Chip.tsx lines 58-153 #}
+      <div class="mt-filter-pills" id="active-filters">
+        {% if filters is defined %}
+        {% for f in filters %}
+        <div class="mt-chip" data-filter-key="{{ f.key }}">
+          {# Source: Chip.tsx chipContent lines 118-136 #}
+          <div class="mt-chip-content">
+            {% if f.icon %}<span class="mt-chip-icon">{{ f.icon }}</span>{% endif %}
+            <span class="mt-chip-label">{{ f.label }}:</span>
+            <span class="mt-chip-value">{{ f.value }}</span>
+          </div>
+          {# Source: Chip.tsx RemoveIcon lines 11-35 #}
+          <button type="button" class="mt-chip-remove"
+                  onclick="removeFilter('{{ f.key }}')"
+                  aria-label="Remove {{ f.label }} filter">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+
+    {# --- Right side: extra actions (export button, etc.) --- #}
+    <div class="mt-filter-bar-right">
+      {% if extra_actions is defined %}
+      {{ extra_actions }}
+      {% endif %}
+    </div>
+  </div>
+</div>

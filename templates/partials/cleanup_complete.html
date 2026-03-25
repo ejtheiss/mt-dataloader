@@ -1,8 +1,19 @@
 <div id="cleanup-result" class="cleanup-complete" hx-swap-oob="true">
-    <h3>Cleanup Complete</h3>
-    <p>Run <code>{{ run_id }}</code> has been cleaned up.</p>
-    <div class="run-actions">
-        <a href="/runs" class="btn btn-secondary">Back to Runs</a>
-        <a href="/setup" class="btn btn-primary">New Run</a>
+    <div class="detail-panel" style="margin-top: 16px;">
+        <h3 style="margin: 0;">Cleanup Complete</h3>
+        <div class="key-value-table" style="width: 100%;">
+            <div class="key-value-table-row">
+                <div class="row-label">Run ID</div>
+                <div class="row-value"><code>{{ run_id }}</code></div>
+            </div>
+            <div class="key-value-table-row">
+                <div class="row-label">Status</div>
+                <div class="row-value"><span class="badge badge--success">Cleaned up</span></div>
+            </div>
+        </div>
+        <div class="run-actions" style="margin-top: 8px;">
+            <a href="/runs" class="btn btn-secondary">Back to Runs</a>
+            <a href="/setup" class="btn btn-primary">New Run</a>
+        </div>
     </div>
 </div>

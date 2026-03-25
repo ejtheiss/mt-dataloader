@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from loguru import logger
 from modern_treasury import AsyncModernTreasury
@@ -560,6 +560,37 @@ _FIRE_DISPATCH = {
 }
 
 
+@router.get("/api/runs/{run_id}/staged/drawer", include_in_schema=False)
+async def staged_drawer(request: Request, run_id: str, ref: str = Query(...)):
+    """Return drawer HTML for a staged resource payload."""
+    settings = request.app.state.settings
+    runs_dir = Path(settings.runs_dir)
+    templates = request.app.state.templates
+
+    staged_path = runs_dir / f"{run_id}_staged.json"
+    if not staged_path.exists():
+        raise HTTPException(404, "No staged payloads for this run")
+
+    staged_payloads: dict[str, dict] = json.loads(staged_path.read_text("utf-8"))
+    if ref not in staged_payloads:
+        raise HTTPException(404, f"Staged payload not found: {ref}")
+
+    manifest_path = runs_dir / f"{run_id}.json"
+    manifest = RunManifest.load(manifest_path) if manifest_path.exists() else None
+    staged_at = ""
+    if manifest and manifest.resources_staged:
+        for s in manifest.resources_staged:
+            if s.typed_ref == ref:
+                staged_at = s.staged_at
+                break
+
+    return templates.TemplateResponse(
+        request,
+        "partials/staged_drawer.html",
+        {"typed_ref": ref, "payload": staged_payloads[ref], "staged_at": staged_at},
+    )
+
+
 @router.post("/api/runs/{run_id}/fire/{typed_ref:path}")
 async def fire_staged(
     request: Request,
@@ -683,6 +714,42 @@ async def listen_page(request: Request, run_id: str | None = None):
             "selected_run_id": run_id,
         },
     )
+
+
+@router.get("/api/webhooks/{webhook_id}/drawer", include_in_schema=False)
+async def webhook_drawer(request: Request, webhook_id: str):
+    """Return drawer HTML for a single webhook by ID."""
+    for entry in reversed(_webhook_buffer):
+        if entry.webhook_id == webhook_id:
+            templates = request.app.state.templates
+            return templates.TemplateResponse(
+                request,
+                "partials/webhook_detail_drawer.html",
+                {"wh": entry},
+            )
+
+    settings = request.app.state.settings
+    runs_dir = Path(settings.runs_dir)
+    for jsonl_path in runs_dir.glob("*_webhooks.jsonl"):
+        for wh_dict in load_webhooks(jsonl_path):
+            if wh_dict.get("webhook_id") == webhook_id:
+                templates = request.app.state.templates
+                return templates.TemplateResponse(
+                    request,
+                    "partials/webhook_detail_drawer.html",
+                    {"wh": wh_dict},
+                )
+    unmatched = runs_dir / "_webhooks_unmatched.jsonl"
+    for wh_dict in load_webhooks(unmatched):
+        if wh_dict.get("webhook_id") == webhook_id:
+            templates = request.app.state.templates
+            return templates.TemplateResponse(
+                request,
+                "partials/webhook_detail_drawer.html",
+                {"wh": wh_dict},
+            )
+
+    raise HTTPException(status_code=404, detail="Webhook not found")
 
 
 @router.post("/api/webhooks/test", include_in_schema=False)

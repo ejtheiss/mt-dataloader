@@ -1,0 +1,101 @@
+{#
+  MT Tabs — Jinja2 partial
+  ==========================
+  Renders horizontal tab navigation matching MT's Tabs component.
+
+  CANONICAL SOURCES:
+
+  Tabs.tsx — platform/app/frontend/dashboard/components/ui-components/Tabs/Tabs.tsx
+    Outer container (line 138-140):
+      div#tabs.w-full.border-alpha-black-50
+      showBorder=true -> adds "border-b"
+
+    Tab row (line 141):
+      div.-mb-px.flex.gap-2
+      When overflow dropdown needed: justify-between gap-0
+
+    Individual tab (line 142-149):
+      div.whitespace-nowrap.border-b-3.border-transparent.text-gray-500.hover:text-gray-700
+      Active state: border-blue-500 text-gray-700
+        (tab.id === selected -> "border-blue-500 text-gray-700")
+
+    Tab button (line 150-154):
+      Button[role="tab", buttonType="text"]
+      onClick={(event) => onClick(tab.id, event)}
+
+    Overflow handling (line 64-134):
+      Uses ResizeObserver to detect when tabs overflow
+      Hidden tabs go into a Popover dropdown with ActionItem entries
+      Popover trigger: "More" button visible only when overflow detected
+
+    Tab data shape (line 15-23):
+      type Tab = { id: string; label: string; href?: string; }
+      Active tab tracked by "selected" prop
+
+  HTMX integration:
+    Two approaches:
+    1. Content swap: Tab button has hx-get loading content into a target div
+    2. Full page: Tab is just an <a> link to a different URL
+
+  Usage (content swap approach):
+    {% set tabs = [
+        {"id": "overview",  "label": "Overview",  "url": "/flows/123/overview"},
+        {"id": "resources", "label": "Resources", "url": "/flows/123/resources"},
+        {"id": "runs",      "label": "Runs",      "url": "/flows/123/runs"},
+        {"id": "settings",  "label": "Settings",  "url": "/flows/123/settings"},
+    ] %}
+    {% set active_tab = "overview" %}
+    {% set tab_target = "#tab-content" %}
+    {% set show_border = true %}
+    {% include "partials/tabs.html" %}
+
+    <div id="tab-content">
+      ...current tab content...
+    </div>
+
+  Usage (link approach):
+    {% set tabs = [
+        {"id": "overview",  "label": "Overview",  "href": "/flows/123?tab=overview"},
+        {"id": "resources", "label": "Resources", "href": "/flows/123?tab=resources"},
+    ] %}
+    {% set active_tab = request.args.get('tab', 'overview') %}
+    {% set show_border = true %}
+    {% include "partials/tabs.html" %}
+#}
+
+{# Tabs container — Tabs.tsx line 138-140 #}
+<div class="mt-tabs{% if show_border %} mt-tabs--bordered{% endif %}" id="tabs">
+  {# Tab row — Tabs.tsx line 141: -mb-px flex gap-2 #}
+  <div class="mt-tabs__row">
+    {% for tab in tabs %}
+    {# Individual tab — Tabs.tsx line 142-149 #}
+    <div class="mt-tab{% if tab.id == active_tab %} mt-tab--active{% endif %}">
+      {% if tab.href %}
+      {# Link-based tab (full navigation) #}
+      <a href="{{ tab.href }}" role="tab" class="mt-tab__btn"
+         {% if tab.id == active_tab %}aria-selected="true"{% endif %}>
+        {{ tab.label }}
+      </a>
+      {% elif tab.url and tab_target %}
+      {# HTMX content-swap tab #}
+      <button role="tab" class="mt-tab__btn"
+              {% if tab.id == active_tab %}aria-selected="true"{% endif %}
+              hx-get="{{ tab.url }}"
+              hx-target="{{ tab_target }}"
+              hx-swap="innerHTML"
+              hx-push-url="{{ tab.push_url | default('false') }}"
+              onclick="setActiveTab(this)">
+        {{ tab.label }}
+      </button>
+      {% else %}
+      {# Static tab (JS-only switching) #}
+      <button role="tab" class="mt-tab__btn"
+              {% if tab.id == active_tab %}aria-selected="true"{% endif %}
+              onclick="setActiveTab(this)">
+        {{ tab.label }}
+      </button>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>

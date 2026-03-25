@@ -29,14 +29,6 @@
     </div>
 </div>
 <div class="page-body">
-    {% if discovery %}
-        {% include "partials/discovery_summary.html" %}
-    {% endif %}
-
-    {% if reconciliation %}
-        {% include "partials/reconciliation_panel.html" %}
-    {% endif %}
-
     <div class="stats-bar">
         <div class="stat">
             <span class="stat-value">{{ resource_count }}</span>
@@ -56,10 +48,44 @@
         </div>
     </div>
 
-    {% include "partials/resource_table.html" %}
+    <div class="mt-tabs" id="preview-tabs">
+        <div class="mt-tabs__row">
+            <div class="mt-tab mt-tab--active">
+                <button class="mt-tab__btn" data-panel="preview-panel-resources" onclick="setActiveTab(this); switchPreviewTab('preview-panel-resources')">Resources</button>
+            </div>
+            {% if discovery %}
+            <div class="mt-tab">
+                <button class="mt-tab__btn" data-panel="preview-panel-discovery" onclick="setActiveTab(this); switchPreviewTab('preview-panel-discovery')">Discovery</button>
+            </div>
+            {% endif %}
+            {% if reconciliation %}
+            <div class="mt-tab">
+                <button class="mt-tab__btn" data-panel="preview-panel-recon" onclick="setActiveTab(this); switchPreviewTab('preview-panel-recon')">Reconciliation</button>
+            </div>
+            {% endif %}
+            <div class="mt-tab">
+                <button class="mt-tab__btn" data-panel="preview-panel-config" onclick="setActiveTab(this); switchPreviewTab('preview-panel-config')">JSON Config</button>
+            </div>
+        </div>
+    </div>
 
-    <details class="json-editor-panel">
-        <summary>View / Edit JSON Config</summary>
+    <div class="tab-panel" id="preview-panel-resources">
+        {% include "partials/resource_table.html" %}
+    </div>
+
+    {% if discovery %}
+    <div class="tab-panel" id="preview-panel-discovery" hidden>
+        {% include "partials/discovery_summary.html" %}
+    </div>
+    {% endif %}
+
+    {% if reconciliation %}
+    <div class="tab-panel" id="preview-panel-recon" hidden>
+        {% include "partials/reconciliation_panel.html" %}
+    </div>
+    {% endif %}
+
+    <div class="tab-panel" id="preview-panel-config" hidden>
         <form id="revalidate-form"
               hx-post="/api/revalidate"
               hx-target="#content"
@@ -80,10 +106,16 @@
                 <button type="button" class="btn btn-sm btn-outline" id="btn-copy-json">Copy</button>
             </div>
         </form>
-    </details>
+    </div>
 </div>
 
 <script>
+function switchPreviewTab(panelId) {
+    document.querySelectorAll('#preview-panel-resources, #preview-panel-discovery, #preview-panel-recon, #preview-panel-config').forEach(function(p) {
+        if (p) p.hidden = (p.id !== panelId);
+    });
+}
+
 (function() {
     var hiddenInput = document.getElementById("preview-json-editor");
     var status = document.getElementById("preview-json-status");

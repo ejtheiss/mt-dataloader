@@ -1,0 +1,179 @@
+{#
+  MT Run Detail Drawer Content — Jinja2 partial (Runs → Events migration)
+  ============================================================
+  Canonical sources:
+    - EventView.tsx               (lines 57-118)   — Page + Layout + SectionNavigator + DetailsTable + JsonView
+    - EventView.tsx               (lines 70-75)    — primaryContent: DetailsTable
+    - EventView.tsx               (lines 77-113)   — secondaryContent: SectionNavigator + WebhookDeliveryAttemptsView + JsonView
+    - KeyValueTable.tsx                             — two-column key-value layout
+    - SectionNavigator.tsx        (lines 100-112)  — tabbed sections
+    - JsonView.tsx                (lines 39-69)    — collapsible JSON tree
+    - DrawerActions.tsx                             — close, open-as-page, open-in-new-tab, copy-link
+
+  This partial is loaded into the drawer via HTMX when a run
+  row is clicked. It mirrors EventView's layout:
+    1. KV Table for run metadata (like DetailsTable)
+    2. SectionNavigator with tabs: Config, Resources, Staged
+    3. JSON accordion for config (like EventView's "Event Data" tab)
+
+  Parameters:
+    m             — manifest dict with all run fields
+    config_json   — formatted config JSON string
+  ============================================================
+#}
+
+{# --- Drawer Title --- #}
+<div class="mt-drawer-title">
+  <h3 style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.9rem;">{{ m.run_id }}</h3>
+  <span class="badge badge--{{ 'success' if m.status == 'completed' or (m.status.value is defined and m.status.value == 'completed') else 'critical' if m.status == 'failed' or (m.status.value is defined and m.status.value == 'failed') else 'cool' if m.status == 'running' or (m.status.value is defined and m.status.value == 'running') else 'default' }}">
+    {{ m.status.value if m.status.value is defined else m.status }}
+  </span>
+</div>
+
+{# --- KV Table: Run Metadata --- #}
+{# Source: EventView.tsx lines 70-75 — primaryContent: DetailsTable #}
+{# Source: KeyValueTable.tsx — grid 150px 1fr #}
+<div class="key-value-table">
+  <div class="key-value-table-row">
+    <div class="row-label">Run ID</div>
+    <div class="row-value"><code>{{ m.run_id }}</code></div>
+  </div>
+  <div class="key-value-table-row">
+    <div class="row-label">Status</div>
+    <div class="row-value">
+      <span class="badge badge--{{ 'success' if m.status == 'completed' or (m.status.value is defined and m.status.value == 'completed') else 'critical' if m.status == 'failed' or (m.status.value is defined and m.status.value == 'failed') else 'default' }}">
+        {{ m.status.value if m.status.value is defined else m.status }}
+      </span>
+    </div>
+  </div>
+  <div class="key-value-table-row">
+    <div class="row-label">Resources Created</div>
+    <div class="row-value">{{ m.resources_created | length }}</div>
+  </div>
+  {% if m.resources_staged %}
+  <div class="key-value-table-row">
+    <div class="row-label">Resources Staged</div>
+    <div class="row-value">{{ m.resources_staged | length }}</div>
+  </div>
+  {% endif %}
+  {% if m.resources_failed %}
+  <div class="key-value-table-row">
+    <div class="row-label">Resources Failed</div>
+    <div class="row-value" style="color: var(--danger, #C4381D);">{{ m.resources_failed | length }}</div>
+  </div>
+  {% endif %}
+</div>
+
+{# --- Section Navigator: Config / Resources / Webhooks --- #}
+{# Source: EventView.tsx lines 79-85 — SectionNavigator with tabs #}
+{# Source: SectionNavigator.tsx lines 100-112 — Tabs component #}
+<div class="mt-section-navigator" id="run-drawer-sections" style="margin-top: 16px;">
+  <div class="mt-tabs">
+    <div class="mt-tabs__row">
+      <div class="mt-tab mt-tab--active" data-section="config">
+        <button type="button" class="mt-tab__btn"
+                onclick="switchSection('run-drawer-sections', 'drawer-config', false); setActiveTab(this)">
+          Config
+        </button>
+      </div>
+      <div class="mt-tab" data-section="resources">
+        <button type="button" class="mt-tab__btn"
+                onclick="switchSection('run-drawer-sections', 'drawer-resources', false); setActiveTab(this)">
+          Resources ({{ m.resources_created | length }})
+        </button>
+      </div>
+      {% if m.resources_failed %}
+      <div class="mt-tab" data-section="failed">
+        <button type="button" class="mt-tab__btn"
+                onclick="switchSection('run-drawer-sections', 'drawer-failed', false); setActiveTab(this)">
+          Failed ({{ m.resources_failed | length }})
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# --- Config Tab (like EventView "Event Data" tab) --- #}
+{# Source: EventView.tsx lines 91-111 — JsonView for event data #}
+<div class="mt-section-panel mt-section-panel--active" id="section-drawer-config">
+  {% if config_json is defined and config_json %}
+  <div style="margin-top: 8px;">
+    <div id="run-config-monaco" class="monaco-container"
+         style="height: 360px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;"></div>
+  </div>
+  {% else %}
+  <p class="text-muted" style="padding: 12px 0;">No config data available.</p>
+  {% endif %}
+</div>
+
+{# --- Resources Tab (like EventView "Webhook Delivery Attempts" tab) --- #}
+{# Source: EventView.tsx lines 86-89 — WebhookDeliveryAttemptsView section #}
+{# Source: WebhookDeliveryAttemptsView.tsx lines 44-73 — expandedData pattern #}
+<div class="mt-section-panel" id="section-drawer-resources" hidden>
+  {% if m.resources_created %}
+  <div class="ui-table-container" role="table" style="margin-top: 8px;">
+    <div class="ui-table-container__inner">
+      <div role="rowgroup" class="ui-table-head">
+        <div role="row" class="ui-table-row header">
+          <div role="columnheader" class="ui-table-header" style="width: 50px; flex: none;">Batch</div>
+          <div role="columnheader" class="ui-table-header" style="width: 110px; flex: none;">Type</div>
+          <div role="columnheader" class="ui-table-header">Ref</div>
+          <div role="columnheader" class="ui-table-header" style="width: 110px; flex: none;">Created ID</div>
+          <div role="columnheader" class="ui-table-header text-right" style="width: 60px; flex: none;">Time</div>
+        </div>
+      </div>
+      <div role="rowgroup" class="ui-table-body">
+        {% for e in m.resources_created %}
+        <div role="row" class="ui-table-row">
+          <div role="cell" class="ui-table-cell" style="width: 50px; flex: none;">
+            <span class="badge badge--default">{% if e.batch >= 0 %}B{{ e.batch }}{% else %}Fired{% endif %}</span>
+          </div>
+          <div role="cell" class="ui-table-cell" style="width: 110px; flex: none;">
+            <span class="badge badge--cool">{{ e.resource_type }}</span>
+          </div>
+          <div role="cell" class="ui-table-cell truncate">{{ e.typed_ref }}</div>
+          <div role="cell" class="ui-table-cell" style="width: 110px; flex: none;">
+            <code title="{{ e.created_id }}">{{ e.created_id[:12] }}&hellip;</code>
+          </div>
+          <div role="cell" class="ui-table-cell text-right" style="width: 60px; flex: none;">
+            {{ e.created_at.split("T")[1][:8] if "T" in e.created_at else e.created_at }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  {% set empty_title = "No Resources Created" %}
+  {% include "partials/empty_state.html" %}
+  {% endif %}
+</div>
+
+{# --- Failed Tab --- #}
+{% if m.resources_failed %}
+<div class="mt-section-panel" id="section-drawer-failed" hidden>
+  <div style="margin-top: 8px;">
+    {% for f in m.resources_failed %}
+      <div class="key-value-table-row" style="border-left: 3px solid var(--danger, #C4381D); padding-left: 12px; margin-bottom: 8px;">
+      <div class="row-label"><code>{{ f.typed_ref }}</code></div>
+      <div class="row-value" style="color: var(--danger, #C4381D);">{{ f.error }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if config_json is defined and config_json %}
+<script>
+(function() {
+  var el = document.getElementById('run-config-monaco');
+  if (el && typeof initMonacoEditor === 'function') {
+    initMonacoEditor(el, {
+      value: {{ config_json | tojson }},
+      readOnly: true
+    });
+  }
+})();
+</script>
+{% endif %}
