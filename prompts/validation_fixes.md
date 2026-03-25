@@ -23,10 +23,18 @@ engine auto-prefixes the resource type (e.g. ref `acme_corp` becomes
 
 ### `extra_forbidden` — Unknown field
 
-Check the schema for typos or unknown fields. **Most common:** remove `name`
-from `counterparties[].accounts[]` — the schema uses `extra="forbid"` on
-inline accounts. Use `party_name` or `metadata` for labels; the parent
-counterparty has `name`.
+Check the schema for typos or unknown fields. Common causes:
+
+- **`name` on `counterparties[].accounts[]`:** Remove it — the schema uses
+  `extra="forbid"` on inline accounts. Use `party_name` or `metadata` for
+  labels; the parent counterparty has `name`.
+- **`effective_date` on an `incoming_payment_detail` step:** IPD uses
+  `as_of_date`, not `effective_date`. Only `payment_order` and
+  `ledger_transaction` accept `effective_date`.
+- **`receiving_account_id` on an `incoming_payment_detail` step:** IPD uses
+  `internal_account_id`, not `receiving_account_id`.
+- **Wrong field on any `funds_flows` step:** Each step `type` has a strict
+  set of allowed fields. See the step field reference table in the prompt.
 
 ### `address_types` / `identifications` / `documents` on legal entities
 

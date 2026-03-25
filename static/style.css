@@ -712,6 +712,10 @@ a.doc-link:hover .sandbox-badge {
 }
 .text-muted { color: var(--text-muted); }
 
+/* --- Skipped resource row status (execute page — reconciled/existing) --- */
+.resource-row.skipped { opacity: 0.55; }
+.status-dot.skipped { background-color: var(--status-skipped); }
+
 /* --- Staged resource row status (execute page) --- */
 .resource-row.staged { opacity: 0.6; }
 .status-dot.staged { background-color: var(--status-staged); }

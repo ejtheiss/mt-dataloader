@@ -321,6 +321,29 @@ Actor slot refs can use `{instance}` (e.g., `"$ref:internal_account.buyer_{insta
 | `reversal` | Reversal | PO reversal; set `payment_order_id` |
 | `transition_ledger_transaction` | TLT | Changes status of an existing LT; requires `status` (`pending`, `posted`, `archived`). `ledger_transaction_id` auto-derived from the depended-on step's inline LT if omitted. |
 
+### Step field reference (strict — extra fields are rejected)
+
+Every step has these **common fields**: `step_id` (required), `type`
+(required), `description`, `depends_on`, `timing`, `metadata`.
+
+**Type-specific fields — use ONLY the fields listed for the step's `type`:**
+
+| `type` | Payload fields (besides common) |
+|--------|---------------------------------|
+| `payment_order` | `payment_type`, `direction`, `amount`, `originating_account_id`, `receiving_account_id`, `currency`, `statement_descriptor`, **`effective_date`**, `staged`, `ledger_entries`, `ledger_inline`, `ledger_status` |
+| `incoming_payment_detail` | `payment_type`, `amount`, `originating_account_id`, `internal_account_id`, `direction` (fixed `"credit"`), `currency`, `virtual_account_id`, **`as_of_date`** (NOT `effective_date`), `fulfills`, `staged`, `ledger_entries`, `ledger_inline`, `ledger_status` |
+| `expected_payment` | `amount`, `direction`, `originating_account_id`, `internal_account_id`, `currency`, `date_lower_bound`, `date_upper_bound`, `staged`, `ledger_entries`, `ledger_inline`, `ledger_status` |
+| `ledger_transaction` | `ledger_entries` (required, min 1), `ledger_status`, `effective_at`, **`effective_date`**, `staged` |
+| `return` | `returnable_id`, `code`, `reason`, `ledger_entries`, `ledger_inline`, `ledger_status` |
+| `reversal` | `payment_order_id`, `reason`, `ledger_entries`, `ledger_inline`, `ledger_status` |
+| `transition_ledger_transaction` | `ledger_transaction_id`, `status` (required: `pending` / `posted` / `archived`) |
+
+**Critical field differences between step types (common mistakes):**
+- **Date fields differ:** PO and LT use `effective_date`; IPD uses `as_of_date`; EP uses `date_lower_bound`/`date_upper_bound`. Do NOT use `effective_date` on an IPD step.
+- **Account fields differ:** PO uses `originating_account_id` + `receiving_account_id`; IPD uses `originating_account_id` + `internal_account_id`. Do NOT use `receiving_account_id` on an IPD step.
+- **Direction:** IPD direction is always `"credit"` (inbound). PO direction can be `"credit"` or `"debit"`.
+- **ACH debit PO (collection):** `direction: "debit"`, `originating_account_id` = IA receiving funds, `receiving_account_id` = counterparty EA being debited.
+
 ### `optional_groups` — lifecycle variants
 
 Each group has a `label` and one or more `steps`. Groups model edge cases
@@ -349,6 +372,20 @@ Each group has a `label` and one or more `steps`. Groups model edge cases
 11. Slot keys: short descriptive names like `bank`, `wallet`, `ops`, `cash`, `revenue`
 12. Use `exclusion_group` for mutually exclusive optional groups (e.g., payout method alternatives)
 13. Use `position: "replace"` + `insert_after` to swap a default step with an alternative
+14. **Actor keys must be consistent across all flows in the same config.**
+    Each actor key (`user_1`, `user_2`, `direct_1`, etc.) must always represent
+    the **same real-world role** in every flow where it appears. Assign keys
+    using the flow with the most participants as the reference, then reuse
+    those same keys in the other flows. If a flow only involves a subset of
+    actors, include only those keys — do NOT reassign a key to a different role.
+
+    Example (lending platform with Beneficiary, Investor, Platform):
+    - `user_1` = Beneficiary in **every** flow that has a beneficiary
+    - `user_2` = Investor in **every** flow that has an investor
+    - `direct_1` = Platform in **every** flow
+    - Deposit flow (investor only): actors = `user_2` + `direct_1` (no `user_1`)
+    - Disbursement flow (beneficiary only): actors = `user_1` + `direct_1` (no `user_2`)
+    - Repayment flow (both): actors = `user_1` + `user_2` + `direct_1`
 
 ---
 

@@ -21,6 +21,7 @@ from models.shared import (
     InlineLedgerTransactionConfig,
     MetadataMixin,
     RefStr,
+    ReversalReason,
     RoutingDetailConfig,
     _BaseResourceConfig,
 )
@@ -433,6 +434,8 @@ class LedgerAccountConfig(MetadataMixin, _BaseResourceConfig):
     normal_balance: Literal["credit", "debit"]
     currency: str = "USD"
     description: str | None = None
+    ledgerable_type: Literal["external_account", "internal_account", "virtual_account"] | None = None
+    ledgerable_id: RefStr | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -684,21 +687,12 @@ class ReturnConfig(MetadataMixin, _BaseResourceConfig):
 # Layer 6 — Post-create mutations
 # ---------------------------------------------------------------------------
 
-REVERSAL_REASONS = Literal[
-    "duplicate",
-    "incorrect_amount",
-    "incorrect_receiving_account",
-    "date_earlier_than_intended",
-    "date_later_than_intended",
-]
-
-
 class ReversalConfig(MetadataMixin, _BaseResourceConfig):
     display_phase: ClassVar[int] = DisplayPhase.MUTATIONS
     resource_type: ClassVar[str] = "reversal"
 
     payment_order_id: RefStr
-    reason: REVERSAL_REASONS
+    reason: ReversalReason
     ledger_transaction: InlineLedgerTransactionConfig | None = None
 
 

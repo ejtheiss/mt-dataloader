@@ -158,6 +158,26 @@ name), `frame_type`, and `slots` (short name → `$ref:` string).
 | `reversal` | Reversal | PO reversal |
 | `transition_ledger_transaction` | TLT | Status change on existing LT (`status`: `pending`/`posted`/`archived`) |
 
+**Step field reference (strict — extra fields are rejected):**
+
+All steps share: `step_id`, `type`, `description`, `depends_on`, `timing`, `metadata`.
+
+| `type` | Type-specific fields |
+|--------|---------------------|
+| `payment_order` | `payment_type`, `direction`, `amount`, `originating_account_id`, `receiving_account_id`, `currency`, `statement_descriptor`, **`effective_date`**, `staged`, `ledger_entries`, `ledger_inline`, `ledger_status` |
+| `incoming_payment_detail` | `payment_type`, `amount`, `originating_account_id`, `internal_account_id`, `direction` (always `"credit"`), `currency`, `virtual_account_id`, **`as_of_date`** (**NOT** `effective_date`), `fulfills`, `staged`, `ledger_entries`, `ledger_inline`, `ledger_status` |
+| `expected_payment` | `amount`, `direction`, `originating_account_id`, `internal_account_id`, `currency`, `date_lower_bound`, `date_upper_bound`, `staged`, `ledger_entries`, `ledger_inline`, `ledger_status` |
+| `ledger_transaction` | `ledger_entries` (required), `ledger_status`, `effective_at`, **`effective_date`**, `staged` |
+| `return` | `returnable_id`, `code`, `reason`, `ledger_entries`, `ledger_inline`, `ledger_status` |
+| `reversal` | `payment_order_id`, `reason`, `ledger_entries`, `ledger_inline`, `ledger_status` |
+| `transition_ledger_transaction` | `ledger_transaction_id`, `status` (required) |
+
+**Common field mistakes to avoid:**
+- IPD uses `as_of_date`, NOT `effective_date`. PO and LT use `effective_date`.
+- IPD uses `internal_account_id`, NOT `receiving_account_id`. PO uses `receiving_account_id`.
+- IPD `direction` is always `"credit"`. For ACH collections use a PO with `direction: "debit"`.
+- ACH debit PO: `originating_account_id` = IA receiving funds, `receiving_account_id` = EA being debited.
+
 **`optional_groups` fields:** `position` (`after`/`before`/`replace`),
 `insert_after` (anchor step_id), `exclusion_group` (mutually exclusive
 groups share the same string), `weight` (proportional selection within an
@@ -172,6 +192,14 @@ IAs, LAs) using `{instance}`, `{first_name}`, `{last_name}` placeholders.
 - Do NOT emit expanded resource arrays — the compiler handles expansion
 - Use `exclusion_group` for mutually exclusive alternatives (e.g., payout methods)
 - Use `position: "replace"` + `insert_after` to swap a default step with an alternative
+- **Actor keys must be consistent across all flows.** Each key (`user_1`,
+  `user_2`, `direct_1`) must represent the **same role** in every flow.
+  Use the flow with the most participants to assign keys, then reuse them.
+  If a flow has fewer participants, include only the relevant keys — never
+  reassign a key to a different role. E.g. in a lending config: `user_1` =
+  Beneficiary everywhere, `user_2` = Investor everywhere, `direct_1` =
+  Platform everywhere. The deposit flow (investor only) uses `user_2` +
+  `direct_1` with no `user_1`.
 
 ---
 

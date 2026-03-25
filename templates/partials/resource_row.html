@@ -56,6 +56,11 @@
             <span class="pulse"></span>
             <span class="status-text">Waiting{% if attempt %} ({{ attempt }}){% endif %}{% if detail %} &mdash; {{ detail }}{% endif %}</span>
         </span>
+        {% elif status == "skipped" %}
+        <span class="status-indicator">
+            <span class="status-dot skipped"></span>
+            <span class="status-text">Skipped (existing)</span>
+        </span>
         {% elif status == "staged" %}
         <span class="status-indicator">
             <span class="status-dot staged"></span>

@@ -270,6 +270,13 @@ CurrencyCode = Annotated[
 ]
 PaymentDirection = Literal["credit", "debit"]
 LedgerStatus = Literal["pending", "posted"]
+ReversalReason = Literal[
+    "duplicate",
+    "incorrect_amount",
+    "incorrect_receiving_account",
+    "date_earlier_than_intended",
+    "date_later_than_intended",
+]
 
 
 # ---------------------------------------------------------------------------

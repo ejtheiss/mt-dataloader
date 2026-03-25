@@ -179,10 +179,10 @@ class TestTypedStepModels:
         assert isinstance(step, ReturnStep)
         assert step.code == "R05"
 
-    def test_reversal_reason_optional(self):
+    def test_reversal_reason_defaults_to_duplicate(self):
         step = FundsFlowStepConfig(step_id="rev", type="reversal")
         assert isinstance(step, ReversalStep)
-        assert step.reason is None
+        assert step.reason == "duplicate"
 
     def test_union_parses_all_types(self):
         """Each step type can be parsed via the compat factory."""

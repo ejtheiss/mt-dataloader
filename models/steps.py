@@ -20,6 +20,7 @@ from models.shared import (
     LedgerStatus,
     MetadataMixin,
     PaymentDirection,
+    ReversalReason,
     StepTimingConfig,
 )
 
@@ -202,7 +203,7 @@ class ReturnStep(_LifecycleLedgerMixin, _StepBase):
 class ReversalStep(_LifecycleLedgerMixin, _StepBase):
     type: Literal["reversal"]
     payment_order_id: str | None = None
-    reason: str | None = None
+    reason: ReversalReason = "duplicate"
 
     _config_section: ClassVar[str] = "reversals"
     _mermaid_arrow: ClassVar[str] = "-->>"

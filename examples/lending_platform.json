@@ -1,11 +1,23 @@
 {
   "connections": [
-    {"ref": "bank", "entity_id": "example1", "nickname": "PSP Connection"}
+    {
+      "ref": "bank",
+      "entity_id": "example1",
+      "nickname": "PSP Connection"
+    }
+  ],
+  "legal_entities": [
+    {
+      "ref": "lendco_inc",
+      "legal_entity_type": "business",
+      "business_name": "LendCo Inc."
+    }
   ],
   "internal_accounts": [
     {
       "ref": "ops",
       "connection_id": "$ref:connection.bank",
+      "legal_entity_id": "$ref:legal_entity.lendco_inc",
       "name": "Operating Account",
       "party_name": "LendCo Inc.",
       "currency": "USD"
@@ -13,13 +25,17 @@
     {
       "ref": "collections",
       "connection_id": "$ref:connection.bank",
+      "legal_entity_id": "$ref:legal_entity.lendco_inc",
       "name": "Collections Account",
       "party_name": "LendCo Inc.",
       "currency": "USD"
     }
   ],
   "ledgers": [
-    {"ref": "main", "name": "LendCo General Ledger"}
+    {
+      "ref": "main",
+      "name": "LendCo General Ledger"
+    }
   ],
   "ledger_accounts": [
     {
@@ -30,23 +46,16 @@
       "currency": "USD"
     },
     {
-      "ref": "loans_receivable",
-      "ledger_id": "$ref:ledger.main",
-      "name": "Loans Receivable",
-      "normal_balance": "debit",
-      "currency": "USD"
-    },
-    {
       "ref": "interest_income",
       "ledger_id": "$ref:ledger.main",
-      "name": "Interest Income",
+      "name": "Servicing Income",
       "normal_balance": "credit",
       "currency": "USD"
     },
     {
       "ref": "deposits_payable",
       "ledger_id": "$ref:ledger.main",
-      "name": "Deposits Payable",
+      "name": "Investor Funding Payable",
       "normal_balance": "credit",
       "currency": "USD"
     }
@@ -58,12 +67,12 @@
       "trace_key": "deposit_id",
       "trace_value_template": "DEP-{instance}",
       "actors": {
-        "user_1": {
-          "alias": "Depositor",
+        "user_2": {
+          "alias": "Investor",
           "frame_type": "user",
-          "entity_ref": "$ref:counterparty.depositor_{instance}",
+          "entity_ref": "$ref:counterparty.investor_{instance}",
           "slots": {
-            "bank": "$ref:counterparty.depositor_{instance}.account[0]"
+            "bank": "$ref:counterparty.investor_{instance}.account[0]"
           }
         },
         "direct_1": {
@@ -80,7 +89,7 @@
       "instance_resources": {
         "counterparties": [
           {
-            "ref": "depositor_{instance}",
+            "ref": "investor_{instance}",
             "name": "{first_name} {last_name}",
             "accounts": [
               {
@@ -99,25 +108,29 @@
           "type": "incoming_payment_detail",
           "payment_type": "ach",
           "direction": "credit",
-          "amount": 250000,
-          "originating_account_id": "@actor:user_1.bank",
+          "amount": 5000000,
+          "originating_account_id": "@actor:user_2.bank",
           "internal_account_id": "@actor:direct_1.ops",
-          "description": "ACH deposit from {first_name} {last_name}"
+          "as_of_date": "2025-09-29",
+          "description": "Investor ACH funding deposit from {first_name} {last_name}"
         },
         {
           "step_id": "book_deposit",
           "type": "ledger_transaction",
-          "depends_on": ["receive_deposit"],
-          "description": "Record deposit liability",
+          "depends_on": [
+            "receive_deposit"
+          ],
+          "effective_date": "2025-09-29",
+          "description": "Record investor funding liability",
           "ledger_entries": [
             {
               "ledger_account_id": "@actor:direct_1.cash",
-              "amount": 250000,
+              "amount": 5000000,
               "direction": "debit"
             },
             {
               "ledger_account_id": "@actor:direct_1.deposits_payable",
-              "amount": 250000,
+              "amount": 5000000,
               "direction": "credit"
             }
           ]
@@ -131,11 +144,13 @@
       "trace_value_template": "LOAN-{instance}",
       "actors": {
         "user_1": {
-          "alias": "Borrower",
+          "alias": "Beneficiary",
           "frame_type": "user",
-          "entity_ref": "$ref:counterparty.borrower_{instance}",
+          "entity_ref": "$ref:legal_entity.beneficiary_{instance}",
           "slots": {
-            "bank": "$ref:counterparty.borrower_{instance}.account[0]"
+            "external_bank": "$ref:counterparty.beneficiary_external_{instance}.account[0]",
+            "wallet": "$ref:internal_account.beneficiary_{instance}_wallet",
+            "position": "$ref:ledger_account.beneficiary_{instance}_position"
           }
         },
         "direct_1": {
@@ -145,15 +160,22 @@
           "slots": {
             "ops": "$ref:internal_account.ops",
             "cash": "$ref:ledger_account.cash",
-            "loans_receivable": "$ref:ledger_account.loans_receivable"
+            "deposits_payable": "$ref:ledger_account.deposits_payable"
           }
         }
       },
       "instance_resources": {
+        "legal_entities": [
+          {
+            "ref": "beneficiary_{instance}",
+            "legal_entity_type": "business",
+            "business_name": "{business_name}"
+          }
+        ],
         "counterparties": [
           {
-            "ref": "borrower_{instance}",
-            "name": "{business_name}",
+            "ref": "beneficiary_external_{instance}",
+            "name": "{business_name} Operating Account",
             "accounts": [
               {
                 "party_name": "{business_name}",
@@ -163,32 +185,58 @@
               }
             ]
           }
+        ],
+        "internal_accounts": [
+          {
+            "ref": "beneficiary_{instance}_wallet",
+            "connection_id": "$ref:connection.bank",
+            "legal_entity_id": "$ref:legal_entity.beneficiary_{instance}",
+            "name": "{business_name} Beneficiary Wallet",
+            "party_name": "{business_name}",
+            "currency": "USD",
+            "metadata": {
+              "account_purpose": "beneficiary_sub_account"
+            }
+          }
+        ],
+        "ledger_accounts": [
+          {
+            "ref": "beneficiary_{instance}_position",
+            "ledger_id": "$ref:ledger.main",
+            "name": "{business_name} Loan Position",
+            "normal_balance": "debit",
+            "currency": "USD"
+          }
         ]
       },
       "steps": [
         {
           "step_id": "disburse",
           "type": "payment_order",
-          "payment_type": "ach",
+          "payment_type": "book",
           "direction": "credit",
           "amount": 5000000,
           "originating_account_id": "@actor:direct_1.ops",
-          "receiving_account_id": "@actor:user_1.bank",
-          "description": "Loan disbursement to {business_name}"
+          "receiving_account_id": "@actor:user_1.wallet",
+          "effective_date": "2025-10-03",
+          "description": "Loan disbursement to {business_name} beneficiary sub account"
         },
         {
-          "step_id": "book_loan",
+          "step_id": "book_loan_principal",
           "type": "ledger_transaction",
-          "depends_on": ["disburse"],
-          "description": "Record loan receivable",
+          "depends_on": [
+            "disburse"
+          ],
+          "effective_date": "2025-10-03",
+          "description": "Reclass investor funding into beneficiary loan principal outstanding",
           "ledger_entries": [
             {
-              "ledger_account_id": "@actor:direct_1.loans_receivable",
+              "ledger_account_id": "@actor:user_1.position",
               "amount": 5000000,
               "direction": "debit"
             },
             {
-              "ledger_account_id": "@actor:direct_1.cash",
+              "ledger_account_id": "@actor:direct_1.deposits_payable",
               "amount": 5000000,
               "direction": "credit"
             }
@@ -203,7 +251,9 @@
             {
               "step_id": "reverse_disburse",
               "type": "reversal",
-              "depends_on": ["disburse"],
+              "depends_on": [
+                "disburse"
+              ],
               "description": "Reverse failed disbursement"
             }
           ]
@@ -217,11 +267,22 @@
       "trace_value_template": "REPAY-{instance}",
       "actors": {
         "user_1": {
-          "alias": "Borrower",
+          "alias": "Beneficiary",
           "frame_type": "user",
-          "entity_ref": "$ref:counterparty.repay_borrower_{instance}",
+          "entity_ref": "$ref:legal_entity.beneficiary_{instance}",
           "slots": {
-            "bank": "$ref:counterparty.repay_borrower_{instance}.account[0]"
+            "external_bank": "$ref:counterparty.beneficiary_external_{instance}.account[0]",
+            "wallet": "$ref:internal_account.beneficiary_{instance}_wallet",
+            "position": "$ref:ledger_account.beneficiary_{instance}_position"
+          }
+        },
+        "user_2": {
+          "alias": "Investor",
+          "frame_type": "user",
+          "entity_ref": "$ref:counterparty.investor_{instance}",
+          "slots": {
+            "bank": "$ref:counterparty.investor_{instance}.account[0]",
+            "receivable": "$ref:ledger_account.investor_{instance}_receivable"
           }
         },
         "direct_1": {
@@ -231,16 +292,22 @@
           "slots": {
             "collections": "$ref:internal_account.collections",
             "cash": "$ref:ledger_account.cash",
-            "loans_receivable": "$ref:ledger_account.loans_receivable",
             "interest_income": "$ref:ledger_account.interest_income"
           }
         }
       },
       "instance_resources": {
+        "legal_entities": [
+          {
+            "ref": "beneficiary_{instance}",
+            "legal_entity_type": "business",
+            "business_name": "{business_name}"
+          }
+        ],
         "counterparties": [
           {
-            "ref": "repay_borrower_{instance}",
-            "name": "{business_name}",
+            "ref": "beneficiary_external_{instance}",
+            "name": "{business_name} Operating Account",
             "accounts": [
               {
                 "party_name": "{business_name}",
@@ -249,25 +316,84 @@
                 "sandbox_behavior": "success"
               }
             ]
+          },
+          {
+            "ref": "investor_{instance}",
+            "name": "{first_name} {last_name}",
+            "accounts": [
+              {
+                "party_name": "{first_name} {last_name}",
+                "party_type": "individual",
+                "account_type": "savings",
+                "sandbox_behavior": "success"
+              }
+            ]
+          }
+        ],
+        "internal_accounts": [
+          {
+            "ref": "beneficiary_{instance}_wallet",
+            "connection_id": "$ref:connection.bank",
+            "legal_entity_id": "$ref:legal_entity.beneficiary_{instance}",
+            "name": "{business_name} Beneficiary Wallet",
+            "party_name": "{business_name}",
+            "currency": "USD",
+            "metadata": {
+              "account_purpose": "beneficiary_sub_account"
+            }
+          }
+        ],
+        "ledger_accounts": [
+          {
+            "ref": "beneficiary_{instance}_position",
+            "ledger_id": "$ref:ledger.main",
+            "name": "{business_name} Loan Position",
+            "normal_balance": "debit",
+            "currency": "USD"
+          },
+          {
+            "ref": "investor_{instance}_receivable",
+            "ledger_id": "$ref:ledger.main",
+            "name": "{first_name} {last_name} Investor Distribution Claim",
+            "normal_balance": "credit",
+            "currency": "USD"
           }
         ]
       },
       "steps": [
         {
-          "step_id": "collect_payment",
-          "type": "incoming_payment_detail",
+          "step_id": "pull_repayment",
+          "type": "payment_order",
           "payment_type": "ach",
-          "direction": "credit",
+          "direction": "debit",
           "amount": 525000,
-          "originating_account_id": "@actor:user_1.bank",
-          "internal_account_id": "@actor:direct_1.collections",
-          "description": "Monthly repayment from {business_name}"
+          "originating_account_id": "@actor:user_1.wallet",
+          "receiving_account_id": "@actor:user_1.external_bank",
+          "effective_date": "2025-11-15",
+          "description": "ACH debit repayment pull from {business_name} external account into beneficiary wallet"
         },
         {
-          "step_id": "book_principal",
+          "step_id": "sweep_to_collections",
+          "type": "payment_order",
+          "payment_type": "book",
+          "direction": "credit",
+          "amount": 525000,
+          "originating_account_id": "@actor:user_1.wallet",
+          "receiving_account_id": "@actor:direct_1.collections",
+          "depends_on": [
+            "pull_repayment"
+          ],
+          "effective_date": "2025-11-18",
+          "description": "Sweep repayment funds from {business_name} beneficiary wallet to collections"
+        },
+        {
+          "step_id": "apply_principal",
           "type": "ledger_transaction",
-          "depends_on": ["collect_payment"],
-          "description": "Apply principal payment",
+          "depends_on": [
+            "sweep_to_collections"
+          ],
+          "effective_date": "2025-11-18",
+          "description": "Apply principal reduction against beneficiary position",
           "ledger_entries": [
             {
               "ledger_account_id": "@actor:direct_1.cash",
@@ -275,42 +401,86 @@
               "direction": "debit"
             },
             {
-              "ledger_account_id": "@actor:direct_1.loans_receivable",
+              "ledger_account_id": "@actor:user_1.position",
               "amount": 500000,
               "direction": "credit"
             }
           ]
         },
         {
-          "step_id": "book_interest",
+          "step_id": "accrue_investor_distribution",
           "type": "ledger_transaction",
-          "depends_on": ["collect_payment"],
-          "description": "Recognize interest income",
+          "depends_on": [
+            "sweep_to_collections"
+          ],
+          "effective_date": "2025-11-18",
+          "description": "Accrue investor receivable from repayment proceeds",
           "ledger_entries": [
             {
               "ledger_account_id": "@actor:direct_1.cash",
-              "amount": 25000,
+              "amount": 20000,
+              "direction": "debit"
+            },
+            {
+              "ledger_account_id": "@actor:user_2.receivable",
+              "amount": 20000,
+              "direction": "credit"
+            }
+          ]
+        },
+        {
+          "step_id": "recognize_servicing_income",
+          "type": "ledger_transaction",
+          "depends_on": [
+            "sweep_to_collections"
+          ],
+          "effective_date": "2025-11-18",
+          "description": "Recognize servicing spread retained by platform",
+          "ledger_entries": [
+            {
+              "ledger_account_id": "@actor:direct_1.cash",
+              "amount": 5000,
               "direction": "debit"
             },
             {
               "ledger_account_id": "@actor:direct_1.interest_income",
-              "amount": 25000,
+              "amount": 5000,
               "direction": "credit"
             }
           ]
-        }
-      ],
-      "optional_groups": [
+        },
         {
-          "label": "Repayment NSF return",
-          "trigger": "system",
-          "steps": [
+          "step_id": "distribute_to_investor",
+          "type": "payment_order",
+          "payment_type": "ach",
+          "direction": "credit",
+          "amount": 20000,
+          "originating_account_id": "@actor:direct_1.collections",
+          "receiving_account_id": "@actor:user_2.bank",
+          "depends_on": [
+            "accrue_investor_distribution"
+          ],
+          "effective_date": "2025-11-24",
+          "description": "Weekly investor distribution to {first_name} {last_name} after repayment clearing"
+        },
+        {
+          "step_id": "clear_investor_claim",
+          "type": "ledger_transaction",
+          "depends_on": [
+            "distribute_to_investor"
+          ],
+          "effective_date": "2025-11-24",
+          "description": "Clear investor distribution claim after ACH payout",
+          "ledger_entries": [
             {
-              "step_id": "nsf_return",
-              "type": "return",
-              "depends_on": ["collect_payment"],
-              "code": "R01",
-              "description": "Repayment returned — insufficient funds"
+              "ledger_account_id": "@actor:user_2.receivable",
+              "amount": 20000,
+              "direction": "debit"
+            },
+            {
+              "ledger_account_id": "@actor:direct_1.cash",
+              "amount": 20000,
+              "direction": "credit"
             }
           ]
         }
