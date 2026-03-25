@@ -6,6 +6,21 @@ Upload a JSON **DataLoaderConfig** in the browser: the app validates it, shows e
 
 ## Quick start
 
+### Option A: Docker (recommended)
+
+**You need:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) and a Modern Treasury **sandbox** API key and org ID.
+
+```bash
+git clone <repo-url> && cd mt-dataloader
+cp .env.example .env               # fill in your API key + org ID
+make docker-build                  # build the image
+make docker-run                    # start the container
+```
+
+Open **http://localhost:8000**. That's it. Stop with `make docker-stop`.
+
+### Option B: Local Python
+
 **You need:** Python 3.11+, a Modern Treasury **sandbox** API key and org ID.
 
 ```bash
@@ -17,7 +32,9 @@ make run                           # starts uvicorn with auto-reload
 
 Or manually: `python3 -m venv .venv && pip install -r requirements.txt && uvicorn main:app --reload`
 
-Open **http://127.0.0.1:8000**. Enter your **API key** and **org ID** on the setup screen, upload JSON (or paste), then **Validate**. If the config uses **Funds Flows**, you'll see the Fund Flows view first (lifecycle visualization, Mermaid diagrams, generation controls) before proceeding to **Preview / Execute**. No `.env` file is required.
+---
+
+Open **http://127.0.0.1:8000**. Enter your **API key** and **org ID** on the setup screen, upload JSON (or paste), then **Validate**. If the config uses **Funds Flows**, you'll see the Fund Flows view first (lifecycle visualization, Mermaid diagrams, generation controls) before proceeding to **Preview / Execute**. No `.env` file is required — credentials can be entered in the UI.
 
 ---
 

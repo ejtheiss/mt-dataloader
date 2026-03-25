@@ -1,4 +1,4 @@
-.PHONY: setup run tunnel webhooks validate help
+.PHONY: setup run tunnel webhooks validate help docker-build docker-run docker-stop
 
 help: ## Show this help
 	@grep -E '^[a-z][a-z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -36,3 +36,13 @@ validate: ## Validate all example configs
 	        dry_run(DataLoaderConfig(**json.load(f)))
 	    print(p, "OK")
 	PY
+
+docker-build: ## Build the Docker image
+	docker compose build
+
+docker-run: ## Start the dataloader in Docker
+	docker compose up -d
+	@echo "\n  Open http://localhost:8000"
+
+docker-stop: ## Stop the Docker container
+	docker compose down
