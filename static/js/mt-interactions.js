@@ -456,6 +456,46 @@ function toggleJsonCollapse(containerId) {
   }
 }
 
+/* ============================================================
+   7. TABLE FILTERING (client-side)
+   Used by event_list.html and webhook_list.html filter bars.
+   ============================================================ */
+
+/**
+ * Filter table rows by text search across all cells.
+ * @param {string} query — search text
+ * @param {string} [tableId='runs-table'] — table element ID
+ */
+function filterRunRows(query, tableId) {
+  var table = document.getElementById(tableId || 'runs-table');
+  if (!table) return;
+  var rows = table.querySelectorAll('.mt-index-table-row[role="row"]');
+  var q = (query || '').toLowerCase();
+  rows.forEach(function(row) {
+    if (!q) { row.style.display = ''; return; }
+    var text = row.textContent.toLowerCase();
+    row.style.display = text.indexOf(q) !== -1 ? '' : 'none';
+  });
+}
+
+/**
+ * Filter webhook/event table rows by a specific attribute value.
+ * @param {string} value — filter value (empty string clears the filter)
+ * @param {string} [attr='data-run-id'] — attribute to match on
+ * @param {string} [tableId] — table element ID
+ */
+function filterByRun(value, attr, tableId) {
+  var table = document.getElementById(tableId || 'runs-table');
+  if (!table) return;
+  var rows = table.querySelectorAll('.mt-index-table-row[role="row"]');
+  rows.forEach(function(row) {
+    if (!value) { row.style.display = ''; return; }
+    var rowVal = row.getAttribute(attr || 'data-run-id') || '';
+    row.style.display = rowVal === value ? '' : 'none';
+  });
+}
+
+
 function escapeHtml(str) {
   if (!str) return '';
   var div = document.createElement('div');

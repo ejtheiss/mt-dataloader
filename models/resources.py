@@ -12,6 +12,12 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from models.sandbox import (
+    SANDBOX_FAILURE_PREFIX,
+    SANDBOX_RETURN_PREFIX,
+    SANDBOX_ROUTING_NUMBER,
+    SANDBOX_SUCCESS_ACCOUNT,
+)
 from models.shared import (
     AccountDetailConfig,
     AddressConfig,
@@ -390,25 +396,25 @@ class CounterpartyAccountConfig(MetadataMixin, BaseModel):
             return self
 
         if self.sandbox_behavior == "success":
-            acct_num = "123456789"
+            acct_num = SANDBOX_SUCCESS_ACCOUNT
         elif self.sandbox_behavior == "return":
             code = (self.sandbox_return_code or "R01").upper()
             digits = code.lstrip("R")
-            acct_num = f"100{digits.zfill(2)}"
+            acct_num = f"{SANDBOX_RETURN_PREFIX}{digits.zfill(2)}"
         elif self.sandbox_behavior == "failure":
-            acct_num = "1111111110"
+            acct_num = f"{SANDBOX_FAILURE_PREFIX}10"
         else:
             return self
 
         self.account_details = [AccountDetailConfig(account_number=acct_num)]
         self.routing_details = [
             RoutingDetailConfig(
-                routing_number="121141822",
+                routing_number=SANDBOX_ROUTING_NUMBER,
                 routing_number_type="aba",
                 payment_type="ach",
             ),
             RoutingDetailConfig(
-                routing_number="121141822",
+                routing_number=SANDBOX_ROUTING_NUMBER,
                 routing_number_type="aba",
                 payment_type="wire",
             ),
@@ -423,6 +429,9 @@ class CounterpartyConfig(MetadataMixin, _BaseResourceConfig):
     name: str
     legal_entity_id: RefStr | None = None
     accounts: list[CounterpartyAccountConfig] | None = None
+    email: str | None = None
+    send_remittance_advice: bool | None = None
+    taxpayer_identifier: str | None = None
 
 
 class LedgerAccountConfig(MetadataMixin, _BaseResourceConfig):
@@ -458,6 +467,8 @@ class InternalAccountConfig(MetadataMixin, _BaseResourceConfig):
     counterparty_id: RefStr | None = None
     legal_entity_id: RefStr | None = None
     party_address: AddressConfig | None = None
+    parent_account_id: RefStr | None = None
+    entity_id: str | None = None
 
 
 class ExternalAccountConfig(MetadataMixin, _BaseResourceConfig):
@@ -472,6 +483,8 @@ class ExternalAccountConfig(MetadataMixin, _BaseResourceConfig):
     party_type: Literal["business", "individual"] | None = None
     party_address: AddressConfig | None = None
     ledger_account: InlineLedgerAccountConfig | None = None
+    plaid_processor_token: str | None = None
+    contact_details: list[dict] | None = None
 
     @model_validator(mode="after")
     def _warn_missing_account_details(self) -> ExternalAccountConfig:
@@ -512,6 +525,10 @@ class VirtualAccountConfig(MetadataMixin, _BaseResourceConfig):
     counterparty_id: RefStr | None = None
     description: str | None = None
     ledger_account: InlineLedgerAccountConfig | None = None
+    account_details: list[AccountDetailConfig] | None = None
+    routing_details: list[RoutingDetailConfig] | None = None
+    credit_ledger_account_id: RefStr | None = None
+    debit_ledger_account_id: RefStr | None = None
 
 
 class ReconciliationRuleVariable(BaseModel):
@@ -600,6 +617,17 @@ class PaymentOrderConfig(MetadataMixin, _BaseResourceConfig):
     ledger_transaction: InlineLedgerTransactionConfig | None = None
     line_items: list[LineItemConfig] | None = None
     staged: bool = Field(default=False, exclude=True)
+    priority: Literal["high", "normal"] | None = None
+    charge_bearer: Literal["OUR", "BEN", "SHA"] | None = None
+    receiving_account: dict | None = None
+    ultimate_originating_party_name: str | None = None
+    ultimate_originating_party_identifier: str | None = None
+    ultimate_receiving_party_name: str | None = None
+    ultimate_receiving_party_identifier: str | None = None
+    remittance_information: str | None = None
+    purpose: str | None = None
+    fallback_type: str | None = None
+    nsf_protected: bool | None = None
 
     @model_validator(mode="after")
     def _credit_needs_receiver(self) -> PaymentOrderConfig:
@@ -640,6 +668,8 @@ class IncomingPaymentDetailConfig(MetadataMixin, _BaseResourceConfig):
     as_of_date: str | None = None
     description: str | None = None
     staged: bool = Field(default=False, exclude=True)
+    originating_account_number: str | None = None
+    originating_routing_number: str | None = None
 
 
 class LedgerTransactionConfig(MetadataMixin, _BaseResourceConfig):
@@ -657,26 +687,23 @@ class LedgerTransactionConfig(MetadataMixin, _BaseResourceConfig):
     ledgerable_type: str | None = None
     ledgerable_id: RefStr | None = None
     staged: bool = Field(default=False, exclude=True)
+    posted_at: str | None = None
 
 
 class ReturnConfig(MetadataMixin, _BaseResourceConfig):
-    """Return against an incoming payment detail.
+    """Return against an incoming payment detail or a payment order.
 
     The MT SDK's ``returns.create()`` does NOT accept a ``metadata`` parameter,
     but we include ``MetadataMixin`` so the compiler can stamp trace metadata
     uniformly on all resources.  The handler strips ``metadata`` before the
     SDK call.
-
-    ``returnable_type`` is a ClassVar — the only valid value is
-    ``"incoming_payment_detail"`` so there is no reason to make the user
-    specify it.
     """
 
     display_phase: ClassVar[int] = DisplayPhase.LIFECYCLE
     resource_type: ClassVar[str] = "return"
-    returnable_type: ClassVar[str] = "incoming_payment_detail"
 
     returnable_id: RefStr
+    returnable_type: Literal["incoming_payment_detail", "payment_order"] = "incoming_payment_detail"
     code: str = "R01"
     reason: str | None = None
     date_of_death: str | None = None
@@ -724,3 +751,92 @@ class TransitionLedgerTransactionConfig(MetadataMixin, _BaseResourceConfig):
 
     ledger_transaction_id: RefStr
     status: Literal["posted", "archived"]
+
+
+# ---------------------------------------------------------------------------
+# New resource types (Feature Audit)
+# ---------------------------------------------------------------------------
+
+
+class LedgerAccountSettlementConfig(MetadataMixin, _BaseResourceConfig):
+    """Netting/sweep: zero out pending balances between two ledger accounts."""
+
+    display_phase: ClassVar[int] = DisplayPhase.LIFECYCLE
+    resource_type: ClassVar[str] = "ledger_account_settlement"
+
+    settled_ledger_account_id: RefStr
+    contra_ledger_account_id: RefStr
+    description: str | None = None
+    effective_at_upper_bound: str | None = None
+    allow_either_direction: bool | None = None
+    skip_settlement_ledger_transaction: bool | None = None
+    status: Literal["pending", "posted"] | None = None
+
+
+class BalanceMonitorAlertCondition(BaseModel):
+    """Inline alert condition for a balance monitor."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    field: str
+    operator: str
+    value: int
+
+
+class LedgerAccountBalanceMonitorConfig(MetadataMixin, _BaseResourceConfig):
+    """Alert when a ledger account balance crosses a threshold."""
+
+    display_phase: ClassVar[int] = DisplayPhase.LIFECYCLE
+    resource_type: ClassVar[str] = "ledger_account_balance_monitor"
+
+    ledger_account_id: RefStr
+    alert_condition: BalanceMonitorAlertCondition
+    description: str | None = None
+
+
+class LedgerAccountStatementConfig(MetadataMixin, _BaseResourceConfig):
+    """Point-in-time snapshot of a ledger account's balances and entries."""
+
+    display_phase: ClassVar[int] = DisplayPhase.LIFECYCLE
+    resource_type: ClassVar[str] = "ledger_account_statement"
+
+    ledger_account_id: RefStr
+    effective_at_lower_bound: str
+    effective_at_upper_bound: str
+    description: str | None = None
+
+
+class LegalEntityAssociationConfig(MetadataMixin, _BaseResourceConfig):
+    """Associate a child LE as beneficial owner / control person of a parent LE."""
+
+    display_phase: ClassVar[int] = DisplayPhase.SETUP
+    resource_type: ClassVar[str] = "legal_entity_association"
+
+    parent_legal_entity_id: RefStr
+    child_legal_entity_id: RefStr
+    relationship_types: list[
+        Literal["beneficial_owner", "control_person"]
+    ] | None = None
+    title: str | None = None
+    ownership_percentage: int | None = None
+
+
+class TransactionConfig(MetadataMixin, _BaseResourceConfig):
+    """Simulated transaction for sandbox reconciliation testing.
+
+    Use sparingly — most transactions should come from IPDs or PO
+    settlements.  Direct creation is for edge-case testing only.
+    """
+
+    display_phase: ClassVar[int] = DisplayPhase.LIFECYCLE
+    resource_type: ClassVar[str] = "transaction"
+
+    internal_account_id: RefStr
+    amount: int = Field(..., gt=0)
+    direction: Literal["credit", "debit"]
+    type: str | None = None
+    description: str | None = None
+    as_of_date: str | None = None
+    posted: bool = True
+    vendor_code: str | None = None
+    currency: str | None = None

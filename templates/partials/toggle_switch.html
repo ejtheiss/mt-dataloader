@@ -21,11 +21,11 @@
     {% set label = "Auto-approve" %}
     {% include "partials/toggle_switch.html" %}
 
-    {# Toggle with HTMX #}
+    {# Toggle with HTMX (wire the hx-post route before use) #}
     {% set name = "enabled" %}
-    {% set checked = webhook.enabled %}
+    {% set checked = true %}
     {% set label = "Enabled" %}
-    {% set attrs = 'hx-post="/api/webhooks/' ~ webhook.id ~ '/toggle" hx-swap="none"' %}
+    {% set attrs = 'hx-post="/api/some-endpoint" hx-swap="none"' %}
     {% include "partials/toggle_switch.html" %}
   ============================================================
 #}

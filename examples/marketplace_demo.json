@@ -12,7 +12,9 @@
       "legal_entity_type": "business",
       "business_name": "Boats Group, Inc.",
       "legal_structure": "corporation",
-      "metadata": { "user_type": "platform" }
+      "metadata": {
+        "user_type": "platform"
+      }
     }
   ],
   "internal_accounts": [
@@ -23,26 +25,37 @@
       "name": "Boats Group Revenue Account",
       "party_name": "Boats Group, Inc.",
       "currency": "USD",
-      "metadata": { "account_purpose": "platform_revenue" }
+      "metadata": {
+        "account_purpose": "platform_revenue"
+      }
     }
   ],
   "funds_flows": [
     {
-      "ref": "marketplace_purchase",
+      "ref": "marketplace_retry_purchase",
       "pattern_type": "marketplace_settlement",
       "trace_key": "listing_id",
       "trace_value_template": "BOAT-{ref}-{instance}",
       "actors": {
         "user_1": {
-          "alias": "Buyer",
+          "alias": "First Buyer",
           "frame_type": "user",
-          "entity_ref": "$ref:legal_entity.buyer_{instance}",
+          "entity_ref": "$ref:legal_entity.first_buyer_{instance}",
           "slots": {
-            "bank": "$ref:counterparty.buyer_{instance}_cp.account[0]",
-            "wallet": "$ref:internal_account.buyer_{instance}_wallet"
+            "bank": "$ref:counterparty.first_buyer_{instance}_cp.account[0]",
+            "wallet": "$ref:internal_account.first_buyer_{instance}_wallet"
           }
         },
         "user_2": {
+          "alias": "Second Buyer",
+          "frame_type": "user",
+          "entity_ref": "$ref:legal_entity.second_buyer_{instance}",
+          "slots": {
+            "bank": "$ref:counterparty.second_buyer_{instance}_cp.account[0]",
+            "wallet": "$ref:internal_account.second_buyer_{instance}_wallet"
+          }
+        },
+        "user_3": {
           "alias": "Seller",
           "frame_type": "user",
           "entity_ref": "$ref:legal_entity.seller_{instance}",
@@ -63,31 +76,66 @@
       "instance_resources": {
         "legal_entities": [
           {
-            "ref": "buyer_{instance}",
+            "ref": "first_buyer_{instance}",
             "legal_entity_type": "individual",
             "first_name": "{first_name}",
             "last_name": "{last_name}",
-            "metadata": { "user_type": "buyer" }
+            "metadata": {
+              "user_type": "buyer",
+              "buyer_sequence": "first"
+            }
+          },
+          {
+            "ref": "second_buyer_{instance}",
+            "legal_entity_type": "individual",
+            "first_name": "{first_name}",
+            "last_name": "{last_name}",
+            "metadata": {
+              "user_type": "buyer",
+              "buyer_sequence": "second"
+            }
           },
           {
             "ref": "seller_{instance}",
             "legal_entity_type": "business",
             "business_name": "{business_name}",
-            "metadata": { "user_type": "seller" }
+            "metadata": {
+              "user_type": "seller"
+            }
           }
         ],
         "counterparties": [
           {
-            "ref": "buyer_{instance}_cp",
+            "ref": "first_buyer_{instance}_cp",
             "name": "{first_name} {last_name}",
-            "legal_entity_id": "$ref:legal_entity.buyer_{instance}",
+            "legal_entity_id": "$ref:legal_entity.first_buyer_{instance}",
+            "accounts": [
+              {
+                "party_name": "{first_name} {last_name}",
+                "party_type": "individual",
+                "account_type": "checking",
+                "sandbox_behavior": "return",
+                "sandbox_return_code": "R01",
+                "metadata": {
+                  "account_purpose": "buyer_funding",
+                  "return_scenario": "nsf_r01"
+                }
+              }
+            ]
+          },
+          {
+            "ref": "second_buyer_{instance}_cp",
+            "name": "{first_name} {last_name}",
+            "legal_entity_id": "$ref:legal_entity.second_buyer_{instance}",
             "accounts": [
               {
                 "party_name": "{first_name} {last_name}",
                 "party_type": "individual",
                 "account_type": "checking",
                 "sandbox_behavior": "success",
-                "metadata": { "account_purpose": "buyer_funding" }
+                "metadata": {
+                  "account_purpose": "buyer_funding"
+                }
               }
             ]
           },
@@ -101,20 +149,37 @@
                 "party_type": "business",
                 "account_type": "checking",
                 "sandbox_behavior": "success",
-                "metadata": { "account_purpose": "seller_payout" }
+                "metadata": {
+                  "account_purpose": "seller_payout"
+                }
               }
             ]
           }
         ],
         "internal_accounts": [
           {
-            "ref": "buyer_{instance}_wallet",
+            "ref": "first_buyer_{instance}_wallet",
             "connection_id": "$ref:connection.modern_treasury_bank",
-            "legal_entity_id": "$ref:legal_entity.buyer_{instance}",
-            "name": "{first_name} {last_name} Buyer Wallet",
+            "legal_entity_id": "$ref:legal_entity.first_buyer_{instance}",
+            "name": "{first_name} {last_name} First Buyer Wallet",
             "party_name": "{first_name} {last_name}",
             "currency": "USD",
-            "metadata": { "account_purpose": "buyer_sub_account" }
+            "metadata": {
+              "account_purpose": "buyer_sub_account",
+              "buyer_sequence": "first"
+            }
+          },
+          {
+            "ref": "second_buyer_{instance}_wallet",
+            "connection_id": "$ref:connection.modern_treasury_bank",
+            "legal_entity_id": "$ref:legal_entity.second_buyer_{instance}",
+            "name": "{first_name} {last_name} Second Buyer Wallet",
+            "party_name": "{first_name} {last_name}",
+            "currency": "USD",
+            "metadata": {
+              "account_purpose": "buyer_sub_account",
+              "buyer_sequence": "second"
+            }
           },
           {
             "ref": "seller_{instance}_wallet",
@@ -123,20 +188,44 @@
             "name": "{business_name} Seller Wallet",
             "party_name": "{business_name}",
             "currency": "USD",
-            "metadata": { "account_purpose": "seller_sub_account" }
+            "metadata": {
+              "account_purpose": "seller_sub_account"
+            }
           }
         ]
       },
       "steps": [
         {
-          "step_id": "buyer_deposit",
-          "type": "incoming_payment_detail",
+          "step_id": "first_buyer_debit_attempt",
+          "type": "payment_order",
           "payment_type": "ach",
-          "direction": "credit",
+          "direction": "debit",
           "amount": 13750000,
-          "originating_account_id": "@actor:user_1.bank",
-          "internal_account_id": "@actor:user_1.wallet",
-          "description": "Buyer incoming ACH deposit for purchase"
+          "originating_account_id": "@actor:user_1.wallet",
+          "receiving_account_id": "@actor:user_1.bank",
+          "description": "ACH debit from first buyer bank — triggers R01 return (NSF)",
+          "metadata": {
+            "transaction_type": "ach_collection",
+            "listing_id": "BOAT-{ref}-{instance}",
+            "demo_purpose": "sandbox_auto_return_r01",
+            "attempt_sequence": "1"
+          }
+        },
+        {
+          "step_id": "second_buyer_debit",
+          "type": "payment_order",
+          "payment_type": "ach",
+          "direction": "debit",
+          "amount": 13750000,
+          "originating_account_id": "@actor:user_2.wallet",
+          "receiving_account_id": "@actor:user_2.bank",
+          "description": "ACH debit from second buyer bank — succeeds",
+          "metadata": {
+            "transaction_type": "ach_collection",
+            "listing_id": "BOAT-{ref}-{instance}",
+            "demo_purpose": "successful_buyer_funding",
+            "attempt_sequence": "2"
+          }
         },
         {
           "step_id": "platform_fee",
@@ -144,11 +233,17 @@
           "payment_type": "book",
           "direction": "credit",
           "amount": 412500,
-          "originating_account_id": "@actor:user_1.wallet",
+          "originating_account_id": "@actor:user_2.wallet",
           "receiving_account_id": "@actor:direct_1.revenue",
-          "depends_on": ["buyer_deposit"],
-          "description": "Marketplace commission (3%)",
-          "metadata": { "fee_type": "marketplace_commission", "fee_rate_pct": "3.0" }
+          "depends_on": [
+            "second_buyer_debit"
+          ],
+          "description": "Marketplace commission (3%) from second buyer funds",
+          "metadata": {
+            "fee_type": "marketplace_commission",
+            "fee_rate_pct": "3.0",
+            "listing_id": "BOAT-{ref}-{instance}"
+          }
         },
         {
           "step_id": "settle_seller",
@@ -156,10 +251,17 @@
           "payment_type": "book",
           "direction": "credit",
           "amount": 13337500,
-          "originating_account_id": "@actor:user_1.wallet",
-          "receiving_account_id": "@actor:user_2.wallet",
-          "depends_on": ["platform_fee"],
-          "description": "Net proceeds to seller wallet"
+          "originating_account_id": "@actor:user_2.wallet",
+          "receiving_account_id": "@actor:user_3.wallet",
+          "depends_on": [
+            "platform_fee"
+          ],
+          "description": "Net proceeds to seller wallet from second buyer purchase",
+          "metadata": {
+            "transaction_type": "marketplace_settlement",
+            "listing_id": "BOAT-{ref}-{instance}",
+            "successful_buyer": "second_buyer"
+          }
         },
         {
           "step_id": "payout_seller",
@@ -167,25 +269,12 @@
           "payment_type": "ach",
           "direction": "credit",
           "amount": 13337500,
-          "originating_account_id": "@actor:user_2.wallet",
-          "receiving_account_id": "@actor:user_2.bank",
-          "depends_on": ["settle_seller"],
-          "description": "ACH payout to seller bank account"
-        }
-      ],
-      "optional_groups": [
-        {
-          "label": "ACH return (NSF)",
-          "trigger": "system",
-          "steps": [
-            {
-              "step_id": "nsf_return",
-              "type": "return",
-              "depends_on": ["buyer_deposit"],
-              "code": "R01",
-              "description": "Buyer ACH deposit returned — insufficient funds"
-            }
-          ]
+          "originating_account_id": "@actor:user_3.wallet",
+          "receiving_account_id": "@actor:user_3.bank",
+          "depends_on": [
+            "settle_seller"
+          ],
+          "description": "ACH payout to seller bank account after second buyer purchase"
         }
       ]
     }

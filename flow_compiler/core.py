@@ -106,6 +106,11 @@ def _auto_derive_lifecycle_refs(
                 continue
             if isinstance(dep_step, IncomingPaymentDetailStep):
                 step_dict["returnable_id"] = step_ref_map[dep_id]
+                step_dict.setdefault("returnable_type", "incoming_payment_detail")
+                break
+            if isinstance(dep_step, PaymentOrderStep):
+                step_dict["returnable_id"] = step_ref_map[dep_id]
+                step_dict.setdefault("returnable_type", "payment_order")
                 break
 
     if isinstance(step, ReversalStep) and "payment_order_id" not in step_dict:

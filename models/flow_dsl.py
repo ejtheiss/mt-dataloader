@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import string
+from datetime import date
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -22,7 +23,6 @@ class FlowTimingConfig(BaseModel):
 
     default_delay_hours: float = 0.0
     default_jitter_hours: float = 0.0
-    business_days_only: bool = True
     settlement_defaults: SettlementDefaultsConfig = Field(
         default_factory=SettlementDefaultsConfig,
         description="Per-rail settlement delays (hours) and step-type exclusions",
@@ -34,6 +34,11 @@ class RecipeTimingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    start_date: date | None = Field(
+        default=None,
+        description="Anchor date for the first step (defaults to today). "
+        "Set to a past date to ensure payments settle immediately.",
+    )
     instance_spread_days: int = 0
     spread_pattern: Literal["uniform", "ramp_up", "ramp_down", "clustered"] = (
         "uniform"
@@ -121,7 +126,6 @@ class OptionalGroupConfig(BaseModel):
         default=1.0, ge=0.0,
         description="Relative weight within an exclusion_group for weighted selection.",
     )
-    timing: StepTimingConfig | None = None
 
 
 class FundsFlowScaleConfig(BaseModel):

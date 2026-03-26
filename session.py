@@ -47,6 +47,7 @@ class SessionState:
     working_config_json: str | None = None
     mermaid_diagrams: list[str] | None = None
     view_data_cache: list | None = None
+    source_file_path: str | None = None
 
 
 sessions: dict[str, SessionState] = {}

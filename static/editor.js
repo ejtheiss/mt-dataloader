@@ -182,6 +182,11 @@
         opts.hiddenInput.value = initialValue;
       }
 
+      var _dirty = false;
+      editor.onDidChangeModelContent(function () {
+        _dirty = true;
+      });
+
       var handle = {
         editor: editor,
         getValue: function () {
@@ -190,9 +195,31 @@
         setValue: function (v) {
           editor.setValue(v);
           if (opts.hiddenInput) opts.hiddenInput.value = v;
+          _dirty = false;
         },
         format: function () {
           editor.getAction("editor.action.formatDocument").run();
+        },
+        isDirty: function () {
+          return _dirty;
+        },
+        save: function (url, sessionToken) {
+          var content = editor.getValue();
+          return fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              session_token: sessionToken,
+              config_json: content,
+            }),
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (result) {
+              if (result.status === "ok") {
+                _dirty = false;
+              }
+              return result;
+            });
         },
         dispose: function () {
           var m = editor.getModel();

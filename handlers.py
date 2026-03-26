@@ -21,7 +21,6 @@ from tenacity import (
     RetryError,
     retry,
     retry_if_exception,
-    retry_if_exception_type,
     retry_if_result,
     stop_after_delay,
     wait_exponential,
@@ -31,6 +30,7 @@ from models import HandlerResult
 
 __all__ = [
     "DELETABILITY",
+    "SDK_ATTR_MAP",
     "build_handler_dispatch",
     "build_update_dispatch",
     "create_connection",
@@ -51,6 +51,16 @@ __all__ = [
     "create_category_membership",
     "create_nested_category",
     "transition_ledger_transaction",
+    "create_ledger_account_settlement",
+    "create_ledger_account_balance_monitor",
+    "create_ledger_account_statement",
+    "create_legal_entity_association",
+    "create_transaction",
+    "verify_external_account",
+    "complete_verification",
+    "archive_resource",
+    "read_resource",
+    "list_resources",
 ]
 
 # ---------------------------------------------------------------------------
@@ -68,22 +78,52 @@ UpdateHandlerFn = Callable[..., Awaitable[HandlerResult]]
 DELETABILITY: dict[str, bool] = {
     "connection": False,
     "legal_entity": False,
+    "legal_entity_association": False,
     "ledger": True,
     "counterparty": True,
     "ledger_account": True,
     "internal_account": False,
     "external_account": True,
     "ledger_account_category": True,
+    "ledger_account_settlement": False,
+    "ledger_account_balance_monitor": True,
+    "ledger_account_statement": False,
     "virtual_account": True,
     "expected_payment": True,
     "payment_order": False,
     "incoming_payment_detail": False,
     "ledger_transaction": False,
+    "transaction": False,
     "return": False,
     "reversal": False,
     "category_membership": True,
     "nested_category": True,
     "transition_ledger_transaction": False,
+    "verify_external_account": False,
+    "complete_verification": False,
+    "archive_resource": False,
+}
+
+SDK_ATTR_MAP: dict[str, str] = {
+    "connection": "connections",
+    "legal_entity": "legal_entities",
+    "ledger": "ledgers",
+    "counterparty": "counterparties",
+    "ledger_account": "ledger_accounts",
+    "internal_account": "internal_accounts",
+    "external_account": "external_accounts",
+    "ledger_account_category": "ledger_account_categories",
+    "virtual_account": "virtual_accounts",
+    "expected_payment": "expected_payments",
+    "payment_order": "payment_orders",
+    "incoming_payment_detail": "incoming_payment_details",
+    "ledger_transaction": "ledger_transactions",
+    "return": "returns",
+    "reversal": "payment_orders",
+    "ledger_account_settlement": "ledger_account_settlements",
+    "ledger_account_balance_monitor": "ledger_account_balance_monitors",
+    "ledger_account_statement": "ledger_account_statements",
+    "transaction": "transactions",
 }
 
 # ---------------------------------------------------------------------------
@@ -570,7 +610,12 @@ async def create_incoming_payment_detail(
 ) -> HandlerResult:
     logger.bind(ref=typed_ref).info("Simulating incoming payment detail")
 
-    resolved.pop("metadata", None)  # MT's create_async() has no metadata param
+    meta = resolved.pop("metadata", None)
+    if meta:
+        logger.bind(ref=typed_ref).info(
+            "IPD metadata stripped (MT simulation endpoint does not accept it): {}",
+            list(meta.keys()),
+        )
 
     result = await client.incoming_payment_details.create_async(
         **resolved,
@@ -638,15 +683,20 @@ async def create_return(
 ) -> HandlerResult:
     logger.bind(ref=typed_ref).info("Creating return")
     returnable_id = resolved.pop("returnable_id")
-    # returnable_type is a ClassVar on ReturnConfig — excluded by model_dump().
-    resolved.pop("returnable_type", None)
+    returnable_type = resolved.pop("returnable_type", "incoming_payment_detail")
     resolved.pop("metadata", None)  # MT's returns.create() has no metadata param
+
+    wait_detail = (
+        "PO may still be settling"
+        if returnable_type == "payment_order"
+        else "IPD may still be settling"
+    )
 
     async def _before_sleep(retry_state: Any) -> None:
         await emit_sse(
             "waiting",
             typed_ref,
-            {"attempt": retry_state.attempt_number, "detail": "IPD may still be settling"},
+            {"attempt": retry_state.attempt_number, "detail": wait_detail},
         )
 
     @retry(
@@ -660,7 +710,7 @@ async def create_return(
     async def _create_with_retry() -> Any:
         return await client.returns.create(
             returnable_id=returnable_id,
-            returnable_type="incoming_payment_detail",
+            returnable_type=returnable_type,
             **resolved,
             idempotency_key=idempotency_key,
         )
@@ -814,6 +864,282 @@ async def transition_ledger_transaction(
 
 
 # ---------------------------------------------------------------------------
+# New resource handlers (Feature Audit)
+# ---------------------------------------------------------------------------
+
+
+async def _poll_settlement_status(
+    client: AsyncModernTreasury,
+    settlement_id: str,
+    typed_ref: str,
+    emit_sse: EmitFn,
+) -> Any:
+    """Poll a settlement until it reaches a terminal state."""
+
+    async def _before_sleep(retry_state: Any) -> None:
+        await emit_sse(
+            "waiting", typed_ref,
+            {"attempt": retry_state.attempt_number, "detail": "Settlement processing"},
+        )
+
+    @retry(
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        stop=stop_after_delay(30),
+        retry=retry_if_result(lambda r: r.status in ("pending", "processing")),
+        before_sleep=_before_sleep,
+    )
+    async def _poll() -> Any:
+        return await client.ledger_account_settlements.retrieve(settlement_id)
+
+    return await _poll()
+
+
+async def create_ledger_account_settlement(
+    client: AsyncModernTreasury,
+    emit_sse: EmitFn,
+    resolved: dict,
+    *,
+    idempotency_key: str,
+    typed_ref: str = "",
+) -> HandlerResult:
+    logger.bind(ref=typed_ref).info("Creating ledger account settlement")
+    result = await client.ledger_account_settlements.create(
+        **resolved,
+        idempotency_key=idempotency_key,
+    )
+
+    if result.status in ("pending", "processing"):
+        try:
+            result = await _poll_settlement_status(client, result.id, typed_ref, emit_sse)
+        except RetryError:
+            logger.bind(ref=typed_ref).warning(
+                "Settlement did not reach terminal state within timeout — proceeding"
+            )
+
+    return HandlerResult(
+        created_id=result.id,
+        resource_type="ledger_account_settlement",
+        deletable=DELETABILITY["ledger_account_settlement"],
+    )
+
+
+async def create_ledger_account_balance_monitor(
+    client: AsyncModernTreasury,
+    emit_sse: EmitFn,
+    resolved: dict,
+    *,
+    idempotency_key: str,
+    typed_ref: str = "",
+) -> HandlerResult:
+    logger.bind(ref=typed_ref).info("Creating balance monitor")
+    result = await client.ledger_account_balance_monitors.create(
+        **resolved,
+        idempotency_key=idempotency_key,
+    )
+    return HandlerResult(
+        created_id=result.id,
+        resource_type="ledger_account_balance_monitor",
+        deletable=DELETABILITY["ledger_account_balance_monitor"],
+    )
+
+
+async def create_ledger_account_statement(
+    client: AsyncModernTreasury,
+    emit_sse: EmitFn,
+    resolved: dict,
+    *,
+    idempotency_key: str,
+    typed_ref: str = "",
+) -> HandlerResult:
+    logger.bind(ref=typed_ref).info("Creating ledger account statement")
+    result = await client.ledger_account_statements.create(
+        **resolved,
+        idempotency_key=idempotency_key,
+    )
+    return HandlerResult(
+        created_id=result.id,
+        resource_type="ledger_account_statement",
+        deletable=DELETABILITY["ledger_account_statement"],
+    )
+
+
+async def create_legal_entity_association(
+    client: AsyncModernTreasury,
+    emit_sse: EmitFn,
+    resolved: dict,
+    *,
+    idempotency_key: str,
+    typed_ref: str = "",
+) -> HandlerResult:
+    logger.bind(ref=typed_ref).info("Creating legal entity association")
+    result = await client.legal_entity_associations.create(
+        **resolved,
+        idempotency_key=idempotency_key,
+    )
+    return HandlerResult(
+        created_id=result.id,
+        resource_type="legal_entity_association",
+        deletable=DELETABILITY["legal_entity_association"],
+    )
+
+
+async def create_transaction(
+    client: AsyncModernTreasury,
+    emit_sse: EmitFn,
+    resolved: dict,
+    *,
+    idempotency_key: str,
+    typed_ref: str = "",
+) -> HandlerResult:
+    logger.bind(ref=typed_ref).warning(
+        "Creating sandbox transaction directly — use IPDs for normal inbound simulation"
+    )
+    result = await client.transactions.create(
+        **resolved,
+        idempotency_key=idempotency_key,
+    )
+    return HandlerResult(
+        created_id=result.id,
+        resource_type="transaction",
+        deletable=DELETABILITY["transaction"],
+    )
+
+
+async def verify_external_account(
+    client: AsyncModernTreasury,
+    emit_sse: EmitFn,
+    resolved: dict,
+    *,
+    idempotency_key: str,
+    typed_ref: str = "",
+) -> HandlerResult:
+    logger.bind(ref=typed_ref).info("Initiating external account verification")
+    ea_id = resolved.pop("external_account_ref")
+    result = await client.external_accounts.verify(
+        ea_id,
+        originating_account_id=resolved["originating_account_id"],
+        payment_type=resolved.get("payment_type", "rtp"),
+        currency=resolved.get("currency"),
+        priority=resolved.get("priority"),
+    )
+    return HandlerResult(
+        created_id=result.id,
+        resource_type="verify_external_account",
+        deletable=False,
+    )
+
+
+async def complete_verification(
+    client: AsyncModernTreasury,
+    emit_sse: EmitFn,
+    resolved: dict,
+    *,
+    idempotency_key: str,
+    typed_ref: str = "",
+) -> HandlerResult:
+    """Complete EA verification by reading micro-deposit PO amounts.
+
+    In sandbox, POs complete instantly so amounts are readable via the API.
+    """
+    logger.bind(ref=typed_ref).info("Completing external account verification")
+    ea_id = resolved.pop("external_account_ref")
+
+    amounts: list[int] = []
+    async for po in client.payment_orders.list(
+        per_page=10,
+        metadata={"verification_external_account_id": ea_id},
+    ):
+        if po.amount and len(amounts) < 2:
+            amounts.append(po.amount)
+
+    if len(amounts) < 2:
+        raise RuntimeError(
+            f"Could not find 2 micro-deposit POs for EA '{ea_id}'. "
+            f"Found {len(amounts)} amounts: {amounts}. "
+            f"Ensure verify_external_account ran first."
+        )
+
+    result = await client.external_accounts.complete_verification(
+        ea_id, amounts=amounts,
+    )
+    return HandlerResult(
+        created_id=result.id,
+        resource_type="complete_verification",
+        deletable=False,
+    )
+
+
+async def archive_resource(
+    client: AsyncModernTreasury,
+    emit_sse: EmitFn,
+    resolved: dict,
+    *,
+    idempotency_key: str,
+    typed_ref: str = "",
+) -> HandlerResult:
+    resource_type = resolved.pop("resource_type")
+    resource_ref = resolved.pop("resource_ref")
+    method = resolved.pop("archive_method", "delete")
+
+    logger.bind(ref=typed_ref, target_type=resource_type, method=method).info(
+        "Archiving resource"
+    )
+
+    if method == "delete":
+        sdk_attr = SDK_ATTR_MAP.get(resource_type)
+        if sdk_attr:
+            await getattr(client, sdk_attr).delete(resource_ref)
+    elif method == "archive":
+        await client.ledger_transactions.update(resource_ref, status="archived")
+    elif method == "request_closure":
+        logger.bind(ref=typed_ref).info(
+            "Requesting IA closure — this is a request, not an immediate close"
+        )
+        await client.internal_accounts.request_closure(resource_ref)
+
+    return HandlerResult(
+        created_id=resource_ref,
+        resource_type="archive_resource",
+        deletable=False,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Generic read/list operations (D2)
+# ---------------------------------------------------------------------------
+
+
+async def read_resource(
+    client: AsyncModernTreasury,
+    resource_type: str,
+    resource_id: str,
+) -> dict:
+    """GET a single resource by type and ID."""
+    sdk_attr = SDK_ATTR_MAP.get(resource_type)
+    if not sdk_attr:
+        raise ValueError(f"No SDK mapping for resource type '{resource_type}'")
+    result = await getattr(client, sdk_attr).retrieve(resource_id)
+    return result.model_dump() if hasattr(result, "model_dump") else dict(result)
+
+
+async def list_resources(
+    client: AsyncModernTreasury,
+    resource_type: str,
+    **filters,
+) -> list[dict]:
+    """List resources by type with optional filters."""
+    sdk_attr = SDK_ATTR_MAP.get(resource_type)
+    if not sdk_attr:
+        raise ValueError(f"No SDK mapping for resource type '{resource_type}'")
+    results = []
+    async for item in getattr(client, sdk_attr).list(**filters):
+        results.append(item.model_dump() if hasattr(item, "model_dump") else dict(item))
+        if len(results) >= 100:
+            break
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Dispatch table factory
 # ---------------------------------------------------------------------------
 
@@ -829,6 +1155,9 @@ _STRIP_ON_UPDATE: dict[str, set[str]] = {
     "ledger": set(),
     "ledger_account": {"currency", "ledger_id", "normal_balance"},
     "ledger_account_category": {"currency", "ledger_id", "normal_balance"},
+    "external_account": {"counterparty_id"},
+    "virtual_account": {"internal_account_id"},
+    "expected_payment": set(),
 }
 
 
@@ -881,6 +1210,9 @@ def build_update_dispatch(
         "ledger_account_category": _bind(
             "ledger_account_category", "ledger_account_categories",
         ),
+        "external_account": _bind("external_account", "external_accounts"),
+        "virtual_account": _bind("virtual_account", "virtual_accounts"),
+        "expected_payment": _bind("expected_payment", "expected_payments"),
     }
 
 
@@ -898,6 +1230,9 @@ def build_handler_dispatch(
     return {
         "connection": bind(create_connection, client, emit_sse),
         "legal_entity": bind(create_legal_entity, client, emit_sse),
+        "legal_entity_association": bind(
+            create_legal_entity_association, client, emit_sse
+        ),
         "ledger": bind(create_ledger, client, emit_sse),
         "counterparty": bind(create_counterparty, client, emit_sse),
         "ledger_account": bind(create_ledger_account, client, emit_sse),
@@ -906,6 +1241,15 @@ def build_handler_dispatch(
         "ledger_account_category": bind(
             create_ledger_account_category, client, emit_sse
         ),
+        "ledger_account_settlement": bind(
+            create_ledger_account_settlement, client, emit_sse
+        ),
+        "ledger_account_balance_monitor": bind(
+            create_ledger_account_balance_monitor, client, emit_sse
+        ),
+        "ledger_account_statement": bind(
+            create_ledger_account_statement, client, emit_sse
+        ),
         "virtual_account": bind(create_virtual_account, client, emit_sse),
         "expected_payment": bind(create_expected_payment, client, emit_sse),
         "payment_order": bind(create_payment_order, client, emit_sse),
@@ -913,6 +1257,7 @@ def build_handler_dispatch(
             create_incoming_payment_detail, client, emit_sse
         ),
         "ledger_transaction": bind(create_ledger_transaction, client, emit_sse),
+        "transaction": bind(create_transaction, client, emit_sse),
         "return": bind(create_return, client, emit_sse),
         "reversal": bind(create_reversal, client, emit_sse),
         "category_membership": bind(create_category_membership, client, emit_sse),
@@ -920,4 +1265,11 @@ def build_handler_dispatch(
         "transition_ledger_transaction": bind(
             transition_ledger_transaction, client, emit_sse
         ),
+        "verify_external_account": bind(
+            verify_external_account, client, emit_sse
+        ),
+        "complete_verification": bind(
+            complete_verification, client, emit_sse
+        ),
+        "archive_resource": bind(archive_resource, client, emit_sse),
     }

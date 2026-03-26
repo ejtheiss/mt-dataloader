@@ -115,7 +115,7 @@ Start at **B** unless the user chose **A** or **C**.
 | 2+ related payment/ledger steps in a lifecycle | Single isolated resource (one PO, one LT) |
 | SE wants to scale instances (1 user to 100+) | Complex non-linear patterns |
 | Demo involves lifecycle variants (returns, reversals, alternative payout methods) | Mixing `funds_flows` with additional standalone resources |
-| Per-user infrastructure needed (LEs, CPs, IAs via `instance_resources`) | |
+| Per-user infrastructure to **create** (LEs, CPs, IAs via `instance_resources`); `{instance}` placeholders work in all flows | |
 
 **Default:** If the demo involves a deposit-to-settle chain or any lifecycle
 pattern, use `funds_flows`. The compiler generates all the individual resources

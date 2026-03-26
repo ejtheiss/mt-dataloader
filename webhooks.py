@@ -313,7 +313,7 @@ async def _fanout(entry: WebhookEntry) -> None:
 
 def _render_webhook_html(entry: WebhookEntry, templates: Any) -> str:
     """Render a webhook entry as an HTML snippet using the Jinja2 partial."""
-    return templates.get_template("partials/webhook_card.html").render(wh=entry)
+    return templates.get_template("partials/webhook_row.html").render(wh=entry)
 
 
 # ---------------------------------------------------------------------------
@@ -563,6 +563,8 @@ _FIRE_DISPATCH = {
     "incoming_payment_detail": _fire_incoming_payment_detail,
 }
 
+FIREABLE_TYPES = frozenset(_FIRE_DISPATCH.keys())
+
 
 @router.get("/api/runs/{run_id}/staged/drawer", include_in_schema=False)
 async def staged_drawer(request: Request, run_id: str, ref: str = Query(...)):
@@ -623,7 +625,12 @@ async def fire_staged(
 
         handler = _FIRE_DISPATCH.get(resource_type)
         if not handler:
-            raise HTTPException(400, f"Unsupported staged type: {resource_type}")
+            supported = ", ".join(sorted(FIREABLE_TYPES))
+            raise HTTPException(
+                400,
+                f"Cannot fire staged '{resource_type}'. "
+                f"Fireable types: {supported}",
+            )
 
         async with AsyncModernTreasury(
             api_key=api_key, organization_id=org_id

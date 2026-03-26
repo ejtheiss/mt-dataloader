@@ -1,10 +1,6 @@
 """Step 6 smoke tests: routes, templates, SSE attributes."""
 from __future__ import annotations
 
-import os
-
-os.environ.setdefault("MT_BASELINE_PATH", "baseline.yaml")
-
 import pytest
 from fastapi.testclient import TestClient
 

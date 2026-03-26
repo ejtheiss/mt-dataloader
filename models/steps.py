@@ -189,6 +189,7 @@ class LedgerTransactionStep(_StepBase):
 class ReturnStep(_LifecycleLedgerMixin, _StepBase):
     type: Literal["return"]
     returnable_id: str | None = None
+    returnable_type: Literal["incoming_payment_detail", "payment_order"] | None = None
     code: str = "R01"
     reason: str | None = None
 
@@ -216,10 +217,50 @@ class ReversalStep(_LifecycleLedgerMixin, _StepBase):
 class TransitionLedgerTransactionStep(_StepBase):
     type: Literal["transition_ledger_transaction"]
     ledger_transaction_id: str | None = None
-    status: Literal["pending", "posted", "archived"]
+    status: Literal["posted", "archived"]
 
     _config_section: ClassVar[str] = "transition_ledger_transactions"
     _mermaid_arrow: ClassVar[str] = "->>"
+    _is_lifecycle_type: ClassVar[bool] = True
+
+
+class VerifyExternalAccountStep(_StepBase):
+    """Initiate micro-deposit verification on an external account."""
+
+    type: Literal["verify_external_account"]
+    external_account_ref: str
+    originating_account_id: str
+    payment_type: str = "rtp"
+    currency: str | None = None
+    priority: Literal["high", "normal"] | None = None
+
+    _config_section: ClassVar[str] = "verify_external_accounts"
+    _mermaid_arrow: ClassVar[str] = "->>"
+    _is_lifecycle_type: ClassVar[bool] = True
+
+
+class CompleteVerificationStep(_StepBase):
+    """Complete micro-deposit verification (staged by default)."""
+
+    type: Literal["complete_verification"]
+    external_account_ref: str
+    staged: bool = True
+
+    _config_section: ClassVar[str] = "complete_verifications"
+    _mermaid_arrow: ClassVar[str] = "->>"
+    _is_lifecycle_type: ClassVar[bool] = True
+
+
+class ArchiveResourceStep(_StepBase):
+    """Delete, archive, or request closure of an existing resource."""
+
+    type: Literal["archive_resource"]
+    resource_type: str
+    resource_ref: str
+    archive_method: Literal["delete", "archive", "request_closure"] = "delete"
+
+    _config_section: ClassVar[str] = "archive_resources"
+    _mermaid_arrow: ClassVar[str] = "-->>"
     _is_lifecycle_type: ClassVar[bool] = True
 
 
@@ -236,6 +277,9 @@ FundsFlowStep = Annotated[
         ReturnStep,
         ReversalStep,
         TransitionLedgerTransactionStep,
+        VerifyExternalAccountStep,
+        CompleteVerificationStep,
+        ArchiveResourceStep,
     ],
     Field(discriminator="type"),
 ]

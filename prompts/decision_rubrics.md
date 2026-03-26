@@ -530,7 +530,7 @@ See `examples/staged_demo.json` for a full working example.
 |----------|----------------|-----------------|
 | connection | No | Skipped |
 | legal_entity | No | Skipped |
-| internal_account | No | Skipped |
+| internal_account | No | Request closure via `archive_resource` step |
 | payment_order | No | Skipped |
 | incoming_payment_detail | No | Skipped |
 | return | No | Skipped |
@@ -543,6 +543,10 @@ See `examples/staged_demo.json` for a full working example.
 | ledger | **Yes** | Deleted |
 | ledger_account | **Yes** | Deleted |
 | ledger_account_category | **Yes** | Deleted |
+| ledger_account_settlement | **Yes** | Deleted |
+| ledger_account_balance_monitor | **Yes** | Deleted |
+| ledger_account_statement | No | Skipped |
+| legal_entity_association | No | Skipped |
 | expected_payment | **Yes** | Deleted |
 | category_membership | **Yes** | Removed |
 | nested_category | **Yes** | Removed |
@@ -564,15 +568,16 @@ DSL section. This replaces manually building individual `payment_orders`,
 - The SE wants to visualize the money flow
 - The SE will scale the pattern ("generate 100 of these")
 - The demo involves lifecycle variants (returns, reversals, alternative payout methods)
-- The demo involves per-user infrastructure (use `instance_resources`)
+- The demo involves per-user infrastructure (use `instance_resources` to create them)
 - The demo needs ledger transaction lifecycle (pending → posted → archived
   via `transition_ledger_transaction` steps)
 
 **Use `instance_resources` when:**
-- Each flow instance needs its own legal entity, counterparty, internal account, or ledger account
+- Each flow instance needs to **create** its own legal entity, counterparty, internal account, or ledger account
 - The SE wants to scale from 1 user to 100+ users with unique names and accounts
 - Use `{first_name}`, `{last_name}`, `{business_name}`, `{instance}` placeholders
 - Seed profiles are pulled from the selected dataset (standard, industry verticals, pop-culture)
+- Note: `{instance}` placeholders work in **all** flows (actor slots, refs, descriptions) — `instance_resources` is only needed when the flow must **define** the resources, not just reference them
 
 **Use raw resource arrays when:**
 - Single isolated resources (one PO, one LT)

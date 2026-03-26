@@ -25,17 +25,22 @@
 {# Source: IndexTable.tsx TableRow lines 1420-1500 — clickable row #}
 <div class="mt-index-table-row" role="row"
      data-run-id="{{ m.run_id }}"
-     onclick="handleRowClick(event, this, '/api/runs/{{ m.run_id }}/summary', 'run-detail-drawer')">
+     data-url="/runs/{{ m.run_id }}"
+     hx-get="/api/runs/{{ m.run_id }}/drawer"
+     hx-target="#drawer-content"
+     hx-swap="innerHTML"
+     onclick="handleRowClick(event, this)">
 
   {# Run ID #}
   <div class="mt-index-table-cell" role="cell" style="width: 30%;">
     <code class="mt-row-primary" style="font-size: 0.8rem;">{{ m.run_id }}</code>
   </div>
 
-  {# Status #}
+  {# Status — supports both plain str and enum with .value #}
+  {% set _status = m.status.value if m.status is not string else m.status %}
   <div class="mt-index-table-cell" role="cell" style="width: 12%;">
-    <span class="badge badge--{{ 'success' if m.status.value == 'completed' else 'critical' if m.status.value == 'failed' else 'cool' if m.status.value == 'running' else 'default' }}">
-      {{ m.status.value }}
+    <span class="badge badge--{{ 'success' if _status == 'completed' else 'critical' if _status == 'failed' else 'cool' if _status == 'running' else 'default' }}">
+      {{ _status }}
     </span>
   </div>
 

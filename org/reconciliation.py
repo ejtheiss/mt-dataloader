@@ -39,6 +39,7 @@ class ReconciledResource:
     match_reason: str
     use_existing: bool = True
     duplicates: list[dict] | None = None
+    child_refs: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -378,6 +379,22 @@ def reconcile_config(
                     {"id": c.id, "name": c.name, "detail": f"{c.account_count} accounts"}
                     for c in candidates
                 ]
+            cp_child_refs: dict[str, str] = {
+                f"account[{i}]": aid
+                for i, aid in enumerate(match.account_ids)
+            }
+            if cp_child_refs:
+                logger.bind(ref=tref, child_refs=cp_child_refs).info(
+                    "Counterparty reconciled with child account refs"
+                )
+            else:
+                logger.bind(
+                    ref=tref, account_count=match.account_count,
+                    account_ids=match.account_ids,
+                ).warning(
+                    "Counterparty reconciled but NO child account refs — "
+                    "account[0] refs will be unresolvable"
+                )
             result.matches.append(
                 ReconciledResource(
                     config_ref=tref,
@@ -386,6 +403,7 @@ def reconcile_config(
                     discovered_name=match.name,
                     match_reason=f"name={cp_cfg.name}",
                     duplicates=dups,
+                    child_refs=cp_child_refs,
                 )
             )
             matched_discovered_ids.add(match.id)

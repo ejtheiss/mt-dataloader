@@ -27,7 +27,11 @@
 <div class="mt-index-table-row" role="row"
      data-webhook-id="{{ wh.webhook_id }}"
      data-run-id="{{ wh.run_id or '' }}"
-     onclick="handleRowClick(event, this, '/api/webhooks/{{ wh.webhook_id }}/detail', 'webhook-detail-drawer')"
+     data-url="/listen?wh={{ wh.webhook_id }}"
+     hx-get="/api/webhooks/{{ wh.webhook_id }}/drawer"
+     hx-target="#drawer-content"
+     hx-swap="innerHTML"
+     onclick="handleRowClick(event, this)"
      id="wh-{{ wh.webhook_id }}">
 
   {# Event type #}

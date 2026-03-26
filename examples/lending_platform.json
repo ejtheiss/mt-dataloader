@@ -70,7 +70,7 @@
         "user_2": {
           "alias": "Investor",
           "frame_type": "user",
-          "entity_ref": "$ref:counterparty.investor_{instance}",
+          "entity_ref": "$ref:legal_entity.investor_{instance}",
           "slots": {
             "bank": "$ref:counterparty.investor_{instance}.account[0]"
           }
@@ -87,10 +87,19 @@
         }
       },
       "instance_resources": {
+        "legal_entities": [
+          {
+            "ref": "investor_{instance}",
+            "legal_entity_type": "individual",
+            "first_name": "{first_name}",
+            "last_name": "{last_name}"
+          }
+        ],
         "counterparties": [
           {
             "ref": "investor_{instance}",
             "name": "{first_name} {last_name}",
+            "legal_entity_id": "$ref:legal_entity.investor_{instance}",
             "accounts": [
               {
                 "party_name": "{first_name} {last_name}",
@@ -228,7 +237,7 @@
             "disburse"
           ],
           "effective_date": "2025-10-03",
-          "description": "Reclass investor funding into beneficiary loan principal outstanding",
+          "description": "Record loan principal disbursed as beneficiary receivable",
           "ledger_entries": [
             {
               "ledger_account_id": "@actor:user_1.position",
@@ -236,7 +245,7 @@
               "direction": "debit"
             },
             {
-              "ledger_account_id": "@actor:direct_1.deposits_payable",
+              "ledger_account_id": "@actor:direct_1.cash",
               "amount": 5000000,
               "direction": "credit"
             }
@@ -279,10 +288,10 @@
         "user_2": {
           "alias": "Investor",
           "frame_type": "user",
-          "entity_ref": "$ref:counterparty.investor_{instance}",
+          "entity_ref": "$ref:legal_entity.investor_{instance}",
           "slots": {
             "bank": "$ref:counterparty.investor_{instance}.account[0]",
-            "receivable": "$ref:ledger_account.investor_{instance}_receivable"
+            "payable": "$ref:ledger_account.investor_{instance}_payable"
           }
         },
         "direct_1": {
@@ -302,6 +311,12 @@
             "ref": "beneficiary_{instance}",
             "legal_entity_type": "business",
             "business_name": "{business_name}"
+          },
+          {
+            "ref": "investor_{instance}",
+            "legal_entity_type": "individual",
+            "first_name": "{first_name}",
+            "last_name": "{last_name}"
           }
         ],
         "counterparties": [
@@ -320,6 +335,7 @@
           {
             "ref": "investor_{instance}",
             "name": "{first_name} {last_name}",
+            "legal_entity_id": "$ref:legal_entity.investor_{instance}",
             "accounts": [
               {
                 "party_name": "{first_name} {last_name}",
@@ -352,9 +368,9 @@
             "currency": "USD"
           },
           {
-            "ref": "investor_{instance}_receivable",
+            "ref": "investor_{instance}_payable",
             "ledger_id": "$ref:ledger.main",
-            "name": "{first_name} {last_name} Investor Distribution Claim",
+            "name": "{first_name} {last_name} Investor Distribution Payable",
             "normal_balance": "credit",
             "currency": "USD"
           }
@@ -367,30 +383,16 @@
           "payment_type": "ach",
           "direction": "debit",
           "amount": 525000,
-          "originating_account_id": "@actor:user_1.wallet",
+          "originating_account_id": "@actor:direct_1.collections",
           "receiving_account_id": "@actor:user_1.external_bank",
           "effective_date": "2025-11-15",
-          "description": "ACH debit repayment pull from {business_name} external account into beneficiary wallet"
-        },
-        {
-          "step_id": "sweep_to_collections",
-          "type": "payment_order",
-          "payment_type": "book",
-          "direction": "credit",
-          "amount": 525000,
-          "originating_account_id": "@actor:user_1.wallet",
-          "receiving_account_id": "@actor:direct_1.collections",
-          "depends_on": [
-            "pull_repayment"
-          ],
-          "effective_date": "2025-11-18",
-          "description": "Sweep repayment funds from {business_name} beneficiary wallet to collections"
+          "description": "ACH debit repayment pull from {business_name} external account into platform collections"
         },
         {
           "step_id": "apply_principal",
           "type": "ledger_transaction",
           "depends_on": [
-            "sweep_to_collections"
+            "pull_repayment"
           ],
           "effective_date": "2025-11-18",
           "description": "Apply principal reduction against beneficiary position",
@@ -411,10 +413,10 @@
           "step_id": "accrue_investor_distribution",
           "type": "ledger_transaction",
           "depends_on": [
-            "sweep_to_collections"
+            "pull_repayment"
           ],
           "effective_date": "2025-11-18",
-          "description": "Accrue investor receivable from repayment proceeds",
+          "description": "Accrue investor distribution payable from repayment proceeds",
           "ledger_entries": [
             {
               "ledger_account_id": "@actor:direct_1.cash",
@@ -422,7 +424,7 @@
               "direction": "debit"
             },
             {
-              "ledger_account_id": "@actor:user_2.receivable",
+              "ledger_account_id": "@actor:user_2.payable",
               "amount": 20000,
               "direction": "credit"
             }
@@ -432,7 +434,7 @@
           "step_id": "recognize_servicing_income",
           "type": "ledger_transaction",
           "depends_on": [
-            "sweep_to_collections"
+            "pull_repayment"
           ],
           "effective_date": "2025-11-18",
           "description": "Recognize servicing spread retained by platform",
@@ -464,16 +466,16 @@
           "description": "Weekly investor distribution to {first_name} {last_name} after repayment clearing"
         },
         {
-          "step_id": "clear_investor_claim",
+          "step_id": "clear_investor_payable",
           "type": "ledger_transaction",
           "depends_on": [
             "distribute_to_investor"
           ],
           "effective_date": "2025-11-24",
-          "description": "Clear investor distribution claim after ACH payout",
+          "description": "Clear investor distribution payable after ACH payout",
           "ledger_entries": [
             {
-              "ledger_account_id": "@actor:user_2.receivable",
+              "ledger_account_id": "@actor:user_2.payable",
               "amount": 20000,
               "direction": "debit"
             },

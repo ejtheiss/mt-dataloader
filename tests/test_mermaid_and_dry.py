@@ -497,11 +497,12 @@ class TestExampleMermaid:
             assert output.startswith("sequenceDiagram")
             assert "autonumber" in output
             assert "participant" in output
-            end_count = sum(1 for l in output.split("\n") if l.strip() == "end")
-            box_count = output.count("box ")
-            opt_count = output.count("opt ")
-            alt_count = output.count("alt ")
-            brk_count = output.count("break ")
+            lines = output.split("\n")
+            end_count = sum(1 for l in lines if l.strip() == "end")
+            box_count = sum(1 for l in lines if l.strip().startswith("box "))
+            opt_count = sum(1 for l in lines if l.strip().startswith("opt ") or l.strip() == "opt")
+            alt_count = sum(1 for l in lines if l.strip().startswith("alt ") or l.strip() == "alt")
+            brk_count = sum(1 for l in lines if l.strip().startswith("break ") or l.strip() == "break")
             expected_ends = box_count + opt_count + alt_count + brk_count
             assert end_count == expected_ends, (
                 f"Unmatched end count: {end_count} ends vs "
@@ -967,3 +968,79 @@ class TestMermaidViewModeToggle:
                 output = render_mermaid(ir, flow_config=fc, view_mode="payments")
                 assert output.startswith("sequenceDiagram")
                 assert "box Ledger" not in output
+
+
+# ---------------------------------------------------------------------------
+# Lending platform — optional groups & multi-flow
+# ---------------------------------------------------------------------------
+
+
+class TestLendingPlatformOptionalGroups:
+    """Dedicated tests for lending_platform.json optional groups and edge cases."""
+
+    @pytest.fixture(autouse=True)
+    def _load(self):
+        raw = json.loads((EXAMPLES_DIR / "lending_platform.json").read_text())
+        self.config = DataLoaderConfig.model_validate(raw)
+
+    def test_validates(self):
+        assert len(self.config.funds_flows) == 3
+
+    def test_disbursement_has_reversal_group(self):
+        disbursement = next(
+            f for f in self.config.funds_flows if f.ref == "loan_disbursement"
+        )
+        assert len(disbursement.optional_groups) == 1
+        og = disbursement.optional_groups[0]
+        assert og.label == "Disbursement reversal"
+        assert og.trigger == "system"
+        assert any(s.step_id == "reverse_disburse" for s in og.steps)
+
+    def test_all_flows_compile(self):
+        for fc in self.config.funds_flows:
+            flow_irs = compile_flows([fc], self.config)
+            assert len(flow_irs) >= 1
+
+    def test_all_flows_render_mermaid(self):
+        for fc in self.config.funds_flows:
+            flow_irs = compile_flows([fc], self.config)
+            for ir in flow_irs:
+                output = render_mermaid(ir, flow_config=fc)
+                assert output.startswith("sequenceDiagram")
+
+    def test_disbursement_with_optional_group_activated(self):
+        disbursement = next(
+            f for f in self.config.funds_flows if f.ref == "loan_disbursement"
+        )
+        og = disbursement.optional_groups[0]
+        all_steps = list(disbursement.steps) + list(og.steps)
+        step_ids = {s.step_id for s in all_steps}
+        assert "disburse" in step_ids
+        assert "reverse_disburse" in step_ids
+        rev = next(s for s in all_steps if s.step_id == "reverse_disburse")
+        assert "disburse" in rev.depends_on
+
+    def test_repayment_flow_step_chain(self):
+        repayment = next(
+            f for f in self.config.funds_flows if f.ref == "loan_repayment"
+        )
+        step_ids = {s.step_id for s in repayment.steps}
+        assert "pull_repayment" in step_ids
+        assert "apply_principal" in step_ids
+        assert "distribute_to_investor" in step_ids
+        assert "clear_investor_payable" in step_ids
+
+    def test_edge_case_selections(self):
+        """preselect_edge_cases covers OGs on disbursement flow."""
+        raw = json.loads((EXAMPLES_DIR / "lending_platform.json").read_text())
+        flow_dict = next(
+            f for f in raw["funds_flows"] if f["ref"] == "loan_disbursement"
+        )
+        from flow_compiler import preselect_edge_cases
+        selections = preselect_edge_cases(
+            flow_dict, global_count=1, total_instances=3, seed=42,
+        )
+        assert isinstance(selections, dict)
+        assert "Disbursement reversal" in selections
+        for label, idxs in selections.items():
+            assert isinstance(idxs, set)

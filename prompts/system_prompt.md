@@ -30,7 +30,7 @@ sent to `POST /api/validate-json` without editing.
 
 4. **Generate the full config** -- Complete JSON only (see **Output format**
    below). Prefer self-bootstrapping configs (own `connections` and
-   `internal_accounts` unless the user relies on discovered baseline).
+   `internal_accounts` unless the user relies on org discovery/reconciliation).
 
 5. **Validate** -- User or tool calls `POST /api/validate-json` on your JSON;
    repair using the `errors` array (see **Validation loop**).
@@ -140,7 +140,7 @@ Paste from repo (trim only if size-constrained):
 
 1. **Self-bootstrap when demo needs it** -- Include `connections` and
    `internal_accounts` the config actually uses. Do not assume undiscovered
-   baseline refs exist unless the user said so. **Use `entity_id: "example1"`**
+   org refs exist unless the user confirmed them via org discovery. **Use `entity_id: "example1"`**
    with a descriptive ref like `modern_treasury_bank` and nickname e.g.
    `"Modern Treasury PSP"` — full payment capabilities on new IAs. Do NOT use
    `modern_treasury` unless the demo only needs `book` transfers.
@@ -285,9 +285,16 @@ Step payloads use `@actor:frame.slot` syntax:
 
 ### `instance_resources` — per-instance infrastructure templates
 
-When a flow requires per-instance infrastructure (legal entities, counterparties,
-internal accounts, ledger accounts), use `instance_resources` instead of manually
-defining N copies of each resource:
+`{instance}` and other placeholders (`{first_name}`, `{last_name}`, etc.) are
+expanded via `deep_format_map()` on **all flows**, not just those with
+`instance_resources`. This means actor slot refs like
+`"$ref:ledger_account.customer_{instance}_usd"` work even in flows that don't
+define their own `instance_resources` block (e.g., a second flow that references
+resources created by the first flow's `instance_resources`).
+
+Use `instance_resources` when a flow needs to **create** per-instance
+infrastructure (legal entities, counterparties, internal accounts, ledger
+accounts) rather than just reference them:
 
 ```json
 "instance_resources": {
@@ -306,8 +313,9 @@ defining N copies of each resource:
 Available placeholders: `{instance}` (zero-padded 4-digit), `{first_name}`,
 `{last_name}`, `{business_name}`, `{industry}`, `{country}`.
 
-Placeholders are resolved from seed profiles at generation time via `deep_format_map()`.
-Actor slot refs can use `{instance}` (e.g., `"$ref:internal_account.buyer_{instance}_wallet"`).
+Placeholders are resolved from seed profiles at generation time via `deep_format_map()`,
+which runs on all flows. Actor slot refs can use `{instance}` in any flow
+(e.g., `"$ref:internal_account.buyer_{instance}_wallet"`).
 
 ### Step types
 
@@ -366,7 +374,7 @@ Each group has a `label` and one or more `steps`. Groups model edge cases
 5. Step `type` is the resource type; use `payment_type` for the method (ach/wire/rtp/book)
 6. Include `ledger_entries` on steps that need double-entry bookkeeping
 7. Use `depends_on` for ordering between steps (references step_id, not $ref:)
-8. Use `instance_resources` for per-user infrastructure (LEs, CPs, IAs, LAs)
+8. Use `instance_resources` when per-user infrastructure must be **created** (LEs, CPs, IAs, LAs); `{instance}` placeholders work in all flows
 9. Use `{placeholder}` syntax in descriptions and names for profile injection
 10. Frame keys: `user_1`, `user_2`, ... for per-instance actors; `direct_1`, `direct_2`, ... for platform/static actors
 11. Slot keys: short descriptive names like `bank`, `wallet`, `ops`, `cash`, `revenue`

@@ -184,8 +184,11 @@ groups share the same string), `weight` (proportional selection within an
 exclusion_group), `trigger` (`manual`/`system`/`webhook`), `applicable_when`
 (conditional activation).
 
-**`instance_resources`:** Templates for per-user infrastructure (LEs, CPs,
-IAs, LAs) using `{instance}`, `{first_name}`, `{last_name}` placeholders.
+**`instance_resources`:** Templates for **creating** per-user infrastructure (LEs,
+CPs, IAs, LAs) using `{instance}`, `{first_name}`, `{last_name}` placeholders.
+Note: `{instance}` and profile placeholders are expanded via `deep_format_map`
+on **all** flows — `instance_resources` is only needed when the flow must define
+the resources, not just reference them in actor slots.
 
 **Key rules:**
 - Use `depends_on` between steps (references `step_id`, not `$ref:`)

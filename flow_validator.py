@@ -292,6 +292,198 @@ class ReverseParentNoLtRule(FlowRule):
         return diags
 
 
+class CurrencyRailMismatchRule(FlowRule):
+    """PAYMENT_005: Currency/rail mismatch."""
+
+    rule_id = "PAYMENT_005"
+    severity: Literal["error", "warning", "info"] = "warning"
+    description = "Currency may not be supported on this payment rail"
+
+    _RAIL_CURRENCIES: dict[str, set[str]] = {
+        "ach": {"USD"}, "rtp": {"USD"}, "sepa": {"EUR"},
+        "bacs": {"GBP"}, "eft": {"CAD"}, "au_becs": {"AUD"},
+        "nz_becs": {"NZD"}, "check": {"USD"},
+    }
+
+    def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]:
+        diags: list[FlowDiagnostic] = []
+        for step in flow.steps:
+            if step.resource_type != "payment_order":
+                continue
+            ptype = step.payload.get("type", "")
+            currency = step.payload.get("currency", "")
+            if ptype in self._RAIL_CURRENCIES and currency:
+                valid = self._RAIL_CURRENCIES[ptype]
+                if valid and currency.upper() not in valid:
+                    diags.append(FlowDiagnostic(
+                        rule_id=self.rule_id, severity=self.severity,
+                        step_id=step.step_id, account_id=None,
+                        message=f"Currency '{currency}' may not work on '{ptype}' rail. Expected: {sorted(valid)}",
+                    ))
+        return diags
+
+
+class ChargeBearerDomesticRule(FlowRule):
+    """PAYMENT_006: charge_bearer set on domestic rail."""
+
+    rule_id = "PAYMENT_006"
+    severity: Literal["error", "warning", "info"] = "warning"
+    description = "charge_bearer is only meaningful for SWIFT/cross_border rails"
+
+    def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]:
+        diags: list[FlowDiagnostic] = []
+        for step in flow.steps:
+            if step.resource_type != "payment_order":
+                continue
+            if step.payload.get("charge_bearer") and step.payload.get("type") not in ("wire", "cross_border"):
+                diags.append(FlowDiagnostic(
+                    rule_id=self.rule_id, severity=self.severity,
+                    step_id=step.step_id, account_id=None,
+                    message=f"charge_bearer on '{step.payload.get('type')}' rail has no effect (SWIFT/cross_border only)",
+                ))
+        return diags
+
+
+class RtpAmountLimitRule(FlowRule):
+    """PAYMENT_009: RTP amount exceeds $1M limit."""
+
+    rule_id = "PAYMENT_009"
+    severity: Literal["error", "warning", "info"] = "warning"
+    description = "RTP payments have a $1,000,000 limit"
+
+    def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]:
+        diags: list[FlowDiagnostic] = []
+        for step in flow.steps:
+            if step.resource_type != "payment_order":
+                continue
+            if step.payload.get("type") == "rtp":
+                amount = step.payload.get("amount", 0)
+                if isinstance(amount, (int, float)) and amount > 100_000_000:
+                    diags.append(FlowDiagnostic(
+                        rule_id=self.rule_id, severity=self.severity,
+                        step_id=step.step_id, account_id=None,
+                        message=f"RTP amount {amount} cents (${amount/100:,.2f}) exceeds the $1M network limit",
+                    ))
+        return diags
+
+
+class SubtypeOnNonAchRule(FlowRule):
+    """RESOURCE_001: SEC code subtype on non-ACH rail."""
+
+    rule_id = "RESOURCE_001"
+    severity: Literal["error", "warning", "info"] = "warning"
+    description = "ACH subtype (SEC code) set on non-ACH payment rail"
+
+    def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]:
+        diags: list[FlowDiagnostic] = []
+        for step in flow.steps:
+            if step.resource_type != "payment_order":
+                continue
+            if step.payload.get("subtype") and step.payload.get("type") != "ach":
+                diags.append(FlowDiagnostic(
+                    rule_id=self.rule_id, severity=self.severity,
+                    step_id=step.step_id, account_id=None,
+                    message=f"subtype '{step.payload.get('subtype')}' is an ACH SEC code but payment type is '{step.payload.get('type')}'",
+                ))
+        return diags
+
+
+class UnknownPaymentTypeRule(FlowRule):
+    """PAYMENT_010: Unknown payment type — fuzzy match suggestion."""
+
+    rule_id = "PAYMENT_010"
+    severity: Literal["error", "warning", "info"] = "warning"
+    description = "Unknown payment type"
+
+    def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]:
+        from models.validation import KNOWN_PAYMENT_TYPES, suggest_payment_type
+
+        diags: list[FlowDiagnostic] = []
+        for step in flow.steps:
+            if step.resource_type not in ("payment_order", "incoming_payment_detail"):
+                continue
+            ptype = step.payload.get("type", "") or step.payload.get("payment_type", "")
+            if ptype and ptype not in KNOWN_PAYMENT_TYPES:
+                suggestion = suggest_payment_type(ptype)
+                msg = f"Unknown payment type '{ptype}'."
+                if suggestion:
+                    msg += f" Did you mean '{suggestion}'?"
+                diags.append(FlowDiagnostic(
+                    rule_id=self.rule_id, severity=self.severity,
+                    step_id=step.step_id, account_id=None,
+                    message=msg,
+                ))
+        return diags
+
+
+class SandboxBehaviorInfoRule(FlowRule):
+    """SANDBOX_001: Sandbox magic account number detected."""
+
+    rule_id = "SANDBOX_001"
+    severity: Literal["error", "warning", "info"] = "info"
+    description = "Sandbox magic account number detected"
+
+    def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]:
+        return []
+
+
+class IpdMetadataInfoRule(FlowRule):
+    """IPD_001: IPD trace metadata stored locally only."""
+
+    rule_id = "IPD_001"
+    severity: Literal["error", "warning", "info"] = "info"
+    description = "IPD metadata is stored in the local manifest only"
+
+    def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]:
+        diags: list[FlowDiagnostic] = []
+        for step in flow.steps:
+            if step.resource_type == "incoming_payment_detail" and step.payload.get("metadata"):
+                diags.append(FlowDiagnostic(
+                    rule_id=self.rule_id, severity=self.severity,
+                    step_id=step.step_id, account_id=None,
+                    message="IPD trace metadata is stored in the local manifest only; the MT simulation endpoint does not persist metadata.",
+                ))
+                break
+        return diags
+
+
+class ReconRuleAdvisoryRule(FlowRule):
+    """RECON_001: Flow has EP + IPD on same IA — suggests recon rule."""
+
+    rule_id = "RECON_001"
+    severity: Literal["error", "warning", "info"] = "info"
+    description = "Suggests reconciliation rule configuration"
+
+    def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]:
+        ep_accounts: dict[str, str] = {}
+        ipd_accounts: set[str] = set()
+        for step in flow.steps:
+            if step.resource_type == "expected_payment":
+                ia = step.payload.get("internal_account_id", "")
+                if ia:
+                    ep_accounts[ia] = step.payload.get("direction", "credit")
+            elif step.resource_type == "incoming_payment_detail":
+                ia = step.payload.get("internal_account_id", "")
+                if ia:
+                    ipd_accounts.add(ia)
+
+        diags: list[FlowDiagnostic] = []
+        overlap = set(ep_accounts.keys()) & ipd_accounts
+        for ia_ref in overlap:
+            direction = ep_accounts[ia_ref]
+            diags.append(FlowDiagnostic(
+                rule_id=self.rule_id, severity=self.severity,
+                step_id=None, account_id=ia_ref,
+                message=(
+                    f"This flow creates EPs and IPDs on the same internal account ({ia_ref}). "
+                    f"To enable automatic reconciliation, create a rule in the MT dashboard: "
+                    f"POST /api/reconciliation_rules with object_a_type='expected_payment', "
+                    f"object_b_type='transaction', direction=['{direction}']."
+                ),
+            ))
+        return diags
+
+
 DEFAULT_RULES: list[FlowRule] = [
     LedgerBalanceRule(),
     SelfDebitRule(),
@@ -301,6 +493,14 @@ DEFAULT_RULES: list[FlowRule] = [
     EpDeltaRule(),
     TltBackwardLifecycleRule(),
     ReverseParentNoLtRule(),
+    CurrencyRailMismatchRule(),
+    ChargeBearerDomesticRule(),
+    RtpAmountLimitRule(),
+    SubtypeOnNonAchRule(),
+    UnknownPaymentTypeRule(),
+    SandboxBehaviorInfoRule(),
+    IpdMetadataInfoRule(),
+    ReconRuleAdvisoryRule(),
 ]
 
 

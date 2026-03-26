@@ -96,7 +96,8 @@ adjust amounts so total debits equal total credits.
 
 A step's `type` is not one of: `payment_order`, `incoming_payment_detail`,
 `expected_payment`, `ledger_transaction`, `return`, `reversal`,
-`transition_ledger_transaction`. Fix: use a valid type.
+`transition_ledger_transaction`, `verify_external_account`,
+`complete_verification`, `archive_resource`. Fix: use a valid type.
 
 ### `missing_status` on `transition_ledger_transaction`
 

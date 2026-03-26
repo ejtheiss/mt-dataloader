@@ -159,6 +159,10 @@ async def _parse_and_compile_recipe(
             if m.use_existing:
                 session.registry.register_or_update(m.config_ref, m.discovered_id)
                 skip_refs.add(m.config_ref)
+                for ck, cid in m.child_refs.items():
+                    session.registry.register_or_update(
+                        f"{m.config_ref}.{ck}", cid
+                    )
         session.reconciliation = reconciliation
         session.skip_refs = skip_refs
 
@@ -329,7 +333,13 @@ async def flows_view_page(request: Request, flow_idx: int):
             "available_views": view_data.available_views,
             "default_view": default_view,
             "mermaid_text": mermaid_text,
-            "metadata_key": flow_ir.trace_key,
+            "metadata_key": (
+                flow_config.view_config.ledger_view.metadata_key
+                if flow_config and flow_config.view_config
+                and flow_config.view_config.ledger_view
+                and flow_config.view_config.ledger_view.metadata_key
+                else flow_ir.trace_key
+            ),
             "metadata_value": flow_ir.trace_value,
             "trace_value_template": trace_value_template,
             "trace_metadata": trace_metadata,
@@ -557,6 +567,10 @@ async def recipe_to_working_config(request: Request):
             if m.use_existing:
                 session.registry.register_or_update(m.config_ref, m.discovered_id)
                 skip_refs.add(m.config_ref)
+                for ck, cid in m.child_refs.items():
+                    session.registry.register_or_update(
+                        f"{m.config_ref}.{ck}", cid
+                    )
         session.reconciliation = reconciliation
         session.skip_refs = skip_refs
 

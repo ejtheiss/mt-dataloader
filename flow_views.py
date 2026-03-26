@@ -334,6 +334,8 @@ def _build_payment_rows(
     payment_columns: tuple[PaymentColumnDef, ...],
     ledger_columns: tuple[LedgerColumnDef, ...] = (),
     og_step_ids: dict[str, str] | None = None,
+    include_expected_payments: bool = True,
+    include_transactions: bool = False,
 ) -> tuple[PaymentViewRow, ...]:
     """Build Payments View rows from FlowIR steps."""
     _og = og_step_ids or {}
@@ -344,7 +346,13 @@ def _build_payment_rows(
             if step.resource_type == "transition_ledger_transaction":
                 continue
             if step.resource_type == "ledger_transaction":
+                if not include_transactions:
+                    continue
+            else:
                 continue
+
+        if not include_expected_payments and step.resource_type == "expected_payment":
+            continue
 
         impacts = _resolve_payment_impacts(step, actors, payment_columns)
         has_lt = len(step.ledger_groups) > 0
@@ -415,11 +423,15 @@ def compute_view_data(
 
     explicit_ledger_refs = None
     explicit_payment_refs = None
+    include_expected_payments = True
+    include_transactions = False
     if vc:
         if vc.ledger_view:
             explicit_ledger_refs = vc.ledger_view.account_columns or None
         if vc.payments_view:
             explicit_payment_refs = vc.payments_view.account_columns or None
+            include_expected_payments = vc.payments_view.include_expected_payments
+            include_transactions = vc.payments_view.include_transactions
 
     ledger_cols: tuple[LedgerColumnDef, ...] = ()
     ledger_rows: tuple[LedgerViewRow, ...] = ()
@@ -433,7 +445,11 @@ def compute_view_data(
     if has_payment_actors or explicit_payment_refs:
         available.append("payments")
         payment_cols = _build_payment_columns(flow_config, explicit_payment_refs)
-        payment_rows = _build_payment_rows(flow_ir, ref_map, payment_cols, ledger_cols, og_step_ids)
+        payment_rows = _build_payment_rows(
+            flow_ir, ref_map, payment_cols, ledger_cols, og_step_ids,
+            include_expected_payments=include_expected_payments,
+            include_transactions=include_transactions,
+        )
 
     return FlowViewData(
         ledger_rows=ledger_rows,

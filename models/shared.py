@@ -30,12 +30,16 @@ RESOURCE_TYPES: frozenset[str] = frozenset(
     {
         "connection",
         "legal_entity",
+        "legal_entity_association",
         "ledger",
         "counterparty",
         "ledger_account",
         "internal_account",
         "external_account",
         "ledger_account_category",
+        "ledger_account_settlement",
+        "ledger_account_balance_monitor",
+        "ledger_account_statement",
         "virtual_account",
         "expected_payment",
         "payment_order",
@@ -47,6 +51,9 @@ RESOURCE_TYPES: frozenset[str] = frozenset(
         "category_membership",
         "nested_category",
         "transition_ledger_transaction",
+        "verify_external_account",
+        "complete_verification",
+        "archive_resource",
     }
 )
 
@@ -103,6 +110,18 @@ class MetadataMixin(BaseModel):
     )
 
 
+class ErrorStrategy(BaseModel):
+    """Per-resource error handling strategy for the DAG executor."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["fail", "skip", "retry", "substitute"] = "fail"
+    max_retries: int = 3
+    retry_delay_seconds: float = 2.0
+    substitute_ref: str | None = None
+    log_level: Literal["error", "warning", "info"] = "error"
+
+
 class _BaseResourceConfig(BaseModel):
     """Private base for all resource configs.  Provides the ``ref`` field,
     its validator, and ``extra='forbid'`` so typos in config keys are caught
@@ -125,6 +144,12 @@ class _BaseResourceConfig(BaseModel):
             "Example: a book transfer that must wait for an IPD to settle "
             "before moving the deposited funds. Excluded from API payloads."
         ),
+    )
+
+    on_error: ErrorStrategy | None = Field(
+        default=None,
+        exclude=True,
+        description="Error handling strategy: fail (default), skip, retry, or substitute.",
     )
 
     @field_validator("ref")
@@ -291,7 +316,6 @@ class StepTimingConfig(BaseModel):
 
     delay_hours: float = 0.0
     delay_jitter_hours: float = 0.0
-    business_days_only: bool = True
 
 
 class SettlementDefaultsConfig(BaseModel):

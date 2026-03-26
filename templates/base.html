@@ -8,24 +8,24 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/turbogrid/turbogrid.css">
-    <link rel="stylesheet" href="/static/mt-patterns.css">
-    <link rel="stylesheet" href="/static/css/drawer.css">
-    <link rel="stylesheet" href="/static/css/tabs.css">
-    <link rel="stylesheet" href="/static/css/index-table.css">
-    <link rel="stylesheet" href="/static/css/kv-table.css">
-    <link rel="stylesheet" href="/static/css/filter-bar.css">
-    <link rel="stylesheet" href="/static/css/pagination.css">
-    <link rel="stylesheet" href="/static/css/toast.css">
-    <link rel="stylesheet" href="/static/css/json-view.css">
-    <link rel="stylesheet" href="/static/css/layout.css">
-    <link rel="stylesheet" href="/static/css/page-chrome.css">
-    <link rel="stylesheet" href="/static/css/buttons.css">
-    <link rel="stylesheet" href="/static/css/forms.css">
-    <link rel="stylesheet" href="/static/css/status-indicator.css">
-    <link rel="stylesheet" href="/static/css/pill.css">
-    <link rel="stylesheet" href="/static/css/chip.css">
-    <link rel="stylesheet" href="/static/css/toggle-switch.css">
+    <link rel="stylesheet" href="/static/turbogrid/turbogrid.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/mt-patterns.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/drawer.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/tabs.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/index-table.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/kv-table.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/filter-bar.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/pagination.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/toast.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/json-view.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/layout.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/page-chrome.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/buttons.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/forms.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/status-indicator.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/pill.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/chip.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/toggle-switch.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/style.css?v={{ css_version }}">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
@@ -125,6 +125,7 @@
     {% include "partials/mt_toast.html" %}
     <script src="/static/js/mt-drawer.js"></script>
     <script src="/static/js/mt-interactions.js"></script>
+    <script src="/static/js/scenario-builder.js"></script>
     <script>
     (function() {
         var orgEl = document.getElementById("sidebar-org");

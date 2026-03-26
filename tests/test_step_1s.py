@@ -167,6 +167,8 @@ class TestTypedStepModels:
             "payment_order", "incoming_payment_detail",
             "ledger_transaction", "expected_payment",
             "return", "reversal", "transition_ledger_transaction",
+            "verify_external_account", "complete_verification",
+            "archive_resource",
         })
 
     def test_return_code_defaults_to_r01(self):

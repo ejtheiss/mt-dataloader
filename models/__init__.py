@@ -50,6 +50,12 @@ from models.resources import (
     CategoryMembershipConfig,
     NestedCategoryConfig,
     TransitionLedgerTransactionConfig,
+    LedgerAccountSettlementConfig,
+    BalanceMonitorAlertCondition,
+    LedgerAccountBalanceMonitorConfig,
+    LedgerAccountStatementConfig,
+    LegalEntityAssociationConfig,
+    TransactionConfig,
 )
 
 # --- step models + derived constants ---
@@ -64,6 +70,9 @@ from models.steps import (
     ReturnStep,
     ReversalStep,
     TransitionLedgerTransactionStep,
+    VerifyExternalAccountStep,
+    CompleteVerificationStep,
+    ArchiveResourceStep,
     FundsFlowStep,
     FundsFlowStepConfig,
     VALID_STEP_TYPES,
@@ -156,6 +165,13 @@ __all__ = [
     "CategoryMembershipConfig",
     "NestedCategoryConfig",
     "TransitionLedgerTransactionConfig",
+    # New resource types (feature audit)
+    "LedgerAccountSettlementConfig",
+    "BalanceMonitorAlertCondition",
+    "LedgerAccountBalanceMonitorConfig",
+    "LedgerAccountStatementConfig",
+    "LegalEntityAssociationConfig",
+    "TransactionConfig",
     # Funds Flow DSL — Typed Step Models
     "_StepBase",
     "_LedgerableMixin",
@@ -167,6 +183,9 @@ __all__ = [
     "ReturnStep",
     "ReversalStep",
     "TransitionLedgerTransactionStep",
+    "VerifyExternalAccountStep",
+    "CompleteVerificationStep",
+    "ArchiveResourceStep",
     "FundsFlowStep",
     "FundsFlowStepConfig",
     # Derived constants

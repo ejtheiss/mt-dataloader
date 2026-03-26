@@ -19,7 +19,7 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterator
+from typing import Any, Awaitable, Callable, Iterator
 
 from graphlib import TopologicalSorter
 from loguru import logger
@@ -32,9 +32,7 @@ from models import (
     StagedEntry,
     _BaseResourceConfig,
 )
-
-if TYPE_CHECKING:
-    pass
+from models.shared import ErrorStrategy
 
 
 def _extract_display_name(resource: _BaseResourceConfig) -> str:
@@ -289,7 +287,7 @@ def dry_run(
             if not _is_known_or_child(dep):
                 raise KeyError(
                     f"Unresolvable ref '$ref:{dep}' in resource '{ref}'. "
-                    f"It must be defined in the config or baseline.yaml."
+                    f"It must be defined in the config."
                 )
 
     for ref, resource in resource_map.items():
@@ -300,14 +298,24 @@ def dry_run(
                     raise KeyError(
                         f"Unresolvable depends_on ref '$ref:{dep}' in "
                         f"resource '{ref}'. It must be defined in the "
-                        f"config or baseline."
+                        f"config."
                     )
+
+    from webhooks import FIREABLE_TYPES
 
     staged_refs = {
         ref
         for ref, resource in resource_map.items()
         if getattr(resource, "staged", False)
     }
+    for ref in staged_refs:
+        rtype = resource_map[ref].resource_type
+        if rtype not in FIREABLE_TYPES:
+            logger.warning(
+                "Staged resource '{}' has type '{}' which cannot be fired. "
+                "Fireable types: {}",
+                ref, rtype, ", ".join(sorted(FIREABLE_TYPES)),
+            )
     if staged_refs:
 
         def _dep_hits_staged(dep: str) -> str | None:
@@ -512,6 +520,98 @@ class RunManifest:
 # ---------------------------------------------------------------------------
 
 
+async def _execute_with_error_strategy(
+    *,
+    resource: _BaseResourceConfig,
+    resolved: dict,
+    typed_ref: str,
+    run_id: str,
+    handler_dispatch: dict[str, HandlerFn],
+    update_refs: dict[str, str],
+    update_dispatch: dict[str, HandlerFn],
+    emit_sse: EmitFn,
+    resource_map: dict[str, _BaseResourceConfig],
+    registry: RefRegistry,
+) -> HandlerResult:
+    """Execute a single resource creation with on_error strategy handling."""
+    strategy: ErrorStrategy = getattr(resource, "on_error", None) or ErrorStrategy()
+
+    async def _do_create() -> HandlerResult:
+        if typed_ref in update_refs and resource.resource_type in update_dispatch:
+            handler = update_dispatch[resource.resource_type]
+            return await handler(
+                resolved,
+                resource_id=update_refs[typed_ref],
+                idempotency_key=f"{run_id}:{typed_ref}",
+                typed_ref=typed_ref,
+            )
+        handler = handler_dispatch[resource.resource_type]
+        return await handler(
+            resolved,
+            idempotency_key=f"{run_id}:{typed_ref}",
+            typed_ref=typed_ref,
+        )
+
+    if strategy.action == "fail":
+        return await _do_create()
+
+    if strategy.action == "skip":
+        try:
+            return await _do_create()
+        except Exception as exc:
+            logger.log(strategy.log_level.upper(), "Skipping {} after error: {}", typed_ref, exc)
+            await emit_sse("skipped", typed_ref, {"error": str(exc)})
+            return HandlerResult(created_id="SKIPPED", resource_type=resource.resource_type, deletable=False)
+
+    if strategy.action == "retry":
+        last_exc: Exception | None = None
+        for attempt in range(1, strategy.max_retries + 1):
+            try:
+                return await _do_create()
+            except Exception as exc:
+                last_exc = exc
+                logger.log(
+                    strategy.log_level.upper(),
+                    "Retry {}/{} for {} after: {}",
+                    attempt, strategy.max_retries, typed_ref, exc,
+                )
+                await emit_sse("retrying", typed_ref, {"attempt": attempt, "error": str(exc)})
+                if attempt < strategy.max_retries:
+                    await asyncio.sleep(strategy.retry_delay_seconds)
+        raise last_exc  # type: ignore[misc]
+
+    if strategy.action == "substitute" and strategy.substitute_ref:
+        try:
+            return await _do_create()
+        except Exception as exc:
+            logger.log(
+                strategy.log_level.upper(),
+                "Substituting {} with {} after: {}",
+                typed_ref, strategy.substitute_ref, exc,
+            )
+            await emit_sse("substituting", typed_ref, {
+                "substitute": strategy.substitute_ref,
+                "error": str(exc),
+            })
+            sub_ref = strategy.substitute_ref
+            if sub_ref.startswith("$ref:"):
+                sub_ref = sub_ref[5:]
+            sub_resource = resource_map.get(sub_ref)
+            if not sub_resource:
+                raise RuntimeError(
+                    f"Substitute ref '{strategy.substitute_ref}' not found in config"
+                ) from exc
+            sub_resolved = resolve_refs(sub_resource, registry)
+            sub_handler = handler_dispatch[sub_resource.resource_type]
+            return await sub_handler(
+                sub_resolved,
+                idempotency_key=f"{run_id}:{sub_ref}",
+                typed_ref=sub_ref,
+            )
+
+    return await _do_create()
+
+
 async def execute(
     config: DataLoaderConfig,
     registry: RefRegistry,
@@ -583,21 +683,18 @@ async def execute(
                             await emit_sse("staged", typed_ref, {"display_name": dn} if dn else {})
                             return
 
-                        if typed_ref in _update and resource.resource_type in _update_dispatch:
-                            handler = _update_dispatch[resource.resource_type]
-                            result = await handler(
-                                resolved,
-                                resource_id=_update[typed_ref],
-                                idempotency_key=f"{run_id}:{typed_ref}",
-                                typed_ref=typed_ref,
-                            )
-                        else:
-                            handler = handler_dispatch[resource.resource_type]
-                            result = await handler(
-                                resolved,
-                                idempotency_key=f"{run_id}:{typed_ref}",
-                                typed_ref=typed_ref,
-                            )
+                        result = await _execute_with_error_strategy(
+                            resource=resource,
+                            resolved=resolved,
+                            typed_ref=typed_ref,
+                            run_id=run_id,
+                            handler_dispatch=handler_dispatch,
+                            update_refs=_update,
+                            update_dispatch=_update_dispatch,
+                            emit_sse=emit_sse,
+                            resource_map=resource_map,
+                            registry=registry,
+                        )
                 except Exception as exc:
                     exc._failed_typed_ref = typed_ref  # type: ignore[attr-defined]
                     raise

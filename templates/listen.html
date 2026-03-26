@@ -72,30 +72,27 @@
     </div>
 
     <h3>Live Feed</h3>
-    <div class="ui-table-container" id="webhooks-table" role="table">
-        <div class="ui-table-container__inner">
-            <div role="rowgroup" class="ui-table-head">
-                <div role="row" class="ui-table-row header">
-                    <div role="columnheader" class="ui-table-header" style="width: 200px; min-width: 200px; flex: none;">Event</div>
-                    <div role="columnheader" class="ui-table-header" style="width: 120px; flex: none;">Type</div>
-                    <div role="columnheader" class="ui-table-header">Resource</div>
-                    <div role="columnheader" class="ui-table-header" style="width: 80px; flex: none;">Run</div>
-                    <div role="columnheader" class="ui-table-header text-right" style="width: 80px; flex: none;">Time</div>
+    <div class="mt-index-table" id="webhooks-table" role="table">
+        <div class="mt-index-table-header" role="row">
+            <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 25%;">Event</div>
+            <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 15%;">Resource</div>
+            <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 20%;">ID</div>
+            <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 20%;">Run</div>
+            <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 12%;">Time</div>
+            <div class="mt-index-table-cell mt-index-table-cell--header" role="columnheader" style="width: 8%;">Status</div>
+        </div>
+        <div class="mt-index-table-body" role="rowgroup" id="live-webhooks">
+            {% if webhook_history %}
+                {% for wh in webhook_history %}
+                {% include "partials/webhook_row.html" %}
+                {% endfor %}
+            {% else %}
+                <div class="mt-index-table-empty" id="webhook-empty">
+                    {% set empty_title = "Waiting for webhooks" %}
+                    {% set empty_description = "Webhooks will appear here as they are received." %}
+                    {% include "partials/empty_state.html" %}
                 </div>
-            </div>
-            <div role="rowgroup" class="ui-table-body" id="live-webhooks">
-                {% if webhook_history %}
-                    {% for wh in webhook_history %}
-                    {% include "partials/webhook_card.html" %}
-                    {% endfor %}
-                {% else %}
-                    <div role="row" class="ui-table-row empty" id="webhook-empty">
-                        <div role="cell" class="ui-table-cell" style="flex: 1; justify-content: center; padding: 24px;">
-                            Waiting for webhooks&hellip;
-                        </div>
-                    </div>
-                {% endif %}
-            </div>
+            {% endif %}
         </div>
     </div>
 

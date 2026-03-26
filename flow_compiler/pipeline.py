@@ -108,17 +108,18 @@ def pass_expand_instances(ctx: CompilationContext) -> CompilationContext:
     }
 
     for flow in config.funds_flows:
+        mapping = {"instance": "0000", "ref": flow.ref, **default_profile}
         if flow.instance_resources:
-            mapping = {"instance": "0000", "ref": flow.ref, **default_profile}
             expanded_ir = _expand_instance_resources(flow.instance_resources, 0, default_profile)
             for section, items in expanded_ir.items():
                 extra_resources.append((section, items))
-            flow_dict = flow.model_dump()
-            flow_dict.pop("instance_resources", None)
-            flow_dict = deep_format_map(flow_dict, mapping)
-            expanded_flows.append(FundsFlowConfig.model_validate(flow_dict))
-        else:
-            expanded_flows.append(flow)
+        flow_dict = flow.model_dump()
+        flow_dict.pop("instance_resources", None)
+        saved_trace_tpl = flow_dict.get("trace_value_template")
+        flow_dict = deep_format_map(flow_dict, mapping)
+        if saved_trace_tpl is not None:
+            flow_dict["trace_value_template"] = saved_trace_tpl
+        expanded_flows.append(FundsFlowConfig.model_validate(flow_dict))
 
     rels = tuple(
         build_step_relationships(f.steps, f.optional_groups)

@@ -13,10 +13,10 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Count</label>
-                    <input type="number" id="gen-instances-{{ flow_idx }}" class="input input-border" value="10" min="1" max="5000">
+                    <input type="number" data-field="instances" class="input input-border" value="10" min="1" max="5000">
                 </div>
             </div>
-            <input type="hidden" id="gen-seed-{{ flow_idx }}" value="424242">
+            <input type="hidden" data-field="seed" value="424242">
         </div>
 
         {% if fs.actors %}
@@ -30,21 +30,17 @@
                 {% if actor.frame_type == 'direct' %}
                 <input type="text" class="actor-customer-name input input-border"
                        data-frame="{{ actor.frame_name }}"
-                       id="gen-actor-cn-{{ flow_idx }}-{{ loop.index0 }}"
                        value="{{ actor.customer_name }}"
                        placeholder="Customer name"
                        style="flex: 1; min-width: 120px;">
                 {% else %}
                 <select class="actor-entity-type input input-border"
-                        data-frame="{{ actor.frame_name }}"
-                        id="gen-actor-et-{{ flow_idx }}-{{ loop.index0 }}"
-                        onchange="cascadeDataset{{ flow_idx }}(this)">
+                        data-frame="{{ actor.frame_name }}">
                     <option value="business" selected>Business</option>
                     <option value="individual">Individual</option>
                 </select>
                 <select class="actor-dataset-select input input-border"
-                        data-frame="{{ actor.frame_name }}"
-                        id="gen-actor-ds-{{ flow_idx }}-{{ loop.index0 }}">
+                        data-frame="{{ actor.frame_name }}">
                     {% if seed_datasets %}
                     {% set current_tier = namespace(value='') %}
                     {% for ds in seed_datasets %}
@@ -80,7 +76,6 @@
                 <span style="color: var(--mt-gray-500); font-size: 0.78rem;">{{ og.step_count }} step{{ 's' if og.step_count != 1 else '' }} ({{ og.step_types|join(', ') }})</span>
                 <input type="number" class="edge-case-count-input"
                        data-label="{{ og.label }}"
-                       id="gen-edge-{{ flow_idx }}-{{ loop.index0 }}"
                        value="0" min="0" max="5000" step="1"
                        title="Number of instances with this edge case"
                        style="width: 64px; margin-left: auto;">
@@ -127,14 +122,12 @@
             <div class="form-row" style="margin-top: 8px; gap: 12px;">
                 <div class="form-group">
                     <label title="How much amounts can decrease from base. E.g. -10 means amounts can drop to 90% of base.">Min %</label>
-                    <input type="number" id="gen-variance-min-{{ flow_idx }}" class="input input-border" value="0" min="-100" max="0" step="0.5"
-                           onchange="updateAmountRanges{{ flow_idx }}()" oninput="updateAmountRanges{{ flow_idx }}()">
-                    <span class="field-hint">e.g. −10 = down to 90%</span>
+                    <input type="number" data-field="variance-min" class="input input-border" value="0" min="-100" max="0" step="0.5">
+                    <span class="field-hint">e.g. &minus;10 = down to 90%</span>
                 </div>
                 <div class="form-group">
                     <label title="How much amounts can increase from base. E.g. 10 means amounts can rise to 110% of base.">Max %</label>
-                    <input type="number" id="gen-variance-max-{{ flow_idx }}" class="input input-border" value="0" min="0" max="100" step="0.5"
-                           onchange="updateAmountRanges{{ flow_idx }}()" oninput="updateAmountRanges{{ flow_idx }}()">
+                    <input type="number" data-field="variance-max" class="input input-border" value="0" min="0" max="100" step="0.5">
                     <span class="field-hint">e.g. 10 = up to 110%</span>
                 </div>
             </div>
@@ -143,7 +136,7 @@
 
         <div class="field-section">
             <div class="field-section-label">Staging</div>
-            <div id="staging-rules-{{ flow_idx }}">
+            <div data-field="staging-rules">
                 <div class="staging-rule form-row" style="gap: 8px; align-items: flex-end;">
                     <div class="form-group" style="flex: 0 0 80px;">
                         <label title="How many instances from this pool to hold for manual fire.">Count</label>
@@ -161,7 +154,7 @@
                     </div>
                 </div>
             </div>
-            <button type="button" class="btn btn-sm btn-outline" style="margin-top: 6px;" onclick="addStagingRule{{ flow_idx }}()">+ Add condition</button>
+            <button type="button" class="btn btn-sm btn-outline" style="margin-top: 6px;" data-action="add-staging-rule">+ Add condition</button>
             <span class="field-hint" style="margin-top: 2px;">Each rule stages instances independently; results are combined</span>
         </div>
 
@@ -170,437 +163,35 @@
             <div class="form-row">
                 <div class="form-group">
                     <label title="Distribute instances across this many days so they don't all share the same dates. 0 = all instances use the same base date (today).">Spread over (days)</label>
-                    <input type="number" id="gen-timing-spread-{{ flow_idx }}" class="input input-border" value="0" min="0" max="365" step="1">
-                    <span class="field-hint">0 = all same day; base is always today</span>
+                    <input type="number" data-field="timing-spread" class="input input-border" value="0" min="0" max="365" step="1">
+                    <span class="field-hint">0 = all same day; base = T0 date (defaults to today)</span>
                 </div>
             </div>
         </div>
 
         <div class="accordion-footer">
-            <button class="btn btn-secondary btn-sm" onclick="genPreview{{ flow_idx }}()">Preview</button>
-            <button class="btn btn-primary btn-sm" onclick="genApply{{ flow_idx }}()">Apply to Config</button>
+            <button class="btn btn-secondary btn-sm" data-action="preview">Preview</button>
+            <button class="btn btn-primary btn-sm" data-action="apply">Apply to Config</button>
         </div>
 
-        <div id="gen-result-{{ flow_idx }}"></div>
+        <div data-field="result"></div>
     </div>
 </details>
 
+{# Config blob for the JS module — no inline logic, just data #}
+{% set _staging_opts = [{"value": "happy_path", "label": "Happy path"}, {"value": "all", "label": "All instances"}] %}
+{% for og in fs.optional_groups %}
+  {% set _ = _staging_opts.append({"value": og.label, "label": og.label}) %}
+{% endfor %}
 <script>
-(function() {
-    var idx = {{ flow_idx }};
-    var flowRef = {{ fs.flow_ref|tojson }};
-
-    function el(id) { return document.getElementById(id + '-' + idx); }
-
-    window['cascadeDataset' + idx] = function(etSelect) {
-        var frame = etSelect.getAttribute('data-frame');
-        var isIndiv = etSelect.value === 'individual';
-        var dsSelect = document.querySelector(
-            '#scenario-builder-' + idx + ' .actor-dataset-select[data-frame="' + frame + '"]'
-        );
-        if (!dsSelect) return;
-        var options = dsSelect.querySelectorAll('option');
-        options.forEach(function(opt) {
-            if (opt.getAttribute('data-biz-only') === '1') {
-                opt.disabled = isIndiv;
-                opt.style.display = isIndiv ? 'none' : '';
-            }
-        });
-        if (isIndiv && dsSelect.selectedOptions[0] && dsSelect.selectedOptions[0].disabled) {
-            dsSelect.value = 'standard';
-        }
-    };
-
-    var stagingSelectionOptions = [
-        {value: "happy_path", label: "Happy path"},
-        {value: "all", label: "All instances"}{% for og in fs.optional_groups %},
-        {value: {{ og.label|tojson }}, label: {{ og.label|tojson }}}{% endfor %}
-    ];
-
-    window['addStagingRule' + idx] = function(count, selection) {
-        var container = document.getElementById('staging-rules-' + idx);
-        var row = document.createElement('div');
-        row.className = 'staging-rule form-row';
-        row.style.cssText = 'gap: 8px; align-items: flex-end; margin-top: 4px;';
-        var opts = stagingSelectionOptions.map(function(o) {
-            return '<option value="' + o.value + '"' + (o.value === (selection || 'happy_path') ? ' selected' : '') + '>' + o.label + '</option>';
-        }).join('');
-        row.innerHTML =
-            '<div class="form-group" style="flex: 0 0 80px;">' +
-                '<input type="number" class="staging-count input input-border" value="' + (count || 0) + '" min="0">' +
-            '</div>' +
-            '<div class="form-group" style="flex: 1;">' +
-                '<select class="staging-selection input input-border">' + opts + '</select>' +
-            '</div>' +
-            '<button type="button" class="btn btn-sm btn-outline" style="margin-bottom: 2px;" onclick="this.closest(\'.staging-rule\').remove()">✕</button>';
-        container.appendChild(row);
-    };
-
-    function syncEdgeMax() {
-        var max = parseInt(el('gen-instances').value) || 1;
-        var edgeInputs = document.querySelectorAll('#scenario-builder-' + idx + ' .edge-case-count-input');
-        edgeInputs.forEach(function(input) {
-            input.max = max;
-            if (parseInt(input.value) > max) input.value = max;
-        });
-    }
-    var instancesInput = el('gen-instances');
-    if (instancesInput) instancesInput.addEventListener('input', syncEdgeMax);
-
-    function fmtAmt(cents) {
-        return '$' + (cents / 100).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    }
-
-    function getGlobalVariance() {
-        var lo = parseFloat((el('gen-variance-min') || {value:'0'}).value) || 0;
-        var hi = parseFloat((el('gen-variance-max') || {value:'0'}).value) || 0;
-        return {min: lo, max: hi};
-    }
-
-    function renderRowAmount(row, gv) {
-        var base = parseInt(row.getAttribute('data-base-amount')) || 0;
-        var display = row.querySelector('.amount-display');
-        if (!display) return;
-        var mode = row.getAttribute('data-variance-mode');
-        var lo = 0, hi = 0;
-        if (mode === 'global') { lo = gv.min; hi = gv.max; }
-        else if (mode === 'custom') {
-            lo = parseFloat(row.querySelector('.variance-custom-min').value) || 0;
-            hi = parseFloat(row.querySelector('.variance-custom-max').value) || 0;
-        }
-
-        if (lo >= 0 && hi <= 0) {
-            display.textContent = fmtAmt(base);
-            display.classList.remove('amount-range');
-        } else {
-            display.textContent = fmtAmt(Math.round(base * (1 + lo/100))) + ' – ' + fmtAmt(Math.round(base * (1 + hi/100)));
-            display.classList.add('amount-range');
-        }
-    }
-
-    window['updateAmountRanges' + idx] = function() {
-        var gv = getGlobalVariance();
-        var items = document.querySelectorAll('#scenario-builder-' + idx + ' .amount-step-item');
-        items.forEach(function(row) { renderRowAmount(row, gv); });
-    };
-
-    (function() {
-        var container = document.getElementById('scenario-builder-' + idx);
-        if (!container) return;
-        container.addEventListener('click', function(e) {
-            var btn = e.target.closest('.variance-lock-btn');
-            if (!btn) return;
-            var row = btn.closest('.amount-step-item');
-            var mode = row.getAttribute('data-variance-mode');
-            var customInputs = row.querySelector('.variance-custom-inputs');
-            if (mode === 'global') {
-                row.setAttribute('data-variance-mode', 'locked');
-                if (customInputs) customInputs.style.display = 'none';
-            } else if (mode === 'locked') {
-                row.setAttribute('data-variance-mode', 'custom');
-                if (customInputs) customInputs.style.display = '';
-            } else {
-                row.setAttribute('data-variance-mode', 'global');
-                if (customInputs) customInputs.style.display = 'none';
-            }
-            renderRowAmount(row, getGlobalVariance());
-        });
-        container.addEventListener('input', function(e) {
-            if (!e.target.classList.contains('variance-custom-min') && !e.target.classList.contains('variance-custom-max')) return;
-            var row = e.target.closest('.amount-step-item');
-            renderRowAmount(row, getGlobalVariance());
-        });
-    })();
-
-    (function initTimingPills() {
-        var builder = document.getElementById('scenario-builder-' + idx);
-        if (!builder) return;
-        builder.querySelectorAll('.timing-date-btn').forEach(function(btn) {
-            var dateInput = btn.nextElementSibling;
-            btn.addEventListener('click', function() {
-                if (dateInput.style.display === 'none') {
-                    dateInput.style.display = '';
-                    dateInput.showPicker && dateInput.showPicker();
-                } else {
-                    dateInput.style.display = 'none';
-                }
-            });
-            dateInput.addEventListener('change', function() {
-                if (this.value) {
-                    var pill = btn.previousElementSibling;
-                    pill.textContent = 'T0';
-                    pill.title = 'Base: ' + this.value;
-                }
-            });
-        });
-        builder.querySelectorAll('.timing-pill-offset').forEach(function(pill) {
-            var input = pill.nextElementSibling;
-            pill.addEventListener('click', function() {
-                if (input.style.display === 'none' || input.style.display === '') {
-                    input.style.display = 'inline-block';
-                    input.focus();
-                }
-            });
-            input.addEventListener('change', function() {
-                pill.textContent = 'T+' + (parseInt(this.value) || 0);
-            });
-            input.addEventListener('blur', function() {
-                this.style.display = '';
-            });
-        });
-    })();
-
-    function buildRecipe() {
-        var instances = parseInt(el('gen-instances').value);
-        var recipe = {
-            version: "v1",
-            flow_ref: flowRef,
-            instances: instances,
-            seed: parseInt(el('gen-seed').value),
-            seed_dataset: "standard",
-            edge_case_count: 0,
-            amount_variance_min_pct: parseFloat((el('gen-variance-min') || {value: '0'}).value) || 0,
-            amount_variance_max_pct: parseFloat((el('gen-variance-max') || {value: '0'}).value) || 0,
-        };
-        var stagingRules = [];
-        document.querySelectorAll('#staging-rules-' + idx + ' .staging-rule').forEach(function(row) {
-            var count = parseInt(row.querySelector('.staging-count').value) || 0;
-            if (count > 0) {
-                stagingRules.push({
-                    count: count,
-                    selection: row.querySelector('.staging-selection').value,
-                });
-            }
-        });
-        if (stagingRules.length > 0) recipe.staging_rules = stagingRules;
-        var stepVariance = {};
-        document.querySelectorAll('#scenario-builder-' + idx + ' .amount-step-item').forEach(function(row) {
-            var mode = row.getAttribute('data-variance-mode');
-            var stepId = row.getAttribute('data-step-id');
-            if (mode === 'locked') stepVariance[stepId] = {};
-            else if (mode === 'custom') {
-                stepVariance[stepId] = {
-                    min_pct: parseFloat(row.querySelector('.variance-custom-min').value) || 0,
-                    max_pct: parseFloat(row.querySelector('.variance-custom-max').value) || 0,
-                };
-            }
-        });
-        if (Object.keys(stepVariance).length > 0) recipe.step_variance = stepVariance;
-        var edgeInputs = document.querySelectorAll('#scenario-builder-' + idx + ' .edge-case-count-input');
-        var edgeOverrides = {};
-        edgeInputs.forEach(function(input) {
-            var label = input.getAttribute('data-label');
-            var count = parseInt(input.value) || 0;
-            if (count > instances) count = instances;
-            if (count > 0) {
-                edgeOverrides[label] = { count: count };
-            }
-        });
-        if (Object.keys(edgeOverrides).length > 0) {
-            recipe.edge_case_overrides = edgeOverrides;
-        }
-
-        var overrides = {};
-        document.querySelectorAll('#scenario-builder-' + idx + ' .field-row[data-frame]').forEach(function(row) {
-            var frame = row.getAttribute('data-frame');
-            var frameType = row.getAttribute('data-frame-type');
-            if (frameType === 'direct') {
-                var cnInput = row.querySelector('.actor-customer-name');
-                if (cnInput && cnInput.value.trim()) {
-                    overrides[frame] = { customer_name: cnInput.value.trim() };
-                }
-            } else {
-                var etSelect = row.querySelector('.actor-entity-type');
-                var dsSelect = row.querySelector('.actor-dataset-select');
-                var ov = {};
-                if (etSelect) ov.entity_type = etSelect.value;
-                if (dsSelect && dsSelect.value !== 'standard') ov.dataset = dsSelect.value;
-                if (Object.keys(ov).length > 0) overrides[frame] = ov;
-            }
-        });
-        if (Object.keys(overrides).length > 0) {
-            recipe.actor_overrides = overrides;
-        }
-
-        var spreadDays = parseInt(el('gen-timing-spread').value) || 0;
-        var stepOffsets = {};
-        document.querySelectorAll('#scenario-builder-' + idx + ' .amount-step-item').forEach(function(row) {
-            var stepId = row.getAttribute('data-step-id');
-            var offsetInput = row.querySelector('.timing-offset-input');
-            if (offsetInput) stepOffsets[stepId] = parseInt(offsetInput.value) || 0;
-        });
-        if (spreadDays > 0 || Object.keys(stepOffsets).length > 0) {
-            recipe.timing = {
-                instance_spread_days: spreadDays,
-            };
-            if (Object.keys(stepOffsets).length > 0) recipe.timing.step_offsets = stepOffsets;
-        }
-
-        return recipe;
-    }
-
-    function resetStagingRules(rules) {
-        var container = document.getElementById('staging-rules-' + idx);
-        var rows = container.querySelectorAll('.staging-rule');
-        if (rules && rules.length > 0) {
-            // Set first row from first rule
-            rows[0].querySelector('.staging-count').value = rules[0].count || 0;
-            rows[0].querySelector('.staging-selection').value = rules[0].selection || 'happy_path';
-            // Remove extra rows
-            for (var i = rows.length - 1; i > 0; i--) rows[i].remove();
-            // Add remaining rules
-            for (var j = 1; j < rules.length; j++) {
-                window['addStagingRule' + idx](rules[j].count, rules[j].selection);
-            }
-        } else {
-            rows[0].querySelector('.staging-count').value = 0;
-            rows[0].querySelector('.staging-selection').value = 'happy_path';
-            for (var k = rows.length - 1; k > 0; k--) rows[k].remove();
-        }
-    }
-
-    window['genPreview' + idx] = async function() {
-        var btn = document.querySelector('#scenario-builder-' + idx + ' .btn-secondary');
-        btn.disabled = true; btn.textContent = 'Generating…';
-        try {
-            var recipe = buildRecipe();
-            var resp = await fetch('/api/flows/generate-preview', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Session-Token': '{{ session_token }}' },
-                body: JSON.stringify(recipe)
-            });
-            var data = await resp.json();
-            var out = document.getElementById('gen-result-' + idx);
-            if (data.error) {
-                out.innerHTML = '<div class="alert alert--critical"><p>' + data.error + (data.detail ? '<br>' + data.detail : '') + '</p></div>';
-                return;
-            }
-            var html = '<div style="font-size: 0.85rem; padding: 10px 0;">' +
-                '<strong>' + data.total_resources + '</strong> resources, ' +
-                '<strong>' + data.estimated_api_calls + '</strong> API calls, ' +
-                '<strong>' + data.estimated_batches + '</strong> batches';
-            if (data.needs_confirmation) {
-                html += '<br><span class="badge badge--warning" style="margin-top: 4px;">Large run — will require confirmation</span>';
-            }
-            if (data.edge_case_map && Object.keys(data.edge_case_map).length > 0) {
-                html += '<div style="margin-top: 8px;">';
-                html += '<strong>Edge case assignments:</strong>';
-                for (var label in data.edge_case_map) {
-                    var indices = data.edge_case_map[label];
-                    var display = indices.length <= 20
-                        ? indices.map(function(i) { return '#' + String(i).padStart(4, '0'); }).join(', ')
-                        : indices.length + ' instances';
-                    html += '<div style="display:flex; align-items:center; gap:6px; margin-top:4px;"><span class="badge badge--warning">' + label +
-                        '</span> <span style="color:var(--mt-gray-500); font-size:0.8rem;">' + display + '</span></div>';
-                }
-                html += '</div>';
-            }
-            html += '</div>';
-            out.innerHTML = html;
-        } finally {
-            btn.disabled = false; btn.textContent = 'Preview';
-        }
-    };
-
-    window['genApply' + idx] = async function() {
-        var btn = document.querySelector('#scenario-builder-' + idx + ' .btn-primary');
-        btn.disabled = true; btn.textContent = 'Applying…';
-        try {
-            var recipe = buildRecipe();
-            var resp = await fetch('/api/flows/recipe-to-working-config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Session-Token': '{{ session_token }}' },
-                body: JSON.stringify(recipe)
-            });
-            var data = await resp.json();
-            var out = document.getElementById('gen-result-' + idx);
-            if (data.error) {
-                out.innerHTML =
-                    '<div class="alert alert--critical"><p>' + data.error + (data.detail ? '<br>' + data.detail : '') + '</p></div>';
-                return;
-            }
-            out.innerHTML = '';
-            var recipeNote = data.recipe_count > 1 ? ' (' + data.recipe_count + ' flows scaled)' : '';
-            showToast('Config applied — ' + data.total_resources + ' resources, ' + data.mermaid_count + ' diagram(s)' + recipeNote);
-            var toggle = document.querySelector('#scenario-builder-' + idx + ' > .accordion-toggle');
-            if (toggle) {
-                var existing = toggle.querySelector('.chip');
-                var instances = parseInt(el('gen-instances').value) || 0;
-                if (existing) { existing.textContent = instances + ' instances'; }
-                else {
-                    var chip = document.createElement('span');
-                    chip.className = 'chip';
-                    chip.textContent = instances + ' instances';
-                    toggle.appendChild(chip);
-                }
-            }
-        } finally {
-            btn.disabled = false; btn.textContent = 'Apply to Config';
-        }
-    };
-
-    var allRecipes = {{ generation_recipes|default('{}')|tojson }};
-    var savedRecipe = allRecipes[flowRef] || null;
-    if (savedRecipe) {
-        el('gen-instances').value = savedRecipe.instances || 10;
-        el('gen-seed').value = savedRecipe.seed || 424242;
-        if (savedRecipe.amount_variance_min_pct != null && el('gen-variance-min'))
-            el('gen-variance-min').value = savedRecipe.amount_variance_min_pct;
-        if (savedRecipe.amount_variance_max_pct != null && el('gen-variance-max'))
-            el('gen-variance-max').value = savedRecipe.amount_variance_max_pct;
-        if (savedRecipe.staging_rules && savedRecipe.staging_rules.length > 0) {
-            resetStagingRules(savedRecipe.staging_rules);
-        } else if (savedRecipe.staged_count > 0) {
-            resetStagingRules([{count: savedRecipe.staged_count, selection: savedRecipe.staged_selection || 'happy_path'}]);
-        }
-        if (savedRecipe.edge_case_overrides) {
-            for (var label in savedRecipe.edge_case_overrides) {
-                var inp = document.querySelector(
-                    '#scenario-builder-' + idx +
-                    ' .edge-case-count-input[data-label="' + label + '"]'
-                );
-                if (inp) inp.value = savedRecipe.edge_case_overrides[label].count || 0;
-            }
-        }
-        if (savedRecipe.step_variance) {
-            for (var sid in savedRecipe.step_variance) {
-                var row = document.querySelector(
-                    '#scenario-builder-' + idx + ' .amount-step-item[data-step-id="' + sid + '"]'
-                );
-                if (!row) continue;
-                var sv = savedRecipe.step_variance[sid];
-                if (!sv || (Object.keys(sv).length === 0)) {
-                    row.setAttribute('data-variance-mode', 'locked');
-                } else {
-                    row.setAttribute('data-variance-mode', 'custom');
-                    var customInputs = row.querySelector('.variance-custom-inputs');
-                    if (customInputs) customInputs.style.display = '';
-                    var minInput = row.querySelector('.variance-custom-min');
-                    var maxInput = row.querySelector('.variance-custom-max');
-                    if (minInput) minInput.value = sv.min_pct || 0;
-                    if (maxInput) maxInput.value = sv.max_pct || 0;
-                }
-            }
-        }
-        if (savedRecipe.timing) {
-            var t = savedRecipe.timing;
-            if (el('gen-timing-spread')) el('gen-timing-spread').value = t.instance_spread_days || 0;
-            if (t.step_offsets) {
-                document.querySelectorAll('#scenario-builder-' + idx + ' .amount-step-item').forEach(function(row) {
-                    var stepId = row.getAttribute('data-step-id');
-                    if (stepId in t.step_offsets) {
-                        var offsetInput = row.querySelector('.timing-offset-input');
-                        if (offsetInput) {
-                            offsetInput.value = t.step_offsets[stepId];
-                            var pill = row.querySelector('.timing-pill-offset');
-                            if (pill) pill.textContent = 'T+' + t.step_offsets[stepId];
-                        }
-                    }
-                });
-            }
-        }
-        syncEdgeMax();
-        window['updateAmountRanges' + idx]();
-    }
-})();
+initScenarioBuilder(
+  document.getElementById('scenario-builder-{{ flow_idx }}'),
+  {{ {
+    "idx": flow_idx,
+    "flowRef": fs.flow_ref,
+    "sessionToken": session_token,
+    "stagingOptions": _staging_opts,
+    "savedRecipe": generation_recipes.get(fs.flow_ref) if generation_recipes else None
+  } | tojson }}
+);
 </script>

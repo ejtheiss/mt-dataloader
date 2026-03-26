@@ -55,6 +55,41 @@ async def setup_page(request: Request):
     return templates.TemplateResponse(request, "setup.html", {"title": "Setup"})
 
 
+@router.post("/api/config/save")
+async def save_config(request: Request):
+    """Write edited config JSON back to the session and optionally to disk."""
+    try:
+        body = await request.json()
+    except Exception:
+        return {"status": "error", "detail": "Invalid request body"}
+
+    session_token = body.get("session_token", "")
+    config_json = body.get("config_json", "")
+
+    session = sessions.get(session_token)
+    if not session:
+        return {"status": "error", "detail": "Session expired"}
+
+    try:
+        json.loads(config_json)
+    except json.JSONDecodeError as exc:
+        return {"status": "error", "detail": f"Invalid JSON: {exc}"}
+
+    try:
+        config = DataLoaderConfig.model_validate_json(config_json.encode())
+    except ValidationError as exc:
+        structured = format_validation_errors(exc)
+        return {"status": "error", "detail": structured[0]["message"] if structured else str(exc)}
+
+    session.config = config
+    session.config_json_text = json.dumps(
+        json.loads(config_json), indent=2, ensure_ascii=False
+    )
+    session.working_config_json = session.config_json_text
+
+    return {"status": "ok", "message": "Config saved to session"}
+
+
 @router.post("/api/validate-json")
 async def validate_json(request: Request):
     """Programmatic JSON validation endpoint for LLM repair loops."""
@@ -180,6 +215,8 @@ async def validate(
             if m.use_existing:
                 registry.register_or_update(m.config_ref, m.discovered_id)
                 skip_refs.add(m.config_ref)
+                for ck, cid in m.child_refs.items():
+                    registry.register_or_update(f"{m.config_ref}.{ck}", cid)
 
     try:
         batches = dry_run(config, known_refs, skip_refs=skip_refs)
@@ -341,6 +378,8 @@ async def revalidate(
                 registry.register_or_update(m.config_ref, m.discovered_id)
                 skip_refs.add(m.config_ref)
                 registered_refs.add(m.config_ref)
+                for ck, cid in m.child_refs.items():
+                    registry.register_or_update(f"{m.config_ref}.{ck}", cid)
 
         if manual_mappings and discovery is not None:
             disc_by_id = build_discovered_id_lookup(discovery)
@@ -574,6 +613,10 @@ def _rereconcile_session(session: SessionState) -> None:
             if m.use_existing:
                 session.registry.register_or_update(m.config_ref, m.discovered_id)
                 skip_refs.add(m.config_ref)
+                for ck, cid in m.child_refs.items():
+                    session.registry.register_or_update(
+                        f"{m.config_ref}.{ck}", cid
+                    )
 
         for tref in session.payload_overrides:
             if tref not in skip_refs:

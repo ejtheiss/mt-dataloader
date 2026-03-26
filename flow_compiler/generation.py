@@ -585,7 +585,18 @@ def generate_from_recipe(
             _apply_payment_mix(flow_dict, recipe.payment_mix)
 
         # Apply timing/seasoning (stamps effective_date / effective_at)
-        if recipe_timing or flow_timing:
+        # Only stamp dates when there is an explicit timing signal:
+        #   - start_date anchor, spread across days, step offsets, or
+        #     flow-level timing config.
+        # Without these, POs are created without effective_date so they
+        # process immediately.
+        has_explicit_dates = (
+            (recipe_timing and recipe_timing.start_date)
+            or (recipe_timing and recipe_timing.instance_spread_days > 0)
+            or (recipe_timing and recipe_timing.step_offsets)
+            or flow_timing
+        )
+        if has_explicit_dates:
             spread = spread_offsets[i] if i < len(spread_offsets) else 0.0
             compute_effective_dates(
                 flow_dict,

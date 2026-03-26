@@ -138,6 +138,7 @@ class DiscoveredCounterparty:
     name: str
     legal_entity_id: str | None
     account_count: int
+    account_ids: list[str] = field(default_factory=list)
     auto_ref: str = ""
 
 
@@ -371,12 +372,14 @@ async def discover_org(
 
         cp_refs = _assign_unique_refs("counterparty", cp_names)
         for cp, ref in zip(cp_objects, cp_refs):
+            acct_ids = [a.id for a in (cp.accounts or []) if a.id]
             result.counterparties.append(
                 DiscoveredCounterparty(
                     id=cp.id,
                     name=cp.name or f"cp_{cp.id[:8]}",
                     legal_entity_id=cp.legal_entity_id,
                     account_count=len(cp.accounts) if cp.accounts else 0,
+                    account_ids=acct_ids,
                     auto_ref=ref,
                 )
             )
