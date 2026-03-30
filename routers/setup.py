@@ -206,6 +206,7 @@ def _pipeline_result_to_session(
     api_key: str,
     org_id: str,
     *,
+    org_label: str | None = None,
     working_config_json: str | None = None,
     generation_recipes: dict | None = None,
 ) -> SessionState:
@@ -233,6 +234,7 @@ def _pipeline_result_to_session(
         view_data_cache=result.view_data_cache,
         working_config_json=working_config_json or result.config_json_text,
         generation_recipes=generation_recipes or {},
+        org_label=org_label,
     )
 
 
@@ -376,6 +378,7 @@ async def validate(
     request: Request,
     api_key: str = Form(...),
     org_id: str = Form(...),
+    org_name: str = Form(""),
     config_file: UploadFile | None = File(None),
     config_json: str | None = Form(None),
 ):
@@ -394,7 +397,8 @@ async def validate(
         title, _, detail = result.partition("\n")
         return error_response(title, detail)
 
-    session = _pipeline_result_to_session(result, api_key, org_id)
+    ol = org_name.strip() or None
+    session = _pipeline_result_to_session(result, api_key, org_id, org_label=ol)
     sessions[session.session_token] = session
     return _render_preview_or_redirect(request, session)
 
@@ -439,6 +443,7 @@ async def revalidate(
         result,
         old_session.api_key,
         old_session.org_id,
+        org_label=getattr(old_session, "org_label", None),
         working_config_json=old_session.working_config_json,
         generation_recipes=old_session.generation_recipes,
     )

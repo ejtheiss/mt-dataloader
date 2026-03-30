@@ -26,6 +26,7 @@ async def list_runs(
     sort: str | None = None,
     dir: str = "asc",
     status: str | None = None,
+    mt_org_id: str | None = None,
 ):
     """List past run manifests with optional sort and filter."""
     templates = get_templates()
@@ -44,6 +45,10 @@ async def list_runs(
 
     if status:
         manifests = [m for m in manifests if str(m.status) == status or getattr(m.status, "value", None) == status]
+
+    if mt_org_id and mt_org_id.strip():
+        oid = mt_org_id.strip()
+        manifests = [m for m in manifests if getattr(m, "mt_org_id", None) == oid]
 
     sort_keys = {
         "run_id": lambda m: m.run_id,

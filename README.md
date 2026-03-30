@@ -33,7 +33,7 @@ Or manually: `python3 -m venv .venv && pip install -r requirements.txt && uvicor
 
 ---
 
-Open **http://127.0.0.1:8000**. Enter your **API key** and **org ID** on the setup screen, upload JSON (or paste), then **Validate**. If the config uses **Funds Flows**, you'll see the Fund Flows view first (lifecycle visualization, Mermaid diagrams, generation controls) before proceeding to **Preview / Execute**. Credentials can also be entered in the UI — the `.env` file is optional.
+Open **http://127.0.0.1:8000**. Use the **organization switcher** at the top of the left sidebar to add one or more MT **API keys** and **org IDs**; the active profile applies to Setup validation, execution, and the Listener. **Setup** is only for JSON (upload or paste) and **Validate**. Use **Show all orgs** on **Runs** or **Listener** to list every run or webhook row regardless of active org. Profiles are stored in **browser localStorage** (not encrypted, not synced). There is no server-side user login yet. The `.env` file is optional (e.g. `DATALOADER_WEBHOOK_SECRET`).
 
 ---
 
@@ -204,6 +204,12 @@ If you entered your authtoken previously, the tunnel **auto-starts** when the co
 ### Verify it works
 
 Click **Send Test Webhook** on the `/listen` page — a synthetic event should appear in the live feed. Then run a config and watch real MT events stream in.
+
+### Ngrok: “too many agent sessions” (ERR_NGROK_108)
+
+Free ngrok allows **three concurrent agent sessions** per account. Each separate ngrok process counts (other terminals, Docker replicas, IDE tunnels, or stale sessions). Open [dashboard.ngrok.com/agents](https://dashboard.ngrok.com/agents) to disconnect idle agents, stop extra `ngrok` processes, or upgrade. If you already run ngrok yourself and only want the dataloader to **attach** to it, set **`DATALOADER_NGROK_AUTO_START=false`** so the app does not spawn another agent on startup.
+
+On **`/listen`**, tunnel start failures (including ERR_NGROK_108) are shown in the **amber health banner** under the tunnel panel. **Optional:** set **`DATALOADER_NGROK_API_KEY`** to a [ngrok API key](https://dashboard.ngrok.com/api-keys) (Bearer token for `api.ngrok.com`, not the agent authtoken). Then the banner can **list remote agent sessions** and **stop** them from the UI without opening the dashboard.
 
 ### Advanced: external ngrok (optional)
 

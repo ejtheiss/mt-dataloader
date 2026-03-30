@@ -9,12 +9,54 @@ restarts via the volume mount.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
 from loguru import logger
 
 _CONFIG_FILENAME = ".tunnel_config.json"
+
+_AGENTS_DASHBOARD = "https://dashboard.ngrok.com/agents"
+
+
+class NgrokStartError(Exception):
+    """Raised when pyngrok cannot open a tunnel (includes account / quota hints)."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str | None = None,
+        hint: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.hint = hint
+
+
+def interpret_ngrok_start_error(exc: BaseException) -> dict[str, str | None]:
+    """Map raw pyngrok / ngrok agent errors to optional ``ERR_*`` code and hint text."""
+    raw = str(exc).strip()
+    lower = raw.lower()
+    code: str | None = None
+    if "ERR_NGROK_108" in raw or "err_ngrok_108" in lower:
+        code = "ERR_NGROK_108"
+    elif "3 simultaneous" in lower and "ngrok" in lower:
+        code = "ERR_NGROK_108"
+    elif "limited to 3" in lower and "session" in lower:
+        code = "ERR_NGROK_108"
+
+    hint: str | None = None
+    if code == "ERR_NGROK_108":
+        hint = (
+            "Free ngrok allows only 3 concurrent agent sessions for your account. "
+            "Each separate `ngrok` process (other terminals, Docker containers, IDE tunnels, "
+            "or old dataloader instances) counts as one session. "
+            f"Open {_AGENTS_DASHBOARD} to disconnect idle agents, stop extra processes, "
+            "or set DATALOADER_NGROK_AUTO_START=false if you already run ngrok yourself."
+        )
+    return {"raw": raw, "code": code, "hint": hint}
 
 
 class TunnelManager:
@@ -27,6 +69,32 @@ class TunnelManager:
         self._config_path = Path(runs_dir) / _CONFIG_FILENAME
         self._active_url: str | None = None
         self._config: dict = self._load_config()
+        self._ngrok_failure: dict | None = None
+
+    def clear_ngrok_failure(self) -> None:
+        """Clear last start failure (called after a successful connect)."""
+        self._ngrok_failure = None
+
+    def last_ngrok_failure(self) -> dict | None:
+        """Last tunnel start failure for UI: ``code``, ``message``, ``hint``, ``at``."""
+        return self._ngrok_failure
+
+    def _set_ngrok_failure(
+        self,
+        code: str | None,
+        message: str,
+        hint: str | None,
+    ) -> None:
+        self._ngrok_failure = {
+            "code": code,
+            "message": message,
+            "hint": hint,
+            "at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def record_unknown_start_failure(self, message: str) -> None:
+        """Persist a tunnel start error that was not a structured ``NgrokStartError``."""
+        self._set_ngrok_failure(None, message, None)
 
     # ------------------------------------------------------------------
     # Persistence
@@ -60,11 +128,28 @@ class TunnelManager:
         from pyngrok import conf, ngrok
 
         conf.get_default().auth_token = authtoken
+        try:
+            ngrok.disconnect_all()
+        except Exception:
+            pass
+
         kwargs: dict = {"addr": str(port), "proto": "http"}
         if domain:
             kwargs["hostname"] = domain
 
-        tunnel = ngrok.connect(**kwargs)
+        try:
+            tunnel = ngrok.connect(**kwargs)
+        except Exception as exc:
+            info = interpret_ngrok_start_error(exc)
+            msg = info["hint"] or info["raw"]
+            self._set_ngrok_failure(info["code"], msg, info["hint"])
+            raise NgrokStartError(
+                msg,
+                code=info["code"],
+                hint=info["hint"],
+            ) from exc
+
+        self.clear_ngrok_failure()
         self._active_url = tunnel.public_url
         logger.info("Tunnel started: {}", self._active_url)
 
@@ -95,11 +180,16 @@ class TunnelManager:
             tunnels = ngrok.get_tunnels()
             for t in tunnels:
                 if t.public_url.startswith("https://"):
-                    return {"connected": True, "url": t.public_url}
+                    out = {"connected": True, "url": t.public_url}
+                    self.clear_ngrok_failure()
+                    return out
         except Exception:
             pass
 
-        return _probe_external_ngrok()
+        ext = _probe_external_ngrok()
+        if ext.get("connected"):
+            self.clear_ngrok_failure()
+        return ext
 
     # ------------------------------------------------------------------
     # Saved properties

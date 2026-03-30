@@ -4,8 +4,16 @@
 {% block title_display %}Past Runs{% endblock %}
 
 {% block content %}
+<p class="runs-scope-hint">
+    <label class="runs-scope-label">
+        <input type="checkbox" class="dl-show-all-orgs-input" id="dl-runs-show-all">
+        Show runs from all organizations
+    </label>
+    <span class="text-muted" style="font-size: 12px;">When off, the list matches the active org in the sidebar.</span>
+</p>
+
 <details class="cleanup-credentials" id="cleanup-creds">
-    <summary id="cleanup-creds-summary">API Credentials (required for cleanup)</summary>
+    <summary id="cleanup-creds-summary">API Credentials (for cleanup)</summary>
     <div style="margin-top: 12px;">
         <div class="form-row">
             <div class="form-group">
@@ -24,7 +32,7 @@
 
 <div id="runs-list"
      hx-get="/api/runs"
-     hx-trigger="load"
+     hx-trigger="load, refresh"
      hx-target="#runs-list"
      hx-swap="innerHTML"
      hx-indicator="#runs-spinner">
@@ -33,12 +41,25 @@
     </div>
 </div>
 <script>
-(function() {
-    var has = sessionStorage.getItem("mt_api_key") && sessionStorage.getItem("mt_org_id");
-    if (has) {
-        document.getElementById("cleanup-creds-summary").textContent =
-            "API Credentials (stored from session)";
-    }
-})();
+document.addEventListener("DOMContentLoaded", function() {
+    setTimeout(function() {
+        var has = sessionStorage.getItem("mt_api_key") && sessionStorage.getItem("mt_org_id");
+        var sum = document.getElementById("cleanup-creds-summary");
+        if (has && sum) {
+            sum.textContent = "API Credentials (prefilled from sidebar)";
+        }
+        var cb = document.getElementById("dl-runs-show-all");
+        if (cb && window.DLOrgContext) {
+            cb.checked = DLOrgContext.isShowAllOrgs();
+            cb.addEventListener("change", function() {
+                DLOrgContext.setShowAllOrgs(cb.checked);
+            });
+        }
+        document.body.addEventListener("dl-org-context-changed", function() {
+            var c2 = document.getElementById("dl-runs-show-all");
+            if (c2 && window.DLOrgContext) c2.checked = DLOrgContext.isShowAllOrgs();
+        });
+    }, 0);
+});
 </script>
 {% endblock %}

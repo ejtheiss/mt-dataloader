@@ -57,6 +57,7 @@ class WebhookEntry:
     typed_ref: str | None
     raw: dict
     html: str = ""
+    mt_org_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +70,8 @@ _seen_ids_order: deque[str] = deque(maxlen=2000)
 _seen_ids: set[str] = set()
 
 _correlation_index: dict[str, tuple[str, str]] = {}
+
+_run_org_map: dict[str, str] = {}
 
 _webhook_listeners: list[tuple[str | None, asyncio.Queue[WebhookEntry]]] = []
 
@@ -106,6 +109,33 @@ def ensure_run_indexed(run_id: str, manifest: Any) -> None:
                 )
 
 
+def build_run_org_map(runs_dir: str) -> dict[str, str]:
+    """Map run_id → MT org id from manifests (for listener / run detail UI)."""
+    out: dict[str, str] = {}
+    rpath = Path(runs_dir)
+    for run_id in list_manifest_ids(runs_dir):
+        try:
+            manifest = RunManifest.load(rpath / f"{run_id}.json")
+        except Exception:
+            continue
+        oid = getattr(manifest, "mt_org_id", None)
+        if oid:
+            out[run_id] = oid
+    return out
+
+
+def enrich_webhooks_run_org(
+    webhooks: list[dict], run_org_map: dict[str, str]
+) -> None:
+    """Fill ``mt_org_id`` on webhook dicts using the run manifest map."""
+    for wh in webhooks:
+        if wh.get("mt_org_id"):
+            continue
+        rid = wh.get("run_id")
+        if isinstance(rid, str) and rid in run_org_map:
+            wh["mt_org_id"] = run_org_map[rid]
+
+
 def load_webhooks(path: Path) -> list[dict]:
     """Load webhook entries from a JSONL file, newest first."""
     entries: list[dict] = []
@@ -140,6 +170,9 @@ def rebuild_correlation_index(runs_dir: str) -> int:
         except Exception as exc:
             logger.warning("Skipping manifest {} during index rebuild: {}", run_id, exc)
             continue
+        oid = getattr(manifest, "mt_org_id", None)
+        if oid:
+            _run_org_map[run_id] = oid
         for entry in manifest.resources_created:
             _correlation_index[entry.created_id] = (run_id, entry.typed_ref)
             count += 1
@@ -368,6 +401,7 @@ async def receive_webhook(request: Request):
         return {"ok": True, "duplicate": True}
 
     run_id, typed_ref = _correlate(data)
+    row_org = _run_org_map.get(run_id) if run_id else None
 
     entry = WebhookEntry(
         received_at=datetime.now(timezone.utc).isoformat(),
@@ -378,6 +412,7 @@ async def receive_webhook(request: Request):
         run_id=run_id,
         typed_ref=typed_ref,
         raw=body,
+        mt_org_id=row_org,
     )
 
     entry.html = _render_webhook_html(entry, request.app.state.templates)
@@ -465,6 +500,8 @@ async def run_detail_page(request: Request, run_id: str):
 
     webhooks_path = runs_dir / f"{run_id}_webhooks.jsonl"
     webhook_history = load_webhooks(webhooks_path)
+    rom = build_run_org_map(str(runs_dir))
+    enrich_webhooks_run_org(webhook_history, rom)
 
     return templates.TemplateResponse(
         request,
@@ -729,14 +766,20 @@ async def listen_page(request: Request, run_id: str | None = None):
     mgr = getattr(request.app.state, "tunnel", None)
     saved_authtoken = ""
     saved_domain = ""
+    saved_webhook_endpoint_id = ""
     if mgr:
         saved_authtoken = settings.ngrok_authtoken or mgr.saved_authtoken
         saved_domain = settings.ngrok_domain or mgr.saved_domain
+        saved_webhook_endpoint_id = mgr.saved_webhook_endpoint_id
+
+    tunnel_setup_collapsed = bool(tunnel_url and saved_webhook_endpoint_id)
 
     webhook_history: list[dict] = []
+    run_org_map = build_run_org_map(settings.runs_dir)
     if run_id:
         webhooks_path = Path(settings.runs_dir) / f"{run_id}_webhooks.jsonl"
         webhook_history = load_webhooks(webhooks_path)
+        enrich_webhooks_run_org(webhook_history, run_org_map)
 
     run_ids = list_manifest_ids(settings.runs_dir)
 
@@ -748,9 +791,12 @@ async def listen_page(request: Request, run_id: str | None = None):
             "webhook_path": "/webhooks/mt",
             "webhook_history": webhook_history,
             "run_ids": run_ids,
+            "run_org_map": run_org_map,
             "selected_run_id": run_id,
             "saved_authtoken": saved_authtoken,
             "saved_domain": saved_domain,
+            "saved_webhook_endpoint_id": saved_webhook_endpoint_id,
+            "tunnel_setup_collapsed": tunnel_setup_collapsed,
         },
     )
 

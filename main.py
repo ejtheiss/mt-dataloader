@@ -25,7 +25,7 @@ from routers.flows import router as flows_router
 from routers.runs import router as runs_router
 from routers.setup import router as setup_router
 from routers.tunnel import router as tunnel_router
-from tunnel import TunnelManager
+from tunnel import NgrokStartError, TunnelManager
 from webhooks import router as webhook_router, rebuild_correlation_index
 
 # ---------------------------------------------------------------------------
@@ -116,11 +116,17 @@ async def lifespan(app: FastAPI):
     app.state.tunnel = tunnel_mgr
 
     authtoken = settings.ngrok_authtoken or tunnel_mgr.saved_authtoken
-    if authtoken:
+    if authtoken and settings.ngrok_auto_start:
         try:
             domain = settings.ngrok_domain or tunnel_mgr.saved_domain or None
             url = tunnel_mgr.start(authtoken, domain=domain)
             logger.info("Tunnel auto-started: {}", url)
+        except NgrokStartError as exc:
+            logger.warning(
+                "Tunnel auto-start failed ({}): {} — start manually from /listen or free agent slots.",
+                exc.code or "ngrok",
+                exc,
+            )
         except Exception as exc:
             logger.warning("Tunnel auto-start failed (start manually from /listen): {}", exc)
 

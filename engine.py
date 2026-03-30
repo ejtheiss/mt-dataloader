@@ -40,6 +40,16 @@ def _extract_display_name(resource: _BaseResourceConfig) -> str:
     from helpers import extract_display_name
     return extract_display_name(resource)
 
+
+def _register_run_org_for_webhooks(run_id: str, org_id: str | None) -> None:
+    """Tell the webhook layer which MT org owns a run (for listener filtering)."""
+    if not org_id:
+        return
+    import webhooks as wh_mod
+
+    wh_mod.register_run_org(run_id, org_id)
+
+
 __all__ = [
     "RefRegistry",
     "extract_ref_dependencies",
@@ -412,6 +422,8 @@ class RunManifest:
     generation_recipe: dict | None = None
     compile_id: str | None = None
     seed_version: str | None = None
+    mt_org_id: str | None = None
+    mt_org_label: str | None = None
 
     def record(self, entry: ManifestEntry) -> None:
         self.resources_created.append(entry)
@@ -464,6 +476,8 @@ class RunManifest:
             generation_recipe=data.get("generation_recipe"),
             compile_id=data.get("compile_id"),
             seed_version=data.get("seed_version"),
+            mt_org_id=data.get("mt_org_id"),
+            mt_org_label=data.get("mt_org_label"),
         )
         for entry_data in data.get("resources_created", []):
             manifest.resources_created.append(ManifestEntry(**entry_data))
@@ -512,6 +526,8 @@ class RunManifest:
             "generation_recipe": self.generation_recipe,
             "compile_id": self.compile_id,
             "seed_version": self.seed_version,
+            "mt_org_id": self.mt_org_id,
+            "mt_org_label": self.mt_org_label,
         }
 
 
@@ -645,7 +661,11 @@ async def execute(
     manifest = RunManifest(
         run_id=run_id,
         config_hash=config_hash(config),
+        mt_org_id=mt_org_id,
+        mt_org_label=mt_org_label,
     )
+    if mt_org_id:
+        _register_run_org_for_webhooks(run_id, mt_org_id)
     staged_payloads: dict[str, dict] = {}
 
     batch_index = 0

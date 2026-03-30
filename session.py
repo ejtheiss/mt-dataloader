@@ -48,6 +48,7 @@ class SessionState:
     mermaid_diagrams: list[str] | None = None
     view_data_cache: list | None = None
     source_file_path: str | None = None
+    org_label: str | None = None
 
 
 sessions: dict[str, SessionState] = {}

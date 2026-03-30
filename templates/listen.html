@@ -6,19 +6,32 @@
 {% block content %}
 
     {# ================================================================
-       Section 1: Tunnel Setup
+       Section 1: Tunnel Setup (collapsible health summary when complete)
        ================================================================ #}
-    <div class="card" id="tunnel-setup-card">
-        <div class="card-header">
-            <div class="card-heading">
-                <div class="card-title">Tunnel &amp; Webhook Setup</div>
-                <div class="card-description">Connect ngrok to receive live MT webhook events</div>
+    <details class="tunnel-setup-details" id="tunnel-setup-details"
+             {% if not tunnel_setup_collapsed %}open{% endif %}>
+        <summary class="tunnel-setup-summary">
+            <span class="tunnel-summary-chevron" aria-hidden="true">&#9654;</span>
+            <span id="tunnel-status-dot"
+                  class="tunnel-dot {% if tunnel_url %}tunnel-dot--connected{% else %}tunnel-dot--disconnected{% endif %}"
+                  title="{% if tunnel_url %}Connected{% else %}Disconnected{% endif %}"></span>
+            <div class="tunnel-summary-main">
+                <span class="tunnel-summary-title">Tunnel &amp; Webhook</span>
+                <span class="tunnel-summary-line" id="tunnel-summary-line">
+                    {% if tunnel_url and saved_webhook_endpoint_id %}
+                    Connected · Registered in MT — expand to change tunnel or re-register
+                    {% elif tunnel_url %}
+                    Connected — register in MT or expand to edit
+                    {% else %}
+                    Not connected — expand to start ngrok
+                    {% endif %}
+                </span>
             </div>
-            <div class="card-actions">
-                <span id="tunnel-status-dot" class="tunnel-dot tunnel-dot--disconnected" title="Disconnected"></span>
-            </div>
-        </div>
-        <div class="card-content">
+            <code class="tunnel-summary-url" id="tunnel-summary-url">{% if tunnel_url %}{{ tunnel_url }}{{ webhook_path }}{% else %}—{% endif %}</code>
+        </summary>
+
+        <div class="tunnel-setup-body">
+            <div id="org-listener-health" class="tunnel-org-health tunnel-org-health--in-panel tunnel-org-health--hidden" role="status" aria-live="polite"></div>
             <div class="tunnel-setup-grid">
                 {# -- Left: tunnel controls -- #}
                 <div class="tunnel-setup-col">
@@ -45,8 +58,10 @@
                         </span>
                     </div>
                     <div class="tunnel-btn-row">
-                        <button class="btn btn-primary" id="btn-tunnel-start">Start Tunnel</button>
-                        <button class="btn btn-outline" id="btn-tunnel-stop" disabled>Stop</button>
+                        <button class="btn btn-primary" id="btn-tunnel-start"
+                                {{ 'disabled' if tunnel_url }}>Start Tunnel</button>
+                        <button class="btn btn-outline" id="btn-tunnel-stop"
+                                {{ 'disabled' if not tunnel_url }}>Stop</button>
                     </div>
                 </div>
 
@@ -70,7 +85,12 @@
                     <div class="tunnel-register-box" id="tunnel-register-box">
                         <div class="tunnel-url-label">MT Webhook Endpoint</div>
                         <div id="tunnel-register-status" class="tunnel-register-status">
+                            {% if saved_webhook_endpoint_id %}
+                            <span class="badge badge--success">Registered</span>
+                            <span class="text-muted" style="font-size:12px;">Endpoint: {{ saved_webhook_endpoint_id[:16] }}&hellip;</span>
+                            {% else %}
                             <span class="text-muted">Register after starting the tunnel</span>
+                            {% endif %}
                         </div>
                         <div class="tunnel-btn-row" style="margin-top: 8px;">
                             <button class="btn btn-sm btn-outline" id="btn-register-mt"
@@ -97,8 +117,19 @@
                     <li><em>Optional:</em> <a href="https://dashboard.ngrok.com/domains" target="_blank" rel="noopener">Claim a free static domain</a> so the URL never changes</li>
                 </ol>
             </details>
+            <details class="tunnel-instructions">
+                <summary>Orgs, runs, and signing</summary>
+                <ul class="tunnel-steps tunnel-steps--compact">
+                    <li>The banner below the panel checks whether your Setup org&rsquo;s MT webhook URL matches this listener.</li>
+                    <li>Multiple orgs can use the same listener URL if each registers a webhook to it.</li>
+                    <li>Events match runs using resource IDs from <code>runs/</code> manifests; other IDs stay unmatched.</li>
+                    <li>One <code>DATALOADER_WEBHOOK_SECRET</code> at a time — for several orgs on one URL, leave it empty in sandbox or run one org per instance.</li>
+                </ul>
+            </details>
         </div>
-    </div>
+    </details>
+
+    <div id="tunnel-ngrok-health" class="tunnel-org-health tunnel-org-health--hidden" role="alert" aria-live="assertive"></div>
 
     {# ================================================================
        Section 2: Filter bar + Live Feed (unchanged)
@@ -115,12 +146,7 @@
                     </button>
                     <div class="mt-filter-panel hidden" id="run-filter-panel">
                         <button type="button" class="mt-filter-option" onclick="setRunFilter('')">All webhooks</button>
-                        {% for rid in run_ids %}
-                        <button type="button" class="mt-filter-option"
-                                onclick="setRunFilter('{{ rid }}')">
-                            {{ rid[:8] }}&hellip;{{ rid[-8:] }}
-                        </button>
-                        {% endfor %}
+                        <div id="run-filter-dynamic"></div>
                     </div>
                 </div>
                 <div class="mt-filter-pills" id="run-filter-pills">
@@ -139,7 +165,11 @@
                     {% endif %}
                 </div>
             </div>
-            <div class="mt-filter-bar-right">
+            <div class="mt-filter-bar-right" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <label class="listen-scope-label">
+                    <input type="checkbox" class="dl-show-all-orgs-input" id="dl-listen-show-all">
+                    All orgs (webhooks)
+                </label>
                 <button class="btn btn-sm btn-outline" id="btn-test-webhook">
                     Send Test Webhook
                 </button>
@@ -172,6 +202,8 @@
         </div>
     </div>
 
+<script type="application/json" id="dl-listen-run-context">{{ {"run_ids": run_ids, "run_org_map": run_org_map, "selected_run_id": selected_run_id or ""} | tojson }}</script>
+
 <script>
 (function() {
     /* ---- SSE live feed (unchanged logic) ---- */
@@ -179,6 +211,81 @@
     var container = document.getElementById('live-webhooks');
     var pillsContainer = document.getElementById('run-filter-pills');
     var initialRunId = {{ selected_run_id | tojson }} || null;
+    var listenCtx = { run_ids: [], run_org_map: {}, selected_run_id: '' };
+    try {
+        listenCtx = JSON.parse(document.getElementById('dl-listen-run-context').textContent);
+    } catch (e1) {}
+
+    function visibleRunIds() {
+        if (window.DLOrgContext && DLOrgContext.isShowAllOrgs()) return listenCtx.run_ids || [];
+        var oid = sessionStorage.getItem('mt_org_id') || '';
+        if (!oid) return listenCtx.run_ids || [];
+        var ids = listenCtx.run_ids || [];
+        return ids.filter(function(rid) {
+            var m = (listenCtx.run_org_map || {})[rid];
+            return !m || m === oid;
+        });
+    }
+
+    function buildRunFilterButtons() {
+        var el = document.getElementById('run-filter-dynamic');
+        if (!el) return;
+        el.innerHTML = '';
+        visibleRunIds().forEach(function(rid) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'mt-filter-option';
+            b.textContent = rid.substring(0, 8) + '\u2026' + rid.substring(rid.length - 8);
+            b.addEventListener('click', function() { setRunFilter(rid); });
+            el.appendChild(b);
+        });
+    }
+
+    function applyWebhookScopeToTable() {
+        if (!container) return;
+        var all = window.DLOrgContext && DLOrgContext.isShowAllOrgs();
+        var active = sessionStorage.getItem('mt_org_id') || '';
+        container.querySelectorAll('.mt-index-table-row[data-webhook-id]').forEach(function(row) {
+            if (all) {
+                row.style.display = '';
+                return;
+            }
+            var ro = row.getAttribute('data-mt-org-id') || '';
+            var rid = row.getAttribute('data-run-id') || '';
+            if (!rid) {
+                row.style.display = '';
+                return;
+            }
+            if (ro && active && ro !== active) row.style.display = 'none';
+            else row.style.display = '';
+        });
+    }
+
+    function wireListenScopeToggle() {
+        var cb = document.getElementById('dl-listen-show-all');
+        if (!cb || !window.DLOrgContext) return;
+        cb.checked = DLOrgContext.isShowAllOrgs();
+        cb.addEventListener('change', function() {
+            DLOrgContext.setShowAllOrgs(cb.checked);
+            buildRunFilterButtons();
+            applyWebhookScopeToTable();
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            buildRunFilterButtons();
+            wireListenScopeToggle();
+            applyWebhookScopeToTable();
+        }, 0);
+    });
+    document.body.addEventListener('dl-org-context-changed', function() {
+        var cb = document.getElementById('dl-listen-show-all');
+        if (cb && window.DLOrgContext) cb.checked = DLOrgContext.isShowAllOrgs();
+        buildRunFilterButtons();
+        applyWebhookScopeToTable();
+        if (typeof refreshOrgListenerHealth === 'function') refreshOrgListenerHealth();
+    });
 
     function connectSSE(runId) {
         if (source) source.close();
@@ -194,6 +301,7 @@
             if (container.firstElementChild && typeof htmx !== 'undefined') {
                 htmx.process(container.firstElementChild);
             }
+            if (container.firstElementChild) applyWebhookScopeToTable();
         });
     }
 
@@ -243,7 +351,178 @@
     var btnStop   = document.getElementById('btn-tunnel-stop');
     var btnReg    = document.getElementById('btn-register-mt');
     var webhookPath = '/webhooks/mt';
+    var setupDetails = document.getElementById('tunnel-setup-details');
+    var summaryLine = document.getElementById('tunnel-summary-line');
+    var summaryUrl = document.getElementById('tunnel-summary-url');
     var _lastConnected = {{ 'true' if tunnel_url else 'false' }};
+    var _registered = {{ 'true' if saved_webhook_endpoint_id else 'false' }};
+    var orgHealthEl = document.getElementById('org-listener-health');
+    var ngrokHealthEl = document.getElementById('tunnel-ngrok-health');
+
+    function renderTunnelNgrokHealth(data) {
+        if (!ngrokHealthEl || !dot || !summaryLine) return;
+        var issue = data.ngrok_issue;
+        var connected = data.connected && data.url;
+        if (connected || !issue) {
+            ngrokHealthEl.className = 'tunnel-org-health tunnel-org-health--hidden';
+            ngrokHealthEl.innerHTML = '';
+            dot.classList.remove('tunnel-dot--warning');
+            if (!connected && summaryLine && !issue) {
+                summaryLine.classList.remove('tunnel-summary-line--warn');
+            }
+            return;
+        }
+        dot.classList.add('tunnel-dot--warning');
+        dot.title = issue.code || 'Tunnel error';
+        summaryLine.classList.add('tunnel-summary-line--warn');
+        var title = issue.code ? ('Ngrok: ' + issue.code) : 'Ngrok tunnel failed';
+        var body = (issue.message || '') + (issue.hint ? ' ' + issue.hint : '');
+        var dash = 'https://dashboard.ngrok.com/agents';
+        var html = '<div class="tunnel-ngrok-health-title">' + escapeHtml(title) + '</div>' +
+            '<div class="tunnel-ngrok-health-body">' + escapeHtml(body) + '</div>' +
+            '<div class="tunnel-ngrok-health-actions">' +
+            '<a href="' + dash + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline">Open ngrok agents dashboard</a>';
+        if (data.ngrok_remote_tools && issue.code === 'ERR_NGROK_108') {
+            html += ' <button type="button" class="btn btn-sm btn-primary" id="btn-load-ngrok-sessions">List remote agents (API)</button>';
+        }
+        html += '</div><div id="tunnel-ngrok-sessions" class="tunnel-ngrok-sessions"></div>';
+        ngrokHealthEl.innerHTML = html;
+        ngrokHealthEl.className = 'tunnel-org-health tunnel-org-health--warn tunnel-ngrok-health-banner';
+        var loadBtn = document.getElementById('btn-load-ngrok-sessions');
+        if (loadBtn) {
+            loadBtn.addEventListener('click', loadNgrokRemoteSessions);
+        }
+    }
+
+    function escapeHtml(s) {
+        if (!s) return '';
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function loadNgrokRemoteSessions() {
+        var box = document.getElementById('tunnel-ngrok-sessions');
+        if (!box) return;
+        box.textContent = 'Loading\u2026';
+        fetch('/api/tunnel/ngrok-agent-sessions')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.enabled) {
+                    box.innerHTML = '<p class="text-muted" style="margin:8px 0 0;font-size:12px;">' +
+                        escapeHtml(data.message || 'API not configured') + '</p>';
+                    return;
+                }
+                if (data.error) {
+                    box.innerHTML = '<p class="tunnel-ngrok-api-err">' + escapeHtml(data.error) + '</p>';
+                    return;
+                }
+                var rows = data.sessions || [];
+                if (!rows.length) {
+                    box.innerHTML = '<p class="text-muted" style="margin:8px 0 0;font-size:12px;">No online agent sessions reported.</p>';
+                    return;
+                }
+                var t = '<table class="tunnel-ngrok-session-table"><thead><tr><th>Started</th><th>Region</th><th>OS</th><th>IP</th><th></th></tr></thead><tbody>';
+                rows.forEach(function(s) {
+                    var id = s.id || '';
+                    t += '<tr><td>' + escapeHtml((s.started_at || '').slice(0, 19)) + '</td>' +
+                        '<td>' + escapeHtml(s.region || '') + '</td>' +
+                        '<td>' + escapeHtml(s.os || '') + '</td>' +
+                        '<td><code>' + escapeHtml(s.ip || '') + '</code></td>' +
+                        '<td><button type="button" class="btn btn-sm btn-outline tunnel-stop-session" data-sid="' +
+                        escapeHtml(id) + '">Stop agent</button></td></tr>';
+                });
+                t += '</tbody></table>';
+                box.innerHTML = t;
+                box.querySelectorAll('.tunnel-stop-session').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var sid = btn.getAttribute('data-sid');
+                        if (!sid || !confirm('Stop this ngrok agent session? It will disconnect that process.')) return;
+                        var fd = new FormData();
+                        fd.append('session_id', sid);
+                        fetch('/api/tunnel/ngrok-agent-sessions/stop', {method: 'POST', body: fd})
+                            .then(function(r) { return r.json(); })
+                            .then(function(res) {
+                                if (res.ok) loadNgrokRemoteSessions();
+                                else alert(res.error || 'Stop failed');
+                            });
+                    });
+                });
+            })
+            .catch(function() {
+                box.textContent = 'Could not load sessions.';
+            });
+    }
+
+    var ORG_HEALTH_BASE = 'tunnel-org-health tunnel-org-health--in-panel';
+
+    function renderOrgListenerHealth(data) {
+        if (!orgHealthEl) return;
+        var check = data.org_check;
+        if (check === 'no_tunnel' || check === 'no_credentials') {
+            orgHealthEl.className = ORG_HEALTH_BASE + ' tunnel-org-health--muted';
+            orgHealthEl.textContent = data.message || '';
+            orgHealthEl.classList.remove('tunnel-org-health--hidden');
+            return;
+        }
+        if (check === 'match') {
+            orgHealthEl.className = ORG_HEALTH_BASE + ' tunnel-org-health--ok';
+            orgHealthEl.textContent = data.message || 'This org is configured for this listener URL.';
+            orgHealthEl.classList.remove('tunnel-org-health--hidden');
+            return;
+        }
+        if (check === 'stale_url' || check === 'no_match') {
+            orgHealthEl.className = ORG_HEALTH_BASE + ' tunnel-org-health--warn';
+            orgHealthEl.textContent = data.message || 'Webhook URL mismatch for this org.';
+            orgHealthEl.classList.remove('tunnel-org-health--hidden');
+            return;
+        }
+        if (check === 'error') {
+            orgHealthEl.className = ORG_HEALTH_BASE + ' tunnel-org-health--err';
+            orgHealthEl.textContent = 'Could not verify org webhooks: ' + (data.message || 'unknown error');
+            orgHealthEl.classList.remove('tunnel-org-health--hidden');
+            return;
+        }
+        orgHealthEl.className = ORG_HEALTH_BASE + ' tunnel-org-health--hidden';
+        orgHealthEl.textContent = '';
+    }
+
+    function refreshOrgListenerHealth() {
+        if (!orgHealthEl) return;
+        var apiKey = sessionStorage.getItem('mt_api_key');
+        var orgId  = sessionStorage.getItem('mt_org_id');
+        var body = new FormData();
+        body.append('api_key', apiKey || '');
+        body.append('org_id', orgId || '');
+        fetch('/api/tunnel/check-org-webhook', {method: 'POST', body: body})
+            .then(function(r) { return r.json(); })
+            .then(renderOrgListenerHealth)
+            .catch(function() {
+                orgHealthEl.className = ORG_HEALTH_BASE + ' tunnel-org-health--err';
+                orgHealthEl.textContent = 'Could not reach server to verify org webhooks.';
+                orgHealthEl.classList.remove('tunnel-org-health--hidden');
+            });
+    }
+
+    function updateHealthSummary(url, ngrokIssue) {
+        if (!summaryLine || !summaryUrl) return;
+        var full = url ? (url + webhookPath) : '\u2014';
+        summaryUrl.textContent = full;
+        if (url && _registered) {
+            summaryLine.textContent = 'Connected \u00b7 Registered in MT \u2014 expand to change tunnel or re-register';
+            summaryLine.classList.remove('tunnel-summary-line--warn');
+        } else if (url) {
+            summaryLine.textContent = 'Connected \u2014 register in MT or expand to edit';
+            summaryLine.classList.remove('tunnel-summary-line--warn');
+        } else if (ngrokIssue && ngrokIssue.code) {
+            summaryLine.textContent = 'Not connected \u2014 ' + ngrokIssue.code + ' (see banner below)';
+        } else if (ngrokIssue) {
+            summaryLine.textContent = 'Not connected \u2014 ngrok error (see banner below)';
+        } else {
+            summaryLine.textContent = 'Not connected \u2014 expand to start ngrok';
+            summaryLine.classList.remove('tunnel-summary-line--warn');
+        }
+    }
 
     function setConnectedUI(url) {
         dot.className = 'tunnel-dot tunnel-dot--connected';
@@ -256,6 +535,7 @@
         btnStart.disabled = true;
         btnStop.disabled = false;
         btnReg.disabled = false;
+        updateHealthSummary(url, null);
     }
 
     function setDisconnectedUI() {
@@ -269,23 +549,31 @@
 
     function pollStatus() {
         fetch('/api/tunnel/status').then(function(r) { return r.json(); }).then(function(data) {
-            if (data.connected && data.url) {
-                if (!_lastConnected) setConnectedUI(data.url);
-                _lastConnected = true;
-            } else {
-                if (_lastConnected) setDisconnectedUI();
-                _lastConnected = false;
-            }
             if (data.webhook_endpoint_id) {
+                _registered = true;
                 regStatus.innerHTML =
                     '<span class="badge badge--success">Registered</span> ' +
                     '<span class="text-muted" style="font-size:12px;">Endpoint: ' +
                     data.webhook_endpoint_id.substring(0, 16) + '&hellip;</span>';
             }
+            if (data.connected && data.url) {
+                if (!_lastConnected) setConnectedUI(data.url);
+                else updateHealthSummary(data.url, null);
+                _lastConnected = true;
+            } else {
+                if (_lastConnected) setDisconnectedUI();
+                _lastConnected = false;
+                updateHealthSummary(null, data.ngrok_issue);
+            }
+            renderTunnelNgrokHealth(data);
+            refreshOrgListenerHealth();
         }).catch(function() {});
     }
 
     setInterval(pollStatus, 10000);
+    {% if tunnel_url %}
+    updateHealthSummary({{ tunnel_url | tojson }});
+    {% endif %}
     pollStatus();
 
     /* Start tunnel */
@@ -305,9 +593,14 @@
                 if (data.ok) {
                     setConnectedUI(data.url);
                     _lastConnected = true;
+                    refreshOrgListenerHealth();
+                    pollStatus();
                 } else {
                     btnStart.disabled = false;
-                    alert('Tunnel start failed: ' + (data.error || 'unknown error'));
+                    var msg = data.error || 'unknown error';
+                    if (data.hint) msg += '\n\n' + data.hint;
+                    alert('Tunnel start failed: ' + msg);
+                    pollStatus();
                 }
             })
             .catch(function(err) {
@@ -323,6 +616,7 @@
             .then(function() {
                 setDisconnectedUI();
                 _lastConnected = false;
+                refreshOrgListenerHealth();
             });
     });
 
@@ -331,7 +625,7 @@
         var apiKey = sessionStorage.getItem('mt_api_key');
         var orgId  = sessionStorage.getItem('mt_org_id');
         if (!apiKey || !orgId) {
-            alert('Enter your MT API key and org ID on the Setup page first.');
+            alert('Add an organization in the sidebar (top of the left navigation) first.');
             return;
         }
         btnReg.disabled = true;
@@ -345,6 +639,7 @@
                 btnReg.textContent = 'Register in MT';
                 btnReg.disabled = false;
                 if (data.ok) {
+                    _registered = true;
                     var msg = data.action === 'created' ? 'Created' :
                               data.action === 'updated' ? 'Updated' : 'Already registered';
                     regStatus.innerHTML =
@@ -354,6 +649,16 @@
                     if (data.webhook_key_captured) {
                         regStatus.innerHTML += ' <span class="badge badge--cool">Signing secret auto-configured</span>';
                     }
+                    if (summaryUrl && summaryUrl.textContent && summaryUrl.textContent !== '\u2014') {
+                        var base = summaryUrl.textContent.replace(/\/webhooks\/mt$/, '');
+                        updateHealthSummary(base);
+                    } else {
+                        fetch('/api/tunnel/status').then(function(r) { return r.json(); }).then(function(d) {
+                            if (d.url) updateHealthSummary(d.url);
+                        });
+                    }
+                    if (setupDetails) setupDetails.open = false;
+                    refreshOrgListenerHealth();
                 } else {
                     regStatus.innerHTML = '<span class="badge badge--critical">Failed: ' + (data.error || 'unknown') + '</span>';
                 }

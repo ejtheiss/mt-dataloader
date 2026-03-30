@@ -40,19 +40,66 @@ can be created via the config. In production, they are provisioned by MT.
 
 | Intent | Config section | Key fields |
 |--------|---------------|------------|
-| Link to a banking partner (sandbox) | `connections` | `entity_id` (one of `example1`, `example2`, `modern_treasury`), `nickname` |
+| Link to a banking partner (sandbox) | `connections` | `entity_id` (one of `modern_treasury`, `example1`, `example2`), `nickname` |
 
-### Connection capabilities (sandbox)
+### Default (nearly always): `modern_treasury`
 
-| `entity_id` | ACH credit | ACH debit | Book | Wire | Notes |
-|--------------|:----------:|:---------:|:----:|:----:|-------|
-| `example1` | Yes | Yes | Yes | Yes | **Recommended for demos.** Full payment capabilities on newly created IAs. |
-| `example2` | Yes | Yes | Yes | Yes | Same as `example1`. |
-| `modern_treasury` | Limited | **No** | Yes | No | Newly created IAs only support `book` transfers. Do **not** use for configs that need ACH or wire POs. |
+**Use `entity_id: "modern_treasury"`** for standard PSP / marketplace / funds-flow
+demos, wallet stories, book + ACH-style configs, and anything that is **not**
+explicitly a **Bring Your Own Bank (BYOB)** sandbox exercise.
 
-**Always use `example1`** (or `example2`) when the demo includes ACH payment
-orders, ACH debit pulls, wire transfers, or any non-book payment type.
-Use `modern_treasury` only for configs that exclusively use `book` transfers.
+Use a clear `ref` (e.g. `platform_bank`, `mt_sandbox`) and a human nickname
+(e.g. `"Modern Treasury PSP"`). This should be the **default** unless the user
+answered **yes** to the BYOB question (see below).
+
+### BYOB only: `example1` and `example2`
+
+Reserve **`example1`** and **`example2`** for configs that intentionally model
+**[Building in Sandbox (Bring Your Own Bank)](https://docs.moderntreasury.com/payments/docs/building-in-sandbox-bring-your-own-bank)**:
+fake bank behaviors (Gringotts vs Iron Bank), reconciliation-rule drills, or
+docs-accurate simulation patterns. **Do not** use `example1` / `example2` for
+generic demos if the user did not ask for BYOB.
+
+| `entity_id` | Sandbox role (BYOB) | When to use in config |
+|-------------|---------------------|------------------------|
+| `example1` | **Gringotts Wizarding Bank (GWB)** — create with nickname e.g. `"GWB"` | Payment orders **reach the bank**; transactions appear shortly after; **expected payments** on GWB IAs get an **auto-created transaction** (~10s) and reconcile automatically. Good for **end-to-end PO + webhook + fast settlement** stories. |
+| `example2` | **Iron Bank of Braavos (IBB)** — create with nickname e.g. `"IBB"` | **Does not process payment orders.** **Expected payments** on IBB IAs reconcile only when **you** supply a matching **transaction** (reconciliation rules). Good for **reconciliation rules, manual/imported transactions, EP-matching** drills. |
+| `modern_treasury` | Default MT sandbox PSP connection | **Default** for normal dataloader demos. |
+
+**Before** generating a BYOB config, confirm with the user (or infer clearly
+from their ask) and run through **BYOB clarifying questions** (next section).
+
+### BYOB: clarifying questions & decision matrix
+
+Use this when the user wants BYOB-accurate sandbox behavior (per MT docs). Ask
+only what you need; one or two focused questions often suffice.
+
+1. **Bank simulation goal**
+   - **Integration / PO lifecycle / webhooks / “money moves fast”** → prefer **GWB** (`example1`, nickname `GWB`) for originating accounts and POs that should complete end-to-end.
+   - **Reconciliation rules / EP matching / you control when things match** → prefer **IBB** (`example2`, nickname `IBB`) for internal accounts used in expected-payment stories; use **GWB** for PO-heavy legs if the demo mixes both.
+
+2. **Expected payments vs payment orders (typical split)**
+   - Docs guidance: **PO testing** often uses **GWB** internal accounts; **EP + reconciliation** testing often uses **IBB** internal accounts (with transactions you create or import). If the demo is EP-only on IBB, do not assume POs will “hit the bank” on those same IAs.
+
+3. **Simulation tricks (only if the demo needs them)**
+   - **Check success:** counterparty account number `123456789`.
+   - **Check failure:** address line `1111 Azkaban Unit 321`.
+   - **Simulated ACH / wire return (receive a return, not originate one):** receiving account number `100XX` where `XX` is the ACH return code (e.g. `10001` → R01). **EFT returns:** `101XX` pattern per docs. **Wire “returns”** use a similar counterparty pattern; simulated wire returns may not carry a return **code**.
+   - **Unoriginated / inbound credit:** simulate via **incoming payment detail** flows; can combine with **virtual accounts** (sandbox VA numbers are generated for you).
+   - **IPD into a VA:** sandbox supports `simulations/incoming_payment_details/create_async` style flows per docs.
+
+4. **Timing**
+   - Sandbox timings **differ from production** (e.g. ACH-like flows settle in seconds; checks may have ~5 minute delay). Set user expectations in prose if needed; do not assume production latency in the JSON.
+
+5. **Connections cannot be deleted** — still true for BYOB; choose GWB vs IBB deliberately per internal account.
+
+### Capability table (reference)
+
+| `entity_id` | Typical dataloader use |
+|-------------|-------------------------|
+| `modern_treasury` | **Default.** Standard demos, PSP templates, most generated configs. |
+| `example1` | **BYOB only** — GWB-style fast PO + auto transactions for EP on GWB IAs. |
+| `example2` | **BYOB only** — IBB-style EP reconciliation without PO processing on IBB IAs. |
 
 Every config that creates internal accounts needs at least one connection.
 Connections cannot be deleted.

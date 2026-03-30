@@ -40,3 +40,11 @@ class AppSettings(BaseSettings):
     )
     ngrok_authtoken: str = ""
     ngrok_domain: str = ""
+    ngrok_api_key: str = Field(
+        default="",
+        description="Bearer token for https://api.ngrok.com (list/stop remote agent sessions).",
+    )
+    ngrok_auto_start: bool = Field(
+        default=True,
+        description="If false, skip tunnel on app startup (use /listen manual start or external ngrok).",
+    )

@@ -10,6 +10,12 @@ sent to `POST /api/validate-json` without editing.
 
 1. **Understand the demo** -- Default mental model: **PSP / marketplace**
    (internal accounts as wallets, book + ACH). Ask:
+   - **Bring Your Own Bank (BYOB)?** Is this demo meant to follow MT’s
+     **Bring Your Own Bank** sandbox (Gringotts GWB vs Iron Bank IBB,
+     reconciliation drills, doc-specific simulation patterns)? **If no** → use
+     **`modern_treasury`** for connections. **If yes** → use `decision_rubrics.md`
+     **BYOB** section and ask the follow-ups there (GWB vs IBB, EP vs PO focus,
+     return/check simulation needs).
    - Vertical / business type?
    - Money flows (inbound to wallet, settle to seller, platform fee, payout)?
    - Parties (buyers, sellers, platform)?
@@ -140,10 +146,12 @@ Paste from repo (trim only if size-constrained):
 
 1. **Self-bootstrap when demo needs it** -- Include `connections` and
    `internal_accounts` the config actually uses. Do not assume undiscovered
-   org refs exist unless the user confirmed them via org discovery. **Use `entity_id: "example1"`**
-   with a descriptive ref like `modern_treasury_bank` and nickname e.g.
-   `"Modern Treasury PSP"` — full payment capabilities on new IAs. Do NOT use
-   `modern_treasury` unless the demo only needs `book` transfers.
+   org refs exist unless the user confirmed them via org discovery.
+   **Default:** `entity_id: "modern_treasury"` with a descriptive `ref` (e.g.
+   `platform_bank`) and nickname e.g. `"Modern Treasury PSP"`.
+   **Only if the user confirmed BYOB** (Bring Your Own Bank sandbox): use
+   `example1` (GWB) and/or `example2` (IBB) per `decision_rubrics.md` — not for
+   generic PSP demos.
 
 2. **`sandbox_behavior` on counterparties** -- If the config includes
    `counterparties` with inline `accounts[]` used for PO demos, set

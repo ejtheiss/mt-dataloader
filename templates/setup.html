@@ -22,29 +22,13 @@
           hx-disabled-elt="button[type=submit]"
           enctype="multipart/form-data">
 
-        <div class="key-value-table" style="margin-bottom: 20px;">
-            <div class="key-value-table-row">
-                <div class="row-label"><label for="api_key">API Key</label></div>
-                <div class="row-value">
-                    <input type="password" id="api_key" name="api_key" required
-                           class="mt-input" placeholder="sk_test_..." autocomplete="off">
-                </div>
-            </div>
-            <div class="key-value-table-row">
-                <div class="row-label"><label for="org_id">Organization ID</label></div>
-                <div class="row-value">
-                    <input type="text" id="org_id" name="org_id" required
-                           class="mt-input" placeholder="org_..." autocomplete="off">
-                </div>
-            </div>
-            <div class="key-value-table-row">
-                <div class="row-label"><label for="org_name">Display Name</label></div>
-                <div class="row-value">
-                    <input type="text" id="org_name" name="org_name"
-                           class="mt-input" placeholder="My Sandbox (optional)" autocomplete="off">
-                </div>
-            </div>
-        </div>
+        <p class="setup-creds-hint">
+            Modern Treasury API credentials are selected in the <strong>sidebar</strong> (organization switcher at the top).
+            Add one or more organizations there; the active profile is used for validation and execution.
+        </p>
+        <input type="hidden" name="api_key" id="api_key" value="">
+        <input type="hidden" name="org_id" id="org_id" value="">
+        <input type="hidden" name="org_name" id="org_name" value="">
 
         <div class="form-group">
             <label>JSON Config</label>
@@ -143,8 +127,19 @@
         },
     }).then(function(h) { monacoHandle = h; });
 
-    // Prevent submit if no config provided
+    // Credentials from sidebar → hidden fields; require active profile
     document.getElementById("setup-form").addEventListener("htmx:configRequest", function(evt) {
+        var k = sessionStorage.getItem("mt_api_key");
+        var o = sessionStorage.getItem("mt_org_id");
+        var n = sessionStorage.getItem("mt_org_name") || "";
+        document.getElementById("api_key").value = k || "";
+        document.getElementById("org_id").value = o || "";
+        document.getElementById("org_name").value = n || "";
+        if (!k || !o) {
+            evt.preventDefault();
+            alert("Add an organization in the sidebar (top of the left navigation) first.");
+            return;
+        }
         var pastePanel = document.getElementById("tab-paste");
         if (pastePanel && pastePanel.classList.contains("active")) {
             if (!hiddenInput.value.trim()) {

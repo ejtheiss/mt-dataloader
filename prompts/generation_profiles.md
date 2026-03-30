@@ -46,12 +46,14 @@ asked for any of those.
 onboarded parties, wallets, settlement, fees, maybe sandbox ACH / returns.
 
 **Structural template:** `examples/marketplace_demo.json`  
-**Typical sections:** connections (`ref: modern_treasury_bank`, `entity_id:
-example1`, PSP-style nickname), legal entities (minimal — name + type;
-dataloader auto-fills compliance), counterparties (`sandbox_behavior` as needed),
-internal accounts (`*_wallet` refs, **Payment Account** display `name` on party
-IAs; platform revenue IA), payment orders (`book` + `ach`), optional IPD for
-**simulated inbound** when the script needs it.
+**Typical sections:** connections (`ref:` e.g. `platform_bank`, **`entity_id:
+"modern_treasury"`**, PSP-style nickname such as `"Modern Treasury PSP"`),
+legal entities (minimal — name + type; dataloader auto-fills compliance),
+counterparties (`sandbox_behavior` as needed), internal accounts (`*_wallet`
+refs, **Payment Account** display `name` on party IAs; platform revenue IA),
+payment orders (`book` + `ach`), optional IPD for **simulated inbound** when
+the script needs it. **Do not** use `example1` / `example2` here unless the user
+asked for **BYOB** (see `decision_rubrics.md`).
 
 **Do not add by default:** `expected_payments`, `virtual_accounts`, ledger
 sections—see decision rubrics; only if the user explicitly wants recon / VA /

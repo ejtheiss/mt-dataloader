@@ -30,6 +30,7 @@
     <link rel="stylesheet" href="/static/style.css?v={{ css_version }}">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+    <script src="/static/js/org-context.js?v={{ css_version }}" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
     <script src="/static/editor.js"></script>
     <script>
@@ -42,7 +43,7 @@
     });
 
     /* --- Credential persistence via sessionStorage --- */
-    var _creds = {
+    window._creds = {
         save: function() {
             var k = document.querySelector('[name="api_key"]');
             var o = document.querySelector('[name="org_id"]');
@@ -66,9 +67,8 @@
             });
         }
     };
-    document.addEventListener("DOMContentLoaded", _creds.restore);
-    document.addEventListener("htmx:afterSettle", _creds.restore);
-    document.addEventListener("htmx:configRequest", function() { _creds.save(); });
+    document.addEventListener("htmx:afterSettle", function() { window._creds.restore(); });
+    document.addEventListener("htmx:configRequest", function() { window._creds.save(); });
     </script>
 </head>
 <body>
@@ -78,6 +78,9 @@
                 <img src="/static/mt-symbol.svg" alt="MT" width="20" height="20">
                 <span>Dataloader</span>
             </a>
+            <div class="sidebar-org-switcher-wrap">
+                <div id="sidebar-org-switcher" class="sidebar-org-switcher-mount" aria-label="Organization"></div>
+            </div>
             <nav class="sidebar-nav">
                 <a href="/setup" class="sidebar-link {% block nav_setup %}{% endblock %}">
                     <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -96,7 +99,7 @@
                     Listener
                 </a>
             </nav>
-            <div class="sidebar-footer" id="sidebar-org">
+            <div class="sidebar-footer">
                 <span class="sidebar-version">v{{ app_version }}</span>
             </div>
         </aside>
@@ -130,15 +133,27 @@
     <script src="/static/js/mt-interactions.js"></script>
     <script src="/static/js/scenario-builder.js"></script>
     <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        setTimeout(function() {
+            if (window._creds) window._creds.restore();
+        }, 0);
+    });
+    document.body.addEventListener("htmx:configRequest", function(evt) {
+        var path = evt.detail.path || "";
+        try {
+            var u = new URL(path, window.location.origin);
+            path = u.pathname;
+        } catch (e) {}
+        if (path !== "/api/runs") return;
+        if (sessionStorage.getItem("dl_show_all_orgs") === "1") return;
+        var oid = sessionStorage.getItem("mt_org_id");
+        if (oid) evt.detail.parameters.mt_org_id = oid;
+    });
+    document.body.addEventListener("dl-org-context-changed", function() {
+        var el = document.getElementById("runs-list");
+        if (el && window.htmx) htmx.trigger(el, "refresh");
+    });
     (function() {
-        var orgEl = document.getElementById("sidebar-org");
-        var orgName = sessionStorage.getItem("mt_org_name");
-        var orgId = sessionStorage.getItem("mt_org_id");
-        if (orgName || orgId) {
-            orgEl.innerHTML =
-                '<div class="org-name">' + (orgName || orgId) + '</div>' +
-                (orgName && orgId ? '<div class="org-id">' + orgId + '</div>' : '');
-        }
         var token = new URLSearchParams(window.location.search).get('session_token');
         if (token) {
             var flowsLink = document.querySelector('a.sidebar-link[href="/flows"]');

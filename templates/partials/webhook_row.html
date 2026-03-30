@@ -27,6 +27,7 @@
 <div class="mt-index-table-row" role="row"
      data-webhook-id="{{ wh.webhook_id }}"
      data-run-id="{{ wh.run_id or '' }}"
+     data-mt-org-id="{{ wh.mt_org_id or '' }}"
      data-url="/listen?wh={{ wh.webhook_id }}"
      hx-get="/api/webhooks/{{ wh.webhook_id }}/drawer"
      hx-target="#drawer-content"
