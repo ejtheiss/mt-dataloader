@@ -44,6 +44,32 @@ def _count_resources(config: DataLoaderConfig) -> dict[str, int]:
     return {s: len(getattr(config, s, None) or []) for s in _GEN_SECTIONS}
 
 
+def _step_variance_ui_fields(step_id: str, recipe: dict[str, Any] | None) -> dict[str, Any]:
+    """Map saved generation recipe ``step_variance`` to scenario-builder row fields.
+
+    Absent key → follow global variance; empty dict → locked; non-empty → custom % inputs.
+    """
+    base: dict[str, Any] = {
+        "variance_mode": "global",
+        "variance_custom_min": 0.0,
+        "variance_custom_max": 0.0,
+    }
+    if not recipe:
+        return base
+    sv = recipe.get("step_variance")
+    if not isinstance(sv, dict) or step_id not in sv:
+        return base
+    raw = sv.get(step_id)
+    if raw is None or (isinstance(raw, dict) and len(raw) == 0):
+        base["variance_mode"] = "locked"
+        return base
+    if isinstance(raw, dict):
+        base["variance_mode"] = "custom"
+        base["variance_custom_min"] = float(raw.get("min_pct") or 0)
+        base["variance_custom_max"] = float(raw.get("max_pct") or 0)
+    return base
+
+
 def _get_base_config(session: Any) -> DataLoaderConfig:
     """Return the original validated config before any recipe was applied."""
     source = session.base_config_json or session.config_json_text
@@ -193,6 +219,10 @@ async def flows_page(request: Request):
             amount_steps: list[dict] = []
             actors_list: list[dict] = []
             actor_frames: list[dict] = []
+            recipe_for_flow: dict[str, Any] | None = None
+            if session.generation_recipes and ir.flow_ref in session.generation_recipes:
+                recipe_for_flow = session.generation_recipes[ir.flow_ref]
+
             if i < len(display_expanded):
                 fc = display_expanded[i]
                 for og in fc.optional_groups:
@@ -205,11 +235,13 @@ async def flows_page(request: Request):
                 for s in fc.steps:
                     amt = getattr(s, "amount", None)
                     if amt is not None:
-                        amount_steps.append({
+                        row = {
                             "step_id": s.step_id,
                             "type": s.type,
                             "amount": amt,
-                        })
+                        }
+                        row.update(_step_variance_ui_fields(s.step_id, recipe_for_flow))
+                        amount_steps.append(row)
                 _SLOT_ABBREV = {
                     "counterparty": "CP", "external_account": "EA",
                     "internal_account": "IA", "ledger_account": "LA",

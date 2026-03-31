@@ -17,6 +17,11 @@
   'use strict';
 
   function initScenarioBuilder(container, config) {
+    if (container.getAttribute('data-scenario-initialized') === '1') {
+      return;
+    }
+    container.setAttribute('data-scenario-initialized', '1');
+
     var idx = config.idx;
     var flowRef = config.flowRef;
     var sessionToken = config.sessionToken;
@@ -126,11 +131,18 @@
       return { min: lo, max: hi };
     }
 
+    function normalizeVarianceMode(row) {
+      var m = row.getAttribute('data-variance-mode');
+      if (m === 'global' || m === 'locked' || m === 'custom') return m;
+      row.setAttribute('data-variance-mode', 'global');
+      return 'global';
+    }
+
     function renderRowAmount(row, gv) {
       var base = parseInt(row.getAttribute('data-base-amount')) || 0;
       var display = row.querySelector('.amount-display');
       if (!display) return;
-      var mode = row.getAttribute('data-variance-mode');
+      var mode = normalizeVarianceMode(row);
       var lo = 0, hi = 0;
       if (mode === 'global') { lo = gv.min; hi = gv.max; }
       else if (mode === 'custom') {
@@ -153,21 +165,78 @@
 
     // ----- Variance lock cycling -----
 
+    function lockIconSrc(btn, mode) {
+      if (mode === 'global') return btn.getAttribute('data-icon-global');
+      if (mode === 'locked') return btn.getAttribute('data-icon-locked');
+      return btn.getAttribute('data-icon-custom');
+    }
+
+    /**
+     * One icon per row, three states (cycle on click):
+     *   global  — open lock; uses global Min % / Max % like other money-movement rows.
+     *   locked  — closed lock; fixed base amount (no variance on this step).
+     *   custom  — pencil; per-step min/max % inputs visible.
+     */
+    function syncVarianceLockIcon(row) {
+      var btn = row.querySelector('.variance-lock-btn');
+      var img = btn && btn.querySelector('.variance-lock-icon');
+      if (!btn || !img) return;
+      var mode = normalizeVarianceMode(row);
+      var src = lockIconSrc(btn, mode);
+      if (src) img.setAttribute('src', src);
+      if (mode === 'global') {
+        btn.title =
+          'Following global variance (same as other steps). Click to lock this step at the base amount (no variance).';
+        btn.setAttribute(
+          'aria-label',
+          'Global variance. Click to lock this step with no variance.'
+        );
+      } else if (mode === 'locked') {
+        btn.title =
+          'Locked: no variance on this step. Click to set custom min/max % for this step only.';
+        btn.setAttribute(
+          'aria-label',
+          'Locked without variance. Click for custom variance.'
+        );
+      } else {
+        btn.title =
+          'Custom variance for this step. Click to follow global min/max again like other steps.';
+        btn.setAttribute(
+          'aria-label',
+          'Custom variance. Click to use global variance again.'
+        );
+      }
+    }
+
     function handleVarianceLock(btn) {
       var row = btn.closest('.amount-step-item');
-      var mode = row.getAttribute('data-variance-mode');
+      var mode = normalizeVarianceMode(row);
       var customInputs = row.querySelector('.variance-custom-inputs');
       if (mode === 'global') {
         row.setAttribute('data-variance-mode', 'locked');
         if (customInputs) customInputs.style.display = 'none';
       } else if (mode === 'locked') {
         row.setAttribute('data-variance-mode', 'custom');
-        if (customInputs) customInputs.style.display = '';
+        if (customInputs) customInputs.style.display = 'inline-flex';
+        var gv = getGlobalVariance();
+        var minInp = row.querySelector('.variance-custom-min');
+        var maxInp = row.querySelector('.variance-custom-max');
+        if (
+          minInp &&
+          maxInp &&
+          parseFloat(minInp.value) === 0 &&
+          parseFloat(maxInp.value) === 0 &&
+          (gv.min !== 0 || gv.max !== 0)
+        ) {
+          minInp.value = gv.min;
+          maxInp.value = gv.max;
+        }
       } else {
         row.setAttribute('data-variance-mode', 'global');
         if (customInputs) customInputs.style.display = 'none';
       }
       renderRowAmount(row, getGlobalVariance());
+      syncVarianceLockIcon(row);
     }
 
     // ----- Timing pills -----
@@ -237,7 +306,7 @@
 
       var stepVariance = {};
       qAll('.amount-step-item').forEach(function (row) {
-        var mode = row.getAttribute('data-variance-mode');
+        var mode = normalizeVarianceMode(row);
         var stepId = row.getAttribute('data-step-id');
         if (mode === 'locked') stepVariance[stepId] = {};
         else if (mode === 'custom') {
@@ -428,7 +497,10 @@
 
     container.addEventListener('click', function (e) {
       var btn = e.target.closest('.variance-lock-btn');
-      if (btn && container.contains(btn)) handleVarianceLock(btn);
+      if (!btn || !container.contains(btn)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      handleVarianceLock(btn);
     });
 
     container.addEventListener('change', function (e) {
@@ -478,7 +550,7 @@
           } else {
             row.setAttribute('data-variance-mode', 'custom');
             var customInputs = row.querySelector('.variance-custom-inputs');
-            if (customInputs) customInputs.style.display = '';
+            if (customInputs) customInputs.style.display = 'inline-flex';
             var minInput = row.querySelector('.variance-custom-min');
             var maxInput = row.querySelector('.variance-custom-max');
             if (minInput) minInput.value = sv.min_pct || 0;
@@ -517,6 +589,8 @@
       syncEdgeMax();
       updateAmountRanges();
     }
+
+    qAll('.amount-step-item').forEach(syncVarianceLockIcon);
   }
 
   window.initScenarioBuilder = initScenarioBuilder;

@@ -15,8 +15,10 @@ env/
 # Environment / secrets
 .env
 
-# IDE
-.cursor/
+# IDE — ignore Cursor metadata; keep shared rules versioned (see .cursor/rules/)
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 .vscode/
 .idea/
 *.swp

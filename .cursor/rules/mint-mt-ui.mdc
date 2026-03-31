@@ -1,0 +1,37 @@
+---
+description: MINT tokens, MT pattern CSS, resource pack paths, and MT-aligned icons for UI work
+globs: templates/**/*.html,static/**/*.css,static/**/*.js
+alwaysApply: false
+---
+
+# MINT / Modern Treasury UI resources
+
+## Canonical paths (MUST)
+
+1. **Runtime design contract (what the app loads)**  
+   - [`static/css/tokens.css`](static/css/tokens.css) — MINT scales + semantic tokens + `--mt-*` bridges.  
+   - [`static/css/page-chrome.css`](static/css/page-chrome.css) — page header / breadcrumbs / body rhythm from MT `Page*`.  
+   - [`static/mt-patterns.css`](static/mt-patterns.css) — Card, Modal, accordion, etc., traced to MT React sources.
+
+2. **Upstream Mint reference (regenerate tokens; do not fork colors by hand)**  
+   - Documented source in `tokens.css` header: **`plan/resources/mint-design-system-reference/config/tailwind.config.js`**.  
+   - Treat **`plan/resources/mint-design-system-reference/`** as the canonical **Mint / Tailwind** snapshot for this repo. If that directory is missing in a clone, restore it from the MT monorepo export or internal pack before **changing** token values; do not invent parallel hex scales in feature CSS.
+
+3. **MT porting kit (Jinja / CSS / JS reference)**  
+   - **`plan/resources/mt-porting-kit/`** is the **only** canonical porting kit (consolidated Mar 2026). Superseded trees live under **`plan/resources/archive/mt-porting-kit-consolidation-20260331/`** — do not copy from those for new work.
+
+4. **Additional MT exports**  
+   - New Figma/CSS/React dumps from MT belong under **`plan/resources/<name>/`** (sibling to `mint-design-system-reference`). Merge into `tokens.css` / `mt-patterns.css` / `page-chrome.css` in a dedicated change — no long-lived duplicate variable files in `static/`.
+
+## Icons (MUST — closest to Modern Treasury dashboard)
+
+- **Do not** load icons from a public CDN (e.g. Lucide unpkg) for product UI — MT ships self-contained assets; CDNs add inconsistency and CSP noise.  
+- **Do** use **inline SVG** (or small files under `static/icons/mt/` if deduping) with the same conventions already used in this repo for MT-like strokes: `viewBox="0 0 24 24"`, `fill="none"`, `stroke="currentColor"`, `stroke-width="2"` (or MT-equivalent path data from the dashboard icon set). Size in UI with CSS (typically 14–16px box); color via `var(--icon-default)` / `var(--icon-muted)` from `tokens.css`.  
+- Prefer **copying path geometry from the MT dashboard / resource pack** when available; otherwise match existing templates (`listen.html`, `event_list.html`, pagination caret in `pagination.css`) for consistency.  
+- Icon-only controls MUST have `aria-label` or visible text; on dense cards default to **icon + label**.
+
+## New UI (SHOULD)
+
+- Prefer semantic tokens (`--text-*`, `--border-*`, `--spacing-*`, `--mt-text-*`) over raw hex in templates and feature CSS.  
+- **Fund Flows** (list + detail + flow IA): follow [`plan/fund_flows_ui_design_system.md`](plan/fund_flows_ui_design_system.md) — multi-phase flagship.  
+- **All other screens** (setup, preview, runs, execute, cleanup, listen, shared partials): follow [`plan/app_wide_ui_alignment.md`](plan/app_wide_ui_alignment.md) — **one** coordinated pass, same MUSTs, no deep per-page IA redesign unless explicitly scoped.

@@ -1,0 +1,17 @@
+---
+description: Prefer server/Python for behavior and state; use JS only when the browser must react without a round-trip
+globs: "**/*.{py,html,js}"
+alwaysApply: false
+---
+
+# Python first, front end last
+
+When fixing bugs or adding behavior:
+
+1. **Canonical state** should live in **Python** (models, session, route handlers, template context) whenever a request/response cycle can carry it. Render correct HTML from the server when possible.
+2. **Jinja** is the first UI layer: derive display mode, labels, and initial values from context — avoid duplicating business rules only in JavaScript.
+3. **JavaScript** is for **intrinsic client-only** concerns: immediate feedback, toggling before submit, `preventDefault`, focus, animations. If logic is duplicated in JS for convenience, prefer **one** source of truth on the server and thin client updates (e.g. update a single `src` or text node from data already on the element).
+4. Avoid **CSS/HTML workarounds** (e.g. fighting a reset with `!important` stacks) when the structure can be simplified (e.g. one image + `src` instead of three stacked icons).
+5. **Lowest front-end layer last**: prefer static asset structure and server-driven markup before adding or expanding scripts.
+
+This does **not** mean “no JS” — it means **do not treat the browser as the primary place for state that already exists in the session or config.**

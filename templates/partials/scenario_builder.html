@@ -93,11 +93,15 @@
                     <span class="amount-header-right">Amount</span>
                 </div>
                 {% for as in fs.amount_steps %}
-                <div class="amount-step-item" data-base-amount="{{ as.amount }}" data-step-id="{{ as.step_id }}" data-variance-mode="global" data-step-index="{{ loop.index0 }}">
-                    <button type="button" class="variance-lock-btn" title="Click to lock amount">
-                        <img class="lock-icon lock-icon-unlocked" src="/static/icons/ui/lock-open.svg" width="14" height="14" alt="" aria-hidden="true">
-                        <img class="lock-icon lock-icon-locked" src="/static/icons/ui/lock.svg" width="14" height="14" alt="" aria-hidden="true">
-                        <img class="lock-icon lock-icon-custom" src="/static/icons/ui/edit.svg" width="14" height="14" alt="" aria-hidden="true">
+                {% set vm = as.variance_mode | default('global') %}
+                <div class="amount-step-item" data-base-amount="{{ as.amount }}" data-step-id="{{ as.step_id }}" data-variance-mode="{{ vm }}" data-step-index="{{ loop.index0 }}">
+                    {# Variance UI: global=open lock (follow global %), locked=closed (no variance), custom=pencil (per-step %). JS sets title/aria-label. #}
+                    <button type="button" class="variance-lock-btn"
+                            data-icon-global="/static/icons/ui/lock-open.svg"
+                            data-icon-locked="/static/icons/ui/lock.svg"
+                            data-icon-custom="/static/icons/ui/edit.svg">
+                        <img class="variance-lock-icon" width="14" height="14" alt="" aria-hidden="true"
+                             src="{% if vm == 'locked' %}/static/icons/ui/lock.svg{% elif vm == 'custom' %}/static/icons/ui/edit.svg{% else %}/static/icons/ui/lock-open.svg{% endif %}">
                     </button>
                     <code class="ref-name">{{ as.step_id }}</code>
                     <span class="badge badge--cool">{{ as.type }}</span>
@@ -111,9 +115,9 @@
                     <span class="timing-pill timing-pill-offset" title="Click to edit day offset">T+{{ loop.index0 }}</span>
                     <input type="number" class="timing-offset-input" value="{{ loop.index0 }}" min="0" max="365" step="1">
                     {% endif %}
-                    <span class="variance-custom-inputs" style="display:none;">
-                        <input type="number" class="variance-custom-min" min="-100" max="0" step="0.5" placeholder="min %" style="width:60px;">
-                        <input type="number" class="variance-custom-max" min="0" max="100" step="0.5" placeholder="max %" style="width:60px;">
+                    <span class="variance-custom-inputs" style="display: {% if vm == 'custom' %}inline-flex{% else %}none{% endif %}; gap: 4px; align-items: center;">
+                        <input type="number" class="variance-custom-min" min="-100" max="0" step="0.5" placeholder="min %" style="width:60px;" value="{{ as.variance_custom_min | default(0) }}">
+                        <input type="number" class="variance-custom-max" min="0" max="100" step="0.5" placeholder="max %" style="width:60px;" value="{{ as.variance_custom_max | default(0) }}">
                     </span>
                     <span class="amount-display">${{ '{:,.2f}'.format(as.amount / 100) }}</span>
                 </div>

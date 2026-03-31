@@ -1580,10 +1580,10 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
     transition: color 0.15s, background 0.15s;
 }
 .variance-lock-btn:hover { background: var(--border); color: var(--text); }
-svg.lock-icon { display: none; }
-[data-variance-mode="global"] svg.lock-icon-unlocked { display: block; }
-[data-variance-mode="locked"] svg.lock-icon-locked { display: block; }
-[data-variance-mode="custom"] svg.lock-icon-custom { display: block; }
+.variance-lock-btn .variance-lock-icon {
+    flex-shrink: 0;
+    vertical-align: middle;
+}
 [data-variance-mode="locked"] .variance-lock-btn { color: var(--accent, #2563eb); }
 [data-variance-mode="custom"] .variance-lock-btn { color: #d97706; }
 [data-variance-mode="locked"] { opacity: 0.7; }
