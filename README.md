@@ -10,11 +10,16 @@ Upload a JSON **DataLoaderConfig** in the browser: the app validates it, shows e
 
 **You need:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) and a Modern Treasury **sandbox** API key and org ID.
 
+**Important:** Run every `make …` command from the **project directory** — the folder that contains `Makefile`, `Dockerfile`, and `docker-compose.yml`. If you run `make` from your home directory (`~`), Make will report `No rule to make target 'docker-build'` because there is no Makefile there.
+
 ```bash
-git clone https://github.com/ejtheiss/mt-dataloader && cd mt-dataloader
-make docker-build                  # build the image (~30 s)
-make docker-run                    # start the container
+git clone https://github.com/ejtheiss/mt-dataloader   # skip if you already cloned
+cd mt-dataloader                                      # required before make
+make docker-build                                     # build the image (~30 s)
+make docker-run                                       # start the container
 ```
+
+If the repo already exists: `cd path/to/mt-dataloader` (for example `cd ~/mt-dataloader`), then run `make docker-build`.
 
 Open **http://localhost:8000**. Stop with `make docker-stop`.
 
