@@ -65,8 +65,9 @@
                                     {% endif %}
                                 </div>
                                 <div role="cell" class="ui-table-cell truncate">
-                                    {% if item.display_name %}
-                                    <span title="{{ item.typed_ref }}">{{ item.display_name }}</span>
+                                    {% set ex_label = item.mt_display_name if item.mt_display_name is defined and item.mt_display_name else item.display_name %}
+                                    {% if ex_label %}
+                                    <span title="{{ item.typed_ref }}">{{ ex_label }}</span>
                                     {% else %}
                                     <code title="{{ item.typed_ref }}">{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</code>
                                     {% endif %}
@@ -75,7 +76,7 @@
                                     {% if initial_status == "skipped" %}
                                     <span class="status-indicator">
                                         <span class="status-dot skipped"></span>
-                                        <span class="status-text">Skipped (existing)</span>
+                                        <span class="status-text">Skipped{% if item.reconciled_name %} — {{ item.reconciled_name }}{% else %} (existing){% endif %}</span>
                                     </span>
                                     {% else %}
                                     <span class="status-indicator">

@@ -2,8 +2,9 @@
    Expected context: item, session_token, available_connections (optional),
    ia_hx_target (optional), ia_hx_swap (optional).
 #}
-{% if item.display_name %}
-<span class="resource-display-name" title="{{ item.typed_ref }}">{{ item.display_name }}</span>
+{% set row_label = item.mt_display_name if item.mt_display_name is defined and item.mt_display_name else item.display_name %}
+{% if row_label %}
+<span class="resource-display-name" title="{{ item.typed_ref }}">{{ row_label }}</span>
 {% else %}
 <code class="resource-ref-fallback" title="{{ item.typed_ref }}">{{ item.typed_ref.split(".", 1)[1] if "." in item.typed_ref else item.typed_ref }}</code>
 {% endif %}

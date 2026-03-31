@@ -138,7 +138,7 @@
       "legal_entity_id": "$ref:legal_entity.tradeify_holdings",
       "name": "Tradeify USDG Payment Account",
       "party_name": "Tradeify Holdings",
-      "currency": "USD",
+      "currency": "USDG",
       "metadata": { "account_role": "usdg_pool" }
     }
   ],

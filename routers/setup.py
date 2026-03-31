@@ -38,7 +38,13 @@ from helpers import (
     get_templates,
 )
 from models import DataLoaderConfig, DisplayPhase
-from org import DiscoveryResult, OrgRegistry, reconcile_config, discover_org
+from org import (
+    DiscoveryResult,
+    OrgRegistry,
+    discover_org,
+    reconcile_config,
+    sync_connection_entities_from_reconciliation,
+)
 from session import SessionState, sessions, prune_expired_sessions
 
 router = APIRouter(tags=["setup"])
@@ -70,6 +76,29 @@ class _PipelineResult:
     preview_items: list = dc_field(default_factory=list)
 
 
+def _edited_resource_typed_refs(
+    prior: DataLoaderConfig | None,
+    config: DataLoaderConfig,
+) -> set[str]:
+    """Refs whose serialized resource payload changed (same ref, different body).
+
+    Used on revalidate so reconciliation does not keep skipping resources the user
+    edited in JSON (e.g. connection ``entity_id``).
+    """
+    if prior is None:
+        return set()
+    old_map = {typed_ref_for(r): r for r in all_resources(prior)}
+    changed: set[str] = set()
+    for r in all_resources(config):
+        ref = typed_ref_for(r)
+        old = old_map.get(ref)
+        if old is None:
+            continue
+        if old.model_dump_json(exclude_none=True) != r.model_dump_json(exclude_none=True):
+            changed.add(ref)
+    return changed
+
+
 async def _validate_pipeline(
     raw_json: bytes,
     api_key: str,
@@ -77,6 +106,7 @@ async def _validate_pipeline(
     *,
     reconcile_overrides: dict | None = None,
     manual_mappings: dict | None = None,
+    prior_config: DataLoaderConfig | None = None,
 ) -> _PipelineResult | str:
     """Run the full validate pipeline: parse → compile → discover → reconcile → DAG.
 
@@ -136,6 +166,7 @@ async def _validate_pipeline(
         registered_refs: set[str] = set()
         overrides = reconcile_overrides or {}
         mappings = manual_mappings or {}
+        force_new_refs = _edited_resource_typed_refs(prior_config, config)
 
         for m in reconciliation.matches:
             if m.config_ref in overrides:
@@ -146,6 +177,8 @@ async def _validate_pipeline(
                         m.discovered_id = val["discovered_id"]
                 else:
                     m.use_existing = bool(val)
+            if m.config_ref in force_new_refs:
+                m.use_existing = False
             if m.use_existing and m.config_ref not in registered_refs:
                 registry.register_or_update(m.config_ref, m.discovered_id)
                 skip_refs.add(m.config_ref)
@@ -165,6 +198,10 @@ async def _validate_pipeline(
                     if config_ref in reconciliation.unmatched_config:
                         reconciliation.unmatched_config.remove(config_ref)
 
+        sync_connection_entities_from_reconciliation(
+            config, discovery, reconciliation, mappings,
+        )
+
     # 5. DAG dry-run
     try:
         batches = dry_run(config, known_refs, skip_refs=skip_refs)
@@ -180,9 +217,7 @@ async def _validate_pipeline(
         skip_refs=skip_refs, reconciliation=reconciliation,
     )
 
-    config_json_text = json.dumps(
-        json.loads(raw_json), indent=2, ensure_ascii=False
-    )
+    config_json_text = config.model_dump_json(indent=2, exclude_none=True)
 
     return _PipelineResult(
         config=config,
@@ -438,6 +473,7 @@ async def revalidate(
         old_session.org_id,
         reconcile_overrides=overrides,
         manual_mappings=manual_maps,
+        prior_config=old_session.config,
     )
     if isinstance(result, str):
         return _pipeline_error_response(result)
@@ -447,7 +483,6 @@ async def revalidate(
         old_session.api_key,
         old_session.org_id,
         org_label=getattr(old_session, "org_label", None),
-        working_config_json=old_session.working_config_json,
         generation_recipes=old_session.generation_recipes,
     )
     sessions[session.session_token] = session
@@ -619,6 +654,13 @@ def _rereconcile_session(session: SessionState) -> None:
                 update_refs[tref] = match.discovered_id
             else:
                 skip_refs.discard(tref)
+                session.registry.unregister(tref)
+                for ck in match.child_refs:
+                    session.registry.unregister(f"{tref}.{ck}")
+
+        sync_connection_entities_from_reconciliation(
+            session.config, session.discovery, recon, {},
+        )
 
     session.skip_refs = skip_refs
     session.update_refs = update_refs
@@ -637,6 +679,12 @@ def _rereconcile_session(session: SessionState) -> None:
         reconciliation=session.reconciliation,
         update_refs=update_refs,
     )
+
+    session.config_json_text = session.config.model_dump_json(
+        indent=2, exclude_none=True,
+    )
+    if session.working_config_json is not None:
+        session.working_config_json = session.config_json_text
 
 
 def _find_resource_in_config(

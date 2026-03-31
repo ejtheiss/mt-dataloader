@@ -27,6 +27,7 @@ __all__ = [
     "ReconciledResource",
     "ReconciliationResult",
     "reconcile_config",
+    "sync_connection_entities_from_reconciliation",
 ]
 
 
@@ -519,3 +520,58 @@ def reconcile_config(
     ).info("Reconciliation complete")
 
     return result
+
+
+_ALLOWED_CONNECTION_ENTITY_IDS = frozenset({"example1", "example2", "modern_treasury"})
+
+
+def sync_connection_entities_from_reconciliation(
+    config: DataLoaderConfig,
+    discovery: DiscoveryResult,
+    reconciliation: ReconciliationResult,
+    manual_mappings: dict[str, str] | None = None,
+) -> None:
+    """Align ``connection.entity_id`` with each chosen MT connection's ``vendor_id``.
+
+    Keeps JSON, drawer payloads, and execution aligned when reconciliation maps
+    config connections to discovered org connections (including duplicate-picker
+    and manual map flows).
+    """
+    maps = manual_mappings or {}
+    by_id = {dc.id: dc for dc in discovery.connections}
+    targets: dict[str, str] = {}
+
+    for m in reconciliation.matches:
+        if m.use_existing and m.config_ref.startswith("connection."):
+            targets[m.config_ref] = m.discovered_id
+
+    for cref, disc_id in maps.items():
+        if cref.startswith("connection.") and disc_id:
+            targets[cref] = disc_id
+
+    conns = config.connections
+    if not conns:
+        return
+
+    for tref, disc_id in targets.items():
+        ref_key = tref.split(".", 1)[1] if "." in tref else ""
+        if not ref_key:
+            continue
+        dc = by_id.get(disc_id)
+        if dc is None:
+            continue
+        vid = (dc.vendor_id or "").strip()
+        if vid not in _ALLOWED_CONNECTION_ENTITY_IDS:
+            logger.warning(
+                "Connection {}: skip entity_id sync — vendor_id {!r} not in {}",
+                tref,
+                vid,
+                sorted(_ALLOWED_CONNECTION_ENTITY_IDS),
+            )
+            continue
+        for i, conn in enumerate(conns):
+            if conn.ref != ref_key:
+                continue
+            if conn.entity_id != vid:
+                conns[i] = conn.model_copy(update={"entity_id": vid})  # type: ignore[arg-type]
+            break

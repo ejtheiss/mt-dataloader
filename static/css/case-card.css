@@ -1,34 +1,202 @@
 /* ============================================================
    Case Card — CSS
-   Composite component for Fund Flows case display.
-   Composed from: Card + Badge + Chip + Pill + KV Table primitives.
-
-   NOT a single shipped Mint component — assembled from MT design
-   tokens and primitives per Gap #4 in the porting gaps list.
+   Case-management layout: header, meta strip, participants table,
+   balance cards. Uses page-chrome .card + tokens.
 
    Uses tokens from tokens.css (colors, spacing, font sizes).
    ============================================================ */
 
-/* --- Chip row --- */
-.case-card-chips {
-  display: flex;
+/* --- Header (stacked on narrow, row on wide) --- */
+.case-card-header {
   flex-wrap: wrap;
-  gap: 4px;                                    /* spacing-xs */
-  margin-bottom: 8px;                          /* spacing-s */
+  align-items: flex-start;
+  gap: 12px;
 }
 
-/* --- Actor pills row --- */
-.case-card-actors {
-  margin-top: 4px;
+.case-card-header-main {
+  flex: 1 1 200px;
+  min-width: 0;
 }
 
-/* --- Account deltas row --- */
-.case-card-deltas {
+.case-card-title-row {
   display: flex;
-  gap: 8px;                                    /* spacing-s */
   flex-wrap: wrap;
-  font-size: 0.78rem;
+  align-items: center;
+  gap: 8px;
+}
+
+.case-card-title-text {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-default, #303030);
+}
+
+.case-card-subline {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-muted, #575757);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.case-card-subline-sep {
+  color: var(--text-muted, #575757);
+  opacity: 0.6;
+}
+
+.case-card-mono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.7rem;
+}
+
+.case-card-header-actions {
+  flex-shrink: 0;
+}
+
+.case-card-detail-arrow {
+  margin-left: 2px;
+}
+
+/* --- Meta strip (replaces chip row) --- */
+.case-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.case-card-meta-strip {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+@media (min-width: 900px) {
+  .case-card-meta-strip {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.case-card-meta-stat {
+  border: 1px solid var(--border-muted, rgba(0, 0, 0, 0.08));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--app-background, #f7f7f5) 85%, transparent);
+  padding: 8px 10px;
+}
+
+.case-card-meta-stat-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #575757);
+}
+
+.case-card-meta-stat-value {
   margin-top: 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-default, #303030);
+}
+
+.case-card-meta-stat-value--nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Participants + balances split --- */
+.case-card-split {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .case-card-split {
+    grid-template-columns: 1.15fr 0.85fr;
+    align-items: start;
+  }
+}
+
+.case-card-section-head {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-default, #303030);
+  margin-bottom: 8px;
+}
+
+.case-card-table-wrap {
+  overflow: hidden;
+  border: 1px solid var(--border-muted, rgba(0, 0, 0, 0.08));
+  border-radius: 8px;
+  background: var(--background-default, #fff);
+}
+
+.case-card-table-head,
+.case-card-table-row {
+  display: grid;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+}
+
+.case-card-table--3 .case-card-table-head,
+.case-card-table--3 .case-card-table-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
+}
+
+.case-card-table-head {
+  background: color-mix(in srgb, var(--app-background, #f7f7f5) 90%, transparent);
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #575757);
+}
+
+.case-card-table-row {
+  border-top: 1px solid var(--border-muted, rgba(0, 0, 0, 0.06));
+}
+
+.case-card-table-strong {
+  font-weight: 600;
+  color: var(--text-default, #303030);
+}
+
+.case-card-table-muted {
+  color: var(--text-muted, #575757);
+}
+
+.case-card-balance-grid {
+  display: grid;
+  gap: 8px;
+}
+
+@media (min-width: 640px) {
+  .case-card-balance-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.case-card-balance-card {
+  border: 1px solid var(--border-muted, rgba(0, 0, 0, 0.08));
+  border-radius: 8px;
+  background: var(--background-default, #fff);
+  padding: 10px 12px;
+}
+
+.case-card-balance-label {
+  font-size: 0.7rem;
+  color: var(--text-muted, #575757);
+}
+
+.case-card-balance-value {
+  margin-top: 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-default, #303030);
 }
 
 /* --- Summary (dl-based key-value) --- */

@@ -27,6 +27,7 @@ from .reconciliation import (
     ReconciledResource,
     ReconciliationResult,
     reconcile_config,
+    sync_connection_entities_from_reconciliation,
 )
 from .registry import OrgRegistry
 
@@ -47,6 +48,7 @@ __all__ = [
     "ReconciledResource",
     "ReconciliationResult",
     "reconcile_config",
+    "sync_connection_entities_from_reconciliation",
     # Registry
     "OrgRegistry",
 ]

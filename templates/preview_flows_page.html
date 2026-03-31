@@ -251,6 +251,13 @@ function switchPfTab(panelId) {
             setTimeout(function() { btn.textContent = "Copy"; }, 1500);
         });
     });
+
+    var rvForm = document.getElementById("revalidate-form");
+    if (rvForm) {
+        rvForm.addEventListener("htmx:configRequest", function() {
+            if (typeof updateReconcileOverrides === "function") updateReconcileOverrides();
+        });
+    }
 })();
 </script>
 {% endblock %}

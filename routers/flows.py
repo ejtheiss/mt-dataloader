@@ -29,7 +29,7 @@ from helpers import (
     SOURCE_BADGE,
 )
 from models import DataLoaderConfig, GenerationRecipeV1
-from org import reconcile_config
+from org import reconcile_config, sync_connection_entities_from_reconciliation
 from session import sessions
 
 router = APIRouter(tags=["flows"])
@@ -191,6 +191,9 @@ async def _parse_and_compile_recipe(
                     )
         session.reconciliation = reconciliation
         session.skip_refs = skip_refs
+        sync_connection_entities_from_reconciliation(
+            gen_result.config, session.discovery, reconciliation, {},
+        )
 
     return token, session, recipe, gen_result
 
@@ -605,6 +608,9 @@ async def recipe_to_working_config(request: Request):
                     )
         session.reconciliation = reconciliation
         session.skip_refs = skip_refs
+        sync_connection_entities_from_reconciliation(
+            gen.config, session.discovery, reconciliation, {},
+        )
 
     session.config = gen.config
     config_json_text = gen.config.model_dump_json(indent=2, exclude_none=True)

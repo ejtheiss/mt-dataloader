@@ -157,10 +157,12 @@ the word “platform” in prose and is easy to mis-resolve in large configs
 ### Legal entity `connection_id` — **never in PSP DSL**; **BYOB only** when required
 
 For **`modern_treasury` / default PSP** configs, **do not** author
-`connection_id` on `legal_entities[]` at all — it is **not** part of the Funds
+`connection_id` on `legal_entities[]` — it is **not** part of the Funds
 Flows / static JSON the model should emit (same category as “don’t invent LE
-compliance blobs”). The **executor** injects the live `modern_treasury`
-connection UUID before `POST /legal_entities`.
+compliance blobs”). With **one** `modern_treasury` connection row, the dataloader
+**omits** `connection_id` on `POST /legal_entities` (MT infers it). With **more
+than one** connection, the **executor** injects the correct `modern_treasury`
+UUID before create (fiat IA rail preferred).
 
 **BYOB** (`example1` / `example2`): the executor does **not** inject LE
 `connection_id`. Include it in JSON **only** when your BYOB or MT documentation
@@ -175,8 +177,8 @@ fields are **silently replaced** — so **never include them** in the JSON.
 
 | `legal_entity_type` | Fields you provide | Auto-managed / omit in DSL (do NOT include) |
 |---------------------|--------------------|-------------------------------|
-| `business` | `ref`, `legal_entity_type`, `business_name`, optional `legal_structure`, optional `metadata` | `identifications`, `addresses`, `documents`, `date_formed`, `country_of_incorporation`; **PSP:** never `connection_id` (executor injects) |
-| `individual` | `ref`, `legal_entity_type`, `first_name`, `last_name`, optional `email`, optional `metadata` | `identifications`, `addresses`, `documents`, `date_of_birth`, `citizenship_country`; **PSP:** never `connection_id` (executor injects) |
+| `business` | `ref`, `legal_entity_type`, `business_name`, optional `legal_structure`, optional `metadata` | `identifications`, `addresses`, `documents`, `date_formed`, `country_of_incorporation`; **PSP:** never `connection_id` (omitted if sole MT; else executor injects) |
+| `individual` | `ref`, `legal_entity_type`, `first_name`, `last_name`, optional `email`, optional `metadata` | `identifications`, `addresses`, `documents`, `date_of_birth`, `citizenship_country`; **PSP:** never `connection_id` (omitted if sole MT; else executor injects) |
 
 ```json
 {

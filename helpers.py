@@ -236,27 +236,38 @@ def build_preview(
             reconciled = True
             rec_id = _update[ref]
             rec_name = getattr(recon_match, "discovered_name", "") if recon_match else ""
+        elif batch_idx >= 0:
+            # In the DAG batches → will run (create or first-time provision), even if
+            # reconciliation still has a stale "matched" record for the same ref.
+            action = "create"
+            reconciled = False
+            rec_id = ""
+            rec_name = ""
         elif recon_match is not None:
             action = "matched"
             reconciled = True
             rec_id = getattr(recon_match, "discovered_id", "")
             rec_name = getattr(recon_match, "discovered_name", "")
-        elif batch_idx >= 0:
-            action = "create"
-            reconciled = False
-            rec_id = ""
-            rec_name = ""
         else:
             action = "skip"
             reconciled = False
             rec_id = ""
             rec_name = ""
 
+        config_dn = extract_display_name(resource)
+        if action in ("matched", "update") and (rec_name or "").strip():
+            mt_dn = rec_name.strip()
+        elif action == "create":
+            mt_dn = config_dn
+        else:
+            mt_dn = (rec_name or "").strip() or config_dn
+
         item: dict[str, Any] = {
             "typed_ref": ref,
             "resource_type": resource.resource_type,
             "display_phase": resource.display_phase,
-            "display_name": extract_display_name(resource),
+            "display_name": config_dn,
+            "mt_display_name": mt_dn or config_dn,
             "batch": batch_idx,
             "deletable": DELETABILITY.get(resource.resource_type, False),
             "has_metadata": bool(meta),

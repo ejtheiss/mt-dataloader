@@ -32,6 +32,7 @@ from models import (
     StagedEntry,
     _BaseResourceConfig,
 )
+from models.config import legal_entity_omit_connection_id_on_create
 from models.shared import ErrorStrategy
 
 
@@ -104,6 +105,10 @@ class RefRegistry:
     def register_or_update(self, typed_ref: str, resource_id: str) -> None:
         """Register or overwrite an existing ref (used by reconciliation)."""
         self._store[typed_ref] = resource_id
+
+    def unregister(self, typed_ref: str) -> None:
+        """Remove a ref (e.g. after user edits so execution creates instead of reusing)."""
+        self._store.pop(typed_ref, None)
 
     def __contains__(self, typed_ref: str) -> bool:
         return typed_ref in self._store
@@ -279,17 +284,25 @@ def inject_legal_entity_psp_connection_id(
 ) -> None:
     """Fill ``connection_id`` on legal-entity **create** when absent (PSP only).
 
-    If JSON omits ``connection_id`` and the config has ``modern_treasury``
-    connections, prefer the UUID for **this** legal entity's **fiat (USD/CAD)
-    internal account** connection — MT Connection Legal Entity flows align with
-    the bank/fiat rail, not the first row in ``connections[]`` (which breaks when
-    there are two ``modern_treasury`` refs or list order differs).
+    When there is exactly one ``connections[]`` row and it is ``modern_treasury``,
+    we omit ``connection_id`` on LE create (MT infers it). Any value is stripped
+    from *resolved*.
+
+    If JSON omits ``connection_id`` and there are **multiple** connections with
+    ``modern_treasury``, prefer the UUID for **this** legal entity's **fiat
+    (USD/CAD) internal account** connection — MT Connection Legal Entity flows
+    align with the bank/fiat rail, not the first row in ``connections[]`` (which
+    breaks when there are two ``modern_treasury`` refs or list order differs).
 
     Falls back to the first registered ``modern_treasury`` connection if the LE
     has no matching IAs yet. BYOB-only configs are unchanged.
 
     Mutates *resolved* in place, analogous to sandbox mock data on LE payloads.
     """
+    if legal_entity_omit_connection_id_on_create(config):
+        resolved.pop("connection_id", None)
+        return
+
     if resolved.get("connection_id"):
         return
 

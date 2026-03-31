@@ -1,7 +1,7 @@
 {% set fs = flow_summaries[flow_idx] %}
 <details class="accordion" id="scenario-builder-{{ flow_idx }}">
     <summary class="accordion-toggle">
-        <span class="accordion-toggle-title">Scale: {{ fs.flow_ref }}</span>
+        <span class="accordion-toggle-title">Flow config: {{ fs.flow_ref }}</span>
         {% if generation_recipes and fs.flow_ref in generation_recipes %}
         <span class="chip">{{ generation_recipes[fs.flow_ref].get('instances', '?') }} instances</span>
         {% endif %}

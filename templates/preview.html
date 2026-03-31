@@ -132,6 +132,13 @@ function switchPreviewTab(panelId) {
         });
     });
 
+    var rvForm = document.getElementById("revalidate-form");
+    if (rvForm) {
+        rvForm.addEventListener("htmx:configRequest", function() {
+            if (typeof updateReconcileOverrides === "function") updateReconcileOverrides();
+        });
+    }
+
     /* Set sidebar active state for HTMX fragment */
     var prev = document.querySelector('.sidebar-link.active');
     if (prev) prev.classList.remove('active');

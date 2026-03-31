@@ -216,9 +216,10 @@ class LegalEntityConfig(MetadataMixin, _BaseResourceConfig):
         default=None,
         description=(
             "MT legal-entity create ``connection_id`` (Connection Legal Entity). "
-            "PSP / ``modern_treasury``: leave unset in authored JSON — executor "
-            "injects the connection UUID. BYOB: set when your scenario requires it; "
-            "otherwise omit."
+            "PSP with a **single** ``modern_treasury`` connection: omit — the field "
+            "is dropped and not sent. Multiple connections: omit in JSON and the "
+            "executor injects the UUID (fiat IA rail preferred). BYOB: set when "
+            "your scenario requires it; otherwise omit."
         ),
     )
 

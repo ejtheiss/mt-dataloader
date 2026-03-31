@@ -1,148 +1,137 @@
 {#
   Fund Flows Case Card — Jinja2 partial
   ======================================
-  Composite component: Card + typography tokens + table/dl.
-  NOT a single shipped Mint component — composed from MT primitives.
-
-  Canonical sources:
-    Card.tsx        — card shell (border, radius, header/content/footer)
-    Badge.tsx       — status badge in header
-    Chip.tsx        — step count, edge cases, amount chips
-    Pill.tsx        — actor frame pills
-    KeyValueTable   — dl-based summary rows
-    page-chrome.css — .card, .badge, .chip, .pill classes
+  Case-management layout: header + meta strip + participants table + balances.
+  Primary action: View detail only (no in-card Preview — use page header Execution plan).
 
   Parameters:
-    case              — dict with keys:
-      trace_value     — display title (e.g. "marketplace_0042")
-      pattern_type    — subtitle (e.g. "ACH push + ledger")
-      status          — "ready" | "pending" | "error"
-      step_count      — int
-      og_count        — int (edge case count, 0 = omit)
-      amount_range    — dict {min, max} in cents, or None
-      trace_key       — e.g. "case_ref"
-      actor_frames    — list of {alias, slot_types, frame_type, customer_name}
-      account_deltas  — dict {acct_label: delta_cents}
-      summary_rows    — list of {label, value, raw?, copyable?, mono?} for kv section
-    card_url          — href for the card link (optional)
-    drawer_url        — data-drawer-url for slide-out (optional)
-    session_token     — session token string
-
-  Usage:
-    {% set case = fs %}
-    {% set card_url = "/flows/view/" ~ fs.index ~ "?session_token=" ~ session_token %}
-    {% set drawer_url = "/api/flows/" ~ fs.index ~ "/drawer?session_token=" ~ session_token %}
-    {% include "partials/case_card.html" %}
+    case              — flow summary dict (see routers/flows.py flow_summaries)
+    card_url          — full page detail href
+    drawer_url        — optional drawer HTMX URL (card body remains clickable)
+    session_token     — session token (for includes that need it)
 #}
 
 {% set _status = case.status | default("pending") %}
+{% set _acct_n = case.account_deltas | length if case.account_deltas else 0 %}
 
 <div class="card card--clickable case-card"
      {% if card_url is defined and card_url %}data-url="{{ card_url }}"{% endif %}
-     {% if drawer_url is defined and drawer_url %}data-drawer-url="{{ drawer_url }}"{% endif %}
-     style="cursor: pointer;">
+     {% if drawer_url is defined and drawer_url %}data-drawer-url="{{ drawer_url }}"{% endif %}>
 
-  {# ── Header: title + status badge + action ── #}
-  <div class="card-header">
-    <div class="card-heading">
-      <span class="card-title">{{ case.trace_value }}</span>
-      {% if case.pattern_type %}
-      <span class="card-description">{{ case.pattern_type }}</span>
+  <div class="card-header case-card-header">
+    <div class="case-card-header-main">
+      <div class="case-card-title-row">
+        <span class="card-title case-card-title-text">{{ case.trace_value }}</span>
+        <span class="badge badge--{{ 'success' if _status == 'ready' else ('critical' if _status == 'error' else 'default') }}">
+          {{ _status }}
+        </span>
+        {% if case.og_count %}
+        <span class="badge badge--warning">{{ case.og_count }} edge case{{ 's' if case.og_count != 1 else '' }}</span>
+        {% endif %}
+      </div>
+      {% if case.pattern_type or case.flow_ref or _acct_n %}
+      <div class="case-card-subline">
+        {% if case.pattern_type %}<span>{{ case.pattern_type }}</span>{% endif %}
+        {% if case.flow_ref %}
+        <span class="case-card-subline-sep" aria-hidden="true">•</span>
+        <span class="case-card-mono">{{ case.flow_ref }}</span>
+        {% endif %}
+        {% if _acct_n %}
+        <span class="case-card-subline-sep" aria-hidden="true">•</span>
+        <span>{{ _acct_n }} internal account{{ 's' if _acct_n != 1 else '' }}</span>
+        {% endif %}
+      </div>
       {% endif %}
     </div>
-    <div class="card-actions">
-      <span class="badge badge--{{ 'success' if _status == 'ready' else ('critical' if _status == 'error' else 'default') }}">
-        {{ _status }}
-      </span>
-      {% if card_url is defined and card_url %}
-      <a href="{{ card_url }}" class="btn btn-sm btn-outline">View Detail</a>
-      {% endif %}
+    {% if card_url is defined and card_url %}
+    <div class="card-actions case-card-header-actions">
+      <a href="{{ card_url }}" class="btn btn-sm btn-primary">View detail<span class="case-card-detail-arrow" aria-hidden="true"> →</span></a>
     </div>
+    {% endif %}
   </div>
 
-  {# ── Content: chips + actors + deltas + summary ── #}
-  <div class="card-content">
+  <div class="card-content case-card-content">
 
-    {# Chip row: step count, edge cases, amount range, trace ref #}
-    <div class="case-card-chips">
-      <span class="mt-chip">
-        <span class="mt-chip-content">
-          <span class="mt-chip-value">{{ case.step_count }} step{{ 's' if case.step_count != 1 }}</span>
-        </span>
-      </span>
-
-      {% if case.og_count %}
-      <span class="mt-chip mt-chip--warning">
-        <span class="mt-chip-content">
-          <span class="mt-chip-value">{{ case.og_count }} edge case{{ 's' if case.og_count != 1 }}</span>
-        </span>
-      </span>
-      {% endif %}
-
-      {% if case.amount_range %}
-      <span class="mt-chip">
-        <span class="mt-chip-content" style="font-variant-numeric: tabular-nums;">
-          <span class="mt-chip-value">
-            ${{ '{:,.2f}'.format(case.amount_range.min / 100) }}{% if case.amount_range.min != case.amount_range.max %} – ${{ '{:,.2f}'.format(case.amount_range.max / 100) }}{% endif %}
-          </span>
-        </span>
-      </span>
-      {% endif %}
-
-      {% if case.trace_key and case.trace_value %}
-      <span class="mt-chip" style="opacity: 0.7;">
-        <span class="mt-chip-content">
-          <span class="mt-chip-label">{{ case.trace_key }}:</span>
-          <span class="mt-chip-value">{{ case.trace_value }}</span>
-        </span>
-      </span>
-      {% endif %}
-    </div>
-
-    {# Actor frame pills #}
-    {% if case.actor_frames %}
-    <div class="pill-group case-card-actors">
-      {% for af in case.actor_frames %}
-      <span class="pill">
-        <span class="pill-content">
-          <strong>{{ af.alias }}</strong>
-          {% for st in af.slot_types %}
-          <span class="badge badge--{{ 'success' if af.frame_type == 'direct' else 'cool' }}">
-            {{ st.replace('_', ' ').split(' ')|map('first')|join('')|upper }}
-          </span>
-          {% endfor %}
-          {% if af.customer_name %}
-          <span class="pill-secondary">{{ af.customer_name }}</span>
+    <div class="case-card-meta-strip" role="group" aria-label="Flow summary">
+      <div class="case-card-meta-stat">
+        <div class="case-card-meta-stat-label">Steps</div>
+        <div class="case-card-meta-stat-value">{{ case.step_count }}</div>
+      </div>
+      <div class="case-card-meta-stat">
+        <div class="case-card-meta-stat-label">Edge cases</div>
+        <div class="case-card-meta-stat-value">{{ case.og_count }}</div>
+      </div>
+      <div class="case-card-meta-stat">
+        <div class="case-card-meta-stat-label">Amount band</div>
+        <div class="case-card-meta-stat-value case-card-meta-stat-value--nums">
+          {% if case.amount_range %}
+          ${{ '{:,.2f}'.format(case.amount_range.min / 100) }}{% if case.amount_range.min != case.amount_range.max %} – ${{ '{:,.2f}'.format(case.amount_range.max / 100) }}{% endif %}
+          {% else %}
+          —
           {% endif %}
-        </span>
-      </span>
-      {% endfor %}
+        </div>
+      </div>
+      <div class="case-card-meta-stat">
+        <div class="case-card-meta-stat-label">Flow ref</div>
+        <div class="case-card-meta-stat-value case-card-mono">{{ case.flow_ref | default('—') }}</div>
+      </div>
     </div>
-    {% endif %}
 
-    {# Account deltas #}
-    {% if case.account_deltas %}
-    <div class="case-card-deltas">
-      {% for acct, delta in case.account_deltas.items() %}
-      {% if acct %}
-      <span class="mt-chip" style="font-variant-numeric: tabular-nums;">
-        <span class="mt-chip-content">
-          <span class="mt-chip-label">{{ acct.split('.')[-1].replace('_', ' ').title() if '.' in acct else acct[:12] }}:</span>
-          <span class="mt-chip-value">{% if delta > 0 %}+{% endif %}${{ '{:,.2f}'.format(delta|abs / 100) }}</span>
-        </span>
-      </span>
+    <div class="case-card-split">
+      {% if case.actor_frames %}
+      <div class="case-card-split-col">
+        <div class="case-card-section-head">Participants</div>
+        <div class="case-card-table-wrap" role="table" aria-label="Participants">
+          <div class="case-card-table case-card-table--3" role="rowgroup">
+            <div class="case-card-table-head" role="row">
+              <div role="columnheader">Actor</div>
+              <div role="columnheader">Role / frame</div>
+              <div role="columnheader">Customer</div>
+            </div>
+            {% for af in case.actor_frames %}
+            <div class="case-card-table-row" role="row">
+              <div role="cell" class="case-card-table-strong">{{ af.alias }}</div>
+              <div role="cell">
+                {% if af.slot_types %}
+                  {% for st in af.slot_types %}
+                  {{ st | replace('_', ' ') | title }}{% if not loop.last %}, {% endif %}
+                  {% endfor %}
+                  <span class="case-card-table-muted"> · {{ af.frame_type | replace('_', ' ') | title }}</span>
+                {% else %}
+                  {{ af.frame_type | replace('_', ' ') | title }}
+                {% endif %}
+              </div>
+              <div role="cell" class="case-card-table-muted">{{ af.customer_name if af.customer_name else '—' }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
       {% endif %}
-      {% endfor %}
-    </div>
-    {% endif %}
 
-    {# Summary rows (dl-based key-value table) #}
+      {% if case.account_deltas %}
+      <div class="case-card-split-col">
+        <div class="case-card-section-head">Balances</div>
+        <div class="case-card-balance-grid">
+          {% for acct, delta in case.account_deltas.items() %}
+          {% if acct %}
+          <div class="case-card-balance-card">
+            <div class="case-card-balance-label">{{ acct.split('.')[-1].replace('_', ' ').title() if '.' in acct else acct[:24] }}</div>
+            <div class="case-card-balance-value">{% if delta > 0 %}+{% endif %}${{ '{:,.2f}'.format(delta|abs / 100) }}</div>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
     {% if case.summary_rows %}
     <dl class="case-card-summary">
       {% for row in case.summary_rows %}
       <div class="case-card-summary-row">
         <dt>{{ row.label }}</dt>
-        <dd{% if row.mono %} style="font-family: var(--font-mono, monospace); font-size: 0.75rem;"{% endif %}>
+        <dd{% if row.mono %} class="case-card-mono"{% endif %}>
           {% if row.raw %}{{ row.value | safe }}{% else %}{{ row.value if row.value is not none else 'N/A' }}{% endif %}
         </dd>
       </div>

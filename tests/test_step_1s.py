@@ -509,7 +509,7 @@ class TestDagConnectionsBeforeLegalEntities:
 
 
 class TestInjectLegalEntityPspConnectionId:
-    def test_fills_from_first_modern_treasury_in_registry(self):
+    def test_omits_connection_id_when_sole_modern_treasury(self):
         config = DataLoaderConfig.model_validate({
             "connections": [
                 {
@@ -533,7 +533,7 @@ class TestInjectLegalEntityPspConnectionId:
         inject_legal_entity_psp_connection_id(
             config, reg, resolved, typed_ref="legal_entity.le1",
         )
-        assert resolved["connection_id"] == "550e8400-e29b-41d4-a716-446655440000"
+        assert "connection_id" not in resolved
 
     def test_prefers_fiat_ia_connection_when_two_modern_treasury_rows(self):
         config = DataLoaderConfig.model_validate({
@@ -617,7 +617,9 @@ class TestInjectLegalEntityPspConnectionId:
         )
         assert "connection_id" not in resolved
 
-    def test_skips_when_connection_id_already_in_payload(self):
+    def test_strips_connection_id_when_sole_modern_treasury_even_if_resolved_preset(
+        self,
+    ):
         config = DataLoaderConfig.model_validate({
             "connections": [
                 {
@@ -645,7 +647,64 @@ class TestInjectLegalEntityPspConnectionId:
         inject_legal_entity_psp_connection_id(
             config, reg, resolved, typed_ref="legal_entity.le1",
         )
+        assert "connection_id" not in resolved
+
+    def test_skips_injection_when_connection_id_already_in_payload_multi_conn(self):
+        config = DataLoaderConfig.model_validate({
+            "connections": [
+                {
+                    "ref": "c_a",
+                    "entity_id": "modern_treasury",
+                    "nickname": "A",
+                },
+                {
+                    "ref": "c_b",
+                    "entity_id": "modern_treasury",
+                    "nickname": "B",
+                },
+            ],
+            "legal_entities": [
+                {
+                    "ref": "le1",
+                    "legal_entity_type": "business",
+                    "business_name": "Co",
+                },
+            ],
+            "funds_flows": [],
+        })
+        reg = RefRegistry()
+        reg.register("connection.c_a", "550e8400-e29b-41d4-a716-446655440000")
+        reg.register("connection.c_b", "660e8400-e29b-41d4-a716-446655440001")
+        resolved = {
+            "legal_entity_type": "business",
+            "business_name": "Co",
+            "connection_id": "preset-uuid-0000-0000-000000000000",
+        }
+        inject_legal_entity_psp_connection_id(
+            config, reg, resolved, typed_ref="legal_entity.le1",
+        )
         assert resolved["connection_id"] == "preset-uuid-0000-0000-000000000000"
+
+    def test_pydantic_strips_le_connection_id_when_sole_modern_treasury(self):
+        config = DataLoaderConfig.model_validate({
+            "connections": [
+                {
+                    "ref": "psp",
+                    "entity_id": "modern_treasury",
+                    "nickname": "PSP",
+                },
+            ],
+            "legal_entities": [
+                {
+                    "ref": "le1",
+                    "legal_entity_type": "business",
+                    "business_name": "Co",
+                    "connection_id": "$ref:connection.psp",
+                },
+            ],
+            "funds_flows": [],
+        })
+        assert config.legal_entities[0].connection_id is None
 
 
 class TestSingleConnectionMultiCurrencyInternalAccounts:
@@ -726,6 +785,80 @@ class TestBuildPreviewSetupOrder:
         setup = [i for i in items if i["display_phase"] == DisplayPhase.SETUP]
         types = [i["resource_type"] for i in setup]
         assert types.index("connection") < types.index("legal_entity")
+
+    def test_batched_resource_shows_create_not_matched_when_recon_stale(self):
+        """DAG says create (ref in batches) — UI must not show 'existing' from recon alone."""
+        from org.reconciliation import ReconciledResource, ReconciliationResult
+
+        raw = {
+            "connections": [
+                {"ref": "c1", "entity_id": "example1", "nickname": "C1"},
+            ],
+            "legal_entities": [
+                {"ref": "le1", "legal_entity_type": "business", "business_name": "Co"},
+            ],
+            "internal_accounts": [
+                {
+                    "ref": "ia",
+                    "connection_id": "$ref:connection.c1",
+                    "name": "USD",
+                    "party_name": "Co",
+                    "currency": "USD",
+                    "legal_entity_id": "$ref:legal_entity.le1",
+                },
+            ],
+            "funds_flows": [],
+        }
+        config = DataLoaderConfig.model_validate(raw)
+        resource_map = {typed_ref_for(r): r for r in all_resources(config)}
+        batches = [["connection.c1"]]
+        m = ReconciledResource(
+            config_ref="connection.c1",
+            config_resource=config.connections[0],
+            discovered_id="disc-uuid",
+            discovered_name="Old MT conn",
+            match_reason="test",
+            use_existing=True,
+        )
+        recon = ReconciliationResult(matches=[m])
+        items = build_preview(
+            batches, resource_map, skip_refs=set(), reconciliation=recon,
+        )
+        conn_row = next(i for i in items if i["typed_ref"] == "connection.c1")
+        assert conn_row["action"] == "create"
+        assert conn_row["reconciled"] is False
+
+
+class TestEditedResourceTypedRefs:
+    def test_detects_connection_payload_change(self):
+        from routers.setup import _edited_resource_typed_refs
+
+        raw = {
+            "connections": [
+                {"ref": "c1", "entity_id": "example1", "nickname": "C1"},
+            ],
+            "legal_entities": [
+                {"ref": "le1", "legal_entity_type": "business", "business_name": "Co"},
+            ],
+            "funds_flows": [],
+        }
+        prior = DataLoaderConfig.model_validate(raw)
+        new_cfg = prior.model_copy(deep=True)
+        new_cfg.connections[0].entity_id = "example2"
+        refs = _edited_resource_typed_refs(prior, new_cfg)
+        assert "connection.c1" in refs
+
+    def test_prior_none_returns_empty(self):
+        from routers.setup import _edited_resource_typed_refs
+
+        raw = {
+            "connections": [
+                {"ref": "c1", "entity_id": "example1", "nickname": "C1"},
+            ],
+            "funds_flows": [],
+        }
+        cfg = DataLoaderConfig.model_validate(raw)
+        assert _edited_resource_typed_refs(None, cfg) == set()
 
 
 # ---------------------------------------------------------------------------
