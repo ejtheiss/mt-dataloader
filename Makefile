@@ -1,4 +1,4 @@
-.PHONY: setup run tunnel webhooks validate help docker-build docker-run docker-stop docker-update regen-tokens-preview
+.PHONY: setup run test tunnel webhooks validate help docker-build docker-run docker-stop docker-update regen-tokens-preview
 
 help: ## Show this help
 	@grep -E '^[a-z][a-z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -12,6 +12,9 @@ setup: ## Create venv and install dependencies
 
 run: ## Start the dataloader (auto-reload)
 	.venv/bin/uvicorn main:app --reload --host 127.0.0.1 --port 8000
+
+test: ## Run pytest (same as CI)
+	.venv/bin/python -m pytest tests/ -q
 
 tunnel: ## Start ngrok tunnel (or use /listen in the UI)
 	@echo "Tip: You can now manage the tunnel from http://127.0.0.1:8000/listen"
