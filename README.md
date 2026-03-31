@@ -360,6 +360,8 @@ python -m pytest tests/ -q           # all 575 tests
 python -m pytest tests/ -x -q        # stop on first failure
 ```
 
+**MINT / MT UI assets:** [`docs/PORTING-KIT.md`](docs/PORTING-KIT.md), [`docs/UI_GAPS_REMAINING.md`](docs/UI_GAPS_REMAINING.md) — icons, case card partial, token regen preview, open follow-ups.
+
 ---
 
 ## Scope
