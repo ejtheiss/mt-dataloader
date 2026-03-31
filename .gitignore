@@ -30,6 +30,9 @@ Thumbs.db
 # Internal plans and reviews (not for public repo)
 plan/
 
+# Generated token preview (regen script); shipped tokens.css stays tracked
+static/css/tokens.regen-preview.css
+
 # Runtime artifacts
 runs/
 logs/

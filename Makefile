@@ -1,4 +1,4 @@
-.PHONY: setup run tunnel webhooks validate help docker-build docker-run docker-stop docker-update
+.PHONY: setup run tunnel webhooks validate help docker-build docker-run docker-stop docker-update regen-tokens-preview
 
 help: ## Show this help
 	@grep -E '^[a-z][a-z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -25,6 +25,10 @@ webhooks: ## How to set up webhooks
 	@echo "Or manually in two terminals:"
 	@echo "  make run      # Terminal 1 — start the app"
 	@echo "  make tunnel   # Terminal 2 — start ngrok"
+
+regen-tokens-preview: ## Write static/css/tokens.regen-preview.css from Mint tailwind (needs Node + config path)
+	@command -v node >/dev/null 2>&1 || { echo "node not found"; exit 1; }
+	node scripts/regen-tokens.js
 
 validate: ## Validate all example configs
 	.venv/bin/python - <<'PY'

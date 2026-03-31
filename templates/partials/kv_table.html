@@ -103,10 +103,7 @@
       <button class="kv-copy-btn"
               onclick="navigator.clipboard.writeText('{{ row.value }}')"
               title="Copy to clipboard">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v7a1 1 0 001 1h2" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
+        <img src="/static/icons/ui/copy.svg" width="14" height="14" alt="" aria-hidden="true">
       </button>
       {% endif %}
     </div>

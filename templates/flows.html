@@ -16,68 +16,10 @@
 {% if flow_summaries %}
 {% for fs in flow_summaries %}
 <div class="flow-section">
-    <div class="card card--clickable"
-         data-url="/flows/view/{{ fs.index }}?session_token={{ session_token }}"
-         data-drawer-url="/api/flows/{{ fs.index }}/drawer?session_token={{ session_token }}"
-         style="cursor: pointer;">
-        <div class="card-header">
-            <div class="card-heading">
-                <span class="card-title">{{ fs.trace_value }}</span>
-                <span class="card-description">{{ fs.pattern_type }}</span>
-            </div>
-            <div class="card-actions">
-                <span class="badge badge--{{ 'success' if fs.status == 'ready' else 'default' }}">{{ fs.status }}</span>
-                <a href="/flows/view/{{ fs.index }}?session_token={{ session_token }}" class="btn btn-sm btn-outline">
-                    View Detail
-                </a>
-            </div>
-        </div>
-        <div class="card-content">
-            <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">
-                <span class="chip">{{ fs.step_count }} step{{ 's' if fs.step_count != 1 }}</span>
-                {% if fs.og_count %}
-                <span class="chip chip--warning">{{ fs.og_count }} edge case{{ 's' if fs.og_count != 1 }}</span>
-                {% endif %}
-                {% if fs.amount_range %}
-                <span class="chip" style="font-variant-numeric: tabular-nums;">
-                    ${{ '{:,.2f}'.format(fs.amount_range.min / 100) }}{% if fs.amount_range.min != fs.amount_range.max %} – ${{ '{:,.2f}'.format(fs.amount_range.max / 100) }}{% endif %}
-                </span>
-                {% endif %}
-                <span class="chip chip--muted">{{ fs.trace_key }}: {{ fs.trace_value }}</span>
-            </div>
-
-            {% if fs.actor_frames %}
-            <div class="pill-group">
-                {% for af in fs.actor_frames %}
-                <span class="pill">
-                    <span class="pill-content">
-                        <strong>{{ af.alias }}</strong>
-                        {% for st in af.slot_types %}
-                        <span class="badge badge--{{ 'success' if af.frame_type == 'direct' else 'cool' }}">{{ st.replace('_', ' ').split(' ')|map('first')|join('')|upper }}</span>
-                        {% endfor %}
-                        {% if af.customer_name %}
-                        <span class="pill-secondary">{{ af.customer_name }}</span>
-                        {% endif %}
-                    </span>
-                </span>
-                {% endfor %}
-            </div>
-            {% endif %}
-
-            {% if fs.account_deltas %}
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.78rem; margin-top: 4px;">
-                {% for acct, delta in fs.account_deltas.items() %}
-                {% if acct %}
-                <span class="chip" style="font-variant-numeric: tabular-nums;">
-                    {{ acct.split('.')[-1].replace('_', ' ').title() if '.' in acct else acct[:12] }}:
-                    {% if delta > 0 %}+{% endif %}${{ '{:,.2f}'.format(delta|abs / 100) }}
-                </span>
-                {% endif %}
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-    </div>
+    {% set case = fs %}
+    {% set card_url = "/flows/view/" ~ fs.index ~ "?session_token=" ~ session_token %}
+    {% set drawer_url = "/api/flows/" ~ fs.index ~ "/drawer?session_token=" ~ session_token %}
+    {% include "partials/case_card.html" %}
 
     <div class="flow-section-children">
         {% if loop.index0 < mermaid_diagrams|length %}

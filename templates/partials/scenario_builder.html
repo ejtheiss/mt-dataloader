@@ -95,16 +95,16 @@
                 {% for as in fs.amount_steps %}
                 <div class="amount-step-item" data-base-amount="{{ as.amount }}" data-step-id="{{ as.step_id }}" data-variance-mode="global" data-step-index="{{ loop.index0 }}">
                     <button type="button" class="variance-lock-btn" title="Click to lock amount">
-                        <svg class="lock-icon lock-icon-unlocked" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
-                        <svg class="lock-icon lock-icon-locked" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        <svg class="lock-icon lock-icon-custom" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        <img class="lock-icon lock-icon-unlocked" src="/static/icons/ui/lock-open.svg" width="14" height="14" alt="" aria-hidden="true">
+                        <img class="lock-icon lock-icon-locked" src="/static/icons/ui/lock.svg" width="14" height="14" alt="" aria-hidden="true">
+                        <img class="lock-icon lock-icon-custom" src="/static/icons/ui/edit.svg" width="14" height="14" alt="" aria-hidden="true">
                     </button>
                     <code class="ref-name">{{ as.step_id }}</code>
                     <span class="badge badge--cool">{{ as.type }}</span>
                     {% if loop.first %}
                     <span class="timing-pill timing-pill-t0" title="Base date — click calendar to change">T0</span>
                     <button type="button" class="timing-date-btn" title="Set base date">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <img src="/static/icons/ui/calendar.svg" width="14" height="14" alt="" aria-hidden="true">
                     </button>
                     <input type="date" class="timing-date-input" style="display:none;">
                     {% else %}

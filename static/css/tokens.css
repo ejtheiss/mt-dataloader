@@ -1,10 +1,14 @@
 /*
  * MINT Design Tokens
  * ==================
- * Auto-derived from MT monorepo tailwind.config.js (themeLight + color scales).
- * DO NOT hand-edit resolved values — update from the canonical Tailwind config.
+ * Curated for this app: `--gray-*`, semantic `--text-*`, `--mt-*` bridges, etc.
+ * Align changes with `plan/resources/mint-design-system-reference/config/tailwind.config.js`
+ * when that tree is available locally (`plan/` is gitignored in this repo).
  *
- * Source: plan/resources/mint-design-system-reference/config/tailwind.config.js
+ * Regeneration: `node scripts/regen-tokens.js` (optional). The script currently
+ * emits a different custom-property schema (`--color-*`); do not overwrite this
+ * file wholesale until the generator is updated to match these names or a mapper
+ * is added. Use script output for diffing against Mint only.
  */
 
 :root {

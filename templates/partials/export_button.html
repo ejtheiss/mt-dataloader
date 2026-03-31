@@ -40,9 +40,7 @@
           class="mt-export-btn {{ button_class | default('') }}"
           onclick="{{ exports[0].onclick }}"
           id="export-btn">
-    <svg class="mt-export-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-    </svg>
+    <img class="mt-export-icon" src="/static/icons/ui/download.svg" width="16" height="16" alt="" aria-hidden="true">
     {{ exports[0].label | default('Export') }}
   </button>
   {% else %}
@@ -52,13 +50,9 @@
             class="mt-export-btn {{ button_class | default('') }}"
             onclick="this.nextElementSibling.classList.toggle('hidden')"
             id="export-btn">
-      <svg class="mt-export-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-      </svg>
+      <img class="mt-export-icon" src="/static/icons/ui/download.svg" width="16" height="16" alt="" aria-hidden="true">
       Export
-      <svg class="mt-export-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="6 9 12 15 18 9"/>
-      </svg>
+      <img class="mt-export-caret" src="/static/icons/ui/chevron-down.svg" width="12" height="12" alt="" aria-hidden="true">
     </button>
     <div class="mt-export-panel hidden">
       {% for exp in exports %}

@@ -82,9 +82,7 @@
 
     {# Close — DrawerActions.tsx line 62-64: Icon "sign_out" #}
     <button class="drawer-action-btn" onclick="closeDrawer()" title="Close">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
+      <img src="/static/icons/ui/close.svg" width="16" height="16" alt="" aria-hidden="true">
       <span class="sr-only">Close</span>
     </button>
 
@@ -92,9 +90,7 @@
     {# handleLinkClick(path) -> router.push(path) equivalent = window.location = url #}
     <button class="drawer-action-btn" id="drawer-action-open-page"
             onclick="drawerOpenAsPage()" title="Open as page" style="display: none;">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 3h4M3 3v4M3 3l5 5M13 9v4H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <img src="/static/icons/ui/expand.svg" width="16" height="16" alt="" aria-hidden="true">
       <span class="sr-only">Open as page</span>
     </button>
 
@@ -102,9 +98,7 @@
     {# handleLinkClick(path, {shiftKey: true}) -> window.open(url, "_blank") #}
     <button class="drawer-action-btn" id="drawer-action-new-tab"
             onclick="drawerOpenInNewTab()" title="Open in new tab" style="display: none;">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M10 2h4v4M14 2L8 8M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <img src="/static/icons/ui/external-link.svg" width="16" height="16" alt="" aria-hidden="true">
       <span class="sr-only">Open in new tab</span>
     </button>
 
@@ -112,9 +106,7 @@
     {# Only shown if navigator.clipboard is available #}
     <button class="drawer-action-btn" id="drawer-action-copy"
             onclick="drawerCopyLink()" title="Copy link" style="display: none;">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M6.5 9.5l3-3M5 10l-1.3 1.3a1.5 1.5 0 002.1 2.1L7 12M9 6l1.3-1.3a1.5 1.5 0 00-2.1-2.1L7 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
+      <img src="/static/icons/ui/link.svg" width="16" height="16" alt="" aria-hidden="true">
       <span class="sr-only">Copy link</span>
     </button>
 

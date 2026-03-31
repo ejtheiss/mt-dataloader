@@ -1,0 +1,47 @@
+{#
+  MT Icon — Jinja2 partial
+  ============================================================
+  Canonical source: Icon.tsx (platform/app/frontend/dashboard/components/ui-components/Icon/Icon.tsx)
+
+  Renders an SVG icon from the vendored icon set at static/icons/mt/.
+  Icons are extracted from MT's icons.tsx (fill-based, 24x24 viewBox).
+
+  For stroke-based UI icons (close, chevron, arrows, etc.) that come from
+  Lucide/Feather and are used in the dashboard via other means, we maintain
+  a parallel set at static/icons/ui/.
+
+  Parameters:
+    icon_name   — icon filename without .svg extension (e.g. "settings_outlined", "close")
+    size        — pixel size, default 16. Maps to Icon.tsx sizes: xs=12, s=16, m=20, l=24, xl=30
+    class       — optional extra CSS classes on the wrapper span
+    title       — optional accessible title (sets role="img" + aria-label)
+    set         — "mt" (fill icons from icons.tsx) or "ui" (stroke icons). Default: "mt"
+
+  Usage:
+    {# MT fill icon (from icons.tsx) #}
+    {% set icon_name = "settings_outlined" %}
+    {% set size = 16 %}
+    {% include "partials/icon.html" %}
+
+    {# UI stroke icon #}
+    {% set icon_name = "close" %}
+    {% set size = 16 %}
+    {% set set = "ui" %}
+    {% include "partials/icon.html" %}
+  ============================================================
+#}
+
+{% set _size = size | default(16) %}
+{% set _set = set | default("mt") %}
+{% set _class = class | default("") %}
+<span class="mt-icon {{ _class }}"
+      style="width: {{ _size }}px; height: {{ _size }}px; display: inline-block; position: relative; fill: currentcolor;"
+      {% if title is defined and title %}role="img" aria-label="{{ title }}"{% endif %}>
+  <img src="/static/icons/{{ _set }}/{{ icon_name }}.svg"
+       width="{{ _size }}" height="{{ _size }}"
+       style="position: absolute; left: 0; top: 0;"
+       alt=""
+       {% if not (title is defined and title) %}aria-hidden="true"{% endif %}
+       onerror="this.style.display='none'">
+</span>
+{% set size = None %}{% set set = None %}{% set class = None %}{% set title = None %}{% set icon_name = None %}
