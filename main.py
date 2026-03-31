@@ -28,11 +28,14 @@ from routers.tunnel import router as tunnel_router
 from tunnel import NgrokStartError, TunnelManager
 from webhooks import router as webhook_router, rebuild_correlation_index
 
+# Paths relative to this file — not the process cwd (Docker/K8s may use another cwd).
+_APP_ROOT = Path(__file__).resolve().parent
+
 # ---------------------------------------------------------------------------
 # Template engine
 # ---------------------------------------------------------------------------
 
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=str(_APP_ROOT / "templates"))
 
 MT_DOCS: dict[str, str] = {
     "connection": "https://docs.moderntreasury.com/platform/reference/connection-object",
@@ -58,7 +61,7 @@ MT_DOCS: dict[str, str] = {
 }
 templates.env.globals["mt_docs"] = MT_DOCS
 
-_css_path = Path("static/style.css")
+_css_path = _APP_ROOT / "static" / "style.css"
 
 
 def _css_version() -> str:
@@ -147,9 +150,15 @@ app = FastAPI(title="MT Dataloader", version=__version__, lifespan=lifespan)
 async def get_version():
     return {"version": __version__}
 
-static_dir = Path("static")
-if static_dir.exists():
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+static_dir = _APP_ROOT / "static"
+if static_dir.is_dir():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+else:
+    logger.warning(
+        "Static directory missing at {} — UI will load without CSS "
+        "(check image build and working directory).",
+        static_dir,
+    )
 
 app.state.templates = templates
 

@@ -25,6 +25,8 @@ Open **http://localhost:8000**. Stop with `make docker-stop`.
 
 **Ngrok in Docker:** The image does **not** download the ngrok agent during `docker build` (that step often fails with HTTP 403 from ngrok’s CDN in automated/build environments). The binary is fetched **on first tunnel start** from **`/listen`** when you save an authtoken, same as a local venv. You need outbound HTTPS to `bin.ngrok.com` from the running container. If that still fails, set **`DATALOADER_NGROK_AUTO_START=false`** and run ngrok on the host (`make tunnel`), as in [Advanced: external ngrok](#advanced-external-ngrok-optional).
 
+**Plain HTML / no CSS:** Styles load from `/static/...`. If the page looks like unstyled text, open DevTools → Network and check whether CSS requests return **404**. Common causes: (1) the app process was started with a **working directory** that is not the project root (older builds relied on cwd; current code resolves `static/` next to `main.py` — **pull latest**), (2) a **reverse proxy** serves the app under a **path prefix** (e.g. `/dataloader`) but `/static` is not forwarded to the same app, (3) an **incomplete** image or checkout missing the `static/` tree. Quick check: `curl -sI http://localhost:8000/static/css/tokens.css` should return `200`.
+
 ### Local Python
 
 **You need:** Python 3.11+, a Modern Treasury **sandbox** API key and org ID.
