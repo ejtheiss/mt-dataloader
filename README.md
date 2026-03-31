@@ -23,6 +23,8 @@ If the repo already exists: `cd path/to/mt-dataloader` (for example `cd ~/mt-dat
 
 Open **http://localhost:8000**. Stop with `make docker-stop`.
 
+**Ngrok in Docker:** The image does **not** download the ngrok agent during `docker build` (that step often fails with HTTP 403 from ngrok’s CDN in automated/build environments). The binary is fetched **on first tunnel start** from **`/listen`** when you save an authtoken, same as a local venv. You need outbound HTTPS to `bin.ngrok.com` from the running container. If that still fails, set **`DATALOADER_NGROK_AUTO_START=false`** and run ngrok on the host (`make tunnel`), as in [Advanced: external ngrok](#advanced-external-ngrok-optional).
+
 ### Local Python
 
 **You need:** Python 3.11+, a Modern Treasury **sandbox** API key and org ID.

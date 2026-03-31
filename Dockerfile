@@ -7,13 +7,16 @@ LABEL org.opencontainers.image.title="MT Dataloader"
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN python -c "from pyngrok.installer import install_ngrok; from pyngrok.conf import PyngrokConfig; install_ngrok(PyngrokConfig())"
+# Do not run pyngrok/ngrok download here: `installer.install_ngrok` takes a path string,
+# not PyngrokConfig, and bin.ngrok.com often returns 403 during `docker build` (WAF/bot filters).
+# The agent is installed on first tunnel start from /listen (pyngrok downloads then).
 
 COPY . .
 
