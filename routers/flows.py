@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from engine import all_resources, dry_run, typed_ref_for
 from flow_compiler import (
@@ -28,8 +28,9 @@ from helpers import (
     get_templates,
     SOURCE_BADGE,
 )
-from models import DataLoaderConfig, GenerationRecipeV1
+from models import ActorDatasetOverride, DataLoaderConfig, GenerationRecipeV1
 from org import reconcile_config, sync_connection_entities_from_reconciliation
+import seed_loader
 from session import sessions
 
 router = APIRouter(tags=["flows"])
@@ -71,7 +72,19 @@ def _step_variance_ui_fields(step_id: str, recipe: dict[str, Any] | None) -> dic
 
 
 def _get_base_config(session: Any) -> DataLoaderConfig:
-    """Return the original validated config before any recipe was applied."""
+    """Config with ``funds_flows`` intact for recipe ``flow_ref`` pattern lookup.
+
+    After validate, ``base_config_json`` / ``config_json_text`` are the emitted
+    (flattened) config with empty ``funds_flows``; prefer ``authoring_config_json``.
+    """
+    acj = getattr(session, "authoring_config_json", None)
+    if acj:
+        try:
+            cfg = DataLoaderConfig.model_validate_json(acj)
+            if cfg.funds_flows:
+                return cfg
+        except ValidationError:
+            pass
     source = session.base_config_json or session.config_json_text
     try:
         return DataLoaderConfig.model_validate_json(source)
@@ -198,6 +211,86 @@ async def _parse_and_compile_recipe(
     return token, session, recipe, gen_result
 
 
+def _default_recipe_dict(flow_ref: str) -> dict[str, Any]:
+    """Minimal recipe matching scenario-builder defaults when none exists yet."""
+    return {
+        "version": "v1",
+        "flow_ref": flow_ref,
+        "instances": 10,
+        "seed": 424242,
+        "seed_dataset": "standard",
+        "edge_case_count": 0,
+        "amount_variance_min_pct": 0.0,
+        "amount_variance_max_pct": 0.0,
+    }
+
+
+def _recompose_and_persist_session(
+    session: Any,
+) -> JSONResponse | GenerationResult:
+    """Run ``_compose_all_recipes`` and mirror results onto ``session``.
+
+    Returns ``JSONResponse`` on generation failure; otherwise the
+    ``GenerationResult`` that was applied.
+    """
+    base = _get_base_config(session)
+    try:
+        gen = _compose_all_recipes(base, session.generation_recipes)
+    except (ValueError, KeyError) as e:
+        return JSONResponse(
+            content={"error": "Generation failed", "detail": str(e)},
+            status_code=400,
+        )
+
+    if session.discovery is not None:
+        reconciliation = reconcile_config(gen.config, session.discovery)
+        skip_refs: set[str] = set()
+        for m in reconciliation.matches:
+            if m.use_existing:
+                session.registry.register_or_update(m.config_ref, m.discovered_id)
+                skip_refs.add(m.config_ref)
+                for ck, cid in m.child_refs.items():
+                    session.registry.register_or_update(
+                        f"{m.config_ref}.{ck}", cid
+                    )
+        session.reconciliation = reconciliation
+        session.skip_refs = skip_refs
+        sync_connection_entities_from_reconciliation(
+            gen.config, session.discovery, reconciliation, {},
+        )
+
+    session.config = gen.config
+    config_json_text = gen.config.model_dump_json(indent=2, exclude_none=True)
+    session.config_json_text = config_json_text
+    session.working_config_json = config_json_text
+    session.mermaid_diagrams = gen.diagrams
+    session.flow_ir = gen.flow_irs
+    session.expanded_flows = gen.expanded_flows
+    session.view_data_cache = [
+        compute_view_data(ir, fc)
+        for ir, fc in zip(gen.flow_irs, gen.expanded_flows)
+    ]
+
+    known = set(session.org_registry.refs.keys()) if session.org_registry else None
+    batches = dry_run(gen.config, known, skip_refs=session.skip_refs)
+    session.batches = batches
+    resource_map = {typed_ref_for(r): r for r in all_resources(gen.config)}
+    session.preview_items = build_preview(
+        batches, resource_map,
+        skip_refs=session.skip_refs,
+        reconciliation=session.reconciliation,
+        update_refs=session.update_refs,
+    )
+    return gen
+
+
+class ActorConfigSaveBody(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    frame: str = Field(min_length=1)
+    override: ActorDatasetOverride = Field(default_factory=ActorDatasetOverride)
+
+
 @router.get("/flows", include_in_schema=False)
 async def flows_page(request: Request):
     """Fund Flows list page — compile-time view of flow patterns."""
@@ -302,7 +395,6 @@ async def flows_page(request: Request):
                 ),
             })
 
-    import seed_loader
     seed_datasets = seed_loader.list_datasets()
 
     return templates.TemplateResponse(
@@ -586,65 +678,137 @@ async def recipe_to_working_config(request: Request):
 
     session.generation_recipes[recipe.flow_ref] = recipe.model_dump()
 
-    base = _get_base_config(session)
-    try:
-        gen = _compose_all_recipes(base, session.generation_recipes)
-    except (ValueError, KeyError) as e:
-        return JSONResponse(
-            content={"error": "Generation failed", "detail": str(e)},
-            status_code=400,
-        )
-
-    if session.discovery is not None:
-        reconciliation = reconcile_config(gen.config, session.discovery)
-        skip_refs: set[str] = set()
-        for m in reconciliation.matches:
-            if m.use_existing:
-                session.registry.register_or_update(m.config_ref, m.discovered_id)
-                skip_refs.add(m.config_ref)
-                for ck, cid in m.child_refs.items():
-                    session.registry.register_or_update(
-                        f"{m.config_ref}.{ck}", cid
-                    )
-        session.reconciliation = reconciliation
-        session.skip_refs = skip_refs
-        sync_connection_entities_from_reconciliation(
-            gen.config, session.discovery, reconciliation, {},
-        )
-
-    session.config = gen.config
-    config_json_text = gen.config.model_dump_json(indent=2, exclude_none=True)
-    session.config_json_text = config_json_text
-    # Keep editor + any working_config_json consumers in sync (otherwise flows
-    # page shows stale JSON and "Apply to Config" appears broken after redirect).
-    session.working_config_json = config_json_text
-    session.mermaid_diagrams = gen.diagrams
-    session.flow_ir = gen.flow_irs
-    session.expanded_flows = gen.expanded_flows
-    session.view_data_cache = [
-        compute_view_data(ir, fc)
-        for ir, fc in zip(gen.flow_irs, gen.expanded_flows)
-    ]
-
-    known = set(session.org_registry.refs.keys()) if session.org_registry else None
-    batches = dry_run(gen.config, known, skip_refs=session.skip_refs)
-    session.batches = batches
-    resource_map = {typed_ref_for(r): r for r in all_resources(gen.config)}
-    session.preview_items = build_preview(
-        batches, resource_map,
-        skip_refs=session.skip_refs,
-        reconciliation=session.reconciliation,
-        update_refs=session.update_refs,
-    )
+    composed = _recompose_and_persist_session(session)
+    if isinstance(composed, JSONResponse):
+        return composed
 
     recipe_count = len(session.generation_recipes)
     return {
         "status": "ok",
-        "total_resources": sum(_count_resources(gen.config).values()),
-        "mermaid_count": len(gen.diagrams),
-        "edge_case_map": gen.edge_case_map,
+        "total_resources": sum(_count_resources(composed.config).values()),
+        "mermaid_count": len(composed.diagrams),
+        "edge_case_map": composed.edge_case_map,
         "recipe_count": recipe_count,
     }
+
+
+@router.get("/api/flows/{flow_idx}/actor-config", include_in_schema=False)
+async def flow_actor_config_drawer(request: Request, flow_idx: int):
+    """HTMX partial: edit one actor's dataset / literal / name template."""
+    session_token = request.query_params.get("session_token", "")
+    frame = request.query_params.get("frame", "").strip()
+    session = sessions.get(session_token)
+    if not session:
+        return HTMLResponse("<p class=\"text-muted\">Session expired. Reload Setup.</p>", status_code=401)
+    if not frame:
+        return HTMLResponse("<p>Missing frame parameter.</p>", status_code=400)
+
+    display_expanded = session.pattern_expanded_flows or session.expanded_flows or []
+    if flow_idx < 0 or flow_idx >= len(display_expanded):
+        return HTMLResponse("<p>Invalid flow index.</p>", status_code=400)
+
+    fc = display_expanded[flow_idx]
+    if frame not in fc.actors:
+        return HTMLResponse("<p>Unknown actor frame.</p>", status_code=404)
+
+    actor_model = fc.actors[frame]
+    display_ir = session.pattern_flow_ir or session.flow_ir or []
+    if flow_idx < len(display_ir):
+        flow_ref = display_ir[flow_idx].flow_ref
+    else:
+        flow_ref = fc.ref.rsplit("__", 1)[0] if "__" in fc.ref else fc.ref
+    recipe_raw = session.generation_recipes.get(flow_ref)
+    ov_raw: dict[str, Any] = {}
+    if recipe_raw:
+        ao = recipe_raw.get("actor_overrides") or {}
+        if isinstance(ao.get(frame), dict):
+            ov_raw = dict(ao[frame])
+
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request,
+        "partials/flow_actor_config.html",
+        {
+            "session_token": session_token,
+            "flow_idx": flow_idx,
+            "flow_ref": flow_ref,
+            "frame": frame,
+            "actor_alias": actor_model.alias,
+            "frame_type": actor_model.frame_type,
+            "seed_datasets": seed_loader.list_datasets(),
+            "customer_name": ov_raw.get("customer_name") or actor_model.customer_name or "",
+            "entity_type": ov_raw.get("entity_type") or "business",
+            "dataset": ov_raw.get("dataset") or actor_model.dataset or "standard",
+            "name_template": ov_raw.get("name_template") or actor_model.name_template or "",
+        },
+    )
+
+
+@router.post("/api/flows/{flow_idx}/actor-config", include_in_schema=False)
+async def flow_actor_config_save(request: Request, flow_idx: int):
+    """Merge actor override into stored recipe and recompose session."""
+    session_token = request.headers.get("x-session-token", "")
+    session = sessions.get(session_token)
+    if not session:
+        return JSONResponse(
+            content={"error": "Session not found. Please validate a config first."},
+            status_code=401,
+        )
+
+    display_expanded = session.pattern_expanded_flows or session.expanded_flows or []
+    if flow_idx < 0 or flow_idx >= len(display_expanded):
+        return JSONResponse(content={"error": "Invalid flow index"}, status_code=400)
+
+    fc = display_expanded[flow_idx]
+    display_ir = session.pattern_flow_ir or session.flow_ir or []
+    if flow_idx < len(display_ir):
+        flow_ref = display_ir[flow_idx].flow_ref
+    else:
+        flow_ref = fc.ref.rsplit("__", 1)[0] if "__" in fc.ref else fc.ref
+
+    try:
+        body = await request.json()
+        parsed = ActorConfigSaveBody.model_validate(body)
+    except ValidationError as e:
+        return JSONResponse(
+            content={"error": "Invalid body", "detail": format_validation_errors(e)},
+            status_code=422,
+        )
+
+    frame = parsed.frame
+    if frame not in fc.actors:
+        return JSONResponse(content={"error": "Unknown actor frame"}, status_code=404)
+
+    if flow_ref not in session.generation_recipes:
+        session.generation_recipes[flow_ref] = _default_recipe_dict(flow_ref)
+
+    recipe_dict = dict(session.generation_recipes[flow_ref])
+    actor_overrides = dict(recipe_dict.get("actor_overrides") or {})
+    clean = parsed.override.model_dump(exclude_none=True)
+    for key in ("customer_name", "name_template"):
+        if clean.get(key) == "":
+            clean.pop(key, None)
+    if clean.get("dataset") in ("", "standard", None):
+        clean.pop("dataset", None)
+    if clean:
+        actor_overrides[frame] = clean
+    else:
+        actor_overrides.pop(frame, None)
+    recipe_dict["actor_overrides"] = actor_overrides
+    try:
+        GenerationRecipeV1.model_validate(recipe_dict)
+    except ValidationError as e:
+        return JSONResponse(
+            content={"error": "Invalid recipe after merge", "detail": format_validation_errors(e)},
+            status_code=422,
+        )
+    session.generation_recipes[flow_ref] = recipe_dict
+
+    composed = _recompose_and_persist_session(session)
+    if isinstance(composed, JSONResponse):
+        return composed
+
+    return {"status": "ok", "flow_ref": flow_ref, "frame": frame}
 
 
 @router.post("/api/flows/generate-execute")

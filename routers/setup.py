@@ -62,6 +62,8 @@ class _PipelineResult:
     """Intermediate result from the shared validate/revalidate pipeline."""
     config: DataLoaderConfig
     config_json_text: str
+    #: JSON of parsed config before ``compile_to_plan`` clears ``funds_flows`` (emit pass).
+    authoring_config_json: str
     flow_irs: list
     expanded_flows: list
     mermaid_diagrams: list | None
@@ -119,6 +121,8 @@ async def _validate_pipeline(
         structured = format_validation_errors(e)
         detail_lines = [f"• {err['path']}: {err['message']}" for err in structured]
         return f"Config Validation Error\n" + ("\n".join(detail_lines) or str(e))
+
+    authoring_config_json = config.model_dump_json(indent=2, exclude_none=True)
 
     # 2. Compile
     try:
@@ -222,6 +226,7 @@ async def _validate_pipeline(
     return _PipelineResult(
         config=config,
         config_json_text=config_json_text,
+        authoring_config_json=authoring_config_json,
         flow_irs=flow_irs,
         expanded_flows=expanded_flows,
         mermaid_diagrams=mermaid_diagrams,
@@ -265,6 +270,7 @@ def _pipeline_result_to_session(
         pattern_flow_ir=result.flow_irs,
         pattern_expanded_flows=result.expanded_flows,
         base_config_json=result.config_json_text,
+        authoring_config_json=result.authoring_config_json,
         mermaid_diagrams=result.mermaid_diagrams,
         view_data_cache=result.view_data_cache,
         working_config_json=working_config_json or result.config_json_text,
@@ -484,6 +490,7 @@ async def revalidate(
         old_session.org_id,
         org_label=getattr(old_session, "org_label", None),
         generation_recipes=old_session.generation_recipes,
+        working_config_json=old_session.working_config_json,
     )
     sessions[session.session_token] = session
     del sessions[session_token]

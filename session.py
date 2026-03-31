@@ -43,6 +43,9 @@ class SessionState:
     pattern_flow_ir: list[FlowIR] | None = None
     pattern_expanded_flows: list | None = None
     base_config_json: str | None = None
+    #: Snapshot of validated config **before** compile strips ``funds_flows`` (emit pass).
+    #: Used for ``generate_from_recipe`` / ``_compose_all_recipes`` base lookup.
+    authoring_config_json: str | None = None
     generation_recipes: dict[str, dict] = field(default_factory=dict)
     working_config_json: str | None = None
     mermaid_diagrams: list[str] | None = None

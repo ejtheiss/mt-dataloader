@@ -16,6 +16,155 @@
 (function () {
   'use strict';
 
+  /**
+   * Enable / disable business-only dataset options when entity kind is individual.
+   * @param {HTMLElement} rootEl - scope (scenario builder container or actor drawer root)
+   * @param {HTMLSelectElement} etSelect - .actor-entity-type for this frame
+   */
+  function runActorDatasetCascade(rootEl, etSelect) {
+    if (!etSelect || !rootEl) return;
+    var frame = etSelect.getAttribute('data-frame');
+    var isIndiv = etSelect.value === 'individual';
+    var dsSelect = rootEl.querySelector(
+      '.actor-dataset-select[data-frame="' + frame + '"]'
+    );
+    if (!dsSelect) return;
+    var options = dsSelect.querySelectorAll('option');
+    options.forEach(function (opt) {
+      if (opt.getAttribute('data-biz-only') === '1') {
+        opt.disabled = isIndiv;
+        opt.style.display = isIndiv ? 'none' : '';
+      }
+    });
+    if (
+      isIndiv &&
+      dsSelect.selectedOptions[0] &&
+      dsSelect.selectedOptions[0].disabled
+    ) {
+      dsSelect.value = 'standard';
+    }
+  }
+
+  function initFlowActorConfigDrawer(container) {
+    container.querySelectorAll('.actor-entity-type').forEach(function (sel) {
+      runActorDatasetCascade(container, sel);
+    });
+    container.addEventListener('change', function (e) {
+      if (e.target.matches('.actor-entity-type')) {
+        runActorDatasetCascade(container, e.target);
+      }
+    });
+    container.addEventListener('click', function (e) {
+      var cancel = e.target.closest('[data-action="actor-config-cancel"]');
+      if (cancel && container.contains(cancel)) {
+        e.preventDefault();
+        if (typeof window.closeDrawer === 'function') window.closeDrawer();
+        return;
+      }
+      var save = e.target.closest('[data-action="actor-config-save"]');
+      if (save && container.contains(save)) {
+        e.preventDefault();
+        void saveFlowActorConfig(container).catch(function () {});
+      }
+    });
+  }
+
+  async function saveFlowActorConfig(container) {
+    var flowIdx = container.getAttribute('data-flow-idx');
+    var frame = container.getAttribute('data-frame');
+    var token = container.getAttribute('data-session-token');
+    var frameType = container.getAttribute('data-frame-type');
+    var out = container.querySelector('[data-field="actor-config-result"]');
+    var saveBtn = container.querySelector('[data-action="actor-config-save"]');
+    var label = saveBtn ? saveBtn.textContent : 'Save';
+
+    var override = {};
+    if (frameType === 'direct') {
+      var cn = container.querySelector('.actor-direct-customer-name');
+      if (cn && cn.value.trim()) override.customer_name = cn.value.trim();
+    } else {
+      var et = container.querySelector('.actor-entity-type');
+      var ds = container.querySelector('.actor-dataset-select');
+      var nt = container.querySelector('.actor-name-template');
+      if (et) override.entity_type = et.value;
+      if (ds && ds.value && ds.value !== 'standard') override.dataset = ds.value;
+      if (nt && nt.value.trim()) override.name_template = nt.value.trim();
+    }
+
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving\u2026';
+    }
+    if (out) out.innerHTML = '';
+
+    try {
+      var resp = await fetch('/api/flows/' + flowIdx + '/actor-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Token': token,
+        },
+        body: JSON.stringify({ frame: frame, override: override }),
+      });
+      var data;
+      try {
+        data = await resp.json();
+      } catch (parseErr) {
+        if (out) {
+          out.innerHTML =
+            '<div class="alert alert--critical"><p>Invalid response (HTTP ' +
+            resp.status +
+            ').</p></div>';
+        }
+        return;
+      }
+      if (!resp.ok || data.error) {
+        if (out) {
+          out.innerHTML =
+            '<div class="alert alert--critical"><p>' +
+            (data.error || 'Save failed') +
+            (data.detail
+              ? '<br>' +
+                (typeof data.detail === 'string'
+                  ? data.detail
+                  : JSON.stringify(data.detail))
+              : '') +
+            '</p></div>';
+        }
+        return;
+      }
+      if (typeof window.closeDrawer === 'function') window.closeDrawer();
+      if (typeof showToast === 'function') {
+        showToast({ status: 'success', message: 'Actor saved', duration: 2000 });
+      }
+      window.location.href =
+        '/flows?session_token=' +
+        encodeURIComponent(token) +
+        '&open_scale=' +
+        flowIdx;
+    } catch (netErr) {
+      if (out) {
+        out.innerHTML =
+          '<div class="alert alert--critical"><p>Network error: ' +
+            (netErr && netErr.message ? netErr.message : String(netErr)) +
+            '</p></div>';
+      }
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = label;
+      }
+    }
+  }
+
+  document.body.addEventListener('htmx:afterSwap', function (ev) {
+    if (!ev.detail || !ev.detail.target || ev.detail.target.id !== 'drawer-content') {
+      return;
+    }
+    var root = ev.detail.target.querySelector('[data-flow-actor-config="1"]');
+    if (root) initFlowActorConfigDrawer(root);
+  });
+
   function initScenarioBuilder(container, config) {
     if (container.getAttribute('data-scenario-initialized') === '1') {
       return;
@@ -504,7 +653,9 @@
     });
 
     container.addEventListener('change', function (e) {
-      if (e.target.matches('.actor-entity-type')) cascadeDataset(e.target);
+      if (e.target.matches('.actor-entity-type')) {
+        runActorDatasetCascade(container, e.target);
+      }
     });
 
     container.addEventListener('input', function (e) {
@@ -591,7 +742,13 @@
     }
 
     qAll('.amount-step-item').forEach(syncVarianceLockIcon);
+
+    qAll('.actor-entity-type').forEach(function (sel) {
+      runActorDatasetCascade(container, sel);
+    });
   }
 
   window.initScenarioBuilder = initScenarioBuilder;
+  window.runActorDatasetCascade = runActorDatasetCascade;
+  window.initFlowActorConfigDrawer = initFlowActorConfigDrawer;
 })();

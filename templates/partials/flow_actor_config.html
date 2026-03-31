@@ -1,0 +1,67 @@
+{# HTMX partial — one actor's Faker / literal / name pattern (Fund Flows drawer). #}
+<div id="flow-actor-config-root" class="flow-actor-config"
+     data-flow-actor-config="1"
+     data-flow-idx="{{ flow_idx }}"
+     data-frame="{{ frame }}"
+     data-session-token="{{ session_token }}"
+     data-frame-type="{{ frame_type }}">
+  <h2 id="flow-actor-drawer-title" class="flow-actor-config__title">Actor — {{ actor_alias }}</h2>
+  <p class="field-hint flow-actor-config__subtitle">Frame <code>{{ frame }}</code> · {{ frame_type | replace('_', ' ') | title }}</p>
+
+  {% if frame_type == 'direct' %}
+  <div class="field-section">
+    <div class="form-group">
+      <label for="actor-direct-name">Customer name</label>
+      <input id="actor-direct-name" type="text" class="input input-border actor-direct-customer-name"
+             value="{{ customer_name }}" placeholder="Literal display name" autocomplete="off">
+    </div>
+  </div>
+  {% else %}
+  <div class="field-section">
+    <div class="form-row" style="gap: 12px; flex-wrap: wrap;">
+      <div class="form-group">
+        <label for="actor-entity-type">Entity kind</label>
+        <select id="actor-entity-type" class="input input-border actor-entity-type" data-frame="{{ frame }}">
+          <option value="business" {% if entity_type == 'business' %}selected{% endif %}>Business</option>
+          <option value="individual" {% if entity_type == 'individual' %}selected{% endif %}>Individual</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex: 1; min-width: 180px;">
+        <label for="actor-dataset">Seed dataset</label>
+        <select id="actor-dataset" class="input input-border actor-dataset-select" data-frame="{{ frame }}">
+          {% if seed_datasets %}
+          {% set current_tier = namespace(value='') %}
+          {% for ds in seed_datasets %}
+          {% if ds.tier != current_tier.value %}
+          {% if current_tier.value %}</optgroup>{% endif %}
+          {% if ds.tier == 'faker' %}<optgroup label="General">
+          {% elif ds.tier == 'industry' %}<optgroup label="Industry Verticals" class="biz-only">
+          {% elif ds.tier == 'curated' %}<optgroup label="Pop Culture">
+          {% endif %}
+          {% set current_tier.value = ds.tier %}
+          {% endif %}
+          <option value="{{ ds.name }}"
+                  {% if ds.name == dataset %}selected{% endif %}
+                  {% if not ds.has_individuals %} data-biz-only="1"{% endif %}>{{ ds.label }}</option>
+          {% endfor %}
+          {% if current_tier.value %}</optgroup>{% endif %}
+          {% else %}
+          <option value="standard" selected>Standard</option>
+          {% endif %}
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top: 12px;">
+      <label for="actor-name-template">Name pattern <span class="field-hint">(optional, e.g. <code>{business_name} LLC</code>)</span></label>
+      <input id="actor-name-template" type="text" class="input input-border actor-name-template"
+             value="{{ name_template }}" placeholder="{business_name}" autocomplete="off">
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="flow-actor-config__actions" style="margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end;">
+    <button type="button" class="btn btn-outline btn-sm" data-action="actor-config-cancel">Back</button>
+    <button type="button" class="btn btn-primary btn-sm" data-action="actor-config-save">Save</button>
+  </div>
+  <div class="scenario-builder-result" data-field="actor-config-result" role="status" aria-live="polite" style="margin-top: 12px;"></div>
+</div>

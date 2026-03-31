@@ -23,7 +23,7 @@
         <div class="field-section">
             <div class="field-section-label">Actors</div>
             {% for actor in fs.actors %}
-            <div class="field-row" data-frame="{{ actor.frame_name }}" data-frame-type="{{ actor.frame_type }}">
+            <div class="field-row actor-field-row" data-frame="{{ actor.frame_name }}" data-frame-type="{{ actor.frame_type }}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
                 <code>{{ actor.frame_name }}</code>
                 <span class="chip chip--muted">{{ actor.alias }}</span>
                 {% for st in actor.slot_types %}<span class="badge badge--cool">{{ st }}</span>{% endfor %}
@@ -62,6 +62,16 @@
                     {% endif %}
                 </select>
                 {% endif %}
+                <button type="button"
+                        class="btn btn-sm btn-ghost actor-config-gear"
+                        style="margin-left: auto;"
+                        hx-get="/api/flows/{{ flow_idx }}/actor-config?session_token={{ session_token }}&frame={{ actor.frame_name }}"
+                        hx-target="#drawer-content"
+                        hx-swap="innerHTML"
+                        aria-label="Configure actor {{ actor.alias }}">
+                    <img src="/static/icons/ui/settings.svg" width="16" height="16" alt="" aria-hidden="true">
+                    <span class="actor-config-gear-label">Configure</span>
+                </button>
             </div>
             {% endfor %}
         </div>
