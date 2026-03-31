@@ -39,22 +39,45 @@ Open **http://127.0.0.1:8000**. Use the **organization switcher** at the top of 
 
 ## Updating
 
-When a new version is pushed to GitHub:
+### Update Docker Desktop (or Docker Engine)
 
-### Docker (recommended)
+Keep your **Docker installation** current so `docker compose` builds and runs reliably.
+
+- **Docker Desktop** (macOS / Windows): open Docker Desktop → **Settings** (gear) → **Software updates** → check for updates, or use the menu **Check for updates**. You can also reinstall from [Docker Desktop downloads](https://www.docker.com/products/docker-desktop/).
+- **Linux** (Engine + Compose plugin): use your distro’s package manager or [Docker’s install docs](https://docs.docker.com/engine/install/) so both `docker` and `docker compose` stay in sync.
+
+Verify after an upgrade:
+
+```bash
+docker version
+docker compose version
+```
+
+### Update the Dataloader container (this repo)
+
+When a new version is pushed to GitHub, refresh your **local clone** and **rebuild the image** so the running container matches `main`.
+
+**One command** (from the repo root; runs `git pull`, rebuilds, restarts):
 
 ```bash
 cd mt-dataloader
-git pull                                      # pull the latest code
-make docker-build                             # rebuild the image (~30 s)
-make docker-stop && make docker-run           # restart the container
+make docker-update
 ```
 
-Or in one command: `make docker-update`
+`make docker-update` runs `git pull` then `docker compose build`, then `docker compose down && docker compose up -d`. Your `runs/` and `logs/` mounts are **unchanged** — run history and UI-persisted settings under `runs/` are kept.
 
-Your `runs/` and `logs/` directories are volume-mounted and **survive the rebuild** — no data is lost. Settings entered in the UI (ngrok authtoken, webhook config) persist in `runs/` automatically.
+**Step by step** (same outcome without the combined target):
 
-To check which version you're running, look at the sidebar footer in the UI or call `GET /api/version`.
+```bash
+cd mt-dataloader
+git pull
+make docker-build                  # or: docker compose build
+make docker-stop && make docker-run   # or: docker compose down && docker compose up -d
+```
+
+If a rebuild behaves oddly after upgrading Docker itself, try a clean build once: `docker compose build --no-cache`.
+
+To see which **app** revision you are running, use the sidebar footer in the UI or `GET /api/version`.
 
 ### Local Python
 
