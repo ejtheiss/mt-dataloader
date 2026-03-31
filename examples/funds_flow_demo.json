@@ -1,6 +1,6 @@
 {
   "connections": [
-    {"ref": "demo_bank", "entity_id": "example1"}
+    {"ref": "demo_bank", "entity_id": "modern_treasury"}
   ],
   "internal_accounts": [
     {

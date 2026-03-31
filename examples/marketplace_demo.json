@@ -2,7 +2,7 @@
   "connections": [
     {
       "ref": "modern_treasury_bank",
-      "entity_id": "example1",
+      "entity_id": "modern_treasury",
       "nickname": "Modern Treasury PSP"
     }
   ],
