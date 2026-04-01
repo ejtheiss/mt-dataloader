@@ -33,9 +33,10 @@ from modern_treasury import AsyncModernTreasury
 from sse_starlette import EventSourceResponse, ServerSentEvent
 from tenacity import RetryError, retry, retry_if_result, stop_after_delay, wait_exponential
 
-from engine import RunManifest, _now_iso, list_manifest_ids
+from engine import _now_iso, list_manifest_ids
 from handlers import DELETABILITY
-from models import ManifestEntry
+from jsonutil import dumps_pretty
+from models import ManifestEntry, RunManifest
 
 router = APIRouter()
 
@@ -708,9 +709,7 @@ async def fire_staged(
 
         del staged_payloads[typed_ref]
         if staged_payloads:
-            staged_path.write_text(
-                json.dumps(staged_payloads, indent=2, default=str), "utf-8"
-            )
+            staged_path.write_text(dumps_pretty(staged_payloads), encoding="utf-8")
         else:
             staged_path.unlink(missing_ok=True)
 

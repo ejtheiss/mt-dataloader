@@ -13,7 +13,7 @@ from fastapi import Request
 
 from engine import RefRegistry
 from flow_compiler import FlowIR
-from models import DataLoaderConfig
+from models import DataLoaderConfig, RunManifest
 from org import DiscoveryResult, OrgRegistry, ReconciliationResult
 
 SESSION_TTL_SECONDS = 600
@@ -52,6 +52,10 @@ class SessionState:
     view_data_cache: list | None = None
     source_file_path: str | None = None
     org_label: str | None = None
+    #: Set only for cleanup SSE sessions (replaces dynamic attribute).
+    cleanup_manifest: RunManifest | None = None
+    #: Advisory ``validate_flow`` diagnostics (serialized for templates/log).
+    flow_diagnostics: list[dict] | None = None
 
 
 sessions: dict[str, SessionState] = {}

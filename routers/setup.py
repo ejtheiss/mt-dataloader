@@ -25,7 +25,8 @@ from engine import (
     dry_run,
     typed_ref_for,
 )
-from flow_compiler import AuthoringConfig, compile_to_plan
+from flow_compiler import AuthoringConfig, compile_to_plan, flatten_actor_refs
+from flow_validator import validate_flow
 from helpers import (
     UPDATABLE_RESOURCE_TYPES,
     build_available_connections,
@@ -35,8 +36,9 @@ from helpers import (
     build_preview,
     error_response,
     format_validation_errors,
-    get_templates,
 )
+from jsonutil import dumps_pretty
+from routers.deps import TemplatesDep
 from models import DataLoaderConfig, DisplayPhase
 from org import (
     DiscoveryResult,
@@ -54,7 +56,7 @@ router = APIRouter(tags=["setup"])
 # Shared validation pipeline
 # ---------------------------------------------------------------------------
 
-from dataclasses import dataclass, field as dc_field
+from dataclasses import asdict, dataclass, field as dc_field
 
 
 @dataclass
@@ -76,6 +78,8 @@ class _PipelineResult:
     update_refs: dict = dc_field(default_factory=dict)
     batches: list = dc_field(default_factory=list)
     preview_items: list = dc_field(default_factory=list)
+    #: Serialized ``FlowDiagnostic`` dicts from ``validate_flow`` (advisory).
+    flow_diagnostics: list = dc_field(default_factory=list)
 
 
 def _edited_resource_typed_refs(
@@ -139,6 +143,19 @@ async def _validate_pipeline(
         view_data_cache = list(plan.view_data) if plan.view_data else None
     except (ValueError, KeyError, NotImplementedError) as e:
         return f"Compiler Error\n{e}"
+
+    flow_diag_dicts: list[dict] = []
+    if len(flow_irs) != len(expanded_flows):
+        logger.warning(
+            "flow_irs / expanded_flows length mismatch: {} vs {}",
+            len(flow_irs),
+            len(expanded_flows),
+        )
+    for ir, fc in zip(flow_irs, expanded_flows):
+        for d in validate_flow(ir, actor_refs=flatten_actor_refs(fc.actors)):
+            flow_diag_dicts.append(asdict(d))
+    if flow_diag_dicts:
+        logger.debug("Flow advisory diagnostics: {} finding(s)", len(flow_diag_dicts))
 
     # 3. Discover org
     discovery: DiscoveryResult | None = None
@@ -238,6 +255,7 @@ async def _validate_pipeline(
         skip_refs=skip_refs,
         batches=batches,
         preview_items=preview_items,
+        flow_diagnostics=flow_diag_dicts,
     )
 
 
@@ -276,6 +294,7 @@ def _pipeline_result_to_session(
         working_config_json=working_config_json or result.config_json_text,
         generation_recipes=generation_recipes or {},
         org_label=org_label,
+        flow_diagnostics=result.flow_diagnostics or None,
     )
 
 
@@ -287,6 +306,7 @@ def _pipeline_error_response(message: str):
 def _render_preview_or_redirect(
     request: Request,
     session: SessionState,
+    templates,
 ) -> HTMLResponse:
     """Return an HX-Redirect to /flows or render the preview page."""
     if session.flow_ir:
@@ -294,7 +314,6 @@ def _render_preview_or_redirect(
         resp.headers["HX-Redirect"] = f"/flows?session_token={session.session_token}"
         return resp
 
-    templates = get_templates()
     return templates.TemplateResponse(
         request,
         "preview.html",
@@ -329,8 +348,7 @@ async def root():
 
 
 @router.get("/setup", include_in_schema=False)
-async def setup_page(request: Request):
-    templates = get_templates()
+async def setup_page(request: Request, templates: TemplatesDep):
     return templates.TemplateResponse(request, "setup.html", {"title": "Setup"})
 
 
@@ -361,9 +379,7 @@ async def save_config(request: Request):
         return {"status": "error", "detail": structured[0]["message"] if structured else str(exc)}
 
     session.config = config
-    session.config_json_text = json.dumps(
-        json.loads(config_json), indent=2, ensure_ascii=False
-    )
+    session.config_json_text = dumps_pretty(json.loads(config_json))
     session.working_config_json = session.config_json_text
 
     return {"status": "ok", "message": "Config saved to session"}
@@ -422,6 +438,7 @@ async def validate_json(request: Request):
 @router.post("/api/validate")
 async def validate(
     request: Request,
+    templates: TemplatesDep,
     api_key: str = Form(...),
     org_id: str = Form(...),
     org_name: str = Form(""),
@@ -445,12 +462,13 @@ async def validate(
     ol = org_name.strip() or None
     session = _pipeline_result_to_session(result, api_key, org_id, org_label=ol)
     sessions[session.session_token] = session
-    return _render_preview_or_redirect(request, session)
+    return _render_preview_or_redirect(request, session, templates)
 
 
 @router.post("/api/revalidate")
 async def revalidate(
     request: Request,
+    templates: TemplatesDep,
     session_token: str = Form(...),
     config_json: str = Form(...),
     reconcile_overrides: str | None = Form(None),
@@ -495,13 +513,12 @@ async def revalidate(
     sessions[session.session_token] = session
     del sessions[session_token]
 
-    return _render_preview_or_redirect(request, session)
+    return _render_preview_or_redirect(request, session, templates)
 
 
 @router.get("/preview", include_in_schema=False)
-async def preview_page(request: Request):
+async def preview_page(request: Request, templates: TemplatesDep):
     """Preview page — flow-grouped when funds_flows present, flat otherwise."""
-    templates = get_templates()
     session_token = request.query_params.get("session_token", "")
     session = sessions.get(session_token)
     if not session:
@@ -558,9 +575,8 @@ async def preview_page(request: Request):
 
 
 @router.get("/api/resource-detail", include_in_schema=False)
-async def resource_detail_drawer(request: Request):
+async def resource_detail_drawer(request: Request, templates: TemplatesDep):
     """Return a drawer-friendly KV table for a single resource."""
-    templates = get_templates()
     session_token = request.query_params.get("session_token", "")
     typed_ref = request.query_params.get("ref", "")
     session = sessions.get(session_token)
@@ -579,9 +595,8 @@ async def resource_detail_drawer(request: Request):
 
 
 @router.post("/api/update-ia-connection", include_in_schema=False)
-async def update_ia_connection(request: Request):
+async def update_ia_connection(request: Request, templates: TemplatesDep):
     """Change an internal account's connection_id, re-reconcile, rebuild preview."""
-    templates = get_templates()
     form = await request.form()
     session_token = form.get("session_token", "")
     typed_ref = form.get("typed_ref", "")

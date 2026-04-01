@@ -7,30 +7,31 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from loguru import logger
 
-from engine import RunManifest, _MANIFEST_RE
+from engine import _MANIFEST_RE
 from handlers import DELETABILITY
-from helpers import get_templates
+from models import RunManifest
+from routers.deps import SettingsDep, TemplatesDep
 
 router = APIRouter(tags=["runs"])
 
 
 @router.get("/runs", include_in_schema=False)
-async def runs_page(request: Request):
-    templates = get_templates()
+async def runs_page(request: Request, templates: TemplatesDep):
     return templates.TemplateResponse(request, "runs_page.html", {"title": "Runs"})
 
 
 @router.get("/api/runs")
 async def list_runs(
     request: Request,
+    templates: TemplatesDep,
+    settings: SettingsDep,
     sort: str | None = None,
     dir: str = "asc",
     status: str | None = None,
     mt_org_id: str | None = None,
 ):
     """List past run manifests with optional sort and filter."""
-    templates = get_templates()
-    runs_dir = Path(request.app.state.settings.runs_dir)
+    runs_dir = Path(settings.runs_dir)
     manifests: list[RunManifest] = []
     if runs_dir.exists():
         for path in sorted(runs_dir.glob("*.json"), reverse=True):
@@ -74,10 +75,14 @@ async def list_runs(
 
 
 @router.get("/api/runs/{run_id}/drawer")
-async def run_drawer(request: Request, run_id: str):
+async def run_drawer(
+    request: Request,
+    run_id: str,
+    templates: TemplatesDep,
+    settings: SettingsDep,
+):
     """Return drawer partial for a single run."""
-    templates = get_templates()
-    runs_dir = Path(request.app.state.settings.runs_dir)
+    runs_dir = Path(settings.runs_dir)
     path = runs_dir / f"{run_id}.json"
     if not path.exists():
         path = runs_dir / f"manifest_{run_id}.json"
@@ -99,8 +104,7 @@ async def run_drawer(request: Request, run_id: str):
     )
 
 
-def _find_manifest(request: Request, run_id: str) -> RunManifest | None:
-    runs_dir = Path(request.app.state.settings.runs_dir)
+def _find_manifest(runs_dir: Path, run_id: str) -> RunManifest | None:
     path = runs_dir / f"{run_id}.json"
     if not path.exists():
         path = runs_dir / f"manifest_{run_id}.json"
@@ -116,10 +120,15 @@ def _find_manifest(request: Request, run_id: str) -> RunManifest | None:
 
 
 @router.get("/api/runs/{run_id}/resources/drawer")
-async def resource_drawer_in_run(request: Request, run_id: str, ref: str = ""):
+async def resource_drawer_in_run(
+    request: Request,
+    run_id: str,
+    templates: TemplatesDep,
+    settings: SettingsDep,
+    ref: str = "",
+):
     """Return drawer partial for a single resource within a run."""
-    templates = get_templates()
-    manifest = _find_manifest(request, run_id)
+    manifest = _find_manifest(Path(settings.runs_dir), run_id)
     if not manifest:
         return templates.TemplateResponse(
             request,

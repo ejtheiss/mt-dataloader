@@ -12,11 +12,13 @@ from loguru import logger
 from modern_treasury import AsyncModernTreasury
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
-from engine import RefRegistry, RunManifest
+from engine import RefRegistry
 from handlers import DELETABILITY
-from helpers import error_html, error_response, get_templates
-from models import DataLoaderConfig
+from helpers import error_html, error_response
+from models import DataLoaderConfig, RunManifest
+from routers.deps import SettingsDep, TemplatesDep
 from session import SessionState, sessions
+from sse_helpers import sse_error_response
 
 router = APIRouter(tags=["cleanup"])
 
@@ -25,14 +27,13 @@ router = APIRouter(tags=["cleanup"])
 async def cleanup_page(
     request: Request,
     run_id: str,
+    settings: SettingsDep,
+    templates: TemplatesDep,
     api_key: str = Form(...),
     org_id: str = Form(...),
 ):
     """Return cleanup page with pre-rendered rows and SSE container."""
-    templates = get_templates()
-    manifest_path = (
-        Path(request.app.state.settings.runs_dir) / f"{run_id}.json"
-    )
+    manifest_path = Path(settings.runs_dir) / f"{run_id}.json"
     if not manifest_path.exists():
         return error_response("Not Found", f"Run '{run_id}' not found", 404)
 
@@ -63,18 +64,23 @@ async def cleanup_page(
 
 
 @router.get("/api/cleanup/stream/{token}")
-async def cleanup_stream(token: str):
+async def cleanup_stream(token: str, templates: TemplatesDep):
     """SSE stream for cleanup progress."""
-    templates = get_templates()
     session = sessions.pop(token, None)
     if not session:
-        async def _error_gen():
-            html = error_html("Session Expired", "Cleanup session not found.")
-            yield ServerSentEvent(data=html, event="error")
-            yield ServerSentEvent(data="", event="close")
-        return EventSourceResponse(_error_gen())
+        return sse_error_response(
+            error_html=error_html,
+            title="Session Expired",
+            detail="Cleanup session not found.",
+        )
 
-    manifest: RunManifest = session._cleanup_manifest  # type: ignore[attr-defined]
+    manifest = session.cleanup_manifest
+    if manifest is None:
+        return sse_error_response(
+            error_html=error_html,
+            title="Session Error",
+            detail="Cleanup manifest missing from session.",
+        )
 
     async def cleanup_generator():
         async with AsyncModernTreasury(

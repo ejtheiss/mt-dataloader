@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, Form, Request
 from loguru import logger
@@ -13,35 +12,23 @@ from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from engine import execute, generate_run_id
 from handlers import build_handler_dispatch, build_update_dispatch
-from helpers import error_html, error_response, get_templates
+from helpers import error_html, error_response
 from models import DisplayPhase
+from routers.deps import SettingsDep, TemplatesDep
 from session import sessions
+from sse_helpers import make_emit_sse, sse_error_response
 from webhooks import index_resource
 
 router = APIRouter(tags=["execute"])
 
 
-def _make_emit_sse(
-    queue: asyncio.Queue[ServerSentEvent | None],
-) -> Any:
-    """Return an EmitFn that renders context and enqueues ServerSentEvents."""
-    templates = get_templates()
-
-    async def emit(event_type: str, typed_ref: str, data: dict[str, Any]) -> None:
-        context = {"ref": typed_ref, "status": event_type, **data}
-        html = templates.get_template("partials/resource_row.html").render(context)
-        await queue.put(ServerSentEvent(data=html, event=event_type))
-
-    return emit
-
-
 @router.post("/api/execute")
 async def execute_page(
     request: Request,
+    templates: TemplatesDep,
     session_token: str = Form(...),
 ):
     """Return execute page with pre-rendered rows and SSE container."""
-    templates = get_templates()
     session = sessions.get(session_token)
     if not session:
         return error_response("Session Expired", "Please re-validate your config.")
@@ -61,24 +48,23 @@ async def execute_page(
 
 @router.get("/api/execute/stream")
 async def execute_stream(
-    request: Request,
+    templates: TemplatesDep,
+    settings: SettingsDep,
     session_token: str,
 ):
     """SSE stream endpoint. Pops session and runs the DAG engine."""
-    templates = get_templates()
     session = sessions.pop(session_token, None)
     if not session:
-        async def _error_gen():
-            html = error_html("Session Expired", "Please re-validate your config.")
-            yield ServerSentEvent(data=html, event="error")
-            yield ServerSentEvent(data="", event="close")
-        return EventSourceResponse(_error_gen())
+        return sse_error_response(
+            error_html=error_html,
+            title="Session Expired",
+            detail="Please re-validate your config.",
+        )
 
     async def event_generator():
         queue: asyncio.Queue[ServerSentEvent | None] = asyncio.Queue()
-        emit_sse = _make_emit_sse(queue)
+        emit_sse = make_emit_sse(templates, queue)
         run_id = generate_run_id()
-        settings = request.app.state.settings
         semaphore = asyncio.Semaphore(settings.max_concurrent_requests)
 
         config_path = Path(settings.runs_dir) / f"{run_id}_config.json"
