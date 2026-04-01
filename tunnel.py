@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
+from jsonutil import dumps_pretty, loads_path
 from loguru import logger
 
 _CONFIG_FILENAME = ".tunnel_config.json"
@@ -103,16 +104,15 @@ class TunnelManager:
     def _load_config(self) -> dict:
         if self._config_path.exists():
             try:
-                return json.loads(self._config_path.read_text("utf-8"))
-            except (json.JSONDecodeError, OSError) as exc:
+                data = loads_path(self._config_path)
+                return data if isinstance(data, dict) else {}
+            except (OSError, json.JSONDecodeError, TypeError) as exc:
                 logger.warning("Could not load tunnel config: {}", exc)
         return {}
 
     def _save_config(self) -> None:
         self._config_path.parent.mkdir(parents=True, exist_ok=True)
-        self._config_path.write_text(
-            json.dumps(self._config, indent=2), "utf-8"
-        )
+        self._config_path.write_text(dumps_pretty(self._config), encoding="utf-8")
 
     # ------------------------------------------------------------------
     # Tunnel lifecycle
@@ -217,6 +217,15 @@ class TunnelManager:
         self._save_config()
 
 
+def first_https_tunnel_url(tunnels_payload: dict) -> str | None:
+    """Return the first ``https`` ``public_url`` from ngrok agent ``/api/tunnels`` JSON."""
+    for tunnel in tunnels_payload.get("tunnels", []):
+        url = tunnel.get("public_url", "")
+        if isinstance(url, str) and url.startswith("https://"):
+            return url
+    return None
+
+
 def _probe_external_ngrok() -> dict:
     """Probe the ngrok local agent API (for externally-run ngrok)."""
     try:
@@ -224,10 +233,9 @@ def _probe_external_ngrok() -> dict:
             resp = http.get("http://127.0.0.1:4040/api/tunnels")
             if resp.status_code == 200:
                 data = resp.json()
-                for tunnel in data.get("tunnels", []):
-                    url = tunnel.get("public_url", "")
-                    if url.startswith("https://"):
-                        return {"connected": True, "url": url}
+                url = first_https_tunnel_url(data)
+                if url:
+                    return {"connected": True, "url": url}
     except Exception:
         pass
     return {"connected": False, "url": None}

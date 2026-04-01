@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import re
 import secrets
 from datetime import datetime, timezone
@@ -21,6 +20,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Iterator
 
 from graphlib import TopologicalSorter
+from jsonutil import dumps_pretty
 from loguru import logger
 
 from models import (
@@ -49,7 +49,22 @@ def _register_run_org_for_webhooks(run_id: str, org_id: str | None) -> None:
     wh_mod.register_run_org(run_id, org_id)
 
 
+class ExecutionPhaseError(Exception):
+    """Failure during DAG execution; carries ``typed_ref`` through ``TaskGroup`` / ``ExceptionGroup``.
+
+    Raised as ``raise ExecutionPhaseError(typed_ref) from exc`` so the original
+    API error remains on ``__cause__`` for formatting (e.g. ``APIStatusError``).
+    """
+
+    __slots__ = ("typed_ref",)
+
+    def __init__(self, typed_ref: str) -> None:
+        self.typed_ref = typed_ref
+        super().__init__(f"execution failed for ref {typed_ref!r}")
+
+
 __all__ = [
+    "ExecutionPhaseError",
     "RefRegistry",
     "extract_ref_dependencies",
     "resolve_refs",
@@ -551,8 +566,11 @@ async def _execute_with_error_strategy(
             return HandlerResult(created_id="SKIPPED", resource_type=resource.resource_type, deletable=False)
 
     if strategy.action == "retry":
+        n = strategy.max_retries
+        if n < 1:
+            return await _do_create()
         last_exc: Exception | None = None
-        for attempt in range(1, strategy.max_retries + 1):
+        for attempt in range(1, n + 1):
             try:
                 return await _do_create()
             except Exception as exc:
@@ -560,12 +578,13 @@ async def _execute_with_error_strategy(
                 logger.log(
                     strategy.log_level.upper(),
                     "Retry {}/{} for {} after: {}",
-                    attempt, strategy.max_retries, typed_ref, exc,
+                    attempt, n, typed_ref, exc,
                 )
                 await emit_sse("retrying", typed_ref, {"attempt": attempt, "error": str(exc)})
-                if attempt < strategy.max_retries:
+                if attempt < n:
                     await asyncio.sleep(strategy.retry_delay_seconds)
-        raise last_exc  # type: ignore[misc]
+        assert last_exc is not None
+        raise last_exc
 
     if strategy.action == "substitute" and strategy.substitute_ref:
         try:
@@ -694,8 +713,7 @@ async def execute(
                             registry=registry,
                         )
                 except Exception as exc:
-                    exc._failed_typed_ref = typed_ref  # type: ignore[attr-defined]
-                    raise
+                    raise ExecutionPhaseError(typed_ref) from exc
 
                 registry.register(typed_ref, result.created_id)
                 for child_key, child_id in result.child_refs.items():
@@ -731,10 +749,17 @@ async def execute(
                         tg.create_task(create_one(ref, batch_index))
             except* Exception as eg:
                 for exc in eg.exceptions:
-                    leaf = _deepest_exception_with_failed_ref(exc)
-                    failed_ref = getattr(
-                        leaf, "_failed_typed_ref", None
-                    ) or _guess_failed_ref(leaf, to_create, resource_map)
+                    eph = _find_execution_phase_error(exc)
+                    if eph is not None:
+                        failed_ref = eph.typed_ref
+                        leaf: BaseException = (
+                            eph.__cause__
+                            if eph.__cause__ is not None
+                            else eph
+                        )
+                    else:
+                        leaf = exc
+                        failed_ref = _guess_failed_ref(leaf, to_create, resource_map)
                     error_detail = _format_exception_detail(leaf, failed_ref)
                     manifest.record_failure(failed_ref, error_detail)
                     await emit_sse("error", failed_ref, {"error": error_detail})
@@ -764,27 +789,23 @@ def _write_staged_payloads(
     if not staged_payloads:
         return
     staged_path = Path(runs_dir) / f"{run_id}_staged.json"
-    staged_path.write_text(
-        json.dumps(staged_payloads, indent=2, default=str),
-        encoding="utf-8",
-    )
+    staged_path.write_text(dumps_pretty(staged_payloads), encoding="utf-8")
 
 
-def _deepest_exception_with_failed_ref(exc: BaseException) -> BaseException:
-    """Unwrap ExceptionGroup so we attribute errors to the real typed_ref.
-
-    asyncio.TaskGroup may nest failures; create_one sets _failed_typed_ref on
-    the leaf API error, but the outer group would otherwise lose it.
-    """
-    if getattr(exc, "_failed_typed_ref", None):
+def _find_execution_phase_error(exc: BaseException) -> ExecutionPhaseError | None:
+    """Find ``ExecutionPhaseError`` in an ``ExceptionGroup`` or ``__cause__`` chain."""
+    if isinstance(exc, ExecutionPhaseError):
         return exc
     nested = getattr(exc, "exceptions", None)
     if nested:
         for sub in nested:
-            inner = _deepest_exception_with_failed_ref(sub)
-            if getattr(inner, "_failed_typed_ref", None):
-                return inner
-    return exc
+            found = _find_execution_phase_error(sub)
+            if found is not None:
+                return found
+    cause = exc.__cause__
+    if isinstance(cause, BaseException):
+        return _find_execution_phase_error(cause)
+    return None
 
 
 def _guess_failed_ref(

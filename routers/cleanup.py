@@ -47,8 +47,8 @@ async def cleanup_page(
         registry=RefRegistry(),
         batches=[],
         config_json_text="{}",
+        cleanup_manifest=manifest,
     )
-    sessions[token]._cleanup_manifest = manifest  # type: ignore[attr-defined]
 
     reversed_resources = list(reversed(manifest.resources_created))
     return templates.TemplateResponse(

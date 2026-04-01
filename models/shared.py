@@ -26,6 +26,15 @@ REF_PATTERN = re.compile(
     r"^\$ref:[a-z_]+\.[a-zA-Z0-9_{}\[\]]+(\.[a-zA-Z0-9_{}\[\]]+)*$"
 )
 
+# Payment-related resource labels for fund-flow views / templates (single source of truth).
+SOURCE_BADGE: dict[str, str] = {
+    "payment_order": "PO",
+    "incoming_payment_detail": "IPD",
+    "expected_payment": "EP",
+    "return": "Ret",
+    "reversal": "Rev",
+}
+
 RESOURCE_TYPES: frozenset[str] = frozenset(
     {
         "connection",

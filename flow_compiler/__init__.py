@@ -129,11 +129,9 @@ __all__ = [
     "compile_flows",
     "emit_dataloader_config",
     "flatten_actor_refs",
-    "flatten_optional_groups",
     "resolve_actors",
     "_expand_instance_resources",
     "_resolve_ipd_source",
-    "clone_flow",
     "compute_effective_dates",
     "compute_spread_offsets",
 ]

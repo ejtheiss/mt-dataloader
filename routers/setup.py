@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
+from collections import Counter
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -155,7 +156,12 @@ async def _validate_pipeline(
         for d in validate_flow(ir, actor_refs=flatten_actor_refs(fc.actors)):
             flow_diag_dicts.append(asdict(d))
     if flow_diag_dicts:
-        logger.debug("Flow advisory diagnostics: {} finding(s)", len(flow_diag_dicts))
+        by_rule = Counter(d["rule_id"] for d in flow_diag_dicts)
+        logger.debug(
+            "Flow advisory diagnostics: {} finding(s) by_rule={}",
+            len(flow_diag_dicts),
+            dict(by_rule),
+        )
 
     # 3. Discover org
     discovery: DiscoveryResult | None = None

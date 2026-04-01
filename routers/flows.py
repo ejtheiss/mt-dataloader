@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import secrets
 from typing import Any
 
@@ -20,6 +21,7 @@ from flow_compiler import (
     generate_from_recipe,
 )
 from flow_views import compute_view_data
+from jsonutil import dumps_pretty
 from helpers import (
     build_preview,
     fmt_amt,
@@ -606,10 +608,9 @@ async def update_flow_metadata(request: Request, flow_idx: int):
     trace_metadata = body.get("trace_metadata")
     step_metadata = body.get("step_metadata")
 
-    import json as _json
     try:
-        config_dict = _json.loads(session.working_config_json or session.config_json_text)
-    except _json.JSONDecodeError:
+        config_dict = json.loads(session.working_config_json or session.config_json_text)
+    except json.JSONDecodeError:
         config_dict = session.config.model_dump()
 
     flows = config_dict.get("funds_flows", [])
@@ -633,7 +634,7 @@ async def update_flow_metadata(request: Request, flow_idx: int):
             if step_id in step_by_id:
                 step_by_id[step_id]["metadata"] = meta
 
-    updated_json = _json.dumps(config_dict, indent=2, ensure_ascii=False)
+    updated_json = dumps_pretty(config_dict)
     session.working_config_json = updated_json
 
     return {"status": "ok", "flow_idx": flow_idx}

@@ -15,7 +15,7 @@ from org import DiscoveryResult, _le_display_name
 from flow_compiler import actor_display_name, compute_flow_status, flatten_actor_refs
 from flow_views import compute_view_data
 from handlers import DELETABILITY
-from models import DataLoaderConfig, DisplayPhase
+from models import SOURCE_BADGE, DataLoaderConfig, DisplayPhase
 
 # ---------------------------------------------------------------------------
 # Preview row order (Setup phase) — matches execution dependency tiers, not
@@ -600,12 +600,3 @@ def fmt_amt(amt) -> str:
     if isinstance(amt, (int, float)):
         return f"${amt / 100:,.2f}"
     return str(amt)
-
-
-SOURCE_BADGE = {
-    "payment_order": "PO",
-    "incoming_payment_detail": "IPD",
-    "expected_payment": "EP",
-    "return": "Ret",
-    "reversal": "Rev",
-}
