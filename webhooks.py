@@ -35,8 +35,10 @@ from tenacity import RetryError, retry, retry_if_result, stop_after_delay, wait_
 
 from engine import _now_iso, list_manifest_ids
 from handlers import DELETABILITY
-from jsonutil import dumps_pretty
+from jsonutil import dumps_jsonl_record, dumps_pretty, loads_path
 from models import ManifestEntry, RunManifest
+from routers.deps import SettingsDep, TemplatesDep, TunnelDep
+from tunnel import TunnelManager
 
 router = APIRouter()
 
@@ -234,7 +236,7 @@ def _recorrelate_unmatched(runs_dir: str) -> int:
             entry["typed_ref"] = typed_ref
             run_path = Path(runs_dir) / f"{run_id}_webhooks.jsonl"
             with open(run_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(entry, default=str) + "\n")
+                f.write(dumps_jsonl_record(entry) + "\n")
             recovered += 1
         else:
             still_unmatched.append(entry)
@@ -323,7 +325,7 @@ def _persist_webhook(entry: WebhookEntry, runs_dir: str) -> None:
     dirpath = Path(runs_dir)
     dirpath.mkdir(parents=True, exist_ok=True)
 
-    line = json.dumps({
+    line = dumps_jsonl_record({
         "received_at": entry.received_at,
         "event_type": entry.event_type,
         "resource_type": entry.resource_type,
@@ -332,7 +334,7 @@ def _persist_webhook(entry: WebhookEntry, runs_dir: str) -> None:
         "run_id": entry.run_id,
         "typed_ref": entry.typed_ref,
         "raw": entry.raw,
-    }, default=str) + "\n"
+    }) + "\n"
 
     if entry.run_id:
         path = dirpath / f"{entry.run_id}_webhooks.jsonl"
@@ -367,9 +369,12 @@ def _render_webhook_html(entry: WebhookEntry, templates: Any) -> str:
 
 
 @router.post("/webhooks/mt")
-async def receive_webhook(request: Request):
+async def receive_webhook(
+    request: Request,
+    settings: SettingsDep,
+    templates: TemplatesDep,
+):
     """Receive and process a Modern Treasury webhook."""
-    settings = request.app.state.settings
 
     raw_bytes = await request.body()
     raw_str = raw_bytes.decode("utf-8")
@@ -427,7 +432,7 @@ async def receive_webhook(request: Request):
         mt_org_id=row_org,
     )
 
-    entry.html = _render_webhook_html(entry, request.app.state.templates)
+    entry.html = _render_webhook_html(entry, templates)
 
     _persist_webhook(entry, settings.runs_dir)
     _webhook_buffer.append(entry)
@@ -486,11 +491,14 @@ async def webhook_stream(
 
 
 @router.get("/runs/{run_id}", include_in_schema=False)
-async def run_detail_page(request: Request, run_id: str):
+async def run_detail_page(
+    request: Request,
+    run_id: str,
+    settings: SettingsDep,
+    templates: TemplatesDep,
+):
     """Four-tab run detail page: Config, Resources, Staged, Webhooks."""
-    settings = request.app.state.settings
     runs_dir = Path(settings.runs_dir)
-    templates = request.app.state.templates
 
     manifest_path = runs_dir / f"{run_id}.json"
     if not manifest_path.exists():
@@ -506,8 +514,10 @@ async def run_detail_page(request: Request, run_id: str):
     staged_payloads: dict[str, dict] = {}
     if staged_path.exists():
         try:
-            staged_payloads = json.loads(staged_path.read_text("utf-8"))
-        except json.JSONDecodeError:
+            data = loads_path(staged_path)
+            if isinstance(data, dict):
+                staged_payloads = data
+        except (json.JSONDecodeError, OSError, TypeError):
             pass
 
     webhooks_path = runs_dir / f"{run_id}_webhooks.jsonl"
@@ -616,17 +626,27 @@ FIREABLE_TYPES = frozenset(_FIRE_DISPATCH.keys())
 
 
 @router.get("/api/runs/{run_id}/staged/drawer", include_in_schema=False)
-async def staged_drawer(request: Request, run_id: str, ref: str = Query(...)):
+async def staged_drawer(
+    request: Request,
+    run_id: str,
+    settings: SettingsDep,
+    templates: TemplatesDep,
+    ref: str = Query(...),
+):
     """Return drawer HTML for a staged resource payload."""
-    settings = request.app.state.settings
     runs_dir = Path(settings.runs_dir)
-    templates = request.app.state.templates
 
     staged_path = runs_dir / f"{run_id}_staged.json"
     if not staged_path.exists():
         raise HTTPException(404, "No staged payloads for this run")
 
-    staged_payloads: dict[str, dict] = json.loads(staged_path.read_text("utf-8"))
+    try:
+        raw = loads_path(staged_path)
+    except (json.JSONDecodeError, OSError, TypeError) as exc:
+        raise HTTPException(404, f"Invalid staged file: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise HTTPException(404, "Invalid staged file shape")
+    staged_payloads: dict[str, dict] = raw
     if ref not in staged_payloads:
         raise HTTPException(404, f"Staged payload not found: {ref}")
 
@@ -651,13 +671,13 @@ async def fire_staged(
     request: Request,
     run_id: str,
     typed_ref: str,
+    settings: SettingsDep,
+    templates: TemplatesDep,
     api_key: str = Form(...),
     org_id: str = Form(...),
 ):
     """Fire a staged resource — sends the resolved payload to the MT API."""
-    settings = request.app.state.settings
     runs_dir = Path(settings.runs_dir)
-    templates = request.app.state.templates
 
     lock = _fire_locks.setdefault(run_id, asyncio.Lock())
     async with lock:
@@ -665,7 +685,13 @@ async def fire_staged(
         if not staged_path.exists():
             raise HTTPException(404, "No staged payloads for this run")
 
-        staged_payloads = json.loads(staged_path.read_text("utf-8"))
+        try:
+            loaded = loads_path(staged_path)
+        except (json.JSONDecodeError, OSError, TypeError) as exc:
+            raise HTTPException(404, f"Invalid staged file: {exc}") from exc
+        if not isinstance(loaded, dict):
+            raise HTTPException(404, "Invalid staged file shape")
+        staged_payloads = loaded
         if typed_ref not in staged_payloads:
             raise HTTPException(404, f"Staged payload not found: {typed_ref}")
 
@@ -731,9 +757,8 @@ async def fire_staged(
 # ---------------------------------------------------------------------------
 
 
-def _detect_tunnel_from_manager(request: Request) -> str | None:
+def _detect_tunnel_from_manager(mgr: TunnelManager | None) -> str | None:
     """Check TunnelManager (pyngrok-managed) for an active tunnel URL."""
-    mgr = getattr(request.app.state, "tunnel", None)
     if mgr is None:
         return None
     status = mgr.get_status()
@@ -758,22 +783,26 @@ async def _detect_tunnel_legacy() -> str | None:
     return None
 
 
-async def _detect_tunnel(request: Request) -> str | None:
+async def _detect_tunnel(mgr: TunnelManager | None) -> str | None:
     """Try TunnelManager first, fall back to probing external ngrok."""
-    url = _detect_tunnel_from_manager(request)
+    url = _detect_tunnel_from_manager(mgr)
     if url:
         return url
     return await _detect_tunnel_legacy()
 
 
 @router.get("/listen", include_in_schema=False)
-async def listen_page(request: Request, run_id: str | None = None):
+async def listen_page(
+    request: Request,
+    settings: SettingsDep,
+    templates: TemplatesDep,
+    tunnel_mgr: TunnelDep,
+    run_id: str | None = None,
+):
     """Standalone webhook listener with tunnel auto-detection and run filter."""
-    tunnel_url = await _detect_tunnel(request)
-    settings = request.app.state.settings
-    templates = request.app.state.templates
+    tunnel_url = await _detect_tunnel(tunnel_mgr)
 
-    mgr = getattr(request.app.state, "tunnel", None)
+    mgr = tunnel_mgr
     saved_authtoken = ""
     saved_domain = ""
     saved_webhook_endpoint_id = ""
@@ -812,23 +841,25 @@ async def listen_page(request: Request, run_id: str | None = None):
 
 
 @router.get("/api/webhooks/{webhook_id}/drawer", include_in_schema=False)
-async def webhook_drawer(request: Request, webhook_id: str):
+async def webhook_drawer(
+    request: Request,
+    webhook_id: str,
+    settings: SettingsDep,
+    templates: TemplatesDep,
+):
     """Return drawer HTML for a single webhook by ID."""
     for entry in reversed(_webhook_buffer):
         if entry.webhook_id == webhook_id:
-            templates = request.app.state.templates
             return templates.TemplateResponse(
                 request,
                 "partials/webhook_detail_drawer.html",
                 {"wh": entry},
             )
 
-    settings = request.app.state.settings
     runs_dir = Path(settings.runs_dir)
     for jsonl_path in runs_dir.glob("*_webhooks.jsonl"):
         for wh_dict in load_webhooks(jsonl_path):
             if wh_dict.get("webhook_id") == webhook_id:
-                templates = request.app.state.templates
                 return templates.TemplateResponse(
                     request,
                     "partials/webhook_detail_drawer.html",
@@ -837,14 +868,12 @@ async def webhook_drawer(request: Request, webhook_id: str):
     unmatched = runs_dir / "_webhooks_unmatched.jsonl"
     for wh_dict in load_webhooks(unmatched):
         if wh_dict.get("webhook_id") == webhook_id:
-            templates = request.app.state.templates
             return templates.TemplateResponse(
                 request,
                 "partials/webhook_detail_drawer.html",
                 {"wh": wh_dict},
             )
 
-    templates = request.app.state.templates
     return templates.TemplateResponse(
         request,
         "partials/empty_state.html",
@@ -854,7 +883,11 @@ async def webhook_drawer(request: Request, webhook_id: str):
 
 
 @router.post("/api/webhooks/test", include_in_schema=False)
-async def send_test_webhook(request: Request):
+async def send_test_webhook(
+    request: Request,
+    settings: SettingsDep,
+    templates: TemplatesDep,
+):
     """Inject a synthetic webhook for testing — bypasses signature verification."""
     entry = WebhookEntry(
         received_at=datetime.now(timezone.utc).isoformat(),
@@ -866,9 +899,9 @@ async def send_test_webhook(request: Request):
         typed_ref=None,
         raw={"event": "test", "data": {"id": "test-manual", "object": "test"}},
     )
-    entry.html = _render_webhook_html(entry, request.app.state.templates)
+    entry.html = _render_webhook_html(entry, templates)
 
-    _persist_webhook(entry, request.app.state.settings.runs_dir)
+    _persist_webhook(entry, settings.runs_dir)
     _webhook_buffer.append(entry)
     await _fanout(entry)
     return {"ok": True}

@@ -15,3 +15,8 @@ def dumps_pretty(obj: Any) -> str:
 def loads_path(path: str | Path, *, encoding: str = "utf-8") -> Any:
     """Parse JSON from a filesystem path."""
     return json.loads(Path(path).read_text(encoding=encoding))
+
+
+def dumps_jsonl_record(obj: Any) -> str:
+    """Serialize one JSONL record (no newline). Compact, ``default=str``."""
+    return json.dumps(obj, ensure_ascii=False, default=str, separators=(",", ":"))
