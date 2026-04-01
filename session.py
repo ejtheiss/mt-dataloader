@@ -1,7 +1,13 @@
 """Server-side session cache for the Dataloader application.
 
 Houses ``SessionState``, the in-memory session store, and the
-``get_session`` dependency for FastAPI route handlers.
+``get_session`` helper (not yet wired as a FastAPI ``Depends`` everywhere).
+
+**Process-local / single-worker assumption:** ``sessions`` is an in-memory
+``dict``. It does not survive restarts and is not visible to other workers.
+Multi-worker or durable continuity belongs in **Plan 0** (``plan_0_database_foundation.md``,
+Wave D — ``dataloader_sessions``). Do not add Redis or a second session store here
+until that plan drives the design.
 """
 
 from __future__ import annotations
@@ -58,6 +64,7 @@ class SessionState:
     flow_diagnostics: list[dict] | None = None
 
 
+#: All active validate/execute/flow sessions for this process only.
 sessions: dict[str, SessionState] = {}
 
 
