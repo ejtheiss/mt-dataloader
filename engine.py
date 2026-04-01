@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import re
 import secrets
 from datetime import datetime, timezone
@@ -567,8 +566,11 @@ async def _execute_with_error_strategy(
             return HandlerResult(created_id="SKIPPED", resource_type=resource.resource_type, deletable=False)
 
     if strategy.action == "retry":
+        n = strategy.max_retries
+        if n < 1:
+            return await _do_create()
         last_exc: Exception | None = None
-        for attempt in range(1, strategy.max_retries + 1):
+        for attempt in range(1, n + 1):
             try:
                 return await _do_create()
             except Exception as exc:
@@ -576,12 +578,13 @@ async def _execute_with_error_strategy(
                 logger.log(
                     strategy.log_level.upper(),
                     "Retry {}/{} for {} after: {}",
-                    attempt, strategy.max_retries, typed_ref, exc,
+                    attempt, n, typed_ref, exc,
                 )
                 await emit_sse("retrying", typed_ref, {"attempt": attempt, "error": str(exc)})
-                if attempt < strategy.max_retries:
+                if attempt < n:
                     await asyncio.sleep(strategy.retry_delay_seconds)
-        raise last_exc  # type: ignore[misc]
+        assert last_exc is not None
+        raise last_exc
 
     if strategy.action == "substitute" and strategy.substitute_ref:
         try:

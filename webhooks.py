@@ -38,7 +38,7 @@ from handlers import DELETABILITY
 from jsonutil import dumps_jsonl_record, dumps_pretty, loads_path
 from models import ManifestEntry, RunManifest
 from routers.deps import SettingsDep, TemplatesDep, TunnelDep
-from tunnel import TunnelManager
+from tunnel import TunnelManager, first_https_tunnel_url
 
 router = APIRouter()
 
@@ -246,7 +246,7 @@ def _recorrelate_unmatched(runs_dir: str) -> int:
     )
     try:
         for entry in still_unmatched:
-            tmp.write(json.dumps(entry, default=str) + "\n")
+            tmp.write(dumps_jsonl_record(entry) + "\n")
         tmp.close()
         os.replace(tmp.name, str(unmatched_path))
     except Exception:
@@ -774,10 +774,9 @@ async def _detect_tunnel_legacy() -> str | None:
             resp = await http.get("http://127.0.0.1:4040/api/tunnels")
             if resp.status_code == 200:
                 data = resp.json()
-                for tunnel in data.get("tunnels", []):
-                    public_url = tunnel.get("public_url", "")
-                    if public_url.startswith("https://"):
-                        return public_url
+                url = first_https_tunnel_url(data)
+                if url:
+                    return url
     except (httpx.ConnectError, httpx.TimeoutException, Exception):
         pass
     return None

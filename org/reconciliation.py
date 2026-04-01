@@ -7,6 +7,7 @@ resource names are fully resolved and matchable against the live org.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal, cast
 
 from loguru import logger
 
@@ -15,7 +16,6 @@ from models import (
     DataLoaderConfig,
     _BaseResourceConfig,
 )
-
 from .discovery import (
     DiscoveredCounterparty,
     DiscoveredLegalEntity,
@@ -524,6 +524,8 @@ def reconcile_config(
 
 _ALLOWED_CONNECTION_ENTITY_IDS = frozenset({"example1", "example2", "modern_treasury"})
 
+_ConnectionEntityId = Literal["example1", "example2", "modern_treasury"]
+
 
 def sync_connection_entities_from_reconciliation(
     config: DataLoaderConfig,
@@ -573,5 +575,7 @@ def sync_connection_entities_from_reconciliation(
             if conn.ref != ref_key:
                 continue
             if conn.entity_id != vid:
-                conns[i] = conn.model_copy(update={"entity_id": vid})  # type: ignore[arg-type]
+                conns[i] = conn.model_copy(
+                    update={"entity_id": cast(_ConnectionEntityId, vid)}
+                )
             break

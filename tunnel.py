@@ -217,6 +217,15 @@ class TunnelManager:
         self._save_config()
 
 
+def first_https_tunnel_url(tunnels_payload: dict) -> str | None:
+    """Return the first ``https`` ``public_url`` from ngrok agent ``/api/tunnels`` JSON."""
+    for tunnel in tunnels_payload.get("tunnels", []):
+        url = tunnel.get("public_url", "")
+        if isinstance(url, str) and url.startswith("https://"):
+            return url
+    return None
+
+
 def _probe_external_ngrok() -> dict:
     """Probe the ngrok local agent API (for externally-run ngrok)."""
     try:
@@ -224,10 +233,9 @@ def _probe_external_ngrok() -> dict:
             resp = http.get("http://127.0.0.1:4040/api/tunnels")
             if resp.status_code == 200:
                 data = resp.json()
-                for tunnel in data.get("tunnels", []):
-                    url = tunnel.get("public_url", "")
-                    if url.startswith("https://"):
-                        return {"connected": True, "url": url}
+                url = first_https_tunnel_url(data)
+                if url:
+                    return {"connected": True, "url": url}
     except Exception:
         pass
     return {"connected": False, "url": None}

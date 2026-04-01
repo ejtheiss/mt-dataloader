@@ -45,14 +45,6 @@ _PAYMENT_RESOURCE_TYPES = frozenset({
     "expected_payment", "return", "reversal",
 })
 
-_SOURCE_BADGE: dict[str, str] = {
-    "payment_order": "PO",
-    "incoming_payment_detail": "IPD",
-    "expected_payment": "EP",
-    "return": "Ret",
-    "reversal": "Rev",
-}
-
 
 @dataclass(frozen=True)
 class LedgerColumnDef:

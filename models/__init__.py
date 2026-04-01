@@ -11,6 +11,7 @@ continues to work unchanged after the monolith → package decomposition.
 from models.shared import (
     REF_PATTERN,
     RESOURCE_TYPES,
+    SOURCE_BADGE,
     RefStr,
     DisplayPhase,
     MetadataMixin,
@@ -82,7 +83,6 @@ from models.steps import (
     INLINE_LT_TYPES,
     PAYMENT_MIX_TYPE_MAP,
     REVERSES_DIRECTION,
-    _STEP_TYPE_MODELS,
     _extract_step_ref,
 )
 
@@ -120,6 +120,7 @@ __all__ = [
     # Constants & custom types
     "REF_PATTERN",
     "RESOURCE_TYPES",
+    "SOURCE_BADGE",
     "RefStr",
     "DisplayPhase",
     # Reusable Annotated types
@@ -194,7 +195,6 @@ __all__ = [
     "INLINE_LT_TYPES",
     "PAYMENT_MIX_TYPE_MAP",
     "REVERSES_DIRECTION",
-    "_STEP_TYPE_MODELS",
     "_extract_step_ref",
     # Actor Frames & Slots
     "ActorSlot",
