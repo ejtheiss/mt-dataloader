@@ -108,12 +108,10 @@ from models.flow_dsl import (
 from models.config import DataLoaderConfig
 
 # --- runtime types ---
-from models.runtime import (
-    HandlerResult,
-    ManifestEntry,
-    FailedEntry,
-    StagedEntry,
-)
+from models.runtime import HandlerResult
+
+# --- manifest (run JSON on disk) ---
+from models.manifest import FailedEntry, ManifestEntry, RunManifest, StagedEntry
 
 # --- app settings ---
 from models.settings import AppSettings
@@ -222,6 +220,7 @@ __all__ = [
     "ManifestEntry",
     "FailedEntry",
     "StagedEntry",
+    "RunManifest",
     # App settings
     "AppSettings",
 ]

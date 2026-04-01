@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 from loguru import logger
 
@@ -27,6 +27,7 @@ from mt_webhook_endpoints import (
     normalize_webhook_url,
     patch_webhook_endpoint,
 )
+from routers.deps import SettingsDep, TunnelDep
 
 router = APIRouter()
 
@@ -35,12 +36,11 @@ WEBHOOK_PATH = "/webhooks/mt"
 
 @router.post("/api/tunnel/start", include_in_schema=False)
 async def tunnel_start(
-    request: Request,
+    mgr: TunnelDep,
     authtoken: str = Form(...),
     domain: str = Form(""),
 ):
     """Start the ngrok tunnel.  Persists authtoken to runs/.tunnel_config.json."""
-    mgr = request.app.state.tunnel
     try:
         url = mgr.start(
             authtoken=authtoken.strip(),
@@ -65,25 +65,23 @@ async def tunnel_start(
 
 
 @router.post("/api/tunnel/stop", include_in_schema=False)
-async def tunnel_stop(request: Request):
+async def tunnel_stop(mgr: TunnelDep):
     """Stop the ngrok tunnel."""
-    mgr = request.app.state.tunnel
     mgr.stop()
     return {"ok": True}
 
 
 @router.get("/api/tunnel/status", include_in_schema=False)
-async def tunnel_status(request: Request):
+async def tunnel_status(mgr: TunnelDep, settings: SettingsDep):
     """Return current tunnel connectivity and URL.
 
     The tunnel is **process-scoped** (one ngrok per dataloader instance); it does
     not depend on which MT org the user selects in the UI.
     """
-    mgr = request.app.state.tunnel
     status = mgr.get_status()
     status["webhook_endpoint_id"] = mgr.saved_webhook_endpoint_id
     status["has_authtoken"] = bool(
-        request.app.state.settings.ngrok_authtoken or mgr.saved_authtoken
+        settings.ngrok_authtoken or mgr.saved_authtoken
     )
     fail = mgr.last_ngrok_failure()
     if fail and not status.get("connected"):
@@ -91,15 +89,15 @@ async def tunnel_status(request: Request):
     else:
         status["ngrok_issue"] = None
     status["ngrok_remote_tools"] = bool(
-        (request.app.state.settings.ngrok_api_key or "").strip()
+        (settings.ngrok_api_key or "").strip()
     )
     return status
 
 
 @router.get("/api/tunnel/ngrok-agent-sessions", include_in_schema=False)
-async def ngrok_agent_sessions(request: Request):
+async def ngrok_agent_sessions(settings: SettingsDep):
     """List online ngrok agent sessions (requires ``DATALOADER_NGROK_API_KEY``)."""
-    key = (request.app.state.settings.ngrok_api_key or "").strip()
+    key = (settings.ngrok_api_key or "").strip()
     if not key:
         return {
             "enabled": False,
@@ -149,11 +147,11 @@ async def ngrok_agent_sessions(request: Request):
 
 @router.post("/api/tunnel/ngrok-agent-sessions/stop", include_in_schema=False)
 async def ngrok_agent_session_stop(
-    request: Request,
+    settings: SettingsDep,
     session_id: str = Form(...),
 ):
     """Stop a remote ngrok agent session (frees a slot for ERR_NGROK_108)."""
-    key = (request.app.state.settings.ngrok_api_key or "").strip()
+    key = (settings.ngrok_api_key or "").strip()
     if not key:
         return JSONResponse(
             {"ok": False, "error": "DATALOADER_NGROK_API_KEY is not set."},
@@ -178,7 +176,7 @@ async def ngrok_agent_session_stop(
 
 @router.post("/api/tunnel/check-org-webhook", include_in_schema=False)
 async def check_org_webhook(
-    request: Request,
+    mgr: TunnelDep,
     api_key: str = Form(""),
     org_id: str = Form(""),
 ):
@@ -190,7 +188,6 @@ async def check_org_webhook(
     """
     api_key = api_key.strip()
     org_id = org_id.strip()
-    mgr = request.app.state.tunnel
     tun = mgr.get_status()
     base_url = os.environ.get("MODERN_TREASURY_BASE_URL")
     base: dict = {
@@ -267,7 +264,8 @@ async def check_org_webhook(
 
 @router.post("/api/tunnel/register-webhook", include_in_schema=False)
 async def register_webhook(
-    request: Request,
+    mgr: TunnelDep,
+    settings: SettingsDep,
     api_key: str = Form(...),
     org_id: str = Form(...),
 ):
@@ -278,7 +276,6 @@ async def register_webhook(
     endpoint.  Captures the ``webhook_key`` (signing secret) on creation
     and auto-applies it for signature verification.
     """
-    mgr = request.app.state.tunnel
     status = mgr.get_status()
     if not status.get("connected") or not status.get("url"):
         return JSONResponse(
@@ -343,7 +340,7 @@ async def register_webhook(
         mgr.save_webhook_endpoint(cid, webhook_key)
 
         if webhook_key:
-            request.app.state.settings.webhook_secret = webhook_key
+            settings.webhook_secret = webhook_key
             logger.info(
                 "Created MT webhook endpoint {}; signing secret auto-configured",
                 cid,

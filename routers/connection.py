@@ -6,8 +6,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from modern_treasury import AsyncModernTreasury, AuthenticationError
 
-from helpers import get_templates
 from models import DataLoaderConfig
+from routers.deps import TemplatesDep
 from org import OrgRegistry, discover_org
 from session import sessions
 
@@ -21,9 +21,8 @@ async def get_schema():
 
 
 @router.get("/api/connection-editor", include_in_schema=False)
-async def connection_editor(request: Request):
+async def connection_editor(request: Request, templates: TemplatesDep):
     """Return the connection editor partial, pre-filled from session storage."""
-    templates = get_templates()
     session_token = request.query_params.get("session_token", "")
     session = sessions.get(session_token)
     return templates.TemplateResponse(

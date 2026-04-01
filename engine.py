@@ -16,7 +16,6 @@ import hashlib
 import json
 import re
 import secrets
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Iterator
@@ -26,10 +25,9 @@ from loguru import logger
 
 from models import (
     DataLoaderConfig,
-    FailedEntry,
     HandlerResult,
     ManifestEntry,
-    StagedEntry,
+    RunManifest,
     _BaseResourceConfig,
 )
 from models.config import legal_entity_omit_connection_id_on_create
@@ -496,136 +494,12 @@ def config_hash(config: DataLoaderConfig) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Run manifest
+# Run manifest — ``RunManifest`` is ``models.manifest.RunManifest`` (Pydantic).
 # ---------------------------------------------------------------------------
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-@dataclass
-class RunManifest:
-    """Mutable manifest accumulator.  Written incrementally during execution."""
-
-    run_id: str
-    config_hash: str
-    started_at: str = field(default_factory=_now_iso)
-    completed_at: str | None = None
-    status: str = "running"
-    resources_created: list[ManifestEntry] = field(default_factory=list)
-    resources_failed: list[FailedEntry] = field(default_factory=list)
-    resources_staged: list[StagedEntry] = field(default_factory=list)
-    generation_recipe: dict | None = None
-    compile_id: str | None = None
-    seed_version: str | None = None
-    mt_org_id: str | None = None
-    mt_org_label: str | None = None
-
-    def record(self, entry: ManifestEntry) -> None:
-        self.resources_created.append(entry)
-
-    def record_failure(self, typed_ref: str, error: str) -> None:
-        self.resources_failed.append(
-            FailedEntry(typed_ref=typed_ref, error=error, failed_at=_now_iso())
-        )
-
-    def record_staged(self, typed_ref: str, resource_type: str) -> None:
-        self.resources_staged.append(
-            StagedEntry(
-                resource_type=resource_type,
-                typed_ref=typed_ref,
-                staged_at=_now_iso(),
-            )
-        )
-
-    def finalize(self, status: str) -> None:
-        self.status = status
-        self.completed_at = _now_iso()
-
-    def write(self, runs_dir: str) -> Path:
-        """Write manifest to ``runs/<run_id>.json``.  Creates dir if needed."""
-        dirpath = Path(runs_dir)
-        dirpath.mkdir(parents=True, exist_ok=True)
-        file_path = dirpath / f"{self.run_id}.json"
-        file_path.write_text(
-            json.dumps(self._to_dict(), indent=2, default=str),
-            encoding="utf-8",
-        )
-        return file_path
-
-    def verify_hash(self, config: DataLoaderConfig) -> bool:
-        """Check that a config matches the hash recorded at run start."""
-        return self.config_hash == config_hash(config)
-
-    @classmethod
-    def load(cls, path: str | Path) -> RunManifest:
-        """Load a manifest from a JSON file for resume or cleanup."""
-        path = Path(path)
-        data = json.loads(path.read_text(encoding="utf-8"))
-        run_id = data.get("run_id") or path.stem.replace("manifest_", "")
-        manifest = cls(
-            run_id=run_id,
-            config_hash=data.get("config_hash", ""),
-            started_at=data.get("started_at", ""),
-            completed_at=data.get("completed_at"),
-            status=data.get("status", "unknown"),
-            generation_recipe=data.get("generation_recipe"),
-            compile_id=data.get("compile_id"),
-            seed_version=data.get("seed_version"),
-            mt_org_id=data.get("mt_org_id"),
-            mt_org_label=data.get("mt_org_label"),
-        )
-        for entry_data in data.get("resources_created", []):
-            manifest.resources_created.append(ManifestEntry(**entry_data))
-        for fail_data in data.get("resources_failed", []):
-            manifest.resources_failed.append(FailedEntry(**fail_data))
-        for staged_data in data.get("resources_staged", []):
-            manifest.resources_staged.append(StagedEntry(**staged_data))
-        return manifest
-
-    def _to_dict(self) -> dict:
-        return {
-            "run_id": self.run_id,
-            "started_at": self.started_at,
-            "completed_at": self.completed_at,
-            "status": self.status,
-            "config_hash": self.config_hash,
-            "resources_created": [
-                {
-                    "batch": e.batch,
-                    "resource_type": e.resource_type,
-                    "typed_ref": e.typed_ref,
-                    "created_id": e.created_id,
-                    "created_at": e.created_at,
-                    "deletable": e.deletable,
-                    "child_refs": e.child_refs,
-                    "cleanup_status": e.cleanup_status,
-                }
-                for e in self.resources_created
-            ],
-            "resources_failed": [
-                {
-                    "typed_ref": f.typed_ref,
-                    "error": f.error,
-                    "failed_at": f.failed_at,
-                }
-                for f in self.resources_failed
-            ],
-            "resources_staged": [
-                {
-                    "resource_type": s.resource_type,
-                    "typed_ref": s.typed_ref,
-                    "staged_at": s.staged_at,
-                }
-                for s in self.resources_staged
-            ],
-            "generation_recipe": self.generation_recipe,
-            "compile_id": self.compile_id,
-            "seed_version": self.seed_version,
-            "mt_org_id": self.mt_org_id,
-            "mt_org_label": self.mt_org_label,
-        }
 
 
 # ---------------------------------------------------------------------------

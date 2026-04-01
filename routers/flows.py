@@ -25,10 +25,10 @@ from helpers import (
     fmt_amt,
     format_validation_errors,
     get_flow_view_data,
-    get_templates,
     SOURCE_BADGE,
 )
 from models import ActorDatasetOverride, DataLoaderConfig, GenerationRecipeV1
+from routers.deps import TemplatesDep
 from org import reconcile_config, sync_connection_entities_from_reconciliation
 import seed_loader
 from session import sessions
@@ -292,9 +292,8 @@ class ActorConfigSaveBody(BaseModel):
 
 
 @router.get("/flows", include_in_schema=False)
-async def flows_page(request: Request):
+async def flows_page(request: Request, templates: TemplatesDep):
     """Fund Flows list page — compile-time view of flow patterns."""
-    templates = get_templates()
     session_token = request.query_params.get("session_token", "")
     session = sessions.get(session_token)
 
@@ -415,9 +414,8 @@ async def flows_page(request: Request):
 
 
 @router.get("/flows/view/{flow_idx}", include_in_schema=False)
-async def flows_view_page(request: Request, flow_idx: int):
+async def flows_view_page(request: Request, flow_idx: int, templates: TemplatesDep):
     """Fund Flow detail — view toggle with ledger and payments views."""
-    templates = get_templates()
     session_token = request.query_params.get("session_token", "")
     session = sessions.get(session_token)
     if not session:
@@ -479,9 +477,8 @@ async def flows_view_page(request: Request, flow_idx: int):
 
 
 @router.get("/api/flows/{flow_idx}/drawer", include_in_schema=False)
-async def flow_drawer(request: Request, flow_idx: int):
+async def flow_drawer(request: Request, flow_idx: int, templates: TemplatesDep):
     """HTMX partial — flow summary for the slide-over drawer."""
-    templates = get_templates()
     session_token = request.query_params.get("session_token", "")
     session = sessions.get(session_token)
     if not session:
@@ -537,9 +534,10 @@ async def flow_drawer(request: Request, flow_idx: int):
 
 
 @router.get("/api/flows/{flow_idx}/view/ledger", include_in_schema=False)
-async def flow_ledger_view_partial(request: Request, flow_idx: int):
+async def flow_ledger_view_partial(
+    request: Request, flow_idx: int, templates: TemplatesDep,
+):
     """HTMX partial — ledger view table."""
-    templates = get_templates()
     session_token = request.query_params.get("session_token", "")
     session = sessions.get(session_token)
     if not session:
@@ -564,9 +562,10 @@ async def flow_ledger_view_partial(request: Request, flow_idx: int):
 
 
 @router.get("/api/flows/{flow_idx}/view/payments", include_in_schema=False)
-async def flow_payments_view_partial(request: Request, flow_idx: int):
+async def flow_payments_view_partial(
+    request: Request, flow_idx: int, templates: TemplatesDep,
+):
     """HTMX partial — payments view table."""
-    templates = get_templates()
     session_token = request.query_params.get("session_token", "")
     session = sessions.get(session_token)
     if not session:
@@ -693,7 +692,9 @@ async def recipe_to_working_config(request: Request):
 
 
 @router.get("/api/flows/{flow_idx}/actor-config", include_in_schema=False)
-async def flow_actor_config_drawer(request: Request, flow_idx: int):
+async def flow_actor_config_drawer(
+    request: Request, flow_idx: int, templates: TemplatesDep,
+):
     """HTMX partial: edit one actor's dataset / literal / name template."""
     session_token = request.query_params.get("session_token", "")
     frame = request.query_params.get("frame", "").strip()
@@ -724,7 +725,6 @@ async def flow_actor_config_drawer(request: Request, flow_idx: int):
         if isinstance(ao.get(frame), dict):
             ov_raw = dict(ao[frame])
 
-    templates = get_templates()
     return templates.TemplateResponse(
         request,
         "partials/flow_actor_config.html",
