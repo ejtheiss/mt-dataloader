@@ -11,8 +11,8 @@ Use this when editing **application Python** (`dataloader/routers/`, `dataloader
 ## Where logic lives
 
 - **`dataloader/routers/`** — Thin HTTP: parse input, call domain, return response. Avoid embedding rules that belong in compiler / **`dataloader.engine`** / org.
-- **`dataloader/engine/`** — DAG execution, ref resolution, manifests (no MT SDK).
-- **`dataloader/handlers/`** — MT SDK calls only; consumed via dispatch tables from **`dataloader.engine`**.
+- **`dataloader/engine/`** — DAG execution, ref resolution, manifests (no MT SDK). Submodules: **`refs`**, **`dag`**, **`runner`**, **`run_meta`**; **`dataloader.staged_fire`** holds staged fireable types (shared with webhooks).
+- **`dataloader/handlers/`** — MT SDK calls only; consumed via dispatch tables from **`dataloader.engine`**. Submodules: **`constants`**, **`operations`**, **`dispatch`**.
 - **`flow_compiler/`** — Compile pipeline only. **Do not** import **`dataloader.routers`** or **`dataloader.webhooks`**.
 - **`models/`** — Pydantic + settings only. **No** FastAPI, **no** Jinja.
 - **JSON policy** — Prefer **`jsonutil`** (`loads_str`, `loads_path`, `dumps_pretty`, `dumps_jsonl_record`) or **Pydantic** for parse/serialize; avoid scattered raw **`json.loads`** in route modules without justification.

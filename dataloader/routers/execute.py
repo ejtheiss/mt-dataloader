@@ -14,7 +14,7 @@ from dataloader.engine import execute, generate_run_id
 from dataloader.handlers import build_handler_dispatch, build_update_dispatch
 from dataloader.routers.deps import SessionFormDep, SettingsDep, TemplatesDep
 from dataloader.session import sessions
-from dataloader.webhooks import index_resource
+from dataloader.webhooks import index_resource, register_run_org
 from helpers import error_html, error_response
 from models import DisplayPhase
 from sse_helpers import make_emit_sse, sse_error_response
@@ -96,6 +96,7 @@ async def execute_stream(
                         update_dispatch=update_dispatch,
                         mt_org_id=session.org_id,
                         mt_org_label=session.org_label,
+                        on_run_org_registered=register_run_org,
                     )
                     html = templates.get_template("partials/run_complete.html").render(
                         manifest=manifest, run_id=run_id

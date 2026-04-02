@@ -40,6 +40,7 @@ from tenacity import RetryError, retry, retry_if_result
 from dataloader.engine import _now_iso, list_manifest_ids
 from dataloader.handlers import DELETABILITY, TENACITY_STOP_30, TENACITY_WAIT_EXP_2_10
 from dataloader.routers.deps import SettingsDep, TemplatesDep, TunnelDep
+from dataloader.staged_fire import FIREABLE_TYPES
 from jsonutil import dumps_jsonl_record, dumps_pretty, loads_path
 from models import ManifestEntry, RunManifest
 from tunnel import TunnelManager, first_https_tunnel_url
@@ -635,7 +636,8 @@ _FIRE_DISPATCH = {
     "incoming_payment_detail": _fire_incoming_payment_detail,
 }
 
-FIREABLE_TYPES = frozenset(_FIRE_DISPATCH.keys())
+if frozenset(_FIRE_DISPATCH) != FIREABLE_TYPES:
+    raise RuntimeError("_FIRE_DISPATCH keys must match dataloader.staged_fire.FIREABLE_TYPES")
 
 
 @router.get("/api/runs/{run_id}/staged/drawer", include_in_schema=False)

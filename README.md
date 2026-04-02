@@ -341,8 +341,8 @@ dataloader/          Application package (02a Phase E)
     tunnel.py        /listen tunnel UI
     deps.py          FastAPI Depends helpers
   webhooks/          Webhook package (routes.py: receiver, run detail, staged fire, listener)
-  engine/            DAG executor, ref registry, run manifests (import: dataloader.engine)
-  handlers/          MT SDK async handlers + dispatch tables (import: dataloader.handlers)
+  engine/            DAG executor (submodules: refs, dag, runner, run_meta)
+  handlers/          MT SDK handlers (submodules: constants, operations, dispatch)
   session/           In-memory SessionState + process-local session store (import: dataloader.session)
 helpers.py           Shared rendering: build_preview, extract_display_name, format helpers
 seed_loader.py       Faker hybrid seed engine (standard, industry, pop-culture)
@@ -358,7 +358,7 @@ flow_views.py        Ledger + payments view data computation
 - **DAG + SDK:** `dataloader/engine/`, `dataloader/handlers/`.
 - **Loader session:** `dataloader/session/` — `SessionState` and the in-memory `sessions` map (single-worker; see maintainer **Plan 0** for durable session design).
 - **Injection:** `dataloader/routers/deps.py` — settings, templates, tunnel, session lookup helpers.
-- **Import boundaries:** run `lint-imports` (config: `pyproject.toml` → `[tool.importlinter]`). Today: `flow_compiler` and `models` must not import `dataloader` (transitive). Tighter `org` layering waits on engine ↔ webhooks decoupling (**plan 07**).
+- **Import boundaries:** run `lint-imports` (config: `pyproject.toml` → `[tool.importlinter]`). `flow_compiler` and `models` must not import `dataloader`; `org` may use `dataloader.engine` only (not routers/webhooks/handlers/session/main).
 
 ```
 models/              Pydantic config schemas

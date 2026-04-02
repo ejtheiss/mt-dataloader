@@ -1,14 +1,16 @@
 """Webhook domain package: routes, correlation index, JSONL persistence.
 
 Phase **02a** moved the former root ``webhooks.py`` into ``dataloader/webhooks/routes.py``;
-this module re-exports the public API so ``dataloader.main``, ``dataloader.engine``, and
-``dataloader.routers.execute`` keep stable imports.
+this module re-exports the public API so ``dataloader.main`` and
+``dataloader.routers.execute`` keep stable imports. ``FIREABLE_TYPES`` is defined in
+``dataloader.staged_fire`` (shared with the engine dry-run path).
 """
 
 from __future__ import annotations
 
+from dataloader.staged_fire import FIREABLE_TYPES
+
 from .routes import (
-    FIREABLE_TYPES,
     build_run_org_map,
     enrich_webhooks_run_org,
     ensure_run_indexed,
