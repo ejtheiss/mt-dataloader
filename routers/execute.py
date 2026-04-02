@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Request
 from loguru import logger
 from modern_treasury import AsyncModernTreasury
 from sse_starlette import EventSourceResponse, ServerSentEvent
@@ -14,7 +14,7 @@ from engine import execute, generate_run_id
 from handlers import build_handler_dispatch, build_update_dispatch
 from helpers import error_html, error_response
 from models import DisplayPhase
-from routers.deps import SettingsDep, TemplatesDep
+from routers.deps import SessionFormDep, SettingsDep, TemplatesDep
 from session import sessions
 from sse_helpers import make_emit_sse, sse_error_response
 from webhooks import index_resource
@@ -26,21 +26,20 @@ router = APIRouter(tags=["execute"])
 async def execute_page(
     request: Request,
     templates: TemplatesDep,
-    session_token: str = Form(...),
+    sess: SessionFormDep,
 ):
     """Return execute page with pre-rendered rows and SSE container."""
-    session = sessions.get(session_token)
-    if not session:
+    if not sess:
         return error_response("Session Expired", "Please re-validate your config.")
 
     return templates.TemplateResponse(
         request,
         "execute.html",
         {
-            "session_token": session_token,
-            "preview_items": session.preview_items,
-            "batches": session.batches,
-            "resource_count": sum(len(b) for b in session.batches),
+            "session_token": sess.session_token,
+            "preview_items": sess.preview_items,
+            "batches": sess.batches,
+            "resource_count": sum(len(b) for b in sess.batches),
             "display_phases": DisplayPhase,
         },
     )
@@ -98,19 +97,13 @@ async def execute_stream(
                         mt_org_id=session.org_id,
                         mt_org_label=session.org_label,
                     )
-                    html = templates.get_template(
-                        "partials/run_complete.html"
-                    ).render(manifest=manifest, run_id=run_id)
-                    await queue.put(
-                        ServerSentEvent(data=html, event="run_complete")
+                    html = templates.get_template("partials/run_complete.html").render(
+                        manifest=manifest, run_id=run_id
                     )
+                    await queue.put(ServerSentEvent(data=html, event="run_complete"))
                 except Exception as exc:
-                    logger.bind(run_id=run_id, error=str(exc)).error(
-                        "Execution failed"
-                    )
-                    html = templates.get_template("partials/error.html").render(
-                        error=str(exc)
-                    )
+                    logger.bind(run_id=run_id, error=str(exc)).error("Execution failed")
+                    html = templates.get_template("partials/error.html").render(error=str(exc))
                     await queue.put(ServerSentEvent(data=html, event="error"))
                 finally:
                     await queue.put(ServerSentEvent(data="", event="close"))

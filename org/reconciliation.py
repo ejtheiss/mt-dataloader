@@ -16,6 +16,7 @@ from models import (
     DataLoaderConfig,
     _BaseResourceConfig,
 )
+
 from .discovery import (
     DiscoveredCounterparty,
     DiscoveredLegalEntity,
@@ -84,9 +85,7 @@ def reconcile_config(
     for ia in config.internal_accounts or []:
         if ia.connection_id.startswith("$ref:"):
             conn_tref = ia.connection_id[5:]
-            config_conn_expected_currencies.setdefault(conn_tref, set()).add(
-                ia.currency.upper()
-            )
+            config_conn_expected_currencies.setdefault(conn_tref, set()).add(ia.currency.upper())
 
     config_conn_to_discovered: dict[str, str] = {}
 
@@ -252,10 +251,7 @@ def reconcile_config(
             match = candidates[0]
             dups = None
             if len(candidates) > 1:
-                dups = [
-                    {"id": c.id, "name": c.name, "detail": ""}
-                    for c in candidates
-                ]
+                dups = [{"id": c.id, "name": c.name, "detail": ""} for c in candidates]
             result.matches.append(
                 ReconciledResource(
                     config_ref=tref,
@@ -271,9 +267,7 @@ def reconcile_config(
             result.unmatched_config.append(tref)
 
     config_ledger_to_discovered: dict[str, str] = {
-        m.config_ref: m.discovered_id
-        for m in result.matches
-        if m.config_ref.startswith("ledger.")
+        m.config_ref: m.discovered_id for m in result.matches if m.config_ref.startswith("ledger.")
     }
 
     # -------------------------------------------------------------------
@@ -288,9 +282,7 @@ def reconcile_config(
         tref = typed_ref_for(la_cfg)
         resolved_ledger_id = ""
         if la_cfg.ledger_id.startswith("$ref:"):
-            resolved_ledger_id = config_ledger_to_discovered.get(
-                la_cfg.ledger_id[5:], ""
-            )
+            resolved_ledger_id = config_ledger_to_discovered.get(la_cfg.ledger_id[5:], "")
         else:
             resolved_ledger_id = la_cfg.ledger_id
 
@@ -334,9 +326,7 @@ def reconcile_config(
         tref = typed_ref_for(lac_cfg)
         resolved_ledger_id = ""
         if lac_cfg.ledger_id.startswith("$ref:"):
-            resolved_ledger_id = config_ledger_to_discovered.get(
-                lac_cfg.ledger_id[5:], ""
-            )
+            resolved_ledger_id = config_ledger_to_discovered.get(lac_cfg.ledger_id[5:], "")
         else:
             resolved_ledger_id = lac_cfg.ledger_id
 
@@ -380,8 +370,7 @@ def reconcile_config(
             key = ("individual", full)
         elif dle.legal_entity_type == "joint":
             name = (
-                dle.business_name
-                or f"{dle.first_name or ''} {dle.last_name or ''}".strip()
+                dle.business_name or f"{dle.first_name or ''} {dle.last_name or ''}".strip()
             ).lower()
             key = ("joint", name)
         else:
@@ -440,8 +429,7 @@ def reconcile_config(
                     for c in candidates
                 ]
             cp_child_refs: dict[str, str] = {
-                f"account[{i}]": aid
-                for i, aid in enumerate(match.account_ids)
+                f"account[{i}]": aid for i, aid in enumerate(match.account_ids)
             }
             if cp_child_refs:
                 logger.bind(ref=tref, child_refs=cp_child_refs).info(
@@ -449,7 +437,8 @@ def reconcile_config(
                 )
             else:
                 logger.bind(
-                    ref=tref, account_count=match.account_count,
+                    ref=tref,
+                    account_count=match.account_count,
                     account_ids=match.account_ids,
                 ).warning(
                     "Counterparty reconciled but NO child account refs — "
@@ -474,9 +463,13 @@ def reconcile_config(
     # Catch-all for reconcilable config resources not yet processed
     # -------------------------------------------------------------------
     reconcilable_types = {
-        "connection", "internal_account", "ledger",
-        "ledger_account", "ledger_account_category",
-        "legal_entity", "counterparty",
+        "connection",
+        "internal_account",
+        "ledger",
+        "ledger_account",
+        "ledger_account_category",
+        "legal_entity",
+        "counterparty",
     }
     matched_refs = {m.config_ref for m in result.matches}
     unmatched_set = set(result.unmatched_config)
@@ -575,7 +568,5 @@ def sync_connection_entities_from_reconciliation(
             if conn.ref != ref_key:
                 continue
             if conn.entity_id != vid:
-                conns[i] = conn.model_copy(
-                    update={"entity_id": cast(_ConnectionEntityId, vid)}
-                )
+                conns[i] = conn.model_copy(update={"entity_id": cast(_ConnectionEntityId, vid)})
             break

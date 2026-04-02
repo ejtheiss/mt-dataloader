@@ -11,16 +11,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from models import (
-    ExpectedPaymentStep,
     IncomingPaymentDetailStep,
-    LedgerTransactionStep,
     OptionalGroupConfig,
-    PaymentOrderStep,
     ReturnStep,
     ReversalStep,
     TransitionLedgerTransactionStep,
-    _StepBase,
     _extract_step_ref,
+    _StepBase,
 )
 
 # ---------------------------------------------------------------------------
@@ -119,9 +116,7 @@ def build_step_relationships(
         if "_flow_optional_group" in s.metadata and s.step_id not in og_map:
             og_map[s.step_id] = s.metadata["_flow_optional_group"]
 
-    dep_graph: dict[str, tuple[str, ...]] = {
-        s.step_id: tuple(s.depends_on) for s in steps
-    }
+    dep_graph: dict[str, tuple[str, ...]] = {s.step_id: tuple(s.depends_on) for s in steps}
 
     lifecycle_parent: dict[str, str] = {}
     fulfills_map: dict[str, str] = {}

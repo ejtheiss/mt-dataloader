@@ -13,13 +13,11 @@ import dataclasses
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from flow_compiler import (
-    FlowIR,
-    FlowIRStep,
-    _build_ref_display_map,
-    _ref_account_type,
-    _resolve_actor_display,
-    flatten_actor_refs,
+from flow_compiler import FlowIR, FlowIRStep, flatten_actor_refs
+from flow_compiler.display import (
+    build_ref_display_map,
+    ref_account_type,
+    resolve_actor_display,
 )
 
 if TYPE_CHECKING:
@@ -40,10 +38,15 @@ __all__ = [
 # Frozen data types — all immutable, safe to cache/serialize
 # ---------------------------------------------------------------------------
 
-_PAYMENT_RESOURCE_TYPES = frozenset({
-    "payment_order", "incoming_payment_detail",
-    "expected_payment", "return", "reversal",
-})
+_PAYMENT_RESOURCE_TYPES = frozenset(
+    {
+        "payment_order",
+        "incoming_payment_detail",
+        "expected_payment",
+        "return",
+        "reversal",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -146,21 +149,23 @@ def _build_ledger_columns(
     If *explicit_refs* is provided (from view_config), only those accounts
     are included in that order. Otherwise, all ledger_account actors are used.
     """
-    ref_display_map = _build_ref_display_map(flow_config.actors)
+    ref_display_map = build_ref_display_map(flow_config.actors)
     if explicit_refs:
         cols = []
         for ref in explicit_refs:
-            display = _resolve_actor_display(ref, ref_display_map)
+            display = resolve_actor_display(ref, ref_display_map)
             cols.append(LedgerColumnDef(account_ref=ref, display_name=display))
         return tuple(cols)
 
     cols = []
     for ref, display in ref_display_map.items():
-        if _ref_account_type(ref) == "ledger_account":
-            cols.append(LedgerColumnDef(
-                account_ref=ref,
-                display_name=display,
-            ))
+        if ref_account_type(ref) == "ledger_account":
+            cols.append(
+                LedgerColumnDef(
+                    account_ref=ref,
+                    display_name=display,
+                )
+            )
     return tuple(cols)
 
 
@@ -169,28 +174,32 @@ def _build_payment_columns(
     explicit_refs: list[str] | None = None,
 ) -> tuple[PaymentColumnDef, ...]:
     """Build payment account columns (IA, EA, VA) from the flow's actors."""
-    ref_display_map = _build_ref_display_map(flow_config.actors)
+    ref_display_map = build_ref_display_map(flow_config.actors)
     if explicit_refs:
         cols = []
         for ref in explicit_refs:
-            acct_type = _ref_account_type(ref)
-            display = _resolve_actor_display(ref, ref_display_map)
-            cols.append(PaymentColumnDef(
-                account_ref=ref,
-                display_name=display,
-                account_type=acct_type,
-            ))
+            acct_type = ref_account_type(ref)
+            display = resolve_actor_display(ref, ref_display_map)
+            cols.append(
+                PaymentColumnDef(
+                    account_ref=ref,
+                    display_name=display,
+                    account_type=acct_type,
+                )
+            )
         return tuple(cols)
 
     cols = []
     for ref, display in ref_display_map.items():
-        acct_type = _ref_account_type(ref)
+        acct_type = ref_account_type(ref)
         if acct_type in ("internal_account", "external_account", "virtual_account"):
-            cols.append(PaymentColumnDef(
-                account_ref=ref,
-                display_name=display,
-                account_type=acct_type,
-            ))
+            cols.append(
+                PaymentColumnDef(
+                    account_ref=ref,
+                    display_name=display,
+                    account_type=acct_type,
+                )
+            )
     return tuple(cols)
 
 
@@ -219,27 +228,31 @@ def _build_ledger_rows(
             for entry in lg.entries:
                 acct_ref = entry.get("ledger_account_id", "")
                 if acct_ref in col_refs:
-                    placements.append(LedgerEntryPlacement(
-                        column_ref=acct_ref,
-                        direction=entry.get("direction", "debit"),
-                        amount=entry.get("amount", 0),
-                    ))
+                    placements.append(
+                        LedgerEntryPlacement(
+                            column_ref=acct_ref,
+                            direction=entry.get("direction", "debit"),
+                            amount=entry.get("amount", 0),
+                        )
+                    )
 
             is_standalone = step.resource_type == "ledger_transaction"
             ledgerable_type = None if is_standalone else step.resource_type
             ledgerable_ref = None if is_standalone else step.emitted_ref
 
-            rows.append(LedgerViewRow(
-                step_ref=step.emitted_ref,
-                description=step.payload.get("description", step.step_id),
-                status=lg.status or step.payload.get("ledger_status", "pending"),
-                effective_at=step.payload.get("effective_at"),
-                ledgerable_type=ledgerable_type,
-                ledgerable_ref=ledgerable_ref,
-                entries=tuple(placements),
-                is_standalone=is_standalone,
-                optional_group=_og.get(step.step_id),
-            ))
+            rows.append(
+                LedgerViewRow(
+                    step_ref=step.emitted_ref,
+                    description=step.payload.get("description", step.step_id),
+                    status=lg.status or step.payload.get("ledger_status", "pending"),
+                    effective_at=step.payload.get("effective_at"),
+                    ledgerable_type=ledgerable_type,
+                    ledgerable_ref=ledgerable_ref,
+                    entries=tuple(placements),
+                    is_standalone=is_standalone,
+                    optional_group=_og.get(step.step_id),
+                )
+            )
 
     return tuple(rows)
 
@@ -301,21 +314,25 @@ def _build_child_lt_rows(
         for entry in lg.entries:
             acct_ref = entry.get("ledger_account_id", "")
             if acct_ref in col_refs:
-                placements.append(LedgerEntryPlacement(
-                    column_ref=acct_ref,
-                    direction=entry.get("direction", "debit"),
-                    amount=entry.get("amount", 0),
-                ))
+                placements.append(
+                    LedgerEntryPlacement(
+                        column_ref=acct_ref,
+                        direction=entry.get("direction", "debit"),
+                        amount=entry.get("amount", 0),
+                    )
+                )
 
-        child_rows.append(LedgerViewRow(
-            step_ref=f"{step.emitted_ref}__{lg.group_id}",
-            description=step.payload.get("description", step.step_id),
-            status=lg.status or step.payload.get("ledger_status", "pending"),
-            ledgerable_type=step.resource_type,
-            ledgerable_ref=step.emitted_ref,
-            entries=tuple(placements),
-            is_standalone=False,
-        ))
+        child_rows.append(
+            LedgerViewRow(
+                step_ref=f"{step.emitted_ref}__{lg.group_id}",
+                description=step.payload.get("description", step.step_id),
+                status=lg.status or step.payload.get("ledger_status", "pending"),
+                ledgerable_type=step.resource_type,
+                ledgerable_ref=step.emitted_ref,
+                entries=tuple(placements),
+                is_standalone=False,
+            )
+        )
 
     return tuple(child_rows)
 
@@ -350,20 +367,22 @@ def _build_payment_rows(
         has_lt = len(step.ledger_groups) > 0
         child_lts = _build_child_lt_rows(step, ledger_columns) if has_lt else ()
 
-        rows.append(PaymentViewRow(
-            step_ref=step.emitted_ref,
-            description=step.payload.get("description", step.step_id),
-            resource_type=step.resource_type,
-            status=step.payload.get("status", "pending"),
-            amount=step.payload.get("amount", 0),
-            direction=step.payload.get("direction"),
-            payment_type=step.payload.get("type") or step.payload.get("payment_type"),
-            effective_date=step.payload.get("effective_date"),
-            has_auto_lt=has_lt,
-            account_impacts=impacts,
-            child_lt_rows=child_lts,
-            optional_group=_og.get(step.step_id),
-        ))
+        rows.append(
+            PaymentViewRow(
+                step_ref=step.emitted_ref,
+                description=step.payload.get("description", step.step_id),
+                resource_type=step.resource_type,
+                status=step.payload.get("status", "pending"),
+                amount=step.payload.get("amount", 0),
+                direction=step.payload.get("direction"),
+                payment_type=step.payload.get("type") or step.payload.get("payment_type"),
+                effective_date=step.payload.get("effective_date"),
+                has_auto_lt=has_lt,
+                account_impacts=impacts,
+                child_lt_rows=child_lts,
+                optional_group=_og.get(step.step_id),
+            )
+        )
 
     return tuple(rows)
 
@@ -404,12 +423,9 @@ def compute_view_data(
     vc = flow_config.view_config
     available: list[str] = []
 
-    has_ledger_actors = any(
-        _ref_account_type(ref) == "ledger_account"
-        for ref in ref_map.values()
-    )
+    has_ledger_actors = any(ref_account_type(ref) == "ledger_account" for ref in ref_map.values())
     has_payment_actors = any(
-        _ref_account_type(ref) in ("internal_account", "external_account", "virtual_account")
+        ref_account_type(ref) in ("internal_account", "external_account", "virtual_account")
         for ref in ref_map.values()
     )
 
@@ -438,7 +454,11 @@ def compute_view_data(
         available.append("payments")
         payment_cols = _build_payment_columns(flow_config, explicit_payment_refs)
         payment_rows = _build_payment_rows(
-            flow_ir, ref_map, payment_cols, ledger_cols, og_step_ids,
+            flow_ir,
+            ref_map,
+            payment_cols,
+            ledger_cols,
+            og_step_ids,
             include_expected_payments=include_expected_payments,
             include_transactions=include_transactions,
         )

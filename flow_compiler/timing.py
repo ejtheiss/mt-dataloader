@@ -19,13 +19,12 @@ timing is configuration, not real-world simulation.
 
 from __future__ import annotations
 
-import math
 import random
 from datetime import date, timedelta
 from typing import Literal
 
 from models.flow_dsl import FlowTimingConfig, RecipeTimingConfig
-from models.shared import SettlementDefaultsConfig, StepTimingConfig
+from models.shared import SettlementDefaultsConfig
 
 _SETTLEMENT_DEFAULTS = SettlementDefaultsConfig()
 
@@ -66,9 +65,7 @@ def compute_spread_offsets(
             offsets = [i * step for i in range(instances)]
 
     elif pattern == "ramp_up":
-        offsets = [
-            spread_days * ((i / max(instances - 1, 1)) ** 2) for i in range(instances)
-        ]
+        offsets = [spread_days * ((i / max(instances - 1, 1)) ** 2) for i in range(instances)]
 
     elif pattern == "ramp_down":
         offsets = [
@@ -88,9 +85,7 @@ def compute_spread_offsets(
         offsets = [0.0] * instances
 
     if jitter_days > 0:
-        offsets = [
-            max(0.0, o + rng.uniform(-jitter_days, jitter_days)) for o in offsets
-        ]
+        offsets = [max(0.0, o + rng.uniform(-jitter_days, jitter_days)) for o in offsets]
 
     return offsets
 
@@ -126,15 +121,15 @@ def _resolve_step_delay(
             step_timing_dict.get("delay_jitter_hours", 0.0),
         )
 
-    if flow_timing and (flow_timing.default_delay_hours > 0 or flow_timing.default_jitter_hours > 0):
+    if flow_timing and (
+        flow_timing.default_delay_hours > 0 or flow_timing.default_jitter_hours > 0
+    ):
         return (
             flow_timing.default_delay_hours,
             flow_timing.default_jitter_hours,
         )
 
-    defaults = (
-        flow_timing.settlement_defaults if flow_timing else _SETTLEMENT_DEFAULTS
-    )
+    defaults = flow_timing.settlement_defaults if flow_timing else _SETTLEMENT_DEFAULTS
     step_type = step.get("type", "")
     payment_type = step.get("payment_type", "")
     direction = step.get("direction", "")
@@ -166,18 +161,10 @@ def compute_effective_dates(
     implies the flow author opted in to realistic timing).
     """
     has_explicit_start = bool(recipe_timing and recipe_timing.start_date)
-    base = (
-        recipe_timing.start_date
-        if has_explicit_start
-        else date.today()
-    )
+    base = recipe_timing.start_date if has_explicit_start else date.today()
 
-    recipe_overrides = (
-        recipe_timing.step_delay_overrides if recipe_timing else None
-    )
-    step_offsets = (
-        recipe_timing.step_offsets if recipe_timing else None
-    )
+    recipe_overrides = recipe_timing.step_delay_overrides if recipe_timing else None
+    step_offsets = recipe_timing.step_offsets if recipe_timing else None
 
     # When the user provides explicit date control (start_date or step
     # offsets) without flow-level timing, skip settlement delays so dates
@@ -216,7 +203,9 @@ def compute_effective_dates(
                     dep_base = step_dates[dep_id]
 
             delay_hours, jitter_hours = _resolve_step_delay(
-                step, flow_timing, recipe_overrides,
+                step,
+                flow_timing,
+                recipe_overrides,
             )
 
             if jitter_hours > 0:
@@ -244,9 +233,7 @@ def compute_effective_dates(
             if not step.get("effective_date"):
                 step["effective_date"] = effective_str
 
-    flow_dict["_computed_dates"] = {
-        sid: d.isoformat() for sid, d in step_dates.items()
-    }
+    flow_dict["_computed_dates"] = {sid: d.isoformat() for sid, d in step_dates.items()}
     flow_dict["_base_date"] = base.isoformat()
 
     return flow_dict

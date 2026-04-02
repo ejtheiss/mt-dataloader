@@ -11,15 +11,12 @@ from __future__ import annotations
 
 import os
 
+import httpx
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-import httpx
-
 import ngrok_cloud
-from tunnel import NgrokStartError
-
 from mt_webhook_endpoints import (
     analyze_org_webhook_listeners,
     create_webhook_endpoint,
@@ -28,6 +25,7 @@ from mt_webhook_endpoints import (
     patch_webhook_endpoint,
 )
 from routers.deps import SettingsDep, TunnelDep
+from tunnel import NgrokStartError
 
 router = APIRouter()
 
@@ -80,17 +78,13 @@ async def tunnel_status(mgr: TunnelDep, settings: SettingsDep):
     """
     status = mgr.get_status()
     status["webhook_endpoint_id"] = mgr.saved_webhook_endpoint_id
-    status["has_authtoken"] = bool(
-        settings.ngrok_authtoken or mgr.saved_authtoken
-    )
+    status["has_authtoken"] = bool(settings.ngrok_authtoken or mgr.saved_authtoken)
     fail = mgr.last_ngrok_failure()
     if fail and not status.get("connected"):
         status["ngrok_issue"] = fail
     else:
         status["ngrok_issue"] = None
-    status["ngrok_remote_tools"] = bool(
-        (settings.ngrok_api_key or "").strip()
-    )
+    status["ngrok_remote_tools"] = bool((settings.ngrok_api_key or "").strip())
     return status
 
 

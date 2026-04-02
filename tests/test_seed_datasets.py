@@ -4,20 +4,21 @@ instance_resources expansion, and the baseline.py currency fix."""
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
 
 import pytest
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from flow_compiler import deep_format_map, _expand_instance_resources, clone_flow, generate_from_recipe
+from flow_compiler import (
+    _expand_instance_resources,
+    clone_flow,
+    deep_format_map,
+)
 from models import DataLoaderConfig, FundsFlowConfig, GenerationRecipeV1
 from seed_loader import generate_profiles, list_datasets, pick_profile
+from tests.paths import EXAMPLES_DIR, REPO_ROOT
 
-_SEEDS_DIR = Path(__file__).resolve().parent.parent / "seeds"
-_EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
+_SEEDS_DIR = REPO_ROOT / "seeds"
+_EXAMPLES_DIR = EXAMPLES_DIR
 
 
 # =========================================================================
@@ -66,8 +67,13 @@ class TestGenerateProfiles:
         assert len(biz) == 5
         for b in biz:
             assert b["industry"] in (
-                "general_contractor", "electrical", "plumbing",
-                "hvac", "concrete", "roofing", "demolition",
+                "general_contractor",
+                "electrical",
+                "plumbing",
+                "hvac",
+                "concrete",
+                "roofing",
+                "demolition",
             )
 
     def test_curated_harry_potter(self):
@@ -104,7 +110,10 @@ class TestPickProfile:
         }
 
     def test_cycles(self):
-        biz = [{"name": "A", "industry": "x", "country": "US"}, {"name": "B", "industry": "y", "country": "US"}]
+        biz = [
+            {"name": "A", "industry": "x", "country": "US"},
+            {"name": "B", "industry": "y", "country": "US"},
+        ]
         indiv = [{"first_name": "X", "last_name": "Y"}]
         assert pick_profile(biz, indiv, 0)["business_name"] == "A"
         assert pick_profile(biz, indiv, 1)["business_name"] == "B"
@@ -135,7 +144,9 @@ class TestDeepFormatMap:
         assert deep_format_map(None, {"x": "y"}) is None
 
     def test_ref_strings_get_formatted(self):
-        result = deep_format_map("$ref:internal_account.user_{instance}_wallet", {"instance": "0042"})
+        result = deep_format_map(
+            "$ref:internal_account.user_{instance}_wallet", {"instance": "0042"}
+        )
         assert result == "$ref:internal_account.user_0042_wallet"
 
 
@@ -151,7 +162,13 @@ class TestExpandInstanceResources:
                 {"ref": "user_{instance}", "first_name": "{first_name}", "last_name": "{last_name}"}
             ],
         }
-        profile = {"first_name": "Harry", "last_name": "Potter", "business_name": "", "industry": "", "country": "GB"}
+        profile = {
+            "first_name": "Harry",
+            "last_name": "Potter",
+            "business_name": "",
+            "industry": "",
+            "country": "GB",
+        }
         result = _expand_instance_resources(ir, 7, profile)
         assert len(result["legal_entities"]) == 1
         le = result["legal_entities"][0]
@@ -176,17 +193,31 @@ class TestExpandInstanceResources:
 
 class TestCloneFlowProfile:
     def _flow(self):
-        return FundsFlowConfig.model_validate({
-            "ref": "test",
-            "pattern_type": "demo",
-            "steps": [
-                {"step_id": "s1", "type": "ledger_transaction", "description": "For {first_name}",
-                 "ledger_entries": [
-                     {"amount": 100, "direction": "debit", "ledger_account_id": "$ref:ledger_account.cash"},
-                     {"amount": 100, "direction": "credit", "ledger_account_id": "$ref:ledger_account.rev"},
-                 ]}
-            ],
-        })
+        return FundsFlowConfig.model_validate(
+            {
+                "ref": "test",
+                "pattern_type": "demo",
+                "steps": [
+                    {
+                        "step_id": "s1",
+                        "type": "ledger_transaction",
+                        "description": "For {first_name}",
+                        "ledger_entries": [
+                            {
+                                "amount": 100,
+                                "direction": "debit",
+                                "ledger_account_id": "$ref:ledger_account.cash",
+                            },
+                            {
+                                "amount": 100,
+                                "direction": "credit",
+                                "ledger_account_id": "$ref:ledger_account.rev",
+                            },
+                        ],
+                    }
+                ],
+            }
+        )
 
     def test_profile_substitutes(self):
         flow_dict, _ = clone_flow(self._flow(), 0, {"first_name": "Luna", "last_name": "Lovegood"})
@@ -197,16 +228,31 @@ class TestCloneFlowProfile:
         assert "{first_name}" in flow_dict["steps"][0]["description"]
 
     def test_instance_resources_popped(self):
-        flow = FundsFlowConfig.model_validate({
-            "ref": "test",
-            "pattern_type": "demo",
-            "steps": [{"step_id": "s1", "type": "ledger_transaction",
+        flow = FundsFlowConfig.model_validate(
+            {
+                "ref": "test",
+                "pattern_type": "demo",
+                "steps": [
+                    {
+                        "step_id": "s1",
+                        "type": "ledger_transaction",
                         "ledger_entries": [
-                            {"amount": 100, "direction": "debit", "ledger_account_id": "$ref:ledger_account.cash"},
-                            {"amount": 100, "direction": "credit", "ledger_account_id": "$ref:ledger_account.rev"},
-                        ]}],
-            "instance_resources": {"legal_entities": [{"ref": "u_{instance}"}]},
-        })
+                            {
+                                "amount": 100,
+                                "direction": "debit",
+                                "ledger_account_id": "$ref:ledger_account.cash",
+                            },
+                            {
+                                "amount": 100,
+                                "direction": "credit",
+                                "ledger_account_id": "$ref:ledger_account.rev",
+                            },
+                        ],
+                    }
+                ],
+                "instance_resources": {"legal_entities": [{"ref": "u_{instance}"}]},
+            }
+        )
         flow_dict, ir = clone_flow(flow, 5, {"first_name": "X"})
         assert "instance_resources" not in flow_dict
         assert ir is not None
@@ -219,11 +265,14 @@ class TestCloneFlowProfile:
 
 
 class TestCuratedYamlFiles:
-    @pytest.mark.parametrize("name,min_biz,min_indiv", [
-        ("harry_potter", 80, 80),
-        ("superheroes", 90, 100),
-        ("seinfeld", 55, 55),
-    ])
+    @pytest.mark.parametrize(
+        "name,min_biz,min_indiv",
+        [
+            ("harry_potter", 80, 80),
+            ("superheroes", 90, 100),
+            ("seinfeld", 55, 55),
+        ],
+    )
     def test_curated_file_counts(self, name, min_biz, min_indiv):
         data = yaml.safe_load((_SEEDS_DIR / f"{name}.yaml").read_text())
         assert len(data["business_profiles"]) >= min_biz
@@ -231,7 +280,14 @@ class TestCuratedYamlFiles:
 
     def test_industry_templates_completeness(self):
         data = yaml.safe_load((_SEEDS_DIR / "industry_templates.yaml").read_text())
-        for key in ["tech", "government", "payroll", "manufacturing", "property_management", "construction"]:
+        for key in [
+            "tech",
+            "government",
+            "payroll",
+            "manufacturing",
+            "property_management",
+            "construction",
+        ]:
             assert key in data
             assert len(data[key]["company_patterns"]) >= 8
             assert len(data[key]["industry_tags"]) >= 5
@@ -243,13 +299,16 @@ class TestCuratedYamlFiles:
 
 
 class TestMigratedExamples:
-    @pytest.mark.parametrize("filename", [
-        "psp_minimal.json",
-        "marketplace_demo.json",
-        "staged_demo.json",
-        "tradeify.json",
-        "funds_flow_demo.json",
-    ])
+    @pytest.mark.parametrize(
+        "filename",
+        [
+            "psp_minimal.json",
+            "marketplace_demo.json",
+            "staged_demo.json",
+            "tradeify.json",
+            "funds_flow_demo.json",
+        ],
+    )
     def test_example_validates(self, filename):
         data = json.loads((_EXAMPLES_DIR / filename).read_text())
         config = DataLoaderConfig.model_validate(data)
@@ -265,6 +324,7 @@ class TestMigratedExamples:
 
     def test_psp_minimal_compiles(self):
         from flow_compiler import AuthoringConfig, compile_to_plan
+
         data = json.loads((_EXAMPLES_DIR / "psp_minimal.json").read_text())
         config = DataLoaderConfig.model_validate(data)
         raw = config.model_dump_json().encode()
@@ -284,7 +344,9 @@ class TestRecipeSeedDataset:
         assert recipe.seed_dataset == "standard"
 
     def test_accepts_curated(self):
-        recipe = GenerationRecipeV1(flow_ref="test", instances=1, seed=42, seed_dataset="harry_potter")
+        recipe = GenerationRecipeV1(
+            flow_ref="test", instances=1, seed=42, seed_dataset="harry_potter"
+        )
         assert recipe.seed_dataset == "harry_potter"
 
 
@@ -296,40 +358,54 @@ class TestRecipeSeedDataset:
 def _make_actor_flow_config():
     """Minimal flow with two actors (buyer, seller) using name_template."""
     return {
-        "funds_flows": [{
-            "ref": "actor_test",
-            "pattern_type": "demo",
-            "actors": {
-                "buyer": {
-                    "alias": "buyer",
-                    "name_template": "{business_name} LLC",
-                    "slots": {},
+        "funds_flows": [
+            {
+                "ref": "actor_test",
+                "pattern_type": "demo",
+                "actors": {
+                    "buyer": {
+                        "alias": "buyer",
+                        "name_template": "{business_name} LLC",
+                        "slots": {},
+                    },
+                    "seller": {
+                        "alias": "seller",
+                        "customer_name": "Acme Corp",
+                        "slots": {},
+                    },
                 },
-                "seller": {
-                    "alias": "seller",
-                    "customer_name": "Acme Corp",
-                    "slots": {},
-                },
-            },
-            "steps": [
-                {
-                    "step_id": "lt1",
-                    "type": "ledger_transaction",
-                    "description": "Pay from {buyer_name} to {seller_name}",
-                    "ledger_entries": [
-                        {"amount": 100, "direction": "debit", "ledger_account_id": "$ref:ledger_account.cash"},
-                        {"amount": 100, "direction": "credit", "ledger_account_id": "$ref:ledger_account.rev"},
-                    ],
-                },
-            ],
-        }],
+                "steps": [
+                    {
+                        "step_id": "lt1",
+                        "type": "ledger_transaction",
+                        "description": "Pay from {buyer_name} to {seller_name}",
+                        "ledger_entries": [
+                            {
+                                "amount": 100,
+                                "direction": "debit",
+                                "ledger_account_id": "$ref:ledger_account.cash",
+                            },
+                            {
+                                "amount": 100,
+                                "direction": "credit",
+                                "ledger_account_id": "$ref:ledger_account.rev",
+                            },
+                        ],
+                    },
+                ],
+            }
+        ],
     }
 
 
 class TestActorNameTemplate:
     def test_name_template_substituted_into_profile(self):
         """buyer_name should be '{business_name} LLC' with faker data."""
-        from flow_compiler.generation import _enrich_profile_with_actors, _build_actor_profile_caches
+        from flow_compiler.generation import (
+            _build_actor_profile_caches,
+            _enrich_profile_with_actors,
+        )
+
         config_data = _make_actor_flow_config()
         config = DataLoaderConfig.model_validate(config_data)
         pattern = config.funds_flows[0]
@@ -338,7 +414,13 @@ class TestActorNameTemplate:
         actor_caches = _build_actor_profile_caches(pattern, recipe)
         profile = pick_profile(biz, indiv, 0)
         profile = _enrich_profile_with_actors(
-            profile, pattern, recipe, actor_caches, biz, indiv, 0,
+            profile,
+            pattern,
+            recipe,
+            actor_caches,
+            biz,
+            indiv,
+            0,
         )
         assert profile["buyer_name"].endswith(" LLC")
         assert len(profile["buyer_name"]) > 4
@@ -346,7 +428,11 @@ class TestActorNameTemplate:
 
     def test_name_template_flows_into_step_description(self):
         """clone_flow deep_format_map picks up {buyer_name} and {seller_name}."""
-        from flow_compiler.generation import _enrich_profile_with_actors, _build_actor_profile_caches
+        from flow_compiler.generation import (
+            _build_actor_profile_caches,
+            _enrich_profile_with_actors,
+        )
+
         config_data = _make_actor_flow_config()
         config = DataLoaderConfig.model_validate(config_data)
         pattern = config.funds_flows[0]
@@ -355,7 +441,13 @@ class TestActorNameTemplate:
         actor_caches = _build_actor_profile_caches(pattern, recipe)
         profile = pick_profile(biz, indiv, 0)
         profile = _enrich_profile_with_actors(
-            profile, pattern, recipe, actor_caches, biz, indiv, 0,
+            profile,
+            pattern,
+            recipe,
+            actor_caches,
+            biz,
+            indiv,
+            0,
         )
         flow_dict, _ = clone_flow(pattern, 0, profile)
         desc = flow_dict["steps"][0]["description"]
@@ -368,13 +460,19 @@ class TestActorNameTemplate:
 class TestActorDatasetOverride:
     def test_override_uses_different_dataset(self):
         """Actor override dataset produces different names than the global."""
+        from flow_compiler.generation import (
+            _build_actor_profile_caches,
+            _enrich_profile_with_actors,
+        )
         from models import ActorDatasetOverride
-        from flow_compiler.generation import _enrich_profile_with_actors, _build_actor_profile_caches
+
         config_data = _make_actor_flow_config()
         config = DataLoaderConfig.model_validate(config_data)
         pattern = config.funds_flows[0]
         recipe = GenerationRecipeV1(
-            flow_ref="actor_test", instances=3, seed=42,
+            flow_ref="actor_test",
+            instances=3,
+            seed=42,
             seed_dataset="standard",
             actor_overrides={"buyer": ActorDatasetOverride(dataset="harry_potter")},
         )
@@ -384,26 +482,46 @@ class TestActorDatasetOverride:
         hp_biz, hp_indiv = actor_caches["buyer"]
         profile = pick_profile(biz, indiv, 0)
         profile = _enrich_profile_with_actors(
-            profile, pattern, recipe, actor_caches, biz, indiv, 0,
+            profile,
+            pattern,
+            recipe,
+            actor_caches,
+            biz,
+            indiv,
+            0,
         )
         assert profile["buyer_business_name"] == hp_biz[0]["name"]
 
     def test_override_name_template_takes_precedence(self):
         """name_template from override beats name_template from frame."""
+        from flow_compiler.generation import (
+            _build_actor_profile_caches,
+            _enrich_profile_with_actors,
+        )
         from models import ActorDatasetOverride
-        from flow_compiler.generation import _enrich_profile_with_actors, _build_actor_profile_caches
+
         config_data = _make_actor_flow_config()
         config = DataLoaderConfig.model_validate(config_data)
         pattern = config.funds_flows[0]
         recipe = GenerationRecipeV1(
-            flow_ref="actor_test", instances=1, seed=42,
-            actor_overrides={"buyer": ActorDatasetOverride(name_template="{business_name} Industries")},
+            flow_ref="actor_test",
+            instances=1,
+            seed=42,
+            actor_overrides={
+                "buyer": ActorDatasetOverride(name_template="{business_name} Industries")
+            },
         )
         biz, indiv = generate_profiles("standard", 1, 42)
         actor_caches = _build_actor_profile_caches(pattern, recipe)
         profile = pick_profile(biz, indiv, 0)
         profile = _enrich_profile_with_actors(
-            profile, pattern, recipe, actor_caches, biz, indiv, 0,
+            profile,
+            pattern,
+            recipe,
+            actor_caches,
+            biz,
+            indiv,
+            0,
         )
         assert profile["buyer_name"].endswith(" Industries")
         assert " LLC" not in profile["buyer_name"]

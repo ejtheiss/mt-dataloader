@@ -9,8 +9,9 @@ config doesn't reference them.
 from __future__ import annotations
 
 import re
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeVar
 
 from loguru import logger
 from modern_treasury import AsyncModernTreasury
@@ -66,6 +67,22 @@ def _assign_unique_refs(
             refs.append(f"{resource_type}.{slug}")
 
     return refs
+
+
+_T = TypeVar("_T")
+
+
+async def _collect_named(
+    items: AsyncIterator[_T],
+    name_fn: Callable[[_T], str],
+) -> tuple[list[_T], list[str]]:
+    """Drain an MT async list iterator into objects and parallel display names."""
+    objects: list[_T] = []
+    names: list[str] = []
+    async for item in items:
+        objects.append(item)
+        names.append(name_fn(item))
+    return objects, names
 
 
 # ---------------------------------------------------------------------------
@@ -203,11 +220,10 @@ async def discover_org(
             config_types.add(res.resource_type)
 
     # --- Connections ---
-    conn_objects: list[Any] = []
-    conn_names: list[str] = []
-    async for conn in client.connections.list():
-        conn_objects.append(conn)
-        conn_names.append(conn.vendor_name)
+    conn_objects, conn_names = await _collect_named(
+        client.connections.list(),
+        lambda c: c.vendor_name,
+    )
 
     conn_refs = _assign_unique_refs("connection", conn_names)
     for conn, ref in zip(conn_objects, conn_refs):
@@ -226,17 +242,16 @@ async def discover_org(
             "Your config will need to create one (sandbox-only, via connections section)."
         )
 
-    conn_id_to_ref: dict[str, str] = {
-        c.id: c.auto_ref for c in result.connections
-    }
+    conn_id_to_ref: dict[str, str] = {c.id: c.auto_ref for c in result.connections}
 
     # --- Internal Accounts ---
-    ia_objects: list[Any] = []
-    ia_names: list[str] = []
-    async for ia in client.internal_accounts.list():
-        ia_objects.append(ia)
-        display_name = ia.name or f"ia_{(ia.currency or 'usd').lower()}_{ia.id[:8]}"
-        ia_names.append(display_name)
+    def _ia_name(ia: Any) -> str:
+        return ia.name or f"ia_{(ia.currency or 'usd').lower()}_{ia.id[:8]}"
+
+    ia_objects, ia_names = await _collect_named(
+        client.internal_accounts.list(),
+        _ia_name,
+    )
 
     ia_refs = _assign_unique_refs("internal_account", ia_names)
     for ia, ref in zip(ia_objects, ia_refs):
@@ -266,11 +281,10 @@ async def discover_org(
         dc.currencies = sorted(conn_currencies.get(dc.id, set()))
 
     # --- Ledgers ---
-    ledger_objects: list[Any] = []
-    ledger_names: list[str] = []
-    async for ledger in client.ledgers.list():
-        ledger_objects.append(ledger)
-        ledger_names.append(ledger.name)
+    ledger_objects, ledger_names = await _collect_named(
+        client.ledgers.list(),
+        lambda lg: lg.name,
+    )
 
     ledger_refs = _assign_unique_refs("ledger", ledger_names)
     for ledger, ref in zip(ledger_objects, ledger_refs):
@@ -282,9 +296,7 @@ async def discover_org(
             )
         )
 
-    ledger_id_to_ref: dict[str, str] = {
-        dl.id: dl.auto_ref for dl in result.ledgers
-    }
+    ledger_id_to_ref: dict[str, str] = {dl.id: dl.auto_ref for dl in result.ledgers}
 
     # --- Ledger Accounts (conditional) ---
     if "ledger_account" in config_types:
@@ -342,11 +354,10 @@ async def discover_org(
 
     # --- Legal Entities (conditional) ---
     if "legal_entity" in config_types:
-        le_objects: list[Any] = []
-        le_names: list[str] = []
-        async for le in client.legal_entities.list():
-            le_objects.append(le)
-            le_names.append(_le_display_name_from_sdk(le))
+        le_objects, le_names = await _collect_named(
+            client.legal_entities.list(),
+            _le_display_name_from_sdk,
+        )
 
         le_refs = _assign_unique_refs("legal_entity", le_names)
         for le, ref in zip(le_objects, le_refs):
@@ -364,11 +375,10 @@ async def discover_org(
 
     # --- Counterparties (conditional) ---
     if "counterparty" in config_types:
-        cp_objects: list[Any] = []
-        cp_names: list[str] = []
-        async for cp in client.counterparties.list():
-            cp_objects.append(cp)
-            cp_names.append(cp.name or f"cp_{cp.id[:8]}")
+        cp_objects, cp_names = await _collect_named(
+            client.counterparties.list(),
+            lambda cp: cp.name or f"cp_{cp.id[:8]}",
+        )
 
         cp_refs = _assign_unique_refs("counterparty", cp_names)
         for cp, ref in zip(cp_objects, cp_refs):

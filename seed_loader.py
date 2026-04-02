@@ -25,16 +25,16 @@ __all__ = [
 _SEEDS_DIR = Path(__file__).parent / "seeds"
 
 _DATASETS: dict[str, dict[str, str]] = {
-    "standard":            {"label": "Standard",            "tier": "faker"},
-    "tech":                {"label": "Tech / SaaS",         "tier": "industry"},
-    "government":          {"label": "Government",          "tier": "industry"},
-    "payroll":             {"label": "Payroll / HR",        "tier": "industry"},
-    "manufacturing":       {"label": "Manufacturing",       "tier": "industry"},
+    "standard": {"label": "Standard", "tier": "faker"},
+    "tech": {"label": "Tech / SaaS", "tier": "industry"},
+    "government": {"label": "Government", "tier": "industry"},
+    "payroll": {"label": "Payroll / HR", "tier": "industry"},
+    "manufacturing": {"label": "Manufacturing", "tier": "industry"},
     "property_management": {"label": "Property Management", "tier": "industry"},
-    "construction":        {"label": "Construction",        "tier": "industry"},
-    "harry_potter":        {"label": "Harry Potter",        "tier": "curated"},
-    "superheroes":         {"label": "Superheroes",         "tier": "curated"},
-    "seinfeld":            {"label": "Seinfeld",            "tier": "curated"},
+    "construction": {"label": "Construction", "tier": "industry"},
+    "harry_potter": {"label": "Harry Potter", "tier": "curated"},
+    "superheroes": {"label": "Superheroes", "tier": "curated"},
+    "seinfeld": {"label": "Seinfeld", "tier": "curated"},
 }
 
 _industry_cache: dict | None = None
@@ -65,35 +65,31 @@ def list_datasets() -> list[dict[str, Any]]:
     """Return metadata for all available seed datasets."""
     result = []
     for name, meta in _DATASETS.items():
-        result.append({
-            "name": name,
-            "label": meta["label"],
-            "tier": meta["tier"],
-            "has_individuals": meta["tier"] != "industry",
-        })
+        result.append(
+            {
+                "name": name,
+                "label": meta["label"],
+                "tier": meta["tier"],
+                "has_individuals": meta["tier"] != "industry",
+            }
+        )
     return result
 
 
-def _generate_standard(
-    count: int, seed: int
-) -> tuple[list[dict], list[dict]]:
+def _generate_standard(count: int, seed: int) -> tuple[list[dict], list[dict]]:
     fake = Faker("en_US")
     Faker.seed(seed)
     businesses = [
-        {"name": fake.company(), "industry": "general", "country": "US"}
-        for _ in range(count)
+        {"name": fake.company(), "industry": "general", "country": "US"} for _ in range(count)
     ]
     Faker.seed(seed + 1_000_000)
     individuals = [
-        {"first_name": fake.first_name(), "last_name": fake.last_name()}
-        for _ in range(count)
+        {"first_name": fake.first_name(), "last_name": fake.last_name()} for _ in range(count)
     ]
     return businesses, individuals
 
 
-def _generate_industry(
-    dataset: str, count: int, seed: int
-) -> tuple[list[dict], list[dict]]:
+def _generate_industry(dataset: str, count: int, seed: int) -> tuple[list[dict], list[dict]]:
     templates = _load_industry_templates()
     vertical = templates.get(dataset, {})
     patterns = vertical.get("company_patterns", ["{last} Inc."])
@@ -114,15 +110,12 @@ def _generate_industry(
 
     Faker.seed(seed + 1_000_000)
     individuals = [
-        {"first_name": fake.first_name(), "last_name": fake.last_name()}
-        for _ in range(count)
+        {"first_name": fake.first_name(), "last_name": fake.last_name()} for _ in range(count)
     ]
     return businesses, individuals
 
 
-def _generate_curated(
-    dataset: str, count: int, seed: int
-) -> tuple[list[dict], list[dict]]:
+def _generate_curated(dataset: str, count: int, seed: int) -> tuple[list[dict], list[dict]]:
     data = _load_curated(dataset)
     raw_biz = data.get("business_profiles", [])
     raw_indiv = data.get("individual_profiles", [])
@@ -150,10 +143,7 @@ def generate_profiles(
     """
     meta = _DATASETS.get(dataset)
     if meta is None:
-        raise ValueError(
-            f"Unknown dataset '{dataset}'. "
-            f"Available: {sorted(_DATASETS.keys())}"
-        )
+        raise ValueError(f"Unknown dataset '{dataset}'. Available: {sorted(_DATASETS.keys())}")
 
     tier = meta["tier"]
     if tier == "faker":

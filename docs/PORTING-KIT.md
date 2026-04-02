@@ -1,5 +1,7 @@
 # MT Porting Kit — Canonical Location
 
+**Design authority:** MINT (tokens + Platform-traced CSS + Jinja partials). Turbogrid in `static/turbogrid/` is vendored Flow-admin CSS only — see [`DESIGN_SYSTEM_AUTHORITY.md`](DESIGN_SYSTEM_AUTHORITY.md).
+
 Runtime assets live under **`static/`** and **`templates/`**. Optional MT/Mint **reference** packs may exist only on disk under a local **`plan/resources/`** tree (this repo gitignores `plan/`).
 
 ## Directory Map

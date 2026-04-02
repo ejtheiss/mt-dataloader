@@ -11,8 +11,8 @@ from models.resources import (
     CategoryMembershipConfig,
     ConnectionConfig,
     CounterpartyConfig,
-    ExternalAccountConfig,
     ExpectedPaymentConfig,
+    ExternalAccountConfig,
     IncomingPaymentDetailConfig,
     InternalAccountConfig,
     LedgerAccountCategoryConfig,
@@ -161,9 +161,7 @@ class DataLoaderConfig(BaseModel):
             changed = False
             for item in items:
                 if isinstance(item, dict) and "originating_account_id" in item:
-                    coerced.append(
-                        {k: v for k, v in item.items() if k != "originating_account_id"}
-                    )
+                    coerced.append({k: v for k, v in item.items() if k != "originating_account_id"})
                     changed = True
                 else:
                     coerced.append(item)
@@ -201,9 +199,7 @@ class DataLoaderConfig(BaseModel):
             return self
         if not any(le.connection_id is not None for le in self.legal_entities):
             return self
-        cleared = [
-            le.model_copy(update={"connection_id": None}) for le in self.legal_entities
-        ]
+        cleared = [le.model_copy(update={"connection_id": None}) for le in self.legal_entities]
         return self.model_copy(update={"legal_entities": cleared})
 
     @model_validator(mode="after")
@@ -231,8 +227,7 @@ class DataLoaderConfig(BaseModel):
                     continue
                 _check_ia_currency_vs_connection(
                     label=(
-                        f"funds_flow '{flow.ref}' instance_resources "
-                        f"internal_accounts ref {ref!r}"
+                        f"funds_flow '{flow.ref}' instance_resources internal_accounts ref {ref!r}"
                     ),
                     connection_id=cid,
                     currency=cur,

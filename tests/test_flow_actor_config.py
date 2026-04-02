@@ -2,46 +2,55 @@
 
 from __future__ import annotations
 
+from starlette.testclient import TestClient
+
+from engine import RefRegistry
 from flow_compiler.core import compile_flows
 from main import app
 from models import DataLoaderConfig, GenerationRecipeV1
 from session import SessionState, sessions
-from starlette.testclient import TestClient
-from engine import RefRegistry
 
 
 def _make_actor_flow_config() -> dict:
     """Same shape as tests.test_seed_datasets._make_actor_flow_config."""
     return {
-        "funds_flows": [{
-            "ref": "actor_test",
-            "pattern_type": "demo",
-            "actors": {
-                "buyer": {
-                    "alias": "buyer",
-                    "name_template": "{business_name} LLC",
-                    "slots": {},
+        "funds_flows": [
+            {
+                "ref": "actor_test",
+                "pattern_type": "demo",
+                "actors": {
+                    "buyer": {
+                        "alias": "buyer",
+                        "name_template": "{business_name} LLC",
+                        "slots": {},
+                    },
+                    "seller": {
+                        "alias": "seller",
+                        "customer_name": "Acme Corp",
+                        "slots": {},
+                    },
                 },
-                "seller": {
-                    "alias": "seller",
-                    "customer_name": "Acme Corp",
-                    "slots": {},
-                },
-            },
-            "steps": [
-                {
-                    "step_id": "lt1",
-                    "type": "ledger_transaction",
-                    "description": "Pay from {buyer_name} to {seller_name}",
-                    "ledger_entries": [
-                        {"amount": 100, "direction": "debit",
-                         "ledger_account_id": "$ref:ledger_account.cash"},
-                        {"amount": 100, "direction": "credit",
-                         "ledger_account_id": "$ref:ledger_account.rev"},
-                    ],
-                },
-            ],
-        }],
+                "steps": [
+                    {
+                        "step_id": "lt1",
+                        "type": "ledger_transaction",
+                        "description": "Pay from {buyer_name} to {seller_name}",
+                        "ledger_entries": [
+                            {
+                                "amount": 100,
+                                "direction": "debit",
+                                "ledger_account_id": "$ref:ledger_account.cash",
+                            },
+                            {
+                                "amount": 100,
+                                "direction": "credit",
+                                "ledger_account_id": "$ref:ledger_account.rev",
+                            },
+                        ],
+                    },
+                ],
+            }
+        ],
     }
 
 

@@ -10,36 +10,47 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field, ValidationError
 
+import seed_loader
 from engine import all_resources, dry_run, typed_ref_for
 from flow_compiler import (
     GenerationResult,
-    actor_display_name,
     compile_diagnostics,
     compute_flow_status,
-    flatten_actor_refs,
     flow_account_deltas,
     generate_from_recipe,
 )
 from flow_views import compute_view_data
-from jsonutil import dumps_pretty
 from helpers import (
     build_preview,
     fmt_amt,
     format_validation_errors,
     get_flow_view_data,
-    SOURCE_BADGE,
 )
-from models import ActorDatasetOverride, DataLoaderConfig, GenerationRecipeV1
-from routers.deps import TemplatesDep
+from jsonutil import dumps_pretty, loads_str
+from models import (
+    SOURCE_BADGE,
+    ActorDatasetOverride,
+    DataLoaderConfig,
+    GenerationRecipeV1,
+)
 from org import reconcile_config, sync_connection_entities_from_reconciliation
-import seed_loader
+from routers.deps import (
+    OptionalSessionQueryDep,
+    SessionHeaderDep,
+    TemplatesDep,
+)
 from session import sessions
 
 router = APIRouter(tags=["flows"])
 
 _GEN_SECTIONS = (
-    "payment_orders", "incoming_payment_details", "ledger_transactions",
-    "expected_payments", "returns", "reversals", "transition_ledger_transactions",
+    "payment_orders",
+    "incoming_payment_details",
+    "ledger_transactions",
+    "expected_payments",
+    "returns",
+    "reversals",
+    "transition_ledger_transactions",
 )
 
 
@@ -201,13 +212,14 @@ async def _parse_and_compile_recipe(
                 session.registry.register_or_update(m.config_ref, m.discovered_id)
                 skip_refs.add(m.config_ref)
                 for ck, cid in m.child_refs.items():
-                    session.registry.register_or_update(
-                        f"{m.config_ref}.{ck}", cid
-                    )
+                    session.registry.register_or_update(f"{m.config_ref}.{ck}", cid)
         session.reconciliation = reconciliation
         session.skip_refs = skip_refs
         sync_connection_entities_from_reconciliation(
-            gen_result.config, session.discovery, reconciliation, {},
+            gen_result.config,
+            session.discovery,
+            reconciliation,
+            {},
         )
 
     return token, session, recipe, gen_result
@@ -252,13 +264,14 @@ def _recompose_and_persist_session(
                 session.registry.register_or_update(m.config_ref, m.discovered_id)
                 skip_refs.add(m.config_ref)
                 for ck, cid in m.child_refs.items():
-                    session.registry.register_or_update(
-                        f"{m.config_ref}.{ck}", cid
-                    )
+                    session.registry.register_or_update(f"{m.config_ref}.{ck}", cid)
         session.reconciliation = reconciliation
         session.skip_refs = skip_refs
         sync_connection_entities_from_reconciliation(
-            gen.config, session.discovery, reconciliation, {},
+            gen.config,
+            session.discovery,
+            reconciliation,
+            {},
         )
 
     session.config = gen.config
@@ -269,8 +282,7 @@ def _recompose_and_persist_session(
     session.flow_ir = gen.flow_irs
     session.expanded_flows = gen.expanded_flows
     session.view_data_cache = [
-        compute_view_data(ir, fc)
-        for ir, fc in zip(gen.flow_irs, gen.expanded_flows)
+        compute_view_data(ir, fc) for ir, fc in zip(gen.flow_irs, gen.expanded_flows)
     ]
 
     known = set(session.org_registry.refs.keys()) if session.org_registry else None
@@ -278,7 +290,8 @@ def _recompose_and_persist_session(
     session.batches = batches
     resource_map = {typed_ref_for(r): r for r in all_resources(gen.config)}
     session.preview_items = build_preview(
-        batches, resource_map,
+        batches,
+        resource_map,
         skip_refs=session.skip_refs,
         reconciliation=session.reconciliation,
         update_refs=session.update_refs,
@@ -294,20 +307,23 @@ class ActorConfigSaveBody(BaseModel):
 
 
 @router.get("/flows", include_in_schema=False)
-async def flows_page(request: Request, templates: TemplatesDep):
+async def flows_page(
+    request: Request,
+    templates: TemplatesDep,
+    sess: OptionalSessionQueryDep,
+):
     """Fund Flows list page — compile-time view of flow patterns."""
-    session_token = request.query_params.get("session_token", "")
-    session = sessions.get(session_token)
-
-    if not session:
+    if not sess:
         return RedirectResponse(url="/setup")
 
-    diagnostics = None
-    if session.flow_ir:
-        diagnostics = compile_diagnostics(session.flow_ir)
+    session_token = sess.session_token
 
-    display_flow_ir = session.pattern_flow_ir or session.flow_ir or []
-    display_expanded = session.pattern_expanded_flows or session.expanded_flows or []
+    diagnostics = None
+    if sess.flow_ir:
+        diagnostics = compile_diagnostics(sess.flow_ir)
+
+    display_flow_ir = sess.pattern_flow_ir or sess.flow_ir or []
+    display_expanded = sess.pattern_expanded_flows or sess.expanded_flows or []
 
     flow_summaries = []
     if display_flow_ir:
@@ -317,18 +333,20 @@ async def flows_page(request: Request, templates: TemplatesDep):
             actors_list: list[dict] = []
             actor_frames: list[dict] = []
             recipe_for_flow: dict[str, Any] | None = None
-            if session.generation_recipes and ir.flow_ref in session.generation_recipes:
-                recipe_for_flow = session.generation_recipes[ir.flow_ref]
+            if sess.generation_recipes and ir.flow_ref in sess.generation_recipes:
+                recipe_for_flow = sess.generation_recipes[ir.flow_ref]
 
             if i < len(display_expanded):
                 fc = display_expanded[i]
                 for og in fc.optional_groups:
-                    optional_groups.append({
-                        "label": og.label,
-                        "trigger": og.trigger,
-                        "step_count": len(og.steps),
-                        "step_types": list({s.type for s in og.steps}),
-                    })
+                    optional_groups.append(
+                        {
+                            "label": og.label,
+                            "trigger": og.trigger,
+                            "step_count": len(og.steps),
+                            "step_types": list({s.type for s in og.steps}),
+                        }
+                    )
                 for s in fc.steps:
                     amt = getattr(s, "amount", None)
                     if amt is not None:
@@ -340,8 +358,10 @@ async def flows_page(request: Request, templates: TemplatesDep):
                         row.update(_step_variance_ui_fields(s.step_id, recipe_for_flow))
                         amount_steps.append(row)
                 _SLOT_ABBREV = {
-                    "counterparty": "CP", "external_account": "EA",
-                    "internal_account": "IA", "ledger_account": "LA",
+                    "counterparty": "CP",
+                    "external_account": "EA",
+                    "internal_account": "IA",
+                    "ledger_account": "LA",
                     "virtual_account": "VA",
                 }
                 for frame_name, frame in fc.actors.items():
@@ -353,48 +373,51 @@ async def flows_page(request: Request, templates: TemplatesDep):
                             st = ref.replace("$ref:", "").split(".")[0]
                             slot_abbrevs.append(_SLOT_ABBREV.get(st, st))
                             slot_full.append(st)
-                    actors_list.append({
-                        "frame_name": frame_name,
-                        "alias": frame.alias,
-                        "frame_type": frame.frame_type,
-                        "customer_name": frame.customer_name or "",
-                        "entity_ref": frame.entity_ref or "",
-                        "slot_types": sorted(set(slot_abbrevs)),
-                    })
-                    actor_frames.append({
-                        "alias": frame_name,
-                        "frame_type": frame.frame_type,
-                        "slot_types": sorted(set(slot_full)),
-                        "customer_name": frame.customer_name,
-                        "entity_ref": frame.entity_ref,
-                    })
+                    actors_list.append(
+                        {
+                            "frame_name": frame_name,
+                            "alias": frame.alias,
+                            "frame_type": frame.frame_type,
+                            "customer_name": frame.customer_name or "",
+                            "entity_ref": frame.entity_ref or "",
+                            "slot_types": sorted(set(slot_abbrevs)),
+                        }
+                    )
+                    actor_frames.append(
+                        {
+                            "alias": frame_name,
+                            "frame_type": frame.frame_type,
+                            "slot_types": sorted(set(slot_full)),
+                            "customer_name": frame.customer_name,
+                            "entity_ref": frame.entity_ref,
+                        }
+                    )
 
             og_count = len(optional_groups)
             amounts = [a["amount"] for a in amount_steps]
-            amount_range = (
-                {"min": min(amounts), "max": max(amounts)}
-                if amounts else None
-            )
+            amount_range = {"min": min(amounts), "max": max(amounts)} if amounts else None
 
-            flow_summaries.append({
-                "index": i,
-                "flow_ref": ir.flow_ref,
-                "pattern_type": ir.pattern_type,
-                "trace_key": ir.trace_key,
-                "trace_value": ir.trace_value,
-                "step_count": len(ir.steps),
-                "og_count": og_count,
-                "amount_range": amount_range,
-                "status": compute_flow_status(ir),
-                "account_deltas": flow_account_deltas(ir),
-                "optional_groups": optional_groups,
-                "amount_steps": amount_steps,
-                "actors": actors_list,
-                "actor_frames": actor_frames,
-                "has_instance_resources": bool(
-                    i < len(display_expanded) and display_expanded[i].instance_resources
-                ),
-            })
+            flow_summaries.append(
+                {
+                    "index": i,
+                    "flow_ref": ir.flow_ref,
+                    "pattern_type": ir.pattern_type,
+                    "trace_key": ir.trace_key,
+                    "trace_value": ir.trace_value,
+                    "step_count": len(ir.steps),
+                    "og_count": og_count,
+                    "amount_range": amount_range,
+                    "status": compute_flow_status(ir),
+                    "account_deltas": flow_account_deltas(ir),
+                    "optional_groups": optional_groups,
+                    "amount_steps": amount_steps,
+                    "actors": actors_list,
+                    "actor_frames": actor_frames,
+                    "has_instance_resources": bool(
+                        i < len(display_expanded) and display_expanded[i].instance_resources
+                    ),
+                }
+            )
 
     seed_datasets = seed_loader.list_datasets()
 
@@ -405,33 +428,38 @@ async def flows_page(request: Request, templates: TemplatesDep):
             "session_token": session_token,
             "has_funds_flows": bool(display_flow_ir),
             "flow_summaries": flow_summaries,
-            "mermaid_diagrams": session.mermaid_diagrams or [],
+            "mermaid_diagrams": sess.mermaid_diagrams or [],
             "diagnostics": diagnostics,
-            "working_config_json": session.working_config_json or session.config_json_text,
-            "generation_recipes": session.generation_recipes,
-            "config_json_text": session.config_json_text,
+            "working_config_json": sess.working_config_json or sess.config_json_text,
+            "generation_recipes": sess.generation_recipes,
+            "config_json_text": sess.config_json_text,
             "seed_datasets": seed_datasets,
         },
     )
 
 
 @router.get("/flows/view/{flow_idx}", include_in_schema=False)
-async def flows_view_page(request: Request, flow_idx: int, templates: TemplatesDep):
+async def flows_view_page(
+    request: Request,
+    flow_idx: int,
+    templates: TemplatesDep,
+    sess: OptionalSessionQueryDep,
+):
     """Fund Flow detail — view toggle with ledger and payments views."""
-    session_token = request.query_params.get("session_token", "")
-    session = sessions.get(session_token)
-    if not session:
+    if not sess:
         return RedirectResponse(url="/setup")
 
-    result = get_flow_view_data(session, flow_idx)
+    session_token = sess.session_token
+
+    result = get_flow_view_data(sess, flow_idx)
     if result is None:
         return RedirectResponse(url="/setup")
 
     flow_ir, flow_config, view_data = result
 
     mermaid_text = None
-    if session.mermaid_diagrams and flow_idx < len(session.mermaid_diagrams):
-        mermaid_text = session.mermaid_diagrams[flow_idx]
+    if sess.mermaid_diagrams and flow_idx < len(sess.mermaid_diagrams):
+        mermaid_text = sess.mermaid_diagrams[flow_idx]
 
     default_view = view_data.available_views[0] if view_data.available_views else "ledger"
 
@@ -442,11 +470,13 @@ async def flows_view_page(request: Request, flow_idx: int, templates: TemplatesD
     for step in flow_ir.steps:
         step_meta = dict(step.trace_metadata) if step.trace_metadata else {}
         step_meta = {k: v for k, v in step_meta.items() if not k.startswith("_flow_")}
-        per_step_metadata.append({
-            "step_id": step.step_id,
-            "resource_type": step.resource_type,
-            "metadata": step_meta,
-        })
+        per_step_metadata.append(
+            {
+                "step_id": step.step_id,
+                "resource_type": step.resource_type,
+                "metadata": step_meta,
+            }
+        )
 
     actor_aliases = list(flow_config.actors.keys()) if flow_config else []
 
@@ -462,7 +492,8 @@ async def flows_view_page(request: Request, flow_idx: int, templates: TemplatesD
             "mermaid_text": mermaid_text,
             "metadata_key": (
                 flow_config.view_config.ledger_view.metadata_key
-                if flow_config and flow_config.view_config
+                if flow_config
+                and flow_config.view_config
                 and flow_config.view_config.ledger_view
                 and flow_config.view_config.ledger_view.metadata_key
                 else flow_ir.trace_key
@@ -479,15 +510,19 @@ async def flows_view_page(request: Request, flow_idx: int, templates: TemplatesD
 
 
 @router.get("/api/flows/{flow_idx}/drawer", include_in_schema=False)
-async def flow_drawer(request: Request, flow_idx: int, templates: TemplatesDep):
+async def flow_drawer(
+    request: Request,
+    flow_idx: int,
+    templates: TemplatesDep,
+    sess: OptionalSessionQueryDep,
+):
     """HTMX partial — flow summary for the slide-over drawer."""
-    session_token = request.query_params.get("session_token", "")
-    session = sessions.get(session_token)
-    if not session:
+    if not sess:
         return HTMLResponse("<p>Session expired</p>", status_code=404)
 
-    display_flow_ir = session.pattern_flow_ir or session.flow_ir or []
-    display_expanded = session.pattern_expanded_flows or session.expanded_flows or []
+    session_token = sess.session_token
+    display_flow_ir = sess.pattern_flow_ir or sess.flow_ir or []
+    display_expanded = sess.pattern_expanded_flows or sess.expanded_flows or []
 
     if flow_idx < 0 or flow_idx >= len(display_flow_ir):
         return HTMLResponse("<p>Flow not found</p>", status_code=404)
@@ -504,20 +539,24 @@ async def flow_drawer(request: Request, flow_idx: int, templates: TemplatesDep):
                 if "$ref:" in ref:
                     st = ref.replace("$ref:", "").split(".")[0]
                     slot_types.append(st)
-            actors_list.append({
-                "alias": frame.alias,
-                "frame_type": frame.frame_type,
-                "customer_name": frame.customer_name or "",
-                "slot_types": sorted(set(slot_types)),
-            })
+            actors_list.append(
+                {
+                    "alias": frame.alias,
+                    "frame_type": frame.frame_type,
+                    "customer_name": frame.customer_name or "",
+                    "slot_types": sorted(set(slot_types)),
+                }
+            )
 
     steps = []
     for step in ir.steps:
-        steps.append({
-            "step_id": step.step_id,
-            "resource_type": step.resource_type,
-            "amount": getattr(step, "amount", None),
-        })
+        steps.append(
+            {
+                "step_id": step.step_id,
+                "resource_type": step.resource_type,
+                "amount": getattr(step, "amount", None),
+            }
+        )
 
     return templates.TemplateResponse(
         request,
@@ -537,15 +576,18 @@ async def flow_drawer(request: Request, flow_idx: int, templates: TemplatesDep):
 
 @router.get("/api/flows/{flow_idx}/view/ledger", include_in_schema=False)
 async def flow_ledger_view_partial(
-    request: Request, flow_idx: int, templates: TemplatesDep,
+    request: Request,
+    flow_idx: int,
+    templates: TemplatesDep,
+    sess: OptionalSessionQueryDep,
 ):
     """HTMX partial — ledger view table."""
-    session_token = request.query_params.get("session_token", "")
-    session = sessions.get(session_token)
-    if not session:
+    if not sess:
         return HTMLResponse("<p>Session expired</p>", status_code=404)
 
-    result = get_flow_view_data(session, flow_idx)
+    session_token = sess.session_token
+
+    result = get_flow_view_data(sess, flow_idx)
     if result is None:
         return HTMLResponse("<p>Flow not found</p>", status_code=404)
 
@@ -565,15 +607,18 @@ async def flow_ledger_view_partial(
 
 @router.get("/api/flows/{flow_idx}/view/payments", include_in_schema=False)
 async def flow_payments_view_partial(
-    request: Request, flow_idx: int, templates: TemplatesDep,
+    request: Request,
+    flow_idx: int,
+    templates: TemplatesDep,
+    sess: OptionalSessionQueryDep,
 ):
     """HTMX partial — payments view table."""
-    session_token = request.query_params.get("session_token", "")
-    session = sessions.get(session_token)
-    if not session:
+    if not sess:
         return HTMLResponse("<p>Session expired</p>", status_code=404)
 
-    result = get_flow_view_data(session, flow_idx)
+    session_token = sess.session_token
+
+    result = get_flow_view_data(sess, flow_idx)
     if result is None:
         return HTMLResponse("<p>Flow not found</p>", status_code=404)
 
@@ -592,11 +637,13 @@ async def flow_payments_view_partial(
 
 
 @router.post("/api/flows/{flow_idx}/metadata")
-async def update_flow_metadata(request: Request, flow_idx: int):
+async def update_flow_metadata(
+    request: Request,
+    flow_idx: int,
+    hdr_sess: SessionHeaderDep,
+):
     """Update trace_key, trace_value_template, trace_metadata, and per-step metadata."""
-    token = request.headers.get("x-session-token", "")
-    session = sessions.get(token)
-    if not session:
+    if not hdr_sess:
         return JSONResponse(
             content={"error": "Session not found"},
             status_code=401,
@@ -609,9 +656,9 @@ async def update_flow_metadata(request: Request, flow_idx: int):
     step_metadata = body.get("step_metadata")
 
     try:
-        config_dict = json.loads(session.working_config_json or session.config_json_text)
+        config_dict = loads_str(hdr_sess.working_config_json or hdr_sess.config_json_text)
     except json.JSONDecodeError:
-        config_dict = session.config.model_dump()
+        config_dict = hdr_sess.config.model_dump()
 
     flows = config_dict.get("funds_flows", [])
     if flow_idx < 0 or flow_idx >= len(flows):
@@ -635,7 +682,7 @@ async def update_flow_metadata(request: Request, flow_idx: int):
                 step_by_id[step_id]["metadata"] = meta
 
     updated_json = dumps_pretty(config_dict)
-    session.working_config_json = updated_json
+    hdr_sess.working_config_json = updated_json
 
     return {"status": "ok", "flow_idx": flow_idx}
 
@@ -694,18 +741,23 @@ async def recipe_to_working_config(request: Request):
 
 @router.get("/api/flows/{flow_idx}/actor-config", include_in_schema=False)
 async def flow_actor_config_drawer(
-    request: Request, flow_idx: int, templates: TemplatesDep,
+    request: Request,
+    flow_idx: int,
+    templates: TemplatesDep,
+    sess: OptionalSessionQueryDep,
 ):
     """HTMX partial: edit one actor's dataset / literal / name template."""
-    session_token = request.query_params.get("session_token", "")
     frame = request.query_params.get("frame", "").strip()
-    session = sessions.get(session_token)
-    if not session:
-        return HTMLResponse("<p class=\"text-muted\">Session expired. Reload Setup.</p>", status_code=401)
+    if not sess:
+        return HTMLResponse(
+            '<p class="text-muted">Session expired. Reload Setup.</p>', status_code=401
+        )
+
+    session_token = sess.session_token
     if not frame:
         return HTMLResponse("<p>Missing frame parameter.</p>", status_code=400)
 
-    display_expanded = session.pattern_expanded_flows or session.expanded_flows or []
+    display_expanded = sess.pattern_expanded_flows or sess.expanded_flows or []
     if flow_idx < 0 or flow_idx >= len(display_expanded):
         return HTMLResponse("<p>Invalid flow index.</p>", status_code=400)
 
@@ -714,12 +766,12 @@ async def flow_actor_config_drawer(
         return HTMLResponse("<p>Unknown actor frame.</p>", status_code=404)
 
     actor_model = fc.actors[frame]
-    display_ir = session.pattern_flow_ir or session.flow_ir or []
+    display_ir = sess.pattern_flow_ir or sess.flow_ir or []
     if flow_idx < len(display_ir):
         flow_ref = display_ir[flow_idx].flow_ref
     else:
         flow_ref = fc.ref.rsplit("__", 1)[0] if "__" in fc.ref else fc.ref
-    recipe_raw = session.generation_recipes.get(flow_ref)
+    recipe_raw = sess.generation_recipes.get(flow_ref)
     ov_raw: dict[str, Any] = {}
     if recipe_raw:
         ao = recipe_raw.get("actor_overrides") or {}
@@ -746,22 +798,24 @@ async def flow_actor_config_drawer(
 
 
 @router.post("/api/flows/{flow_idx}/actor-config", include_in_schema=False)
-async def flow_actor_config_save(request: Request, flow_idx: int):
+async def flow_actor_config_save(
+    request: Request,
+    flow_idx: int,
+    hdr_sess: SessionHeaderDep,
+):
     """Merge actor override into stored recipe and recompose session."""
-    session_token = request.headers.get("x-session-token", "")
-    session = sessions.get(session_token)
-    if not session:
+    if not hdr_sess:
         return JSONResponse(
             content={"error": "Session not found. Please validate a config first."},
             status_code=401,
         )
 
-    display_expanded = session.pattern_expanded_flows or session.expanded_flows or []
+    display_expanded = hdr_sess.pattern_expanded_flows or hdr_sess.expanded_flows or []
     if flow_idx < 0 or flow_idx >= len(display_expanded):
         return JSONResponse(content={"error": "Invalid flow index"}, status_code=400)
 
     fc = display_expanded[flow_idx]
-    display_ir = session.pattern_flow_ir or session.flow_ir or []
+    display_ir = hdr_sess.pattern_flow_ir or hdr_sess.flow_ir or []
     if flow_idx < len(display_ir):
         flow_ref = display_ir[flow_idx].flow_ref
     else:
@@ -780,10 +834,10 @@ async def flow_actor_config_save(request: Request, flow_idx: int):
     if frame not in fc.actors:
         return JSONResponse(content={"error": "Unknown actor frame"}, status_code=404)
 
-    if flow_ref not in session.generation_recipes:
-        session.generation_recipes[flow_ref] = _default_recipe_dict(flow_ref)
+    if flow_ref not in hdr_sess.generation_recipes:
+        hdr_sess.generation_recipes[flow_ref] = _default_recipe_dict(flow_ref)
 
-    recipe_dict = dict(session.generation_recipes[flow_ref])
+    recipe_dict = dict(hdr_sess.generation_recipes[flow_ref])
     actor_overrides = dict(recipe_dict.get("actor_overrides") or {})
     clean = parsed.override.model_dump(exclude_none=True)
     for key in ("customer_name", "name_template"):
@@ -803,9 +857,9 @@ async def flow_actor_config_save(request: Request, flow_idx: int):
             content={"error": "Invalid recipe after merge", "detail": format_validation_errors(e)},
             status_code=422,
         )
-    session.generation_recipes[flow_ref] = recipe_dict
+    hdr_sess.generation_recipes[flow_ref] = recipe_dict
 
-    composed = _recompose_and_persist_session(session)
+    composed = _recompose_and_persist_session(hdr_sess)
     if isinstance(composed, JSONResponse):
         return composed
 

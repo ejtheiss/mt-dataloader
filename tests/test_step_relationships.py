@@ -8,15 +8,11 @@ edge cases, and integration smoke with example JSONs.
 from __future__ import annotations
 
 import dataclasses
-import json
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from flow_compiler import StepRelationships, build_step_relationships
+from flow_compiler import build_step_relationships
 from models import (
     DataLoaderConfig,
     ExpectedPaymentStep,
@@ -29,9 +25,7 @@ from models import (
     ReversalStep,
     TransitionLedgerTransactionStep,
 )
-
-EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
-
+from tests.paths import EXAMPLES_DIR
 
 # =========================================================================
 # Lifecycle parent — Return → IPD
@@ -42,12 +36,17 @@ class TestLifecycleParentReturn:
     def test_return_with_explicit_returnable_id(self):
         steps = [
             IncomingPaymentDetailStep(
-                step_id="ipd", type="incoming_payment_detail",
-                payment_type="ach", amount=100, internal_account_id="ia",
+                step_id="ipd",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=100,
+                internal_account_id="ia",
             ),
             ReturnStep(
-                step_id="ret", type="return",
-                depends_on=["ipd"], returnable_id="ipd",
+                step_id="ret",
+                type="return",
+                depends_on=["ipd"],
+                returnable_id="ipd",
             ),
         ]
         rels = build_step_relationships(steps)
@@ -58,11 +57,15 @@ class TestLifecycleParentReturn:
         only records explicit authored references."""
         steps = [
             IncomingPaymentDetailStep(
-                step_id="ipd", type="incoming_payment_detail",
-                payment_type="ach", amount=100, internal_account_id="ia",
+                step_id="ipd",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=100,
+                internal_account_id="ia",
             ),
             ReturnStep(
-                step_id="ret", type="return",
+                step_id="ret",
+                type="return",
                 depends_on=["ipd"],
             ),
         ]
@@ -79,13 +82,19 @@ class TestLifecycleParentReversal:
     def test_reversal_with_explicit_payment_order_id(self):
         steps = [
             PaymentOrderStep(
-                step_id="po", type="payment_order",
-                payment_type="ach", direction="credit", amount=500,
-                originating_account_id="ia", receiving_account_id="ea",
+                step_id="po",
+                type="payment_order",
+                payment_type="ach",
+                direction="credit",
+                amount=500,
+                originating_account_id="ia",
+                receiving_account_id="ea",
             ),
             ReversalStep(
-                step_id="rev", type="reversal",
-                depends_on=["po"], payment_order_id="po",
+                step_id="rev",
+                type="reversal",
+                depends_on=["po"],
+                payment_order_id="po",
             ),
         ]
         rels = build_step_relationships(steps)
@@ -101,21 +110,26 @@ class TestLifecycleParentTLT:
     def test_tlt_with_explicit_ledger_transaction_id(self):
         steps = [
             LedgerTransactionStep(
-                step_id="lt", type="ledger_transaction",
+                step_id="lt",
+                type="ledger_transaction",
                 ledger_entries=[
                     InlineLedgerEntryConfig(
-                        amount=100, direction="debit",
+                        amount=100,
+                        direction="debit",
                         ledger_account_id="$ref:ledger_account.a",
                     ),
                     InlineLedgerEntryConfig(
-                        amount=100, direction="credit",
+                        amount=100,
+                        direction="credit",
                         ledger_account_id="$ref:ledger_account.b",
                     ),
                 ],
             ),
             TransitionLedgerTransactionStep(
-                step_id="tlt", type="transition_ledger_transaction",
-                depends_on=["lt"], ledger_transaction_id="lt",
+                step_id="tlt",
+                type="transition_ledger_transaction",
+                depends_on=["lt"],
+                ledger_transaction_id="lt",
                 status="posted",
             ),
         ]
@@ -132,21 +146,32 @@ class TestLifecycleChildrenInverse:
     def test_every_parent_has_its_children(self):
         steps = [
             IncomingPaymentDetailStep(
-                step_id="ipd", type="incoming_payment_detail",
-                payment_type="ach", amount=100, internal_account_id="ia",
+                step_id="ipd",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=100,
+                internal_account_id="ia",
             ),
             ReturnStep(
-                step_id="ret", type="return",
-                depends_on=["ipd"], returnable_id="ipd",
+                step_id="ret",
+                type="return",
+                depends_on=["ipd"],
+                returnable_id="ipd",
             ),
             PaymentOrderStep(
-                step_id="po", type="payment_order",
-                payment_type="ach", direction="credit", amount=500,
-                originating_account_id="ia", receiving_account_id="ea",
+                step_id="po",
+                type="payment_order",
+                payment_type="ach",
+                direction="credit",
+                amount=500,
+                originating_account_id="ia",
+                receiving_account_id="ea",
             ),
             ReversalStep(
-                step_id="rev", type="reversal",
-                depends_on=["po"], payment_order_id="po",
+                step_id="rev",
+                type="reversal",
+                depends_on=["po"],
+                payment_order_id="po",
             ),
         ]
         rels = build_step_relationships(steps)
@@ -158,17 +183,25 @@ class TestLifecycleChildrenInverse:
     def test_multiple_children_same_parent(self):
         steps = [
             PaymentOrderStep(
-                step_id="po", type="payment_order",
-                payment_type="ach", direction="credit", amount=500,
-                originating_account_id="ia", receiving_account_id="ea",
+                step_id="po",
+                type="payment_order",
+                payment_type="ach",
+                direction="credit",
+                amount=500,
+                originating_account_id="ia",
+                receiving_account_id="ea",
             ),
             ReversalStep(
-                step_id="rev1", type="reversal",
-                depends_on=["po"], payment_order_id="po",
+                step_id="rev1",
+                type="reversal",
+                depends_on=["po"],
+                payment_order_id="po",
             ),
             ReversalStep(
-                step_id="rev2", type="reversal",
-                depends_on=["po"], payment_order_id="po",
+                step_id="rev2",
+                type="reversal",
+                depends_on=["po"],
+                payment_order_id="po",
             ),
         ]
         rels = build_step_relationships(steps)
@@ -185,11 +218,15 @@ class TestFulfillment:
     def test_ipd_fulfills_ep(self):
         steps = [
             ExpectedPaymentStep(
-                step_id="ep", type="expected_payment",
+                step_id="ep",
+                type="expected_payment",
             ),
             IncomingPaymentDetailStep(
-                step_id="ipd", type="incoming_payment_detail",
-                payment_type="ach", amount=100, internal_account_id="ia",
+                step_id="ipd",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=100,
+                internal_account_id="ia",
                 fulfills="ep",
             ),
         ]
@@ -200,8 +237,11 @@ class TestFulfillment:
     def test_fulfills_none_not_recorded(self):
         steps = [
             IncomingPaymentDetailStep(
-                step_id="ipd", type="incoming_payment_detail",
-                payment_type="ach", amount=100, internal_account_id="ia",
+                step_id="ipd",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=100,
+                internal_account_id="ia",
             ),
         ]
         rels = build_step_relationships(steps)
@@ -217,18 +257,27 @@ class TestDependencyGraph:
     def test_explicit_depends_on_recorded(self):
         steps = [
             PaymentOrderStep(
-                step_id="a", type="payment_order",
-                payment_type="ach", direction="credit", amount=100,
-                originating_account_id="ia", receiving_account_id="ea",
+                step_id="a",
+                type="payment_order",
+                payment_type="ach",
+                direction="credit",
+                amount=100,
+                originating_account_id="ia",
+                receiving_account_id="ea",
             ),
             IncomingPaymentDetailStep(
-                step_id="b", type="incoming_payment_detail",
-                payment_type="ach", amount=100, internal_account_id="ia",
+                step_id="b",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=100,
+                internal_account_id="ia",
                 depends_on=["a"],
             ),
             ReturnStep(
-                step_id="c", type="return",
-                depends_on=["b"], returnable_id="b",
+                step_id="c",
+                type="return",
+                depends_on=["b"],
+                returnable_id="b",
             ),
         ]
         rels = build_step_relationships(steps)
@@ -246,13 +295,20 @@ class TestStepById:
     def test_all_steps_present(self):
         steps = [
             PaymentOrderStep(
-                step_id="po", type="payment_order",
-                payment_type="ach", direction="credit", amount=100,
-                originating_account_id="ia", receiving_account_id="ea",
+                step_id="po",
+                type="payment_order",
+                payment_type="ach",
+                direction="credit",
+                amount=100,
+                originating_account_id="ia",
+                receiving_account_id="ea",
             ),
             IncomingPaymentDetailStep(
-                step_id="ipd", type="incoming_payment_detail",
-                payment_type="ach", amount=100, internal_account_id="ia",
+                step_id="ipd",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=100,
+                internal_account_id="ia",
             ),
         ]
         rels = build_step_relationships(steps)
@@ -269,13 +325,19 @@ class TestStepById:
 class TestOptionalGroup:
     def test_from_optional_groups_arg(self):
         core = PaymentOrderStep(
-            step_id="po", type="payment_order",
-            payment_type="ach", direction="credit", amount=100,
-            originating_account_id="ia", receiving_account_id="ea",
+            step_id="po",
+            type="payment_order",
+            payment_type="ach",
+            direction="credit",
+            amount=100,
+            originating_account_id="ia",
+            receiving_account_id="ea",
         )
         rev = ReversalStep(
-            step_id="rev", type="reversal",
-            depends_on=["po"], payment_order_id="po",
+            step_id="rev",
+            type="reversal",
+            depends_on=["po"],
+            payment_order_id="po",
         )
         ogs = [
             OptionalGroupConfig(label="reversals", steps=[rev]),
@@ -287,13 +349,19 @@ class TestOptionalGroup:
     def test_from_metadata_stamp(self):
         steps = [
             PaymentOrderStep(
-                step_id="po", type="payment_order",
-                payment_type="ach", direction="credit", amount=100,
-                originating_account_id="ia", receiving_account_id="ea",
+                step_id="po",
+                type="payment_order",
+                payment_type="ach",
+                direction="credit",
+                amount=100,
+                originating_account_id="ia",
+                receiving_account_id="ea",
             ),
             ReversalStep(
-                step_id="rev", type="reversal",
-                depends_on=["po"], payment_order_id="po",
+                step_id="rev",
+                type="reversal",
+                depends_on=["po"],
+                payment_order_id="po",
                 metadata={"_flow_optional_group": "reversals"},
             ),
         ]
@@ -310,12 +378,17 @@ class TestEdgeCases:
     def test_no_lifecycle_steps(self):
         steps = [
             PaymentOrderStep(
-                step_id="po", type="payment_order",
-                payment_type="ach", direction="credit", amount=100,
-                originating_account_id="ia", receiving_account_id="ea",
+                step_id="po",
+                type="payment_order",
+                payment_type="ach",
+                direction="credit",
+                amount=100,
+                originating_account_id="ia",
+                receiving_account_id="ea",
             ),
             ExpectedPaymentStep(
-                step_id="ep", type="expected_payment",
+                step_id="ep",
+                type="expected_payment",
             ),
         ]
         rels = build_step_relationships(steps)
@@ -326,7 +399,8 @@ class TestEdgeCases:
         """$ref: strings are external refs, not intra-flow step IDs."""
         steps = [
             ReturnStep(
-                step_id="ret", type="return",
+                step_id="ret",
+                type="return",
                 returnable_id="$ref:incoming_payment_detail.external_thing",
             ),
         ]
@@ -353,12 +427,17 @@ class TestImmutability:
     def test_relationships_frozen(self):
         steps = [
             IncomingPaymentDetailStep(
-                step_id="ipd", type="incoming_payment_detail",
-                payment_type="ach", amount=100, internal_account_id="ia",
+                step_id="ipd",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=100,
+                internal_account_id="ia",
             ),
             ReturnStep(
-                step_id="ret", type="return",
-                depends_on=["ipd"], returnable_id="ipd",
+                step_id="ret",
+                type="return",
+                depends_on=["ipd"],
+                returnable_id="ipd",
             ),
         ]
         rels = build_step_relationships(steps)
@@ -368,12 +447,17 @@ class TestImmutability:
     def test_children_are_tuples(self):
         steps = [
             IncomingPaymentDetailStep(
-                step_id="ipd", type="incoming_payment_detail",
-                payment_type="ach", amount=100, internal_account_id="ia",
+                step_id="ipd",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=100,
+                internal_account_id="ia",
             ),
             ReturnStep(
-                step_id="ret", type="return",
-                depends_on=["ipd"], returnable_id="ipd",
+                step_id="ret",
+                type="return",
+                depends_on=["ipd"],
+                returnable_id="ipd",
             ),
         ]
         rels = build_step_relationships(steps)
@@ -395,7 +479,8 @@ class TestIntegrationSmoke:
             for og in flow.optional_groups:
                 all_steps.extend(og.steps)
             rels = build_step_relationships(
-                all_steps, optional_groups=flow.optional_groups,
+                all_steps,
+                optional_groups=flow.optional_groups,
             )
             assert set(rels.step_by_id.keys()) == {s.step_id for s in all_steps}
 
@@ -416,7 +501,8 @@ class TestIntegrationSmoke:
             for og in flow.optional_groups:
                 all_steps.extend(og.steps)
             rels = build_step_relationships(
-                all_steps, optional_groups=flow.optional_groups,
+                all_steps,
+                optional_groups=flow.optional_groups,
             )
             assert set(rels.step_by_id.keys()) == {s.step_id for s in all_steps}
             assert len(rels.dependency_graph) == len(all_steps)
@@ -433,6 +519,7 @@ class TestIntegrationSmoke:
             for og in flow.optional_groups:
                 all_steps.extend(og.steps)
             rels = build_step_relationships(
-                all_steps, optional_groups=flow.optional_groups,
+                all_steps,
+                optional_groups=flow.optional_groups,
             )
             assert len(rels.step_by_id) == len(all_steps)

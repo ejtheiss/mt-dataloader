@@ -76,9 +76,7 @@ class MermaidSequenceBuilder:
     def box(self, label: str, color: str | None = None) -> _BoxContext:
         return _BoxContext(self, label, color)
 
-    def message(
-        self, src: str, dest: str, text: str, arrow: str = "->>"
-    ) -> MermaidSequenceBuilder:
+    def message(self, src: str, dest: str, text: str, arrow: str = "->>") -> MermaidSequenceBuilder:
         self._lines.append(f"    {src}{arrow}{dest}: {text}")
         return self
 
@@ -189,9 +187,7 @@ _LIFECYCLE_REF_FIELDS: dict[str, str] = {
 }
 
 
-def _find_parent_step(
-    step: FlowIRStep, step_lookup: dict[str, FlowIRStep]
-) -> FlowIRStep | None:
+def _find_parent_step(step: FlowIRStep, step_lookup: dict[str, FlowIRStep]) -> FlowIRStep | None:
     """Resolve a lifecycle step back to its parent via payload ref fields."""
     ref_field = _LIFECYCLE_REF_FIELDS.get(step.resource_type)
     if not ref_field:
@@ -273,7 +269,9 @@ def _resolve_step_participants(
         if parent and parent.ledger_groups:
             entries = parent.ledger_groups[0].entries
             acct_refs = [e.get("ledger_account_id", "") for e in entries]
-            names = [_resolve_actor_display(r, ref_display_map) if r else "Ledger" for r in acct_refs]
+            names = [
+                _resolve_actor_display(r, ref_display_map) if r else "Ledger" for r in acct_refs
+            ]
             if len(names) >= 2:
                 return (names[0], names[1])
         return ("Ledger", "Ledger")
@@ -362,7 +360,9 @@ def _emit_ledger_note(
                 entry_parts.append(f"{direction} {acct}")
 
         acct_refs = [e.get("ledger_account_id", "") for e in lg.entries]
-        acct_names = [_resolve_actor_display(r, ref_display_map) if r else "Ledger" for r in acct_refs]
+        acct_names = [
+            _resolve_actor_display(r, ref_display_map) if r else "Ledger" for r in acct_refs
+        ]
         acct_keys = list(dict.fromkeys(n.replace(" ", "") for n in acct_names))
         if len(acct_keys) >= 2:
             note_parts = [acct_keys[0], acct_keys[1]]
@@ -451,14 +451,16 @@ def render_mermaid(
             exclusion_to_labels.setdefault(eg, []).append(label)
 
     participants, roles = _collect_participants(
-        flow_ir, ref_display_map, step_lookup, flow_config,
+        flow_ir,
+        ref_display_map,
+        step_lookup,
+        flow_config,
     )
 
     payments_mode = view_mode == "payments"
     if payments_mode:
         participants = {
-            k: v for k, v in participants.items()
-            if roles.get(k) in ("platform", "external")
+            k: v for k, v in participants.items() if roles.get(k) in ("platform", "external")
         }
         roles = {k: v for k, v in roles.items() if k in participants}
 

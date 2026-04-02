@@ -30,7 +30,8 @@ from models.shared import (
 
 
 def _check_ledger_entries_balanced(
-    step_id: str, entries: list[InlineLedgerEntryConfig] | None,
+    step_id: str,
+    entries: list[InlineLedgerEntryConfig] | None,
 ) -> None:
     if not entries:
         return
@@ -38,8 +39,7 @@ def _check_ledger_entries_balanced(
     credits_ = sum(e.amount for e in entries if e.direction == "credit")
     if debits != credits_:
         raise ValueError(
-            f"Step '{step_id}' ledger_entries unbalanced: "
-            f"debits={debits}, credits={credits_}"
+            f"Step '{step_id}' ledger_entries unbalanced: debits={debits}, credits={credits_}"
         )
 
 
@@ -91,9 +91,7 @@ class _LifecycleLedgerMixin(BaseModel):
     at compile time).
     """
 
-    ledger_entries: (
-        list[InlineLedgerEntryConfig] | Literal["reverse_parent"] | None
-    ) = None
+    ledger_entries: list[InlineLedgerEntryConfig] | Literal["reverse_parent"] | None = None
     ledger_inline: bool = False
     ledger_status: LedgerStatus | None = None
 
@@ -124,8 +122,7 @@ class PaymentOrderStep(_LedgerableMixin, _StepBase):
     def _credit_needs_receiver(self):
         if self.direction == "credit" and not self.receiving_account_id:
             raise ValueError(
-                f"PO step '{self.step_id}': direction='credit' requires "
-                f"receiving_account_id"
+                f"PO step '{self.step_id}': direction='credit' requires receiving_account_id"
             )
         return self
 
@@ -284,13 +281,10 @@ FundsFlowStep = Annotated[
     Field(discriminator="type"),
 ]
 
-_STEP_UNION_MEMBERS: tuple[type[_StepBase], ...] = get_args(
-    get_args(FundsFlowStep)[0]
-)
+_STEP_UNION_MEMBERS: tuple[type[_StepBase], ...] = get_args(get_args(FundsFlowStep)[0])
 
 _STEP_TYPE_MODELS: dict[str, type[_StepBase]] = {
-    get_args(m.model_fields["type"].annotation)[0]: m
-    for m in _STEP_UNION_MEMBERS
+    get_args(m.model_fields["type"].annotation)[0]: m for m in _STEP_UNION_MEMBERS
 }
 
 VALID_STEP_TYPES: frozenset[str] = frozenset(_STEP_TYPE_MODELS)
@@ -304,13 +298,11 @@ ARROW_BY_TYPE: dict[str, str] = {
 }
 
 NEEDS_PAYMENT_TYPE: frozenset[str] = frozenset(
-    name for name, model in _STEP_TYPE_MODELS.items()
-    if "payment_type" in model.model_fields
+    name for name, model in _STEP_TYPE_MODELS.items() if "payment_type" in model.model_fields
 )
 
 INLINE_LT_TYPES: frozenset[str] = frozenset(
-    name for name, model in _STEP_TYPE_MODELS.items()
-    if "ledger_inline" in model.model_fields
+    name for name, model in _STEP_TYPE_MODELS.items() if "ledger_inline" in model.model_fields
 )
 
 PAYMENT_MIX_TYPE_MAP: dict[str, str] = {
@@ -320,8 +312,7 @@ PAYMENT_MIX_TYPE_MAP: dict[str, str] = {
 }
 
 REVERSES_DIRECTION: frozenset[str] = frozenset(
-    name for name, model in _STEP_TYPE_MODELS.items()
-    if model._reverses_direction
+    name for name, model in _STEP_TYPE_MODELS.items() if model._reverses_direction
 )
 
 

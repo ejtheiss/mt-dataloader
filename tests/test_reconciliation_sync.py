@@ -1,12 +1,12 @@
 """Connection entity_id sync after reconciliation."""
 
+from models import DataLoaderConfig
 from org.discovery import DiscoveredConnection, DiscoveryResult
 from org.reconciliation import (
     ReconciledResource,
     ReconciliationResult,
     sync_connection_entities_from_reconciliation,
 )
-from models import DataLoaderConfig
 
 
 def test_sync_updates_entity_id_from_discovered_vendor():
@@ -40,7 +40,10 @@ def test_sync_updates_entity_id_from_discovered_vendor():
         ]
     )
     sync_connection_entities_from_reconciliation(
-        config, discovery, recon, {},
+        config,
+        discovery,
+        recon,
+        {},
     )
     assert config.connections[0].entity_id == "modern_treasury"
 
@@ -65,6 +68,9 @@ def test_manual_map_connection_sets_entity_id():
     )
     recon = ReconciliationResult(matches=[], unmatched_config=["connection.c1"])
     sync_connection_entities_from_reconciliation(
-        config, discovery, recon, {"connection.c1": "id-b"},
+        config,
+        discovery,
+        recon,
+        {"connection.c1": "id-b"},
     )
     assert config.connections[0].entity_id == "example2"

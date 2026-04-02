@@ -8,29 +8,28 @@ Mermaid rendering, demo JSON, and passthrough regressions.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
-from models import (
-    DataLoaderConfig,
-    FundsFlowConfig,
-    FundsFlowStepConfig,
-    LedgerTransactionStep,
-    PaymentOrderStep,
-    ReversalStep,
-    TransitionLedgerTransactionConfig,
-    TransitionLedgerTransactionStep,
-)
 from flow_compiler import (
     AuthoringConfig,
     FlowIR,
     compile_flows,
     compile_to_plan,
     emit_dataloader_config,
-    render_mermaid,
     generate_from_recipe,
+    render_mermaid,
 )
+from models import (
+    DataLoaderConfig,
+    FundsFlowConfig,
+    FundsFlowStepConfig,
+    GenerationRecipeV1,
+    LedgerTransactionStep,
+    TransitionLedgerTransactionConfig,
+    TransitionLedgerTransactionStep,
+)
+from tests.paths import EXAMPLES_DIR
 
 
 def _compile(config):
@@ -39,25 +38,25 @@ def _compile(config):
     plan = compile_to_plan(AuthoringConfig.from_json(raw))
     irs = list(plan.flow_irs) or None
     return plan.config, irs
-from models import GenerationRecipeV1
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
-
 
 def _make_minimal_config(**kwargs) -> DataLoaderConfig:
     base = {
         "connections": [{"ref": "bank", "entity_id": "example1"}],
-        "internal_accounts": [{
-            "ref": "ops",
-            "connection_id": "$ref:connection.bank",
-            "name": "Ops",
-            "party_name": "Corp",
-            "currency": "USD",
-        }],
+        "internal_accounts": [
+            {
+                "ref": "ops",
+                "connection_id": "$ref:connection.bank",
+                "name": "Ops",
+                "party_name": "Corp",
+                "currency": "USD",
+            }
+        ],
         "ledgers": [{"ref": "main", "name": "Main"}],
         "ledger_accounts": [
             {
@@ -88,7 +87,9 @@ def _make_flow_dict(**kwargs) -> dict:
         "trace_value_template": "{ref}-{instance}",
         "actors": {
             "direct_1": {
-                "alias": "Platform", "frame_type": "direct", "customer_name": "Platform",
+                "alias": "Platform",
+                "frame_type": "direct",
+                "customer_name": "Platform",
                 "slots": {
                     "ops": "$ref:internal_account.ops",
                     "cash": "$ref:ledger_account.cash",
@@ -111,8 +112,16 @@ def _make_flow_dict(**kwargs) -> dict:
                 "depends_on": ["deposit"],
                 "description": "Book deposit",
                 "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
+                    {
+                        "ledger_account_id": "@actor:direct_1.cash",
+                        "amount": 10000,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "@actor:direct_1.revenue",
+                        "amount": 10000,
+                        "direction": "credit",
+                    },
                 ],
             },
         ],
@@ -147,69 +156,123 @@ def _compile_and_emit(**flow_kwargs) -> DataLoaderConfig:
 
 class TestLedgerStatus:
     def test_pending_validates(self):
-        step = FundsFlowStepConfig.model_validate({
-            "step_id": "s1", "type": "ledger_transaction",
-            "ledger_status": "pending",
-            "ledger_entries": [
-                {"ledger_account_id": "$ref:ledger_account.a", "amount": 100, "direction": "debit"},
-                {"ledger_account_id": "$ref:ledger_account.b", "amount": 100, "direction": "credit"},
-            ],
-        })
+        step = FundsFlowStepConfig.model_validate(
+            {
+                "step_id": "s1",
+                "type": "ledger_transaction",
+                "ledger_status": "pending",
+                "ledger_entries": [
+                    {
+                        "ledger_account_id": "$ref:ledger_account.a",
+                        "amount": 100,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "$ref:ledger_account.b",
+                        "amount": 100,
+                        "direction": "credit",
+                    },
+                ],
+            }
+        )
         assert step.ledger_status == "pending"
 
     def test_posted_validates(self):
-        step = FundsFlowStepConfig.model_validate({
-            "step_id": "s1", "type": "ledger_transaction",
-            "ledger_status": "posted",
-            "ledger_entries": [
-                {"ledger_account_id": "$ref:ledger_account.a", "amount": 100, "direction": "debit"},
-                {"ledger_account_id": "$ref:ledger_account.b", "amount": 100, "direction": "credit"},
-            ],
-        })
+        step = FundsFlowStepConfig.model_validate(
+            {
+                "step_id": "s1",
+                "type": "ledger_transaction",
+                "ledger_status": "posted",
+                "ledger_entries": [
+                    {
+                        "ledger_account_id": "$ref:ledger_account.a",
+                        "amount": 100,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "$ref:ledger_account.b",
+                        "amount": 100,
+                        "direction": "credit",
+                    },
+                ],
+            }
+        )
         assert step.ledger_status == "posted"
 
     def test_none_default(self):
-        step = FundsFlowStepConfig.model_validate({
-            "step_id": "s1", "type": "ledger_transaction",
-            "ledger_entries": [
-                {"ledger_account_id": "$ref:ledger_account.a", "amount": 100, "direction": "debit"},
-                {"ledger_account_id": "$ref:ledger_account.b", "amount": 100, "direction": "credit"},
-            ],
-        })
+        step = FundsFlowStepConfig.model_validate(
+            {
+                "step_id": "s1",
+                "type": "ledger_transaction",
+                "ledger_entries": [
+                    {
+                        "ledger_account_id": "$ref:ledger_account.a",
+                        "amount": 100,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "$ref:ledger_account.b",
+                        "amount": 100,
+                        "direction": "credit",
+                    },
+                ],
+            }
+        )
         assert step.ledger_status is None
 
     def test_archived_rejected(self):
         with pytest.raises(Exception):
-            FundsFlowStepConfig.model_validate({
-                "step_id": "s1", "type": "ledger_transaction",
-                "ledger_status": "archived",
-                "ledger_entries": [
-                    {"ledger_account_id": "$ref:ledger_account.a", "amount": 100, "direction": "debit"},
-                    {"ledger_account_id": "$ref:ledger_account.b", "amount": 100, "direction": "credit"},
-                ],
-            })
+            FundsFlowStepConfig.model_validate(
+                {
+                    "step_id": "s1",
+                    "type": "ledger_transaction",
+                    "ledger_status": "archived",
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "$ref:ledger_account.a",
+                            "amount": 100,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "$ref:ledger_account.b",
+                            "amount": 100,
+                            "direction": "credit",
+                        },
+                    ],
+                }
+            )
 
     def test_compiled_standalone_lt_has_status_pending(self):
-        emitted = _compile_and_emit(steps=[
-            {
-                "step_id": "deposit",
-                "type": "incoming_payment_detail",
-                "payment_type": "ach",
-                "direction": "credit",
-                "amount": 10000,
-                "internal_account_id": "@actor:direct_1.ops",
-            },
-            {
-                "step_id": "settle",
-                "type": "ledger_transaction",
-                "depends_on": ["deposit"],
-                "ledger_status": "pending",
-                "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
-                ],
-            },
-        ])
+        emitted = _compile_and_emit(
+            steps=[
+                {
+                    "step_id": "deposit",
+                    "type": "incoming_payment_detail",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 10000,
+                    "internal_account_id": "@actor:direct_1.ops",
+                },
+                {
+                    "step_id": "settle",
+                    "type": "ledger_transaction",
+                    "depends_on": ["deposit"],
+                    "ledger_status": "pending",
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 10000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 10000,
+                            "direction": "credit",
+                        },
+                    ],
+                },
+            ]
+        )
         lts = emitted.ledger_transactions
         assert len(lts) >= 1
         flow_lt = next(lt for lt in lts if "test_flow" in lt.ref)
@@ -224,38 +287,58 @@ class TestLedgerStatus:
 
     def test_direct_lt_step_emits_status(self):
         """Direct LT step (type=ledger_transaction) carries ledger_status."""
-        emitted = _compile_and_emit(steps=[
-            {
-                "step_id": "book",
-                "type": "ledger_transaction",
-                "ledger_status": "pending",
-                "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 5000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 5000, "direction": "credit"},
-                ],
-            },
-        ])
+        emitted = _compile_and_emit(
+            steps=[
+                {
+                    "step_id": "book",
+                    "type": "ledger_transaction",
+                    "ledger_status": "pending",
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 5000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 5000,
+                            "direction": "credit",
+                        },
+                    ],
+                },
+            ]
+        )
         lts = emitted.ledger_transactions
         flow_lt = next(lt for lt in lts if "test_flow" in lt.ref)
         assert flow_lt.status == "pending"
 
     def test_non_lt_step_companion_lt_gets_status(self):
         """IPD step with ledger_entries + ledger_status emits a companion standalone LT with that status."""
-        emitted = _compile_and_emit(steps=[
-            {
-                "step_id": "deposit",
-                "type": "incoming_payment_detail",
-                "payment_type": "ach",
-                "direction": "credit",
-                "amount": 10000,
-                "internal_account_id": "@actor:direct_1.ops",
-                "ledger_status": "pending",
-                "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
-                ],
-            },
-        ])
+        emitted = _compile_and_emit(
+            steps=[
+                {
+                    "step_id": "deposit",
+                    "type": "incoming_payment_detail",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 10000,
+                    "internal_account_id": "@actor:direct_1.ops",
+                    "ledger_status": "pending",
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 10000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 10000,
+                            "direction": "credit",
+                        },
+                    ],
+                },
+            ]
+        )
         lts = emitted.ledger_transactions
         companion = [lt for lt in lts if "lg0" in lt.ref]
         assert len(companion) == 1
@@ -269,105 +352,173 @@ class TestLedgerStatus:
 
 class TestLedgerInline:
     def test_inline_on_po_validates(self):
-        step = FundsFlowStepConfig.model_validate({
-            "step_id": "po", "type": "payment_order",
-            "payment_type": "ach",
-            "ledger_inline": True,
-            "amount": 10000, "direction": "credit",
-            "originating_account_id": "$ref:internal_account.ops",
-            "receiving_account_id": "$ref:external_account.vendor",
-            "ledger_entries": [
-                {"ledger_account_id": "$ref:ledger_account.a", "amount": 10000, "direction": "debit"},
-                {"ledger_account_id": "$ref:ledger_account.b", "amount": 10000, "direction": "credit"},
-            ],
-        })
+        step = FundsFlowStepConfig.model_validate(
+            {
+                "step_id": "po",
+                "type": "payment_order",
+                "payment_type": "ach",
+                "ledger_inline": True,
+                "amount": 10000,
+                "direction": "credit",
+                "originating_account_id": "$ref:internal_account.ops",
+                "receiving_account_id": "$ref:external_account.vendor",
+                "ledger_entries": [
+                    {
+                        "ledger_account_id": "$ref:ledger_account.a",
+                        "amount": 10000,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "$ref:ledger_account.b",
+                        "amount": 10000,
+                        "direction": "credit",
+                    },
+                ],
+            }
+        )
         assert step.ledger_inline is True
 
     def test_inline_on_ep_validates(self):
-        step = FundsFlowStepConfig.model_validate({
-            "step_id": "ep", "type": "expected_payment",
-            "ledger_inline": True,
-            "internal_account_id": "$ref:internal_account.ops",
-            "direction": "credit",
-            "ledger_entries": [
-                {"ledger_account_id": "$ref:ledger_account.a", "amount": 10000, "direction": "debit"},
-                {"ledger_account_id": "$ref:ledger_account.b", "amount": 10000, "direction": "credit"},
-            ],
-        })
+        step = FundsFlowStepConfig.model_validate(
+            {
+                "step_id": "ep",
+                "type": "expected_payment",
+                "ledger_inline": True,
+                "internal_account_id": "$ref:internal_account.ops",
+                "direction": "credit",
+                "ledger_entries": [
+                    {
+                        "ledger_account_id": "$ref:ledger_account.a",
+                        "amount": 10000,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "$ref:ledger_account.b",
+                        "amount": 10000,
+                        "direction": "credit",
+                    },
+                ],
+            }
+        )
         assert step.ledger_inline is True
 
     def test_inline_on_reversal_validates(self):
-        step = FundsFlowStepConfig.model_validate({
-            "step_id": "rev", "type": "reversal",
-            "ledger_inline": True,
-            "payment_order_id": "$ref:payment_order.po1",
-            "reason": "duplicate",
-            "ledger_entries": [
-                {"ledger_account_id": "$ref:ledger_account.a", "amount": 10000, "direction": "debit"},
-                {"ledger_account_id": "$ref:ledger_account.b", "amount": 10000, "direction": "credit"},
-            ],
-        })
+        step = FundsFlowStepConfig.model_validate(
+            {
+                "step_id": "rev",
+                "type": "reversal",
+                "ledger_inline": True,
+                "payment_order_id": "$ref:payment_order.po1",
+                "reason": "duplicate",
+                "ledger_entries": [
+                    {
+                        "ledger_account_id": "$ref:ledger_account.a",
+                        "amount": 10000,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "$ref:ledger_account.b",
+                        "amount": 10000,
+                        "direction": "credit",
+                    },
+                ],
+            }
+        )
         assert step.ledger_inline is True
 
     def test_inline_on_lt_type_rejected(self):
         """LedgerTransactionStep doesn't have ledger_inline (structural enforcement)."""
         assert "ledger_inline" not in LedgerTransactionStep.model_fields
         with pytest.raises(Exception, match="Extra inputs"):
-            FundsFlowStepConfig.model_validate({
-                "step_id": "lt", "type": "ledger_transaction",
-                "ledger_inline": True,
-                "ledger_entries": [
-                    {"ledger_account_id": "$ref:ledger_account.a", "amount": 100, "direction": "debit"},
-                    {"ledger_account_id": "$ref:ledger_account.b", "amount": 100, "direction": "credit"},
-                ],
-            })
+            FundsFlowStepConfig.model_validate(
+                {
+                    "step_id": "lt",
+                    "type": "ledger_transaction",
+                    "ledger_inline": True,
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "$ref:ledger_account.a",
+                            "amount": 100,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "$ref:ledger_account.b",
+                            "amount": 100,
+                            "direction": "credit",
+                        },
+                    ],
+                }
+            )
 
     def test_inline_on_transition_rejected(self):
         """TransitionLedgerTransactionStep doesn't have ledger_inline or ledger_entries."""
         assert "ledger_inline" not in TransitionLedgerTransactionStep.model_fields
         with pytest.raises(Exception, match="Extra inputs"):
-            FundsFlowStepConfig.model_validate({
-                "step_id": "t", "type": "transition_ledger_transaction",
-                "ledger_inline": True,
-                "status": "posted",
-                "ledger_transaction_id": "$ref:ledger_transaction.lt1",
-                "ledger_entries": [
-                    {"ledger_account_id": "$ref:ledger_account.a", "amount": 100, "direction": "debit"},
-                    {"ledger_account_id": "$ref:ledger_account.b", "amount": 100, "direction": "credit"},
-                ],
-            })
+            FundsFlowStepConfig.model_validate(
+                {
+                    "step_id": "t",
+                    "type": "transition_ledger_transaction",
+                    "ledger_inline": True,
+                    "status": "posted",
+                    "ledger_transaction_id": "$ref:ledger_transaction.lt1",
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "$ref:ledger_account.a",
+                            "amount": 100,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "$ref:ledger_account.b",
+                            "amount": 100,
+                            "direction": "credit",
+                        },
+                    ],
+                }
+            )
 
     def test_inline_true_without_entries_is_empty_inline(self):
         """PO with ledger_inline=True but no entries: valid (entries are optional)."""
-        step = FundsFlowStepConfig.model_validate({
-            "step_id": "po", "type": "payment_order",
-            "payment_type": "ach",
-            "ledger_inline": True,
-            "amount": 10000, "direction": "credit",
-            "originating_account_id": "$ref:internal_account.ops",
-            "receiving_account_id": "$ref:external_account.vendor",
-        })
+        step = FundsFlowStepConfig.model_validate(
+            {
+                "step_id": "po",
+                "type": "payment_order",
+                "payment_type": "ach",
+                "ledger_inline": True,
+                "amount": 10000,
+                "direction": "credit",
+                "originating_account_id": "$ref:internal_account.ops",
+                "receiving_account_id": "$ref:external_account.vendor",
+            }
+        )
         assert step.ledger_inline is True
         assert step.ledger_entries is None
 
     def test_compiled_po_inline_has_ledger_transaction(self):
         config = _make_minimal_config(
-            counterparties=[{
-                "ref": "vendor",
-                "name": "Vendor Co",
-                "accounts": [{"sandbox_behavior": "success", "party_name": "V"}],
-            }],
-            external_accounts=[{
-                "ref": "vendor_acct",
-                "counterparty_id": "$ref:counterparty.vendor",
-                "account_details": [{"account_number": "123456789"}],
-                "routing_details": [{"routing_number": "121141822", "routing_number_type": "aba"}],
-            }],
+            counterparties=[
+                {
+                    "ref": "vendor",
+                    "name": "Vendor Co",
+                    "accounts": [{"sandbox_behavior": "success", "party_name": "V"}],
+                }
+            ],
+            external_accounts=[
+                {
+                    "ref": "vendor_acct",
+                    "counterparty_id": "$ref:counterparty.vendor",
+                    "account_details": [{"account_number": "123456789"}],
+                    "routing_details": [
+                        {"routing_number": "121141822", "routing_number_type": "aba"}
+                    ],
+                }
+            ],
         )
         flow = _make_flow_config(
             actors={
                 "direct_1": {
-                    "alias": "Platform", "frame_type": "direct", "customer_name": "Platform",
+                    "alias": "Platform",
+                    "frame_type": "direct",
+                    "customer_name": "Platform",
                     "slots": {
                         "ops": "$ref:internal_account.ops",
                         "cash": "$ref:ledger_account.cash",
@@ -375,7 +526,9 @@ class TestLedgerInline:
                     },
                 },
                 "direct_2": {
-                    "alias": "Vendor", "frame_type": "direct", "customer_name": "Vendor Co",
+                    "alias": "Vendor",
+                    "frame_type": "direct",
+                    "customer_name": "Vendor Co",
                     "slots": {"acct": "$ref:external_account.vendor_acct"},
                 },
             },
@@ -391,8 +544,16 @@ class TestLedgerInline:
                     "ledger_inline": True,
                     "ledger_status": "pending",
                     "ledger_entries": [
-                        {"ledger_account_id": "@actor:direct_1.cash", "amount": 5000, "direction": "debit"},
-                        {"ledger_account_id": "@actor:direct_1.revenue", "amount": 5000, "direction": "credit"},
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 5000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 5000,
+                            "direction": "credit",
+                        },
                     ],
                 },
             ],
@@ -407,22 +568,30 @@ class TestLedgerInline:
 
     def test_inline_no_standalone_lt(self):
         config = _make_minimal_config(
-            counterparties=[{
-                "ref": "vendor",
-                "name": "Vendor Co",
-                "accounts": [{"sandbox_behavior": "success", "party_name": "V"}],
-            }],
-            external_accounts=[{
-                "ref": "vendor_acct",
-                "counterparty_id": "$ref:counterparty.vendor",
-                "account_details": [{"account_number": "123456789"}],
-                "routing_details": [{"routing_number": "121141822", "routing_number_type": "aba"}],
-            }],
+            counterparties=[
+                {
+                    "ref": "vendor",
+                    "name": "Vendor Co",
+                    "accounts": [{"sandbox_behavior": "success", "party_name": "V"}],
+                }
+            ],
+            external_accounts=[
+                {
+                    "ref": "vendor_acct",
+                    "counterparty_id": "$ref:counterparty.vendor",
+                    "account_details": [{"account_number": "123456789"}],
+                    "routing_details": [
+                        {"routing_number": "121141822", "routing_number_type": "aba"}
+                    ],
+                }
+            ],
         )
         flow = _make_flow_config(
             actors={
                 "direct_1": {
-                    "alias": "Platform", "frame_type": "direct", "customer_name": "Platform",
+                    "alias": "Platform",
+                    "frame_type": "direct",
+                    "customer_name": "Platform",
                     "slots": {
                         "ops": "$ref:internal_account.ops",
                         "cash": "$ref:ledger_account.cash",
@@ -430,7 +599,9 @@ class TestLedgerInline:
                     },
                 },
                 "direct_2": {
-                    "alias": "Vendor", "frame_type": "direct", "customer_name": "Vendor Co",
+                    "alias": "Vendor",
+                    "frame_type": "direct",
+                    "customer_name": "Vendor Co",
                     "slots": {"acct": "$ref:external_account.vendor_acct"},
                 },
             },
@@ -445,8 +616,16 @@ class TestLedgerInline:
                     "receiving_account_id": "@actor:direct_2.acct",
                     "ledger_inline": True,
                     "ledger_entries": [
-                        {"ledger_account_id": "@actor:direct_1.cash", "amount": 5000, "direction": "debit"},
-                        {"ledger_account_id": "@actor:direct_1.revenue", "amount": 5000, "direction": "credit"},
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 5000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 5000,
+                            "direction": "credit",
+                        },
                     ],
                 },
             ],
@@ -469,45 +648,55 @@ class TestLedgerInline:
 
 class TestTransitionLedgerTransactionConfig:
     def test_valid(self):
-        t = TransitionLedgerTransactionConfig.model_validate({
-            "ref": "post_lt",
-            "ledger_transaction_id": "$ref:ledger_transaction.settle",
-            "status": "posted",
-        })
+        t = TransitionLedgerTransactionConfig.model_validate(
+            {
+                "ref": "post_lt",
+                "ledger_transaction_id": "$ref:ledger_transaction.settle",
+                "status": "posted",
+            }
+        )
         assert t.status == "posted"
         assert t.resource_type == "transition_ledger_transaction"
 
     def test_archived_valid(self):
-        t = TransitionLedgerTransactionConfig.model_validate({
-            "ref": "archive_lt",
-            "ledger_transaction_id": "$ref:ledger_transaction.settle",
-            "status": "archived",
-        })
+        t = TransitionLedgerTransactionConfig.model_validate(
+            {
+                "ref": "archive_lt",
+                "ledger_transaction_id": "$ref:ledger_transaction.settle",
+                "status": "archived",
+            }
+        )
         assert t.status == "archived"
 
     def test_pending_rejected(self):
         with pytest.raises(Exception):
-            TransitionLedgerTransactionConfig.model_validate({
-                "ref": "bad",
-                "ledger_transaction_id": "$ref:ledger_transaction.settle",
-                "status": "pending",
-            })
+            TransitionLedgerTransactionConfig.model_validate(
+                {
+                    "ref": "bad",
+                    "ledger_transaction_id": "$ref:ledger_transaction.settle",
+                    "status": "pending",
+                }
+            )
 
     def test_ledger_transaction_id_required(self):
         with pytest.raises(Exception):
-            TransitionLedgerTransactionConfig.model_validate({
-                "ref": "bad",
-                "status": "posted",
-            })
+            TransitionLedgerTransactionConfig.model_validate(
+                {
+                    "ref": "bad",
+                    "status": "posted",
+                }
+            )
 
     def test_step_type_validates(self):
-        step = FundsFlowStepConfig.model_validate({
-            "step_id": "post_lt",
-            "type": "transition_ledger_transaction",
-            "status": "posted",
-            "ledger_transaction_id": "$ref:ledger_transaction.lt1",
-            "depends_on": ["settle"],
-        })
+        step = FundsFlowStepConfig.model_validate(
+            {
+                "step_id": "post_lt",
+                "type": "transition_ledger_transaction",
+                "status": "posted",
+                "ledger_transaction_id": "$ref:ledger_transaction.lt1",
+                "depends_on": ["settle"],
+            }
+        )
         assert step.type == "transition_ledger_transaction"
 
 
@@ -533,8 +722,16 @@ class TestTransitionCompileEmit:
             "ledger_status": "pending",
             "description": "Book deposit",
             "ledger_entries": [
-                {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
+                {
+                    "ledger_account_id": "@actor:direct_1.cash",
+                    "amount": 10000,
+                    "direction": "debit",
+                },
+                {
+                    "ledger_account_id": "@actor:direct_1.revenue",
+                    "amount": 10000,
+                    "direction": "credit",
+                },
             ],
         }
         transition_step = {
@@ -566,22 +763,30 @@ class TestTransitionCompileEmit:
 
     def test_auto_derive_from_inline_po(self):
         config = _make_minimal_config(
-            counterparties=[{
-                "ref": "vendor",
-                "name": "Vendor Co",
-                "accounts": [{"sandbox_behavior": "success", "party_name": "V"}],
-            }],
-            external_accounts=[{
-                "ref": "vendor_acct",
-                "counterparty_id": "$ref:counterparty.vendor",
-                "account_details": [{"account_number": "123456789"}],
-                "routing_details": [{"routing_number": "121141822", "routing_number_type": "aba"}],
-            }],
+            counterparties=[
+                {
+                    "ref": "vendor",
+                    "name": "Vendor Co",
+                    "accounts": [{"sandbox_behavior": "success", "party_name": "V"}],
+                }
+            ],
+            external_accounts=[
+                {
+                    "ref": "vendor_acct",
+                    "counterparty_id": "$ref:counterparty.vendor",
+                    "account_details": [{"account_number": "123456789"}],
+                    "routing_details": [
+                        {"routing_number": "121141822", "routing_number_type": "aba"}
+                    ],
+                }
+            ],
         )
         flow = _make_flow_config(
             actors={
                 "direct_1": {
-                    "alias": "Platform", "frame_type": "direct", "customer_name": "Platform",
+                    "alias": "Platform",
+                    "frame_type": "direct",
+                    "customer_name": "Platform",
                     "slots": {
                         "ops": "$ref:internal_account.ops",
                         "cash": "$ref:ledger_account.cash",
@@ -589,7 +794,9 @@ class TestTransitionCompileEmit:
                     },
                 },
                 "direct_2": {
-                    "alias": "Vendor", "frame_type": "direct", "customer_name": "Vendor Co",
+                    "alias": "Vendor",
+                    "frame_type": "direct",
+                    "customer_name": "Vendor Co",
                     "slots": {"acct": "$ref:external_account.vendor_acct"},
                 },
             },
@@ -605,8 +812,16 @@ class TestTransitionCompileEmit:
                     "ledger_inline": True,
                     "ledger_status": "pending",
                     "ledger_entries": [
-                        {"ledger_account_id": "@actor:direct_1.cash", "amount": 5000, "direction": "debit"},
-                        {"ledger_account_id": "@actor:direct_1.revenue", "amount": 5000, "direction": "credit"},
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 5000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 5000,
+                            "direction": "credit",
+                        },
                     ],
                 },
                 {
@@ -661,8 +876,16 @@ class TestMermaidTransition:
                 "depends_on": ["deposit"],
                 "ledger_status": "pending",
                 "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
+                    {
+                        "ledger_account_id": "@actor:direct_1.cash",
+                        "amount": 10000,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "@actor:direct_1.revenue",
+                        "amount": 10000,
+                        "direction": "credit",
+                    },
                 ],
             },
             {
@@ -690,32 +913,42 @@ class TestMermaidTransition:
 class TestLifecycleIntegration:
     def test_ipd_pending_lt_post_lifecycle(self):
         """IPD → pending LT → transition to posted."""
-        emitted = _compile_and_emit(steps=[
-            {
-                "step_id": "deposit",
-                "type": "incoming_payment_detail",
-                "payment_type": "ach",
-                "direction": "credit",
-                "amount": 10000,
-                "internal_account_id": "@actor:direct_1.ops",
-            },
-            {
-                "step_id": "settle",
-                "type": "ledger_transaction",
-                "depends_on": ["deposit"],
-                "ledger_status": "pending",
-                "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
-                ],
-            },
-            {
-                "step_id": "post_settle",
-                "type": "transition_ledger_transaction",
-                "depends_on": ["settle"],
-                "status": "posted",
-            },
-        ])
+        emitted = _compile_and_emit(
+            steps=[
+                {
+                    "step_id": "deposit",
+                    "type": "incoming_payment_detail",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 10000,
+                    "internal_account_id": "@actor:direct_1.ops",
+                },
+                {
+                    "step_id": "settle",
+                    "type": "ledger_transaction",
+                    "depends_on": ["deposit"],
+                    "ledger_status": "pending",
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 10000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 10000,
+                            "direction": "credit",
+                        },
+                    ],
+                },
+                {
+                    "step_id": "post_settle",
+                    "type": "transition_ledger_transaction",
+                    "depends_on": ["settle"],
+                    "status": "posted",
+                },
+            ]
+        )
         flow_lts = [lt for lt in emitted.ledger_transactions if "test_flow" in lt.ref]
         assert any(lt.status == "pending" for lt in flow_lts)
         assert len(emitted.transition_ledger_transactions) == 1
@@ -738,8 +971,16 @@ class TestLifecycleIntegration:
                 "depends_on": ["deposit"],
                 "ledger_status": "pending",
                 "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
+                    {
+                        "ledger_account_id": "@actor:direct_1.cash",
+                        "amount": 10000,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "@actor:direct_1.revenue",
+                        "amount": 10000,
+                        "direction": "credit",
+                    },
                 ],
             },
             {
@@ -769,35 +1010,49 @@ class TestLifecycleIntegration:
 
     def test_generate_from_recipe_with_transitions(self):
         config = _make_minimal_config(
-            funds_flows=[_make_flow_dict(steps=[
-                {
-                    "step_id": "deposit",
-                    "type": "incoming_payment_detail",
-                    "payment_type": "ach",
-                    "direction": "credit",
-                    "amount": 10000,
-                    "internal_account_id": "@actor:direct_1.ops",
-                },
-                {
-                    "step_id": "settle",
-                    "type": "ledger_transaction",
-                    "depends_on": ["deposit"],
-                    "ledger_status": "pending",
-                    "ledger_entries": [
-                        {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                        {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
-                    ],
-                },
-                {
-                    "step_id": "post_settle",
-                    "type": "transition_ledger_transaction",
-                    "depends_on": ["settle"],
-                    "status": "posted",
-                },
-            ])],
+            funds_flows=[
+                _make_flow_dict(
+                    steps=[
+                        {
+                            "step_id": "deposit",
+                            "type": "incoming_payment_detail",
+                            "payment_type": "ach",
+                            "direction": "credit",
+                            "amount": 10000,
+                            "internal_account_id": "@actor:direct_1.ops",
+                        },
+                        {
+                            "step_id": "settle",
+                            "type": "ledger_transaction",
+                            "depends_on": ["deposit"],
+                            "ledger_status": "pending",
+                            "ledger_entries": [
+                                {
+                                    "ledger_account_id": "@actor:direct_1.cash",
+                                    "amount": 10000,
+                                    "direction": "debit",
+                                },
+                                {
+                                    "ledger_account_id": "@actor:direct_1.revenue",
+                                    "amount": 10000,
+                                    "direction": "credit",
+                                },
+                            ],
+                        },
+                        {
+                            "step_id": "post_settle",
+                            "type": "transition_ledger_transaction",
+                            "depends_on": ["settle"],
+                            "status": "posted",
+                        },
+                    ]
+                )
+            ],
         )
         recipe = GenerationRecipeV1(
-            flow_ref="test_flow", instances=3, seed=42,
+            flow_ref="test_flow",
+            instances=3,
+            seed=42,
         )
         result = generate_from_recipe(recipe, config)
         assert len(result.config.transition_ledger_transactions) == 3
@@ -826,11 +1081,13 @@ class TestDataLoaderConfigSection:
 
     def test_transition_section_populated(self):
         config = _make_minimal_config(
-            transition_ledger_transactions=[{
-                "ref": "post_lt",
-                "ledger_transaction_id": "$ref:ledger_transaction.settle",
-                "status": "posted",
-            }],
+            transition_ledger_transactions=[
+                {
+                    "ref": "post_lt",
+                    "ledger_transaction_id": "$ref:ledger_transaction.settle",
+                    "status": "posted",
+                }
+            ],
         )
         assert len(config.transition_ledger_transactions) == 1
 
@@ -843,23 +1100,33 @@ class TestDataLoaderConfigSection:
 class TestInjectLifecycleDependsOn:
     def test_transition_gets_depends_on_from_lt_ref(self):
         """The emitter injects a depends_on edge for the transition's target LT."""
-        emitted = _compile_and_emit(steps=[
-            {
-                "step_id": "book",
-                "type": "ledger_transaction",
-                "ledger_status": "pending",
-                "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 5000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 5000, "direction": "credit"},
-                ],
-            },
-            {
-                "step_id": "post_book",
-                "type": "transition_ledger_transaction",
-                "depends_on": ["book"],
-                "status": "posted",
-            },
-        ])
+        emitted = _compile_and_emit(
+            steps=[
+                {
+                    "step_id": "book",
+                    "type": "ledger_transaction",
+                    "ledger_status": "pending",
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 5000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 5000,
+                            "direction": "credit",
+                        },
+                    ],
+                },
+                {
+                    "step_id": "post_book",
+                    "type": "transition_ledger_transaction",
+                    "depends_on": ["book"],
+                    "status": "posted",
+                },
+            ]
+        )
         t = emitted.transition_ledger_transactions[0]
         assert len(t.depends_on) >= 1
         assert any("ledger_transaction" in d for d in t.depends_on)
@@ -886,21 +1153,27 @@ class TestPassthroughRegression:
         assert result.transition_ledger_transactions == []
 
     def test_ledger_inline_default_false(self):
-        step = FundsFlowStepConfig.model_validate({
-            "step_id": "s1", "type": "incoming_payment_detail",
-            "payment_type": "ach",
-            "direction": "credit",
-            "amount": 10000,
-            "internal_account_id": "$ref:internal_account.ops",
-        })
+        step = FundsFlowStepConfig.model_validate(
+            {
+                "step_id": "s1",
+                "type": "incoming_payment_detail",
+                "payment_type": "ach",
+                "direction": "credit",
+                "amount": 10000,
+                "internal_account_id": "$ref:internal_account.ops",
+            }
+        )
         assert step.ledger_inline is False
 
     def test_ledger_status_default_none(self):
-        step = FundsFlowStepConfig.model_validate({
-            "step_id": "s1", "type": "incoming_payment_detail",
-            "payment_type": "ach",
-            "direction": "credit",
-            "amount": 10000,
-            "internal_account_id": "$ref:internal_account.ops",
-        })
+        step = FundsFlowStepConfig.model_validate(
+            {
+                "step_id": "s1",
+                "type": "incoming_payment_detail",
+                "payment_type": "ach",
+                "direction": "credit",
+                "amount": 10000,
+                "internal_account_id": "$ref:internal_account.ops",
+            }
+        )
         assert step.ledger_status is None

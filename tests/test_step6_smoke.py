@@ -1,4 +1,5 @@
 """Step 6 smoke tests: routes, templates, SSE attributes."""
+
 from __future__ import annotations
 
 import pytest
@@ -87,27 +88,39 @@ class TestMetadataEndpoint:
 
     def test_metadata_updates_working_config(self, client):
         import json
-        from session import SessionState, sessions
+
         from engine import RefRegistry
         from models import DataLoaderConfig
+        from session import SessionState, sessions
 
         config_data = {
-            "funds_flows": [{
-                "ref": "test_flow",
-                "pattern_type": "psp",
-                "trace_key": "deal_id",
-                "trace_value_template": "{ref}-{instance}",
-                "trace_metadata": {"env": "sandbox"},
-                "steps": [
-                    {"step_id": "lt1", "type": "ledger_transaction",
-                     "ledger_entries": [
-                         {"amount": 100, "direction": "debit",
-                          "ledger_account_id": "$ref:ledger_account.cash"},
-                         {"amount": 100, "direction": "credit",
-                          "ledger_account_id": "$ref:ledger_account.rev"},
-                     ]},
-                ],
-            }],
+            "funds_flows": [
+                {
+                    "ref": "test_flow",
+                    "pattern_type": "psp",
+                    "trace_key": "deal_id",
+                    "trace_value_template": "{ref}-{instance}",
+                    "trace_metadata": {"env": "sandbox"},
+                    "steps": [
+                        {
+                            "step_id": "lt1",
+                            "type": "ledger_transaction",
+                            "ledger_entries": [
+                                {
+                                    "amount": 100,
+                                    "direction": "debit",
+                                    "ledger_account_id": "$ref:ledger_account.cash",
+                                },
+                                {
+                                    "amount": 100,
+                                    "direction": "credit",
+                                    "ledger_account_id": "$ref:ledger_account.rev",
+                                },
+                            ],
+                        },
+                    ],
+                }
+            ],
         }
         config = DataLoaderConfig.model_validate(config_data)
         token = "test-meta-token"

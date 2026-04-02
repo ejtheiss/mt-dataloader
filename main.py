@@ -27,7 +27,8 @@ from routers.runs import router as runs_router
 from routers.setup import router as setup_router
 from routers.tunnel import router as tunnel_router
 from tunnel import NgrokStartError, TunnelManager
-from webhooks import router as webhook_router, rebuild_correlation_index
+from webhooks import rebuild_correlation_index
+from webhooks import router as webhook_router
 
 # Paths relative to this file — not the process cwd (Docker/K8s may use another cwd).
 _APP_ROOT = Path(__file__).resolve().parent
@@ -129,6 +130,7 @@ app = FastAPI(title="MT Dataloader", version=__version__, lifespan=lifespan)
 @app.get("/api/version", include_in_schema=False)
 async def get_version():
     return {"version": __version__}
+
 
 static_dir = _APP_ROOT / "static"
 if static_dir.is_dir():

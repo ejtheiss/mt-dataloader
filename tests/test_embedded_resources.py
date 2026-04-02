@@ -8,32 +8,17 @@ example JSONs.
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from flow_compiler import (
     AuthoringConfig,
-    FlowIR,
-    FlowIRStep,
-    LedgerGroup,
     _find_reverse_target,
     _flip_entry,
     compile_flows,
     compile_to_plan,
     emit_dataloader_config,
 )
-
-
-def _compile(config):
-    """Compile a DataLoaderConfig via the pipeline, returning (compiled, flow_irs)."""
-    raw = config.model_dump_json().encode()
-    plan = compile_to_plan(AuthoringConfig.from_json(raw))
-    irs = list(plan.flow_irs) or None
-    return plan.config, irs
 from models import (
     DataLoaderConfig,
     FundsFlowConfig,
@@ -42,8 +27,15 @@ from models import (
     ReturnStep,
     ReversalStep,
 )
+from tests.paths import EXAMPLES_DIR
 
-EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
+
+def _compile(config):
+    """Compile a DataLoaderConfig via the pipeline, returning (compiled, flow_irs)."""
+    raw = config.model_dump_json().encode()
+    plan = compile_to_plan(AuthoringConfig.from_json(raw))
+    irs = list(plan.flow_irs) or None
+    return plan.config, irs
 
 
 # ---------------------------------------------------------------------------
@@ -54,13 +46,15 @@ EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
 def _make_minimal_config(**kwargs) -> DataLoaderConfig:
     base = {
         "connections": [{"ref": "bank", "entity_id": "example1"}],
-        "internal_accounts": [{
-            "ref": "ops",
-            "connection_id": "$ref:connection.bank",
-            "name": "Ops",
-            "party_name": "Corp",
-            "currency": "USD",
-        }],
+        "internal_accounts": [
+            {
+                "ref": "ops",
+                "connection_id": "$ref:connection.bank",
+                "name": "Ops",
+                "party_name": "Corp",
+                "currency": "USD",
+            }
+        ],
         "ledgers": [{"ref": "main", "name": "Main"}],
         "ledger_accounts": [
             {
@@ -85,113 +79,143 @@ def _make_minimal_config(**kwargs) -> DataLoaderConfig:
 
 def _make_flow_with_inline_lt() -> FundsFlowConfig:
     """PO with inline ledger entries (ledger_inline=True)."""
-    return FundsFlowConfig.model_validate({
-        "ref": "test_flow",
-        "pattern_type": "test",
-        "actors": {
-            "direct_1": {
-                "alias": "Platform",
-                "frame_type": "direct",
-                "customer_name": "Platform",
-                "slots": {
-                    "ops": "$ref:internal_account.ops",
-                    "cash": "$ref:ledger_account.cash",
-                    "revenue": "$ref:ledger_account.revenue",
+    return FundsFlowConfig.model_validate(
+        {
+            "ref": "test_flow",
+            "pattern_type": "test",
+            "actors": {
+                "direct_1": {
+                    "alias": "Platform",
+                    "frame_type": "direct",
+                    "customer_name": "Platform",
+                    "slots": {
+                        "ops": "$ref:internal_account.ops",
+                        "cash": "$ref:ledger_account.cash",
+                        "revenue": "$ref:ledger_account.revenue",
+                    },
                 },
             },
-        },
-        "steps": [
-            {
-                "step_id": "payout",
-                "type": "payment_order",
-                "payment_type": "ach",
-                "direction": "credit",
-                "amount": 10000,
-                "originating_account_id": "@actor:direct_1.ops",
-                "receiving_account_id": "@actor:direct_1.ops",
-                "ledger_inline": True,
-                "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
-                ],
-            },
-        ],
-    })
+            "steps": [
+                {
+                    "step_id": "payout",
+                    "type": "payment_order",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 10000,
+                    "originating_account_id": "@actor:direct_1.ops",
+                    "receiving_account_id": "@actor:direct_1.ops",
+                    "ledger_inline": True,
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 10000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 10000,
+                            "direction": "credit",
+                        },
+                    ],
+                },
+            ],
+        }
+    )
 
 
 def _make_flow_with_standalone_lt() -> FundsFlowConfig:
     """IPD with standalone ledger entries (ledger_inline=False, the default)."""
-    return FundsFlowConfig.model_validate({
-        "ref": "test_flow",
-        "pattern_type": "test",
-        "actors": {
-            "direct_1": {
-                "alias": "Platform",
-                "frame_type": "direct",
-                "customer_name": "Platform",
-                "slots": {
-                    "ops": "$ref:internal_account.ops",
-                    "cash": "$ref:ledger_account.cash",
-                    "revenue": "$ref:ledger_account.revenue",
+    return FundsFlowConfig.model_validate(
+        {
+            "ref": "test_flow",
+            "pattern_type": "test",
+            "actors": {
+                "direct_1": {
+                    "alias": "Platform",
+                    "frame_type": "direct",
+                    "customer_name": "Platform",
+                    "slots": {
+                        "ops": "$ref:internal_account.ops",
+                        "cash": "$ref:ledger_account.cash",
+                        "revenue": "$ref:ledger_account.revenue",
+                    },
                 },
             },
-        },
-        "steps": [
-            {
-                "step_id": "deposit",
-                "type": "incoming_payment_detail",
-                "payment_type": "ach",
-                "direction": "credit",
-                "amount": 10000,
-                "internal_account_id": "@actor:direct_1.ops",
-                "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
-                ],
-            },
-        ],
-    })
+            "steps": [
+                {
+                    "step_id": "deposit",
+                    "type": "incoming_payment_detail",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 10000,
+                    "internal_account_id": "@actor:direct_1.ops",
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 10000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 10000,
+                            "direction": "credit",
+                        },
+                    ],
+                },
+            ],
+        }
+    )
 
 
 def _make_flow_with_reverse_parent() -> FundsFlowConfig:
     """IPD + Return with reverse_parent ledger entries."""
-    return FundsFlowConfig.model_validate({
-        "ref": "test_flow",
-        "pattern_type": "test",
-        "actors": {
-            "direct_1": {
-                "alias": "Platform",
-                "frame_type": "direct",
-                "customer_name": "Platform",
-                "slots": {
-                    "ops": "$ref:internal_account.ops",
-                    "cash": "$ref:ledger_account.cash",
-                    "revenue": "$ref:ledger_account.revenue",
+    return FundsFlowConfig.model_validate(
+        {
+            "ref": "test_flow",
+            "pattern_type": "test",
+            "actors": {
+                "direct_1": {
+                    "alias": "Platform",
+                    "frame_type": "direct",
+                    "customer_name": "Platform",
+                    "slots": {
+                        "ops": "$ref:internal_account.ops",
+                        "cash": "$ref:ledger_account.cash",
+                        "revenue": "$ref:ledger_account.revenue",
+                    },
                 },
             },
-        },
-        "steps": [
-            {
-                "step_id": "deposit",
-                "type": "incoming_payment_detail",
-                "payment_type": "ach",
-                "direction": "credit",
-                "amount": 10000,
-                "internal_account_id": "@actor:direct_1.ops",
-                "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
-                ],
-            },
-            {
-                "step_id": "refund",
-                "type": "return",
-                "depends_on": ["deposit"],
-                "returnable_id": "deposit",
-                "ledger_entries": "reverse_parent",
-            },
-        ],
-    })
+            "steps": [
+                {
+                    "step_id": "deposit",
+                    "type": "incoming_payment_detail",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 10000,
+                    "internal_account_id": "@actor:direct_1.ops",
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 10000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 10000,
+                            "direction": "credit",
+                        },
+                    ],
+                },
+                {
+                    "step_id": "refund",
+                    "type": "return",
+                    "depends_on": ["deposit"],
+                    "returnable_id": "deposit",
+                    "ledger_entries": "reverse_parent",
+                },
+            ],
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -225,68 +249,119 @@ class TestFlipEntry:
 
 class TestFindReverseTarget:
     def test_return_finds_parent_by_returnable_id(self):
-        ipd = IncomingPaymentDetailStep.model_validate({
-            "step_id": "deposit", "type": "incoming_payment_detail",
-            "payment_type": "ach", "direction": "credit", "amount": 10000,
-            "internal_account_id": "$ref:internal_account.ops",
-            "ledger_entries": [
-                {"ledger_account_id": "$ref:ledger_account.cash", "amount": 10000, "direction": "debit"},
-                {"ledger_account_id": "$ref:ledger_account.rev", "amount": 10000, "direction": "credit"},
-            ],
-        })
-        ret = ReturnStep.model_validate({
-            "step_id": "refund", "type": "return",
-            "depends_on": ["deposit"],
-            "returnable_id": "deposit",
-            "ledger_entries": "reverse_parent",
-        })
+        ipd = IncomingPaymentDetailStep.model_validate(
+            {
+                "step_id": "deposit",
+                "type": "incoming_payment_detail",
+                "payment_type": "ach",
+                "direction": "credit",
+                "amount": 10000,
+                "internal_account_id": "$ref:internal_account.ops",
+                "ledger_entries": [
+                    {
+                        "ledger_account_id": "$ref:ledger_account.cash",
+                        "amount": 10000,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "$ref:ledger_account.rev",
+                        "amount": 10000,
+                        "direction": "credit",
+                    },
+                ],
+            }
+        )
+        ret = ReturnStep.model_validate(
+            {
+                "step_id": "refund",
+                "type": "return",
+                "depends_on": ["deposit"],
+                "returnable_id": "deposit",
+                "ledger_entries": "reverse_parent",
+            }
+        )
         target = _find_reverse_target(ret, [ipd, ret])
         assert target is ipd
 
     def test_reversal_finds_parent_by_payment_order_id(self):
-        po = PaymentOrderStep.model_validate({
-            "step_id": "pay", "type": "payment_order",
-            "payment_type": "ach", "direction": "credit", "amount": 5000,
-            "originating_account_id": "$ref:internal_account.ops",
-            "receiving_account_id": "$ref:external_account.cust",
-            "ledger_entries": [
-                {"ledger_account_id": "$ref:ledger_account.cash", "amount": 5000, "direction": "debit"},
-                {"ledger_account_id": "$ref:ledger_account.rev", "amount": 5000, "direction": "credit"},
-            ],
-        })
-        rev = ReversalStep.model_validate({
-            "step_id": "rev", "type": "reversal",
-            "depends_on": ["pay"],
-            "payment_order_id": "pay",
-            "reason": "duplicate",
-            "ledger_entries": "reverse_parent",
-        })
+        po = PaymentOrderStep.model_validate(
+            {
+                "step_id": "pay",
+                "type": "payment_order",
+                "payment_type": "ach",
+                "direction": "credit",
+                "amount": 5000,
+                "originating_account_id": "$ref:internal_account.ops",
+                "receiving_account_id": "$ref:external_account.cust",
+                "ledger_entries": [
+                    {
+                        "ledger_account_id": "$ref:ledger_account.cash",
+                        "amount": 5000,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "$ref:ledger_account.rev",
+                        "amount": 5000,
+                        "direction": "credit",
+                    },
+                ],
+            }
+        )
+        rev = ReversalStep.model_validate(
+            {
+                "step_id": "rev",
+                "type": "reversal",
+                "depends_on": ["pay"],
+                "payment_order_id": "pay",
+                "reason": "duplicate",
+                "ledger_entries": "reverse_parent",
+            }
+        )
         target = _find_reverse_target(rev, [po, rev])
         assert target is po
 
     def test_fallback_to_depends_on(self):
-        ipd = IncomingPaymentDetailStep.model_validate({
-            "step_id": "deposit", "type": "incoming_payment_detail",
-            "payment_type": "ach", "direction": "credit", "amount": 10000,
-            "internal_account_id": "$ref:internal_account.ops",
-            "ledger_entries": [
-                {"ledger_account_id": "$ref:ledger_account.cash", "amount": 10000, "direction": "debit"},
-                {"ledger_account_id": "$ref:ledger_account.rev", "amount": 10000, "direction": "credit"},
-            ],
-        })
-        ret = ReturnStep.model_validate({
-            "step_id": "refund", "type": "return",
-            "depends_on": ["deposit"],
-            "ledger_entries": "reverse_parent",
-        })
+        ipd = IncomingPaymentDetailStep.model_validate(
+            {
+                "step_id": "deposit",
+                "type": "incoming_payment_detail",
+                "payment_type": "ach",
+                "direction": "credit",
+                "amount": 10000,
+                "internal_account_id": "$ref:internal_account.ops",
+                "ledger_entries": [
+                    {
+                        "ledger_account_id": "$ref:ledger_account.cash",
+                        "amount": 10000,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "$ref:ledger_account.rev",
+                        "amount": 10000,
+                        "direction": "credit",
+                    },
+                ],
+            }
+        )
+        ret = ReturnStep.model_validate(
+            {
+                "step_id": "refund",
+                "type": "return",
+                "depends_on": ["deposit"],
+                "ledger_entries": "reverse_parent",
+            }
+        )
         target = _find_reverse_target(ret, [ipd, ret])
         assert target is ipd
 
     def test_no_parent_returns_none(self):
-        ret = ReturnStep.model_validate({
-            "step_id": "refund", "type": "return",
-            "ledger_entries": "reverse_parent",
-        })
+        ret = ReturnStep.model_validate(
+            {
+                "step_id": "refund",
+                "type": "return",
+                "ledger_entries": "reverse_parent",
+            }
+        )
         assert _find_reverse_target(ret, [ret]) is None
 
 
@@ -338,10 +413,7 @@ class TestLedgerableFields:
         config = _make_minimal_config(funds_flows=[flow.model_dump()])
         flow_irs = compile_flows([flow], config)
         compiled = emit_dataloader_config(flow_irs, base_config=config)
-        child_lts = [
-            lt for lt in compiled.ledger_transactions
-            if lt.ledgerable_type is not None
-        ]
+        child_lts = [lt for lt in compiled.ledger_transactions if lt.ledgerable_type is not None]
         assert len(child_lts) == 1
         lt = child_lts[0]
         assert lt.ledgerable_type == "incoming_payment_detail"
@@ -353,10 +425,7 @@ class TestLedgerableFields:
         config = _make_minimal_config(funds_flows=[flow.model_dump()])
         flow_irs = compile_flows([flow], config)
         compiled = emit_dataloader_config(flow_irs, base_config=config)
-        child_lts = [
-            lt for lt in compiled.ledger_transactions
-            if lt.ledgerable_type is not None
-        ]
+        child_lts = [lt for lt in compiled.ledger_transactions if lt.ledgerable_type is not None]
         assert len(child_lts) == 0
 
     def test_ledgerable_id_matches_parent_ref(self):
@@ -365,10 +434,7 @@ class TestLedgerableFields:
         flow_irs = compile_flows([flow], config)
         compiled = emit_dataloader_config(flow_irs, base_config=config)
         ipd = compiled.incoming_payment_details[0]
-        child_lt = next(
-            lt for lt in compiled.ledger_transactions
-            if lt.ledgerable_type is not None
-        )
+        child_lt = next(lt for lt in compiled.ledger_transactions if lt.ledgerable_type is not None)
         assert child_lt.ledgerable_id == f"$ref:incoming_payment_detail.{ipd.ref}"
 
 
@@ -385,8 +451,7 @@ class TestExampleEmbeddedResources:
         compiled, flow_irs = _compile(config)
         if flow_irs:
             child_lts = [
-                lt for lt in compiled.ledger_transactions
-                if lt.ledgerable_type is not None
+                lt for lt in compiled.ledger_transactions if lt.ledgerable_type is not None
             ]
             assert len(child_lts) == 0
 
@@ -397,19 +462,17 @@ class TestExampleEmbeddedResources:
         compiled, flow_irs = _compile(config)
         if flow_irs:
             child_lts = [
-                lt for lt in compiled.ledger_transactions
-                if lt.ledgerable_type is not None
+                lt for lt in compiled.ledger_transactions if lt.ledgerable_type is not None
             ]
             for lt in child_lts:
                 assert lt.ledgerable_type in (
-                    "incoming_payment_detail", "payment_order",
+                    "incoming_payment_detail",
+                    "payment_order",
                     "expected_payment",
                 )
                 assert lt.ledgerable_id.startswith("$ref:")
 
-    @pytest.mark.parametrize("filename", sorted(
-        p.name for p in EXAMPLES_DIR.glob("*.json")
-    ))
+    @pytest.mark.parametrize("filename", sorted(p.name for p in EXAMPLES_DIR.glob("*.json")))
     def test_all_examples_compile_with_embedded_changes(self, filename):
         raw = json.loads((EXAMPLES_DIR / filename).read_text())
         config = DataLoaderConfig.model_validate(raw)

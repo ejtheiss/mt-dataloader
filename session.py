@@ -71,9 +71,7 @@ sessions: dict[str, SessionState] = {}
 def prune_expired_sessions() -> int:
     """Remove sessions older than SESSION_TTL_SECONDS. Returns count removed."""
     now = time.time()
-    expired = [
-        k for k, v in sessions.items() if now - v.created_at > SESSION_TTL_SECONDS
-    ]
+    expired = [k for k, v in sessions.items() if now - v.created_at > SESSION_TTL_SECONDS]
     for k in expired:
         del sessions[k]
     return len(expired)

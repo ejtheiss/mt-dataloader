@@ -12,14 +12,45 @@ __all__ = [
     "suggest_payment_type",
 ]
 
-KNOWN_PAYMENT_TYPES: frozenset[str] = frozenset({
-    "ach", "au_becs", "bacs", "base", "book", "card", "chats", "check",
-    "cross_border", "dk_nets", "eft", "ethereum", "gb_fps", "hu_ics",
-    "interac", "masav", "mx_ccen", "neft", "nics", "nz_becs",
-    "pl_elixir", "polygon", "provxchange", "ro_sent", "rtp",
-    "se_bankgirot", "sen", "sepa", "sg_giro", "sic", "signet",
-    "sknbi", "solana", "wire", "zengin",
-})
+KNOWN_PAYMENT_TYPES: frozenset[str] = frozenset(
+    {
+        "ach",
+        "au_becs",
+        "bacs",
+        "base",
+        "book",
+        "card",
+        "chats",
+        "check",
+        "cross_border",
+        "dk_nets",
+        "eft",
+        "ethereum",
+        "gb_fps",
+        "hu_ics",
+        "interac",
+        "masav",
+        "mx_ccen",
+        "neft",
+        "nics",
+        "nz_becs",
+        "pl_elixir",
+        "polygon",
+        "provxchange",
+        "ro_sent",
+        "rtp",
+        "se_bankgirot",
+        "sen",
+        "sepa",
+        "sg_giro",
+        "sic",
+        "signet",
+        "sknbi",
+        "solana",
+        "wire",
+        "zengin",
+    }
+)
 
 
 def suggest_payment_type(unknown: str) -> str | None:

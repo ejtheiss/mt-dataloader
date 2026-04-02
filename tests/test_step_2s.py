@@ -10,19 +10,11 @@ existing examples.
 
 from __future__ import annotations
 
-import json
-import sys
-from pathlib import Path
-
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from flow_compiler import (
     AuthoringConfig,
-    FlowIR,
     FlowIRStep,
-    LedgerGroup,
     _auto_derive_lifecycle_refs,
     _validate_ref_segment,
     _with_lifecycle_depends_on,
@@ -32,14 +24,6 @@ from flow_compiler import (
     expand_trace_value,
     resolve_actors,
 )
-
-
-def _compile(config):
-    """Compile a DataLoaderConfig via the pipeline, returning (compiled, flow_irs)."""
-    raw = config.model_dump_json().encode()
-    plan = compile_to_plan(AuthoringConfig.from_json(raw))
-    irs = list(plan.flow_irs) or None
-    return plan.config, irs
 from models import (
     DataLoaderConfig,
     FundsFlowConfig,
@@ -48,8 +32,15 @@ from models import (
     ReturnStep,
     ReversalStep,
 )
+from tests.paths import EXAMPLES_DIR
 
-EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
+
+def _compile(config):
+    """Compile a DataLoaderConfig via the pipeline, returning (compiled, flow_irs)."""
+    raw = config.model_dump_json().encode()
+    plan = compile_to_plan(AuthoringConfig.from_json(raw))
+    irs = list(plan.flow_irs) or None
+    return plan.config, irs
 
 
 # =========================================================================
@@ -112,9 +103,12 @@ class TestExpandTraceValue:
         assert expand_trace_value("{ref}-{bad}", "x", 0) == "x-"
 
     def test_profile_placeholders(self):
-        assert expand_trace_value(
-            "{ref}-{business_name}", "flow", 0, profile={"business_name": "Acme"}
-        ) == "flow-Acme"
+        assert (
+            expand_trace_value(
+                "{ref}-{business_name}", "flow", 0, profile={"business_name": "Acme"}
+            )
+            == "flow-Acme"
+        )
 
     def test_profile_missing_key_empties(self):
         assert expand_trace_value("{business_name}-{industry}", "x", 0) == "-"
@@ -144,13 +138,15 @@ def _make_minimal_config(**kwargs) -> DataLoaderConfig:
     """Build a DataLoaderConfig with minimal required fields + overrides."""
     base = {
         "connections": [{"ref": "bank", "entity_id": "example1"}],
-        "internal_accounts": [{
-            "ref": "ops",
-            "connection_id": "$ref:connection.bank",
-            "name": "Ops",
-            "party_name": "Corp",
-            "currency": "USD",
-        }],
+        "internal_accounts": [
+            {
+                "ref": "ops",
+                "connection_id": "$ref:connection.bank",
+                "name": "Ops",
+                "party_name": "Corp",
+                "currency": "USD",
+            }
+        ],
         "ledgers": [{"ref": "main", "name": "Main"}],
         "ledger_accounts": [
             {
@@ -207,8 +203,16 @@ def _make_flow_config(**kwargs) -> FundsFlowConfig:
                 "depends_on": ["deposit"],
                 "description": "Book deposit",
                 "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 10000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 10000, "direction": "credit"},
+                    {
+                        "ledger_account_id": "@actor:direct_1.cash",
+                        "amount": 10000,
+                        "direction": "debit",
+                    },
+                    {
+                        "ledger_account_id": "@actor:direct_1.revenue",
+                        "amount": 10000,
+                        "direction": "credit",
+                    },
                 ],
             },
         ],
@@ -241,32 +245,40 @@ class TestCompileFlows:
         flow = _make_flow_config()
         irs = compile_flows([flow], config)
         settle_step = irs[0].steps[1]
-        assert settle_step.depends_on == (
-            "$ref:incoming_payment_detail.test_flow__0000__deposit",
-        )
+        assert settle_step.depends_on == ("$ref:incoming_payment_detail.test_flow__0000__deposit",)
 
     def test_forward_depends_on_resolved(self):
         """Steps in non-topological order — forward deps must still resolve."""
         config = _make_minimal_config()
-        flow = _make_flow_config(steps=[
-            {
-                "step_id": "settle",
-                "type": "ledger_transaction",
-                "depends_on": ["deposit"],
-                "ledger_entries": [
-                    {"ledger_account_id": "@actor:direct_1.cash", "amount": 5000, "direction": "debit"},
-                    {"ledger_account_id": "@actor:direct_1.revenue", "amount": 5000, "direction": "credit"},
-                ],
-            },
-            {
-                "step_id": "deposit",
-                "type": "incoming_payment_detail",
-                "payment_type": "ach",
-                "direction": "credit",
-                "amount": 5000,
-                "internal_account_id": "@actor:direct_1.ops",
-            },
-        ])
+        flow = _make_flow_config(
+            steps=[
+                {
+                    "step_id": "settle",
+                    "type": "ledger_transaction",
+                    "depends_on": ["deposit"],
+                    "ledger_entries": [
+                        {
+                            "ledger_account_id": "@actor:direct_1.cash",
+                            "amount": 5000,
+                            "direction": "debit",
+                        },
+                        {
+                            "ledger_account_id": "@actor:direct_1.revenue",
+                            "amount": 5000,
+                            "direction": "credit",
+                        },
+                    ],
+                },
+                {
+                    "step_id": "deposit",
+                    "type": "incoming_payment_detail",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 5000,
+                    "internal_account_id": "@actor:direct_1.ops",
+                },
+            ]
+        )
         irs = compile_flows([flow], config)
         settle_step = irs[0].steps[0]
         assert "$ref:incoming_payment_detail.test_flow__0000__deposit" in settle_step.depends_on
@@ -306,17 +318,21 @@ class TestCompileFlows:
     def test_missing_payment_type_on_ipd_raises(self):
         """payment_type is now required at parse time by IncomingPaymentDetailStep."""
         with pytest.raises(Exception, match="payment_type"):
-            FundsFlowConfig.model_validate({
-                "ref": "test",
-                "pattern_type": "test",
-                "steps": [{
-                    "step_id": "deposit",
-                    "type": "incoming_payment_detail",
-                    "direction": "credit",
-                    "amount": 1000,
-                    "internal_account_id": "ia",
-                }],
-            })
+            FundsFlowConfig.model_validate(
+                {
+                    "ref": "test",
+                    "pattern_type": "test",
+                    "steps": [
+                        {
+                            "step_id": "deposit",
+                            "type": "incoming_payment_detail",
+                            "direction": "credit",
+                            "amount": 1000,
+                            "internal_account_id": "ia",
+                        }
+                    ],
+                }
+            )
 
     def test_lt_step_has_ledger_group(self):
         config = _make_minimal_config()
@@ -334,16 +350,18 @@ class TestCompileFlows:
 
     def test_validate_ref_segment_rejects_bad_step_id(self):
         config = _make_minimal_config()
-        flow = _make_flow_config(steps=[
-            {
-                "step_id": "bad__step",
-                "type": "incoming_payment_detail",
-                "payment_type": "ach",
-                "direction": "credit",
-                "amount": 1000,
-                "internal_account_id": "@actor:direct_1.ops",
-            },
-        ])
+        flow = _make_flow_config(
+            steps=[
+                {
+                    "step_id": "bad__step",
+                    "type": "incoming_payment_detail",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 1000,
+                    "internal_account_id": "@actor:direct_1.ops",
+                },
+            ]
+        )
         with pytest.raises(ValueError, match="must not contain '__'"):
             compile_flows([flow], config)
 
@@ -357,8 +375,11 @@ class TestAutoDerive:
     def test_return_gets_returnable_id(self):
         steps = [
             IncomingPaymentDetailStep(
-                step_id="dep", type="incoming_payment_detail",
-                payment_type="ach", amount=1000, internal_account_id="@actor:direct_1.ops",
+                step_id="dep",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=1000,
+                internal_account_id="@actor:direct_1.ops",
             ),
             ReturnStep(step_id="ret", type="return", depends_on=["dep"]),
         ]
@@ -373,11 +394,16 @@ class TestAutoDerive:
     def test_return_does_not_overwrite_explicit(self):
         steps = [
             IncomingPaymentDetailStep(
-                step_id="dep", type="incoming_payment_detail",
-                payment_type="ach", amount=1000, internal_account_id="@actor:direct_1.ops",
+                step_id="dep",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=1000,
+                internal_account_id="@actor:direct_1.ops",
             ),
             ReturnStep(
-                step_id="ret", type="return", depends_on=["dep"],
+                step_id="ret",
+                type="return",
+                depends_on=["dep"],
                 returnable_id="$ref:ipd.manual",
             ),
         ]
@@ -392,8 +418,11 @@ class TestAutoDerive:
     def test_reversal_gets_payment_order_id(self):
         steps = [
             PaymentOrderStep(
-                step_id="pay", type="payment_order",
-                payment_type="ach", direction="debit", amount=5000,
+                step_id="pay",
+                type="payment_order",
+                payment_type="ach",
+                direction="debit",
+                amount=5000,
                 originating_account_id="@actor:direct_1.ops",
             ),
             ReversalStep(step_id="rev", type="reversal", depends_on=["pay"]),
@@ -415,41 +444,56 @@ class TestAutoDerive:
 class TestWithLifecycleDependsOn:
     def test_return_step(self):
         step = FlowIRStep(
-            step_id="ret", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="return",
+            step_id="ret",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="return",
             payload={"returnable_id": "$ref:incoming_payment_detail.f__0000__dep"},
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         step = _with_lifecycle_depends_on(step)
         assert "$ref:incoming_payment_detail.f__0000__dep" in step.depends_on
 
     def test_reversal_step(self):
         step = FlowIRStep(
-            step_id="rev", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="reversal",
+            step_id="rev",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="reversal",
             payload={"payment_order_id": "$ref:payment_order.f__0000__pay"},
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         step = _with_lifecycle_depends_on(step)
         assert "$ref:payment_order.f__0000__pay" in step.depends_on
 
     def test_no_duplicate_deps(self):
         step = FlowIRStep(
-            step_id="ret", flow_ref="f", instance_id="0000",
+            step_id="ret",
+            flow_ref="f",
+            instance_id="0000",
             depends_on=("$ref:incoming_payment_detail.f__0000__dep",),
             resource_type="return",
             payload={"returnable_id": "$ref:incoming_payment_detail.f__0000__dep"},
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         step = _with_lifecycle_depends_on(step)
         assert step.depends_on.count("$ref:incoming_payment_detail.f__0000__dep") == 1
 
     def test_other_type_unchanged(self):
         step = FlowIRStep(
-            step_id="ipd", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="incoming_payment_detail",
+            step_id="ipd",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="incoming_payment_detail",
             payload={"internal_account_id": "$ref:ia.ops"},
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         step = _with_lifecycle_depends_on(step)
         assert step.depends_on == ()
@@ -483,28 +527,26 @@ class TestEmitDataloaderConfig:
 
     def test_lt_step_has_entries_directly(self):
         emitted, _ = self._compile_default()
-        lt = next(r for r in emitted.ledger_transactions
-                  if r.ref == "test_flow__0000__settle")
+        lt = next(r for r in emitted.ledger_transactions if r.ref == "test_flow__0000__settle")
         assert len(lt.ledger_entries) == 2
         entry_dirs = {e.direction for e in lt.ledger_entries}
         assert entry_dirs == {"debit", "credit"}
 
     def test_lt_step_depends_on_ipd(self):
         emitted, _ = self._compile_default()
-        lt = next(r for r in emitted.ledger_transactions
-                  if r.ref == "test_flow__0000__settle")
+        lt = next(r for r in emitted.ledger_transactions if r.ref == "test_flow__0000__settle")
         assert "$ref:incoming_payment_detail.test_flow__0000__deposit" in lt.depends_on
 
     def test_metadata_stamped_on_ipd(self):
         emitted, _ = self._compile_default()
-        ipd = next(r for r in emitted.incoming_payment_details
-                   if r.ref == "test_flow__0000__deposit")
+        ipd = next(
+            r for r in emitted.incoming_payment_details if r.ref == "test_flow__0000__deposit"
+        )
         assert ipd.metadata["deal_id"] == "test_flow-0"
 
     def test_metadata_stamped_on_lt(self):
         emitted, _ = self._compile_default()
-        lt = next(r for r in emitted.ledger_transactions
-                  if r.ref == "test_flow__0000__settle")
+        lt = next(r for r in emitted.ledger_transactions if r.ref == "test_flow__0000__settle")
         assert lt.metadata["deal_id"] == "test_flow-0"
 
     def test_base_resources_preserved(self):
@@ -518,9 +560,7 @@ class TestEmitDataloaderConfig:
     def test_output_validates_against_pydantic(self):
         """The emitted output must pass DataLoaderConfig validation."""
         emitted, _ = self._compile_default()
-        reloaded = DataLoaderConfig.model_validate(
-            emitted.model_dump(exclude_none=True)
-        )
+        reloaded = DataLoaderConfig.model_validate(emitted.model_dump(exclude_none=True))
         assert len(reloaded.incoming_payment_details) == len(emitted.incoming_payment_details)
 
 

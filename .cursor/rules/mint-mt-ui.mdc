@@ -6,6 +6,10 @@ alwaysApply: false
 
 # MINT / Modern Treasury UI resources
 
+## Stack authority
+
+**MINT is the design system** (tokens + `static/css/*` + `mt-patterns.css` + partials from Platform React) — this mirrors **Platform** (customer dashboard). **`static/turbogrid/`** is **Flow-admin grid CSS** only: upstream it is **scoped to grid output**, not `<main>`. Do **not** put `class="turbogrid"` on the app shell; that bleeds reset/tokens app-wide and is **not** how Flow or Platform work. Read **`docs/DESIGN_SYSTEM_AUTHORITY.md`** before large UI refactors.
+
 ## Canonical paths (MUST)
 
 1. **Runtime design contract (what the app loads)**  

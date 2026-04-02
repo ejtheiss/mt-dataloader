@@ -274,13 +274,13 @@ def preselect_edge_cases(
                 allocated[0] += diff
             pos = 0
             for m, alloc in zip(members, allocated):
-                result[m["label"]] = set(pool[pos:pos + alloc])
+                result[m["label"]] = set(pool[pos : pos + alloc])
                 pos += alloc
         else:
             pos = 0
             for m in members:
                 c = m["_count"]
-                result[m["label"]] = set(pool[pos:pos + c])
+                result[m["label"]] = set(pool[pos : pos + c])
                 pos += c
 
     for og in independent:
@@ -308,10 +308,14 @@ def activate_optional_groups(
     }
 
 
-_MONEY_MOVEMENT_TYPES: frozenset[str] = frozenset({
-    "payment_order", "incoming_payment_detail",
-    "expected_payment", "ledger_transaction",
-})
+_MONEY_MOVEMENT_TYPES: frozenset[str] = frozenset(
+    {
+        "payment_order",
+        "incoming_payment_detail",
+        "expected_payment",
+        "ledger_transaction",
+    }
+)
 
 
 def mark_staged(flow_dict: dict) -> dict:
@@ -365,7 +369,10 @@ def select_staged_instances(
     result: set[int] = set()
     for rule in recipe.staging_rules:
         result |= _select_from_pool(
-            rule.selection, rule.count, total, edge_selections,
+            rule.selection,
+            rule.count,
+            total,
+            edge_selections,
         )
     return result
 
@@ -396,12 +403,13 @@ def _build_actor_profile_caches(
     for alias, frame in pattern.actors.items():
         override = recipe.actor_overrides.get(alias)
         effective_ds = (
-            (override.dataset if override and override.dataset else None)
-            or frame.dataset
-        )
+            override.dataset if override and override.dataset else None
+        ) or frame.dataset
         if effective_ds:
             biz, indiv = seed_loader.generate_profiles(
-                effective_ds, recipe.instances, recipe.seed,
+                effective_ds,
+                recipe.instances,
+                recipe.seed,
             )
             caches[alias] = (biz, indiv)
     return caches
@@ -433,9 +441,8 @@ def _enrich_profile_with_actors(
             actor_profile = seed_loader.pick_profile(global_biz, global_indiv, instance)
 
         name_tpl = (
-            (override.name_template if override and override.name_template else None)
-            or frame.name_template
-        )
+            override.name_template if override and override.name_template else None
+        ) or frame.name_template
 
         entity_type = override.entity_type if override and override.entity_type else None
 
@@ -475,33 +482,42 @@ def generate_from_recipe(
     if pattern is None:
         available = [f.ref for f in base_config.funds_flows]
         raise ValueError(
-            f"flow_ref '{recipe.flow_ref}' not found in loaded config. "
-            f"Available: {available}"
+            f"flow_ref '{recipe.flow_ref}' not found in loaded config. Available: {available}"
         )
 
     biz_ds = recipe.business_dataset or recipe.seed_dataset
     indiv_ds = recipe.individual_dataset or recipe.seed_dataset
     biz_profiles, _ = seed_loader.generate_profiles(
-        biz_ds, recipe.instances, recipe.seed,
+        biz_ds,
+        recipe.instances,
+        recipe.seed,
     )
     _, indiv_profiles = seed_loader.generate_profiles(
-        indiv_ds, recipe.instances, recipe.seed,
+        indiv_ds,
+        recipe.instances,
+        recipe.seed,
     )
 
     actor_caches = _build_actor_profile_caches(pattern, recipe)
 
     edge_overrides = (
         {k: v.model_dump() for k, v in recipe.edge_case_overrides.items()}
-        if recipe.edge_case_overrides else None
+        if recipe.edge_case_overrides
+        else None
     )
     pattern_dict = pattern.model_dump()
     edge_selections = preselect_edge_cases(
-        pattern_dict, recipe.edge_case_count, recipe.instances,
-        recipe.seed, overrides=edge_overrides,
+        pattern_dict,
+        recipe.edge_case_count,
+        recipe.instances,
+        recipe.seed,
+        overrides=edge_overrides,
     )
 
     staged_instances = select_staged_instances(
-        recipe, recipe.instances, random.Random(recipe.seed),
+        recipe,
+        recipe.instances,
+        random.Random(recipe.seed),
         edge_selections=edge_selections,
     )
 
@@ -524,8 +540,13 @@ def generate_from_recipe(
         rng = random.Random(recipe.seed + i)
         profile = seed_loader.pick_profile(biz_profiles, indiv_profiles, i)
         profile = _enrich_profile_with_actors(
-            profile, pattern, recipe, actor_caches,
-            biz_profiles, indiv_profiles, i,
+            profile,
+            pattern,
+            recipe,
+            actor_caches,
+            biz_profiles,
+            indiv_profiles,
+            i,
         )
         flow_dict, instance_resources = clone_flow(pattern, i, profile)
 
@@ -533,10 +554,7 @@ def generate_from_recipe(
             expanded = _expand_instance_resources(instance_resources, i, profile)
             for section, items in expanded.items():
                 bucket = extra_resources.setdefault(section, [])
-                seen = {
-                    it.get("ref") for it in bucket
-                    if isinstance(it, dict) and it.get("ref")
-                }
+                seen = {it.get("ref") for it in bucket if isinstance(it, dict) and it.get("ref")}
                 for item in items:
                     ref = item.get("ref") if isinstance(item, dict) else None
                     if ref and ref in seen:
@@ -562,9 +580,7 @@ def generate_from_recipe(
                 step_variance=recipe.step_variance or None,
             )
 
-        activated = {
-            label for label, indices in edge_selections.items() if i in indices
-        }
+        activated = {label for label, indices in edge_selections.items() if i in indices}
         activated = activate_optional_groups(flow_dict, activated)
 
         for og in flow_dict.get("optional_groups", []):
@@ -614,7 +630,9 @@ def generate_from_recipe(
 
     flow_irs = compile_flows(flows, base_config)
     compiled = emit_dataloader_config(
-        flow_irs, base_config=base_config, extra_resources=extra_resources,
+        flow_irs,
+        base_config=base_config,
+        extra_resources=extra_resources,
     )
 
     diagrams: list[str] = []

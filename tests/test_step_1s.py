@@ -8,13 +8,15 @@ import pytest
 import yaml
 
 from engine import (
+    RefRegistry,
     all_resources,
     inject_legal_entity_psp_connection_id,
-    RefRegistry,
     typed_ref_for,
 )
+from flow_compiler import AuthoringConfig, compile_to_plan
 from helpers import build_preview
 from models import (
+    VALID_STEP_TYPES,
     DataLoaderConfig,
     DisplayPhase,
     FundsFlowConfig,
@@ -22,15 +24,10 @@ from models import (
     FundsFlowStepConfig,
     IncomingPaymentDetailConfig,
     IncomingPaymentDetailStep,
-    LedgerTransactionStep,
-    PaymentOrderStep,
     ReturnConfig,
     ReturnStep,
     ReversalStep,
-    TransitionLedgerTransactionStep,
-    VALID_STEP_TYPES,
 )
-from flow_compiler import AuthoringConfig, compile_to_plan
 
 
 def _compile(config):
@@ -77,22 +74,28 @@ class TestTypedStepModels:
     def test_ipd_requires_payment_type(self):
         with pytest.raises(Exception, match="payment_type"):
             FundsFlowStepConfig(
-                step_id="dep", type="incoming_payment_detail",
-                amount=5000, internal_account_id="ia",
+                step_id="dep",
+                type="incoming_payment_detail",
+                amount=5000,
+                internal_account_id="ia",
             )
 
     def test_ipd_requires_internal_account(self):
         with pytest.raises(Exception, match="internal_account_id"):
             FundsFlowStepConfig(
-                step_id="dep", type="incoming_payment_detail",
-                payment_type="ach", amount=5000,
+                step_id="dep",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=5000,
             )
 
     def test_po_requires_direction(self):
         with pytest.raises(Exception, match="direction"):
             FundsFlowStepConfig(
-                step_id="pay", type="payment_order",
-                payment_type="ach", amount=5000,
+                step_id="pay",
+                type="payment_order",
+                payment_type="ach",
+                amount=5000,
                 originating_account_id="ia",
             )
 
@@ -103,13 +106,16 @@ class TestTypedStepModels:
     def test_tlt_requires_status(self):
         with pytest.raises(Exception, match="status"):
             FundsFlowStepConfig(
-                step_id="t", type="transition_ledger_transaction",
+                step_id="t",
+                type="transition_ledger_transaction",
             )
 
     def test_valid_ipd(self):
         step = FundsFlowStepConfig(
-            step_id="dep", type="incoming_payment_detail",
-            payment_type="ach", amount=50000,
+            step_id="dep",
+            type="incoming_payment_detail",
+            payment_type="ach",
+            amount=50000,
             internal_account_id="$ref:internal_account.ops",
         )
         assert step.step_id == "dep"
@@ -118,8 +124,10 @@ class TestTypedStepModels:
 
     def test_ipd_direction_defaults_to_credit(self):
         step = FundsFlowStepConfig(
-            step_id="dep", type="incoming_payment_detail",
-            payment_type="ach", amount=1000,
+            step_id="dep",
+            type="incoming_payment_detail",
+            payment_type="ach",
+            amount=1000,
             internal_account_id="ia",
         )
         assert step.direction == "credit"
@@ -127,17 +135,23 @@ class TestTypedStepModels:
     def test_ipd_rejects_debit_direction(self):
         with pytest.raises(Exception):
             FundsFlowStepConfig(
-                step_id="dep", type="incoming_payment_detail",
-                payment_type="ach", amount=1000,
-                internal_account_id="ia", direction="debit",
+                step_id="dep",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=1000,
+                internal_account_id="ia",
+                direction="debit",
             )
 
     def test_extra_fields_forbidden(self):
         with pytest.raises(Exception, match="Extra inputs"):
             FundsFlowStepConfig(
-                step_id="dep", type="incoming_payment_detail",
-                payment_type="ach", amount=1000,
-                internal_account_id="ia", bogus_field="nope",
+                step_id="dep",
+                type="incoming_payment_detail",
+                payment_type="ach",
+                amount=1000,
+                internal_account_id="ia",
+                bogus_field="nope",
             )
 
     def test_unbalanced_ledger_entries(self):
@@ -146,10 +160,16 @@ class TestTypedStepModels:
                 step_id="bad_lt",
                 type="ledger_transaction",
                 ledger_entries=[
-                    {"amount": 100, "direction": "debit",
-                     "ledger_account_id": "$ref:ledger_account.cash"},
-                    {"amount": 200, "direction": "credit",
-                     "ledger_account_id": "$ref:ledger_account.revenue"},
+                    {
+                        "amount": 100,
+                        "direction": "debit",
+                        "ledger_account_id": "$ref:ledger_account.cash",
+                    },
+                    {
+                        "amount": 200,
+                        "direction": "credit",
+                        "ledger_account_id": "$ref:ledger_account.revenue",
+                    },
                 ],
             )
 
@@ -158,10 +178,16 @@ class TestTypedStepModels:
             step_id="settle",
             type="ledger_transaction",
             ledger_entries=[
-                {"amount": 50000, "direction": "debit",
-                 "ledger_account_id": "$ref:ledger_account.cash"},
-                {"amount": 50000, "direction": "credit",
-                 "ledger_account_id": "$ref:ledger_account.revenue"},
+                {
+                    "amount": 50000,
+                    "direction": "debit",
+                    "ledger_account_id": "$ref:ledger_account.cash",
+                },
+                {
+                    "amount": 50000,
+                    "direction": "credit",
+                    "ledger_account_id": "$ref:ledger_account.revenue",
+                },
             ],
         )
         assert len(step.ledger_entries) == 2
@@ -171,13 +197,20 @@ class TestTypedStepModels:
             FundsFlowStepConfig(step_id="bad", type="not_a_real_type")
 
     def test_valid_step_types_complete(self):
-        assert VALID_STEP_TYPES == frozenset({
-            "payment_order", "incoming_payment_detail",
-            "ledger_transaction", "expected_payment",
-            "return", "reversal", "transition_ledger_transaction",
-            "verify_external_account", "complete_verification",
-            "archive_resource",
-        })
+        assert VALID_STEP_TYPES == frozenset(
+            {
+                "payment_order",
+                "incoming_payment_detail",
+                "ledger_transaction",
+                "expected_payment",
+                "return",
+                "reversal",
+                "transition_ledger_transaction",
+                "verify_external_account",
+                "complete_verification",
+                "archive_resource",
+            }
+        )
 
     def test_return_code_defaults_to_r01(self):
         step = FundsFlowStepConfig(step_id="ret", type="return")
@@ -197,15 +230,30 @@ class TestTypedStepModels:
     def test_union_parses_all_types(self):
         """Each step type can be parsed via the compat factory."""
         specs = [
-            {"step_id": "a", "type": "payment_order", "payment_type": "ach",
-             "direction": "debit", "amount": 100, "originating_account_id": "ia"},
-            {"step_id": "b", "type": "incoming_payment_detail",
-             "payment_type": "ach", "amount": 100, "internal_account_id": "ia"},
+            {
+                "step_id": "a",
+                "type": "payment_order",
+                "payment_type": "ach",
+                "direction": "debit",
+                "amount": 100,
+                "originating_account_id": "ia",
+            },
+            {
+                "step_id": "b",
+                "type": "incoming_payment_detail",
+                "payment_type": "ach",
+                "amount": 100,
+                "internal_account_id": "ia",
+            },
             {"step_id": "c", "type": "expected_payment"},
-            {"step_id": "d", "type": "ledger_transaction", "ledger_entries": [
-                {"amount": 1, "direction": "debit", "ledger_account_id": "la"},
-                {"amount": 1, "direction": "credit", "ledger_account_id": "lb"},
-            ]},
+            {
+                "step_id": "d",
+                "type": "ledger_transaction",
+                "ledger_entries": [
+                    {"amount": 1, "direction": "debit", "ledger_account_id": "la"},
+                    {"amount": 1, "direction": "credit", "ledger_account_id": "lb"},
+                ],
+            },
             {"step_id": "e", "type": "return"},
             {"step_id": "f", "type": "reversal"},
             {"step_id": "g", "type": "transition_ledger_transaction", "status": "posted"},
@@ -466,116 +514,127 @@ class TestDagConnectionsBeforeLegalEntities:
     def test_legal_entities_run_in_later_batch_than_connections(self):
         from engine import dry_run
 
-        batches = dry_run(DataLoaderConfig.model_validate({
-            "connections": [
+        batches = dry_run(
+            DataLoaderConfig.model_validate(
                 {
-                    "ref": "c_a",
-                    "entity_id": "modern_treasury",
-                    "nickname": "A",
-                },
-                {
-                    "ref": "c_b",
-                    "entity_id": "modern_treasury",
-                    "nickname": "B",
-                },
-            ],
-            "legal_entities": [
-                {
-                    "ref": "le1",
-                    "legal_entity_type": "business",
-                    "business_name": "Co",
-                },
-            ],
-            "internal_accounts": [
-                {
-                    "ref": "ia_usd",
-                    "connection_id": "$ref:connection.c_a",
-                    "name": "USD",
-                    "party_name": "Co",
-                    "currency": "USD",
-                    "legal_entity_id": "$ref:legal_entity.le1",
-                },
-            ],
-            "funds_flows": [],
-        }))
-        conn_idxs = [i for i, b in enumerate(batches) if any(
-            r.startswith("connection.") for r in b
-        )]
-        le_idxs = [i for i, b in enumerate(batches) if any(
-            r.startswith("legal_entity.") for r in b
-        )]
+                    "connections": [
+                        {
+                            "ref": "c_a",
+                            "entity_id": "modern_treasury",
+                            "nickname": "A",
+                        },
+                        {
+                            "ref": "c_b",
+                            "entity_id": "modern_treasury",
+                            "nickname": "B",
+                        },
+                    ],
+                    "legal_entities": [
+                        {
+                            "ref": "le1",
+                            "legal_entity_type": "business",
+                            "business_name": "Co",
+                        },
+                    ],
+                    "internal_accounts": [
+                        {
+                            "ref": "ia_usd",
+                            "connection_id": "$ref:connection.c_a",
+                            "name": "USD",
+                            "party_name": "Co",
+                            "currency": "USD",
+                            "legal_entity_id": "$ref:legal_entity.le1",
+                        },
+                    ],
+                    "funds_flows": [],
+                }
+            )
+        )
+        conn_idxs = [
+            i for i, b in enumerate(batches) if any(r.startswith("connection.") for r in b)
+        ]
+        le_idxs = [
+            i for i, b in enumerate(batches) if any(r.startswith("legal_entity.") for r in b)
+        ]
         assert conn_idxs and le_idxs
         assert max(conn_idxs) < min(le_idxs)
 
 
 class TestInjectLegalEntityPspConnectionId:
     def test_omits_connection_id_when_sole_modern_treasury(self):
-        config = DataLoaderConfig.model_validate({
-            "connections": [
-                {
-                    "ref": "psp",
-                    "entity_id": "modern_treasury",
-                    "nickname": "PSP",
-                },
-            ],
-            "legal_entities": [
-                {
-                    "ref": "le1",
-                    "legal_entity_type": "business",
-                    "business_name": "Co",
-                },
-            ],
-            "funds_flows": [],
-        })
+        config = DataLoaderConfig.model_validate(
+            {
+                "connections": [
+                    {
+                        "ref": "psp",
+                        "entity_id": "modern_treasury",
+                        "nickname": "PSP",
+                    },
+                ],
+                "legal_entities": [
+                    {
+                        "ref": "le1",
+                        "legal_entity_type": "business",
+                        "business_name": "Co",
+                    },
+                ],
+                "funds_flows": [],
+            }
+        )
         reg = RefRegistry()
         reg.register("connection.psp", "550e8400-e29b-41d4-a716-446655440000")
         resolved = {"legal_entity_type": "business", "business_name": "Co"}
         inject_legal_entity_psp_connection_id(
-            config, reg, resolved, typed_ref="legal_entity.le1",
+            config,
+            reg,
+            resolved,
+            typed_ref="legal_entity.le1",
         )
         assert "connection_id" not in resolved
 
     def test_prefers_fiat_ia_connection_when_two_modern_treasury_rows(self):
-        config = DataLoaderConfig.model_validate({
-            "connections": [
-                {
-                    "ref": "stablecoin_rail",
-                    "entity_id": "modern_treasury",
-                    "nickname": "SC",
-                },
-                {
-                    "ref": "fiat_rail",
-                    "entity_id": "modern_treasury",
-                    "nickname": "Fiat",
-                },
-            ],
-            "legal_entities": [
-                {
-                    "ref": "le1",
-                    "legal_entity_type": "business",
-                    "business_name": "Co",
-                },
-            ],
-            "internal_accounts": [
-                {
-                    "ref": "platform_usd",
-                    "connection_id": "$ref:connection.fiat_rail",
-                    "name": "USD",
-                    "party_name": "Co",
-                    "currency": "USD",
-                    "legal_entity_id": "$ref:legal_entity.le1",
-                },
-                {
-                    "ref": "platform_usdc",
-                    "connection_id": "$ref:connection.stablecoin_rail",
-                    "name": "USDC",
-                    "party_name": "Co",
-                    "currency": "USDC",
-                    "legal_entity_id": "$ref:legal_entity.le1",
-                },
-            ],
-            "funds_flows": [],
-        })
+        config = DataLoaderConfig.model_validate(
+            {
+                "connections": [
+                    {
+                        "ref": "stablecoin_rail",
+                        "entity_id": "modern_treasury",
+                        "nickname": "SC",
+                    },
+                    {
+                        "ref": "fiat_rail",
+                        "entity_id": "modern_treasury",
+                        "nickname": "Fiat",
+                    },
+                ],
+                "legal_entities": [
+                    {
+                        "ref": "le1",
+                        "legal_entity_type": "business",
+                        "business_name": "Co",
+                    },
+                ],
+                "internal_accounts": [
+                    {
+                        "ref": "platform_usd",
+                        "connection_id": "$ref:connection.fiat_rail",
+                        "name": "USD",
+                        "party_name": "Co",
+                        "currency": "USD",
+                        "legal_entity_id": "$ref:legal_entity.le1",
+                    },
+                    {
+                        "ref": "platform_usdc",
+                        "connection_id": "$ref:connection.stablecoin_rail",
+                        "name": "USDC",
+                        "party_name": "Co",
+                        "currency": "USDC",
+                        "legal_entity_id": "$ref:legal_entity.le1",
+                    },
+                ],
+                "funds_flows": [],
+            }
+        )
         reg = RefRegistry()
         reg.register(
             "connection.stablecoin_rail",
@@ -587,56 +646,66 @@ class TestInjectLegalEntityPspConnectionId:
         )
         resolved = {"legal_entity_type": "business", "business_name": "Co"}
         inject_legal_entity_psp_connection_id(
-            config, reg, resolved, typed_ref="legal_entity.le1",
+            config,
+            reg,
+            resolved,
+            typed_ref="legal_entity.le1",
         )
         assert resolved["connection_id"] == "22222222-2222-2222-2222-222222222222"
 
     def test_skips_when_byob_only(self):
-        config = DataLoaderConfig.model_validate({
-            "connections": [
-                {
-                    "ref": "gwb",
-                    "entity_id": "example1",
-                    "nickname": "GWB",
-                },
-            ],
-            "legal_entities": [
-                {
-                    "ref": "le1",
-                    "legal_entity_type": "business",
-                    "business_name": "Co",
-                },
-            ],
-            "funds_flows": [],
-        })
+        config = DataLoaderConfig.model_validate(
+            {
+                "connections": [
+                    {
+                        "ref": "gwb",
+                        "entity_id": "example1",
+                        "nickname": "GWB",
+                    },
+                ],
+                "legal_entities": [
+                    {
+                        "ref": "le1",
+                        "legal_entity_type": "business",
+                        "business_name": "Co",
+                    },
+                ],
+                "funds_flows": [],
+            }
+        )
         reg = RefRegistry()
         reg.register("connection.gwb", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
         resolved = {"legal_entity_type": "business", "business_name": "Co"}
         inject_legal_entity_psp_connection_id(
-            config, reg, resolved, typed_ref="legal_entity.le1",
+            config,
+            reg,
+            resolved,
+            typed_ref="legal_entity.le1",
         )
         assert "connection_id" not in resolved
 
     def test_strips_connection_id_when_sole_modern_treasury_even_if_resolved_preset(
         self,
     ):
-        config = DataLoaderConfig.model_validate({
-            "connections": [
-                {
-                    "ref": "psp",
-                    "entity_id": "modern_treasury",
-                    "nickname": "PSP",
-                },
-            ],
-            "legal_entities": [
-                {
-                    "ref": "le1",
-                    "legal_entity_type": "business",
-                    "business_name": "Co",
-                },
-            ],
-            "funds_flows": [],
-        })
+        config = DataLoaderConfig.model_validate(
+            {
+                "connections": [
+                    {
+                        "ref": "psp",
+                        "entity_id": "modern_treasury",
+                        "nickname": "PSP",
+                    },
+                ],
+                "legal_entities": [
+                    {
+                        "ref": "le1",
+                        "legal_entity_type": "business",
+                        "business_name": "Co",
+                    },
+                ],
+                "funds_flows": [],
+            }
+        )
         reg = RefRegistry()
         reg.register("connection.psp", "550e8400-e29b-41d4-a716-446655440000")
         resolved = {
@@ -645,33 +714,38 @@ class TestInjectLegalEntityPspConnectionId:
             "connection_id": "preset-uuid-0000-0000-000000000000",
         }
         inject_legal_entity_psp_connection_id(
-            config, reg, resolved, typed_ref="legal_entity.le1",
+            config,
+            reg,
+            resolved,
+            typed_ref="legal_entity.le1",
         )
         assert "connection_id" not in resolved
 
     def test_skips_injection_when_connection_id_already_in_payload_multi_conn(self):
-        config = DataLoaderConfig.model_validate({
-            "connections": [
-                {
-                    "ref": "c_a",
-                    "entity_id": "modern_treasury",
-                    "nickname": "A",
-                },
-                {
-                    "ref": "c_b",
-                    "entity_id": "modern_treasury",
-                    "nickname": "B",
-                },
-            ],
-            "legal_entities": [
-                {
-                    "ref": "le1",
-                    "legal_entity_type": "business",
-                    "business_name": "Co",
-                },
-            ],
-            "funds_flows": [],
-        })
+        config = DataLoaderConfig.model_validate(
+            {
+                "connections": [
+                    {
+                        "ref": "c_a",
+                        "entity_id": "modern_treasury",
+                        "nickname": "A",
+                    },
+                    {
+                        "ref": "c_b",
+                        "entity_id": "modern_treasury",
+                        "nickname": "B",
+                    },
+                ],
+                "legal_entities": [
+                    {
+                        "ref": "le1",
+                        "legal_entity_type": "business",
+                        "business_name": "Co",
+                    },
+                ],
+                "funds_flows": [],
+            }
+        )
         reg = RefRegistry()
         reg.register("connection.c_a", "550e8400-e29b-41d4-a716-446655440000")
         reg.register("connection.c_b", "660e8400-e29b-41d4-a716-446655440001")
@@ -681,29 +755,34 @@ class TestInjectLegalEntityPspConnectionId:
             "connection_id": "preset-uuid-0000-0000-000000000000",
         }
         inject_legal_entity_psp_connection_id(
-            config, reg, resolved, typed_ref="legal_entity.le1",
+            config,
+            reg,
+            resolved,
+            typed_ref="legal_entity.le1",
         )
         assert resolved["connection_id"] == "preset-uuid-0000-0000-000000000000"
 
     def test_pydantic_strips_le_connection_id_when_sole_modern_treasury(self):
-        config = DataLoaderConfig.model_validate({
-            "connections": [
-                {
-                    "ref": "psp",
-                    "entity_id": "modern_treasury",
-                    "nickname": "PSP",
-                },
-            ],
-            "legal_entities": [
-                {
-                    "ref": "le1",
-                    "legal_entity_type": "business",
-                    "business_name": "Co",
-                    "connection_id": "$ref:connection.psp",
-                },
-            ],
-            "funds_flows": [],
-        })
+        config = DataLoaderConfig.model_validate(
+            {
+                "connections": [
+                    {
+                        "ref": "psp",
+                        "entity_id": "modern_treasury",
+                        "nickname": "PSP",
+                    },
+                ],
+                "legal_entities": [
+                    {
+                        "ref": "le1",
+                        "legal_entity_type": "business",
+                        "business_name": "Co",
+                        "connection_id": "$ref:connection.psp",
+                    },
+                ],
+                "funds_flows": [],
+            }
+        )
         assert config.legal_entities[0].connection_id is None
 
 
@@ -822,7 +901,10 @@ class TestBuildPreviewSetupOrder:
         )
         recon = ReconciliationResult(matches=[m])
         items = build_preview(
-            batches, resource_map, skip_refs=set(), reconciliation=recon,
+            batches,
+            resource_map,
+            skip_refs=set(),
+            reconciliation=recon,
         )
         conn_row = next(i for i in items if i["typed_ref"] == "connection.c1")
         assert conn_row["action"] == "create"
@@ -918,17 +1000,20 @@ _SEEDS_DIR = Path(__file__).resolve().parent.parent / "seeds"
 class TestSeedCatalog:
     def test_curated_yamls_load(self):
         for name in ["harry_potter", "superheroes", "seinfeld"]:
-            catalog = yaml.safe_load(
-                (_SEEDS_DIR / f"{name}.yaml").read_text()
-            )
+            catalog = yaml.safe_load((_SEEDS_DIR / f"{name}.yaml").read_text())
             assert "business_profiles" in catalog
             assert "individual_profiles" in catalog
             assert len(catalog["business_profiles"]) >= 50
 
     def test_industry_templates_load(self):
-        templates = yaml.safe_load(
-            (_SEEDS_DIR / "industry_templates.yaml").read_text()
-        )
-        for key in ["tech", "government", "payroll", "manufacturing", "property_management", "construction"]:
+        templates = yaml.safe_load((_SEEDS_DIR / "industry_templates.yaml").read_text())
+        for key in [
+            "tech",
+            "government",
+            "payroll",
+            "manufacturing",
+            "property_management",
+            "construction",
+        ]:
             assert key in templates, f"Missing industry vertical: {key}"
             assert len(templates[key]["company_patterns"]) >= 5

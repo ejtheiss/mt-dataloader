@@ -8,113 +8,112 @@ continues to work unchanged after the monolith → package decomposition.
 """
 
 # --- shared types & constants ---
-from models.shared import (
-    REF_PATTERN,
-    RESOURCE_TYPES,
-    SOURCE_BADGE,
-    RefStr,
-    DisplayPhase,
-    MetadataMixin,
-    AddressConfig,
-    AccountDetailConfig,
-    RoutingDetailConfig,
-    InlineLedgerAccountConfig,
-    InlineLedgerEntryConfig,
-    InlineLedgerTransactionConfig,
-    AmountCents,
-    CurrencyCode,
-    PaymentDirection,
-    LedgerStatus,
-    _BaseResourceConfig,
-)
-
-# --- resource configs (Layers 0–6) ---
-from models.resources import (
-    ConnectionConfig,
-    LegalEntityConfig,
-    LedgerConfig,
-    CounterpartyAccountConfig,
-    CounterpartyConfig,
-    LedgerAccountConfig,
-    InternalAccountConfig,
-    ExternalAccountConfig,
-    LedgerAccountCategoryConfig,
-    VirtualAccountConfig,
-    ReconciliationRuleVariable,
-    ExpectedPaymentConfig,
-    LineItemConfig,
-    PaymentOrderConfig,
-    IncomingPaymentDetailConfig,
-    LedgerTransactionConfig,
-    ReturnConfig,
-    ReversalConfig,
-    CategoryMembershipConfig,
-    NestedCategoryConfig,
-    TransitionLedgerTransactionConfig,
-    LedgerAccountSettlementConfig,
-    BalanceMonitorAlertCondition,
-    LedgerAccountBalanceMonitorConfig,
-    LedgerAccountStatementConfig,
-    LegalEntityAssociationConfig,
-    TransactionConfig,
-)
-
-# --- step models + derived constants ---
-from models.steps import (
-    _StepBase,
-    _LedgerableMixin,
-    _LifecycleLedgerMixin,
-    PaymentOrderStep,
-    IncomingPaymentDetailStep,
-    ExpectedPaymentStep,
-    LedgerTransactionStep,
-    ReturnStep,
-    ReversalStep,
-    TransitionLedgerTransactionStep,
-    VerifyExternalAccountStep,
-    CompleteVerificationStep,
-    ArchiveResourceStep,
-    FundsFlowStep,
-    FundsFlowStepConfig,
-    VALID_STEP_TYPES,
-    RESOURCE_TYPE_TO_SECTION,
-    ARROW_BY_TYPE,
-    NEEDS_PAYMENT_TYPE,
-    INLINE_LT_TYPES,
-    PAYMENT_MIX_TYPE_MAP,
-    REVERSES_DIRECTION,
-    _extract_step_ref,
-)
-
-# --- flow DSL + generation ---
-from models.flow_dsl import (
-    ActorSlot,
-    ActorFrame,
-    ActorDatasetOverride,
-    ApplicabilityRule,
-    EdgeCaseOverride,
-    OptionalGroupConfig,
-    StepMatch,
-    FundsFlowScaleConfig,
-    LedgerViewConfig,
-    PaymentsViewConfig,
-    FundFlowViewConfig,
-    FundsFlowConfig,
-    PaymentMixConfig,
-    GenerationRecipeV1,
-)
-
 # --- top-level config ---
 from models.config import DataLoaderConfig
 
-# --- runtime types ---
-from models.runtime import HandlerResult
+# --- flow DSL + generation ---
+from models.flow_dsl import (
+    ActorDatasetOverride,
+    ActorFrame,
+    ActorSlot,
+    ApplicabilityRule,
+    EdgeCaseOverride,
+    FundFlowViewConfig,
+    FundsFlowConfig,
+    FundsFlowScaleConfig,
+    GenerationRecipeV1,
+    LedgerViewConfig,
+    OptionalGroupConfig,
+    PaymentMixConfig,
+    PaymentsViewConfig,
+    StepMatch,
+)
 
 # --- manifest (run JSON on disk) ---
 from models.manifest import FailedEntry, ManifestEntry, RunManifest, StagedEntry
 
+# --- resource configs (Layers 0–6) ---
+from models.resources import (
+    BalanceMonitorAlertCondition,
+    CategoryMembershipConfig,
+    ConnectionConfig,
+    CounterpartyAccountConfig,
+    CounterpartyConfig,
+    ExpectedPaymentConfig,
+    ExternalAccountConfig,
+    IncomingPaymentDetailConfig,
+    InternalAccountConfig,
+    LedgerAccountBalanceMonitorConfig,
+    LedgerAccountCategoryConfig,
+    LedgerAccountConfig,
+    LedgerAccountSettlementConfig,
+    LedgerAccountStatementConfig,
+    LedgerConfig,
+    LedgerTransactionConfig,
+    LegalEntityAssociationConfig,
+    LegalEntityConfig,
+    LineItemConfig,
+    NestedCategoryConfig,
+    PaymentOrderConfig,
+    ReconciliationRuleVariable,
+    ReturnConfig,
+    ReversalConfig,
+    TransactionConfig,
+    TransitionLedgerTransactionConfig,
+    VirtualAccountConfig,
+)
+
+# --- runtime types ---
+from models.runtime import HandlerResult
+
 # --- app settings ---
 from models.settings import AppSettings
+from models.shared import (
+    REF_PATTERN,
+    RESOURCE_TYPES,
+    SOURCE_BADGE,
+    AccountDetailConfig,
+    AddressConfig,
+    AmountCents,
+    CurrencyCode,
+    DisplayPhase,
+    InlineLedgerAccountConfig,
+    InlineLedgerEntryConfig,
+    InlineLedgerTransactionConfig,
+    LedgerStatus,
+    MetadataMixin,
+    PaymentDirection,
+    RefStr,
+    RoutingDetailConfig,
+    _BaseResourceConfig,
+)
+
+# --- step models + derived constants ---
+from models.steps import (
+    ARROW_BY_TYPE,
+    INLINE_LT_TYPES,
+    NEEDS_PAYMENT_TYPE,
+    PAYMENT_MIX_TYPE_MAP,
+    RESOURCE_TYPE_TO_SECTION,
+    REVERSES_DIRECTION,
+    VALID_STEP_TYPES,
+    ArchiveResourceStep,
+    CompleteVerificationStep,
+    ExpectedPaymentStep,
+    FundsFlowStep,
+    FundsFlowStepConfig,
+    IncomingPaymentDetailStep,
+    LedgerTransactionStep,
+    PaymentOrderStep,
+    ReturnStep,
+    ReversalStep,
+    TransitionLedgerTransactionStep,
+    VerifyExternalAccountStep,
+    _extract_step_ref,
+    _LedgerableMixin,
+    _LifecycleLedgerMixin,
+    _StepBase,
+)
 
 __all__ = [
     # Constants & custom types
@@ -132,6 +131,7 @@ __all__ = [
     "ConnectionConfig",
     # Shared types
     "MetadataMixin",
+    "_BaseResourceConfig",
     "AddressConfig",
     "AccountDetailConfig",
     "RoutingDetailConfig",

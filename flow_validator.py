@@ -53,8 +53,7 @@ class FlowRule(ABC):
     description: str
 
     @abstractmethod
-    def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]:
-        ...
+    def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]: ...
 
 
 def _build_context(flow: FlowIR, actor_refs: dict[str, str] | None = None) -> FlowValidationContext:
@@ -73,7 +72,9 @@ def _build_context(flow: FlowIR, actor_refs: dict[str, str] | None = None) -> Fl
         rtype = step.resource_type
 
         if rtype == "payment_order":
-            ctx.payment_types_by_step[step.step_id] = payload.get("type", "") or payload.get("payment_type", "")
+            ctx.payment_types_by_step[step.step_id] = payload.get("type", "") or payload.get(
+                "payment_type", ""
+            )
 
         if rtype in ("return",):
             for dep_ref in step.depends_on:
@@ -94,7 +95,9 @@ def _build_context(flow: FlowIR, actor_refs: dict[str, str] | None = None) -> Fl
                 direction = entry.get("direction", "")
                 if acct and isinstance(amt, (int, float)):
                     sign = 1 if direction == "debit" else -1
-                    ctx.account_net_positions[acct] = ctx.account_net_positions.get(acct, 0) + sign * amt
+                    ctx.account_net_positions[acct] = (
+                        ctx.account_net_positions.get(acct, 0) + sign * amt
+                    )
 
     return ctx
 
@@ -115,14 +118,22 @@ class LedgerBalanceRule(FlowRule):
         diags: list[FlowDiagnostic] = []
         for step in flow.steps:
             for lg in step.ledger_groups:
-                total_debit = sum(e.get("amount", 0) for e in lg.entries if e.get("direction") == "debit")
-                total_credit = sum(e.get("amount", 0) for e in lg.entries if e.get("direction") == "credit")
+                total_debit = sum(
+                    e.get("amount", 0) for e in lg.entries if e.get("direction") == "debit"
+                )
+                total_credit = sum(
+                    e.get("amount", 0) for e in lg.entries if e.get("direction") == "credit"
+                )
                 if total_debit != total_credit:
-                    diags.append(FlowDiagnostic(
-                        rule_id=self.rule_id, severity=self.severity,
-                        step_id=step.step_id, account_id=None,
-                        message=f"Debit ({total_debit}) ≠ Credit ({total_credit}) in ledger group {lg.group_id}",
-                    ))
+                    diags.append(
+                        FlowDiagnostic(
+                            rule_id=self.rule_id,
+                            severity=self.severity,
+                            step_id=step.step_id,
+                            account_id=None,
+                            message=f"Debit ({total_debit}) ≠ Credit ({total_credit}) in ledger group {lg.group_id}",
+                        )
+                    )
         return diags
 
 
@@ -137,15 +148,23 @@ class SelfDebitRule(FlowRule):
         diags: list[FlowDiagnostic] = []
         for step in flow.steps:
             for lg in step.ledger_groups:
-                debit_accts = {e.get("ledger_account_id") for e in lg.entries if e.get("direction") == "debit"}
-                credit_accts = {e.get("ledger_account_id") for e in lg.entries if e.get("direction") == "credit"}
+                debit_accts = {
+                    e.get("ledger_account_id") for e in lg.entries if e.get("direction") == "debit"
+                }
+                credit_accts = {
+                    e.get("ledger_account_id") for e in lg.entries if e.get("direction") == "credit"
+                }
                 overlap = debit_accts & credit_accts - {""}
                 for acct in overlap:
-                    diags.append(FlowDiagnostic(
-                        rule_id=self.rule_id, severity=self.severity,
-                        step_id=step.step_id, account_id=acct,
-                        message=f"Account {acct} appears on both debit and credit sides",
-                    ))
+                    diags.append(
+                        FlowDiagnostic(
+                            rule_id=self.rule_id,
+                            severity=self.severity,
+                            step_id=step.step_id,
+                            account_id=acct,
+                            message=f"Account {acct} appears on both debit and credit sides",
+                        )
+                    )
         return diags
 
 
@@ -160,11 +179,15 @@ class NetZeroFlowRule(FlowRule):
         if not ctx.account_net_positions:
             return []
         if all(v == 0 for v in ctx.account_net_positions.values()):
-            return [FlowDiagnostic(
-                rule_id=self.rule_id, severity=self.severity,
-                step_id=None, account_id=None,
-                message="All ledger accounts net to zero across the flow",
-            )]
+            return [
+                FlowDiagnostic(
+                    rule_id=self.rule_id,
+                    severity=self.severity,
+                    step_id=None,
+                    account_id=None,
+                    message="All ledger accounts net to zero across the flow",
+                )
+            ]
         return []
 
 
@@ -186,11 +209,15 @@ class OrphanedAccountRule(FlowRule):
                     acct = entry.get("ledger_account_id", "")
                     if acct and acct not in ctx.actor_refs and acct not in seen:
                         seen.add(acct)
-                        diags.append(FlowDiagnostic(
-                            rule_id=self.rule_id, severity=self.severity,
-                            step_id=step.step_id, account_id=acct,
-                            message=f"Account {acct} used in ledger entries but not declared in actors",
-                        ))
+                        diags.append(
+                            FlowDiagnostic(
+                                rule_id=self.rule_id,
+                                severity=self.severity,
+                                step_id=step.step_id,
+                                account_id=acct,
+                                message=f"Account {acct} used in ledger entries but not declared in actors",
+                            )
+                        )
         return diags
 
 
@@ -204,12 +231,18 @@ class RtpIrrevocableRule(FlowRule):
     def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]:
         diags: list[FlowDiagnostic] = []
         for sid, ptype in ctx.payment_types_by_step.items():
-            if ptype == "rtp" and (sid in ctx.steps_with_returns or sid in ctx.steps_with_reversals):
-                diags.append(FlowDiagnostic(
-                    rule_id=self.rule_id, severity=self.severity,
-                    step_id=sid, account_id=None,
-                    message=f"RTP payment '{sid}' has return/reversal — RTP is irrevocable",
-                ))
+            if ptype == "rtp" and (
+                sid in ctx.steps_with_returns or sid in ctx.steps_with_reversals
+            ):
+                diags.append(
+                    FlowDiagnostic(
+                        rule_id=self.rule_id,
+                        severity=self.severity,
+                        step_id=sid,
+                        account_id=None,
+                        message=f"RTP payment '{sid}' has return/reversal — RTP is irrevocable",
+                    )
+                )
         return diags
 
 
@@ -224,11 +257,15 @@ class EpDeltaRule(FlowRule):
         diags: list[FlowDiagnostic] = []
         for step in flow.steps:
             if step.resource_type == "expected_payment":
-                diags.append(FlowDiagnostic(
-                    rule_id=self.rule_id, severity=self.severity,
-                    step_id=step.step_id, account_id=None,
-                    message=f"Expected Payment '{step.step_id}' watches for incoming funds — does not move money",
-                ))
+                diags.append(
+                    FlowDiagnostic(
+                        rule_id=self.rule_id,
+                        severity=self.severity,
+                        step_id=step.step_id,
+                        account_id=None,
+                        message=f"Expected Payment '{step.step_id}' watches for incoming funds — does not move money",
+                    )
+                )
         return diags
 
 
@@ -253,16 +290,24 @@ class TltBackwardLifecycleRule(FlowRule):
                 dep_id = parts[-1] if parts else ""
                 dep_step = next((s for s in flow.steps if s.step_id == dep_id), None)
                 if dep_step:
-                    parent_status = dep_step.payload.get("ledger_status") or dep_step.payload.get("status") or "pending"
+                    parent_status = (
+                        dep_step.payload.get("ledger_status")
+                        or dep_step.payload.get("status")
+                        or "pending"
+                    )
                     break
 
             valid_targets = self._VALID_FORWARD.get(parent_status, set())
             if status not in valid_targets and parent_status != status:
-                diags.append(FlowDiagnostic(
-                    rule_id=self.rule_id, severity=self.severity,
-                    step_id=step.step_id, account_id=None,
-                    message=f"TLT '{step.step_id}' transitions {parent_status}→{status} (not a valid forward lifecycle)",
-                ))
+                diags.append(
+                    FlowDiagnostic(
+                        rule_id=self.rule_id,
+                        severity=self.severity,
+                        step_id=step.step_id,
+                        account_id=None,
+                        message=f"TLT '{step.step_id}' transitions {parent_status}→{status} (not a valid forward lifecycle)",
+                    )
+                )
         return diags
 
 
@@ -284,11 +329,15 @@ class ReverseParentNoLtRule(FlowRule):
                     dep_id = parts[-1] if parts else ""
                     parent = next((s for s in flow.steps if s.step_id == dep_id), None)
                     if parent and parent.ledger_groups:
-                        diags.append(FlowDiagnostic(
-                            rule_id=self.rule_id, severity=self.severity,
-                            step_id=step.step_id, account_id=None,
-                            message=f"'{step.step_id}' depends on '{dep_id}' which has LT, but no reverse_parent entries were generated",
-                        ))
+                        diags.append(
+                            FlowDiagnostic(
+                                rule_id=self.rule_id,
+                                severity=self.severity,
+                                step_id=step.step_id,
+                                account_id=None,
+                                message=f"'{step.step_id}' depends on '{dep_id}' which has LT, but no reverse_parent entries were generated",
+                            )
+                        )
         return diags
 
 
@@ -300,9 +349,14 @@ class CurrencyRailMismatchRule(FlowRule):
     description = "Currency may not be supported on this payment rail"
 
     _RAIL_CURRENCIES: dict[str, set[str]] = {
-        "ach": {"USD"}, "rtp": {"USD"}, "sepa": {"EUR"},
-        "bacs": {"GBP"}, "eft": {"CAD"}, "au_becs": {"AUD"},
-        "nz_becs": {"NZD"}, "check": {"USD"},
+        "ach": {"USD"},
+        "rtp": {"USD"},
+        "sepa": {"EUR"},
+        "bacs": {"GBP"},
+        "eft": {"CAD"},
+        "au_becs": {"AUD"},
+        "nz_becs": {"NZD"},
+        "check": {"USD"},
     }
 
     def check(self, flow: FlowIR, ctx: FlowValidationContext) -> list[FlowDiagnostic]:
@@ -315,11 +369,15 @@ class CurrencyRailMismatchRule(FlowRule):
             if ptype in self._RAIL_CURRENCIES and currency:
                 valid = self._RAIL_CURRENCIES[ptype]
                 if valid and currency.upper() not in valid:
-                    diags.append(FlowDiagnostic(
-                        rule_id=self.rule_id, severity=self.severity,
-                        step_id=step.step_id, account_id=None,
-                        message=f"Currency '{currency}' may not work on '{ptype}' rail. Expected: {sorted(valid)}",
-                    ))
+                    diags.append(
+                        FlowDiagnostic(
+                            rule_id=self.rule_id,
+                            severity=self.severity,
+                            step_id=step.step_id,
+                            account_id=None,
+                            message=f"Currency '{currency}' may not work on '{ptype}' rail. Expected: {sorted(valid)}",
+                        )
+                    )
         return diags
 
 
@@ -335,12 +393,19 @@ class ChargeBearerDomesticRule(FlowRule):
         for step in flow.steps:
             if step.resource_type != "payment_order":
                 continue
-            if step.payload.get("charge_bearer") and step.payload.get("type") not in ("wire", "cross_border"):
-                diags.append(FlowDiagnostic(
-                    rule_id=self.rule_id, severity=self.severity,
-                    step_id=step.step_id, account_id=None,
-                    message=f"charge_bearer on '{step.payload.get('type')}' rail has no effect (SWIFT/cross_border only)",
-                ))
+            if step.payload.get("charge_bearer") and step.payload.get("type") not in (
+                "wire",
+                "cross_border",
+            ):
+                diags.append(
+                    FlowDiagnostic(
+                        rule_id=self.rule_id,
+                        severity=self.severity,
+                        step_id=step.step_id,
+                        account_id=None,
+                        message=f"charge_bearer on '{step.payload.get('type')}' rail has no effect (SWIFT/cross_border only)",
+                    )
+                )
         return diags
 
 
@@ -359,11 +424,15 @@ class RtpAmountLimitRule(FlowRule):
             if step.payload.get("type") == "rtp":
                 amount = step.payload.get("amount", 0)
                 if isinstance(amount, (int, float)) and amount > 100_000_000:
-                    diags.append(FlowDiagnostic(
-                        rule_id=self.rule_id, severity=self.severity,
-                        step_id=step.step_id, account_id=None,
-                        message=f"RTP amount {amount} cents (${amount/100:,.2f}) exceeds the $1M network limit",
-                    ))
+                    diags.append(
+                        FlowDiagnostic(
+                            rule_id=self.rule_id,
+                            severity=self.severity,
+                            step_id=step.step_id,
+                            account_id=None,
+                            message=f"RTP amount {amount} cents (${amount / 100:,.2f}) exceeds the $1M network limit",
+                        )
+                    )
         return diags
 
 
@@ -380,11 +449,15 @@ class SubtypeOnNonAchRule(FlowRule):
             if step.resource_type != "payment_order":
                 continue
             if step.payload.get("subtype") and step.payload.get("type") != "ach":
-                diags.append(FlowDiagnostic(
-                    rule_id=self.rule_id, severity=self.severity,
-                    step_id=step.step_id, account_id=None,
-                    message=f"subtype '{step.payload.get('subtype')}' is an ACH SEC code but payment type is '{step.payload.get('type')}'",
-                ))
+                diags.append(
+                    FlowDiagnostic(
+                        rule_id=self.rule_id,
+                        severity=self.severity,
+                        step_id=step.step_id,
+                        account_id=None,
+                        message=f"subtype '{step.payload.get('subtype')}' is an ACH SEC code but payment type is '{step.payload.get('type')}'",
+                    )
+                )
         return diags
 
 
@@ -408,11 +481,15 @@ class UnknownPaymentTypeRule(FlowRule):
                 msg = f"Unknown payment type '{ptype}'."
                 if suggestion:
                     msg += f" Did you mean '{suggestion}'?"
-                diags.append(FlowDiagnostic(
-                    rule_id=self.rule_id, severity=self.severity,
-                    step_id=step.step_id, account_id=None,
-                    message=msg,
-                ))
+                diags.append(
+                    FlowDiagnostic(
+                        rule_id=self.rule_id,
+                        severity=self.severity,
+                        step_id=step.step_id,
+                        account_id=None,
+                        message=msg,
+                    )
+                )
         return diags
 
 
@@ -438,11 +515,15 @@ class IpdMetadataInfoRule(FlowRule):
         diags: list[FlowDiagnostic] = []
         for step in flow.steps:
             if step.resource_type == "incoming_payment_detail" and step.payload.get("metadata"):
-                diags.append(FlowDiagnostic(
-                    rule_id=self.rule_id, severity=self.severity,
-                    step_id=step.step_id, account_id=None,
-                    message="IPD trace metadata is stored in the local manifest only; the MT simulation endpoint does not persist metadata.",
-                ))
+                diags.append(
+                    FlowDiagnostic(
+                        rule_id=self.rule_id,
+                        severity=self.severity,
+                        step_id=step.step_id,
+                        account_id=None,
+                        message="IPD trace metadata is stored in the local manifest only; the MT simulation endpoint does not persist metadata.",
+                    )
+                )
                 break
         return diags
 
@@ -471,16 +552,20 @@ class ReconRuleAdvisoryRule(FlowRule):
         overlap = set(ep_accounts.keys()) & ipd_accounts
         for ia_ref in overlap:
             direction = ep_accounts[ia_ref]
-            diags.append(FlowDiagnostic(
-                rule_id=self.rule_id, severity=self.severity,
-                step_id=None, account_id=ia_ref,
-                message=(
-                    f"This flow creates EPs and IPDs on the same internal account ({ia_ref}). "
-                    f"To enable automatic reconciliation, create a rule in the MT dashboard: "
-                    f"POST /api/reconciliation_rules with object_a_type='expected_payment', "
-                    f"object_b_type='transaction', direction=['{direction}']."
-                ),
-            ))
+            diags.append(
+                FlowDiagnostic(
+                    rule_id=self.rule_id,
+                    severity=self.severity,
+                    step_id=None,
+                    account_id=ia_ref,
+                    message=(
+                        f"This flow creates EPs and IPDs on the same internal account ({ia_ref}). "
+                        f"To enable automatic reconciliation, create a rule in the MT dashboard: "
+                        f"POST /api/reconciliation_rules with object_a_type='expected_payment', "
+                        f"object_b_type='transaction', direction=['{direction}']."
+                    ),
+                )
+            )
         return diags
 
 

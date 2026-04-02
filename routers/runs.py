@@ -40,12 +40,14 @@ async def list_runs(
             try:
                 manifests.append(RunManifest.load(path))
             except Exception as e:
-                logger.bind(path=str(path), error=str(e)).warning(
-                    "Failed to load manifest"
-                )
+                logger.bind(path=str(path), error=str(e)).warning("Failed to load manifest")
 
     if status:
-        manifests = [m for m in manifests if str(m.status) == status or getattr(m.status, "value", None) == status]
+        manifests = [
+            m
+            for m in manifests
+            if str(m.status) == status or getattr(m.status, "value", None) == status
+        ]
 
     if mt_org_id and mt_org_id.strip():
         oid = mt_org_id.strip()
@@ -88,8 +90,11 @@ async def run_drawer(
         path = runs_dir / f"manifest_{run_id}.json"
     if not path.exists():
         path = next(
-            (p for p in runs_dir.glob("*.json")
-             if p.stem == run_id or p.stem == f"manifest_{run_id}"),
+            (
+                p
+                for p in runs_dir.glob("*.json")
+                if p.stem == run_id or p.stem == f"manifest_{run_id}"
+            ),
             None,
         )
     if not path or not path.exists():
@@ -99,9 +104,7 @@ async def run_drawer(
             {"empty_title": "Run not found", "empty_description": f"No manifest for {run_id}"},
         )
     manifest = RunManifest.load(path)
-    return templates.TemplateResponse(
-        request, "partials/run_drawer.html", {"manifest": manifest}
-    )
+    return templates.TemplateResponse(request, "partials/run_drawer.html", {"manifest": manifest})
 
 
 def _find_manifest(runs_dir: Path, run_id: str) -> RunManifest | None:
@@ -110,8 +113,11 @@ def _find_manifest(runs_dir: Path, run_id: str) -> RunManifest | None:
         path = runs_dir / f"manifest_{run_id}.json"
     if not path.exists():
         path = next(
-            (p for p in runs_dir.glob("*.json")
-             if p.stem == run_id or p.stem == f"manifest_{run_id}"),
+            (
+                p
+                for p in runs_dir.glob("*.json")
+                if p.stem == run_id or p.stem == f"manifest_{run_id}"
+            ),
             None,
         )
     if not path or not path.exists():

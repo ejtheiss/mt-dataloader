@@ -16,13 +16,13 @@ import hashlib
 import re
 import secrets
 from datetime import datetime, timezone
+from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Iterator
 
-from graphlib import TopologicalSorter
-from jsonutil import dumps_pretty
 from loguru import logger
 
+from jsonutil import dumps_pretty
 from models import (
     DataLoaderConfig,
     HandlerResult,
@@ -37,6 +37,7 @@ from models.shared import ErrorStrategy
 def _extract_display_name(resource: _BaseResourceConfig) -> str:
     """Lazy wrapper to avoid circular import with helpers."""
     from helpers import extract_display_name
+
     return extract_display_name(resource)
 
 
@@ -111,7 +112,9 @@ class RefRegistry:
         if existing is not None and existing != resource_id:
             logger.warning(
                 "Ref '{}' already registered (existing: {}, new: {}) — updating",
-                typed_ref, existing, resource_id,
+                typed_ref,
+                existing,
+                resource_id,
             )
         self._store[typed_ref] = resource_id
 
@@ -133,8 +136,7 @@ class RefRegistry:
         typed_ref = value[5:]
         if typed_ref not in self._store:
             raise KeyError(
-                f"Unresolved ref: '{value}'. "
-                f"Available refs: {sorted(self._store.keys())}"
+                f"Unresolved ref: '{value}'. Available refs: {sorted(self._store.keys())}"
             )
         return self._store[typed_ref]
 
@@ -327,15 +329,11 @@ def inject_legal_entity_psp_connection_id(
                 return c.entity_id
         return None
 
-    ias_for_le = [
-        ia
-        for ia in config.internal_accounts
-        if ia.legal_entity_id == le_ref_target
-    ]
+    ias_for_le = [ia for ia in config.internal_accounts if ia.legal_entity_id == le_ref_target]
     # Fiat IAs first (CLE / bank rail), then any other IA on this LE.
     ias_ordered = sorted(
         ias_for_le,
-        key=lambda ia: (0 if ia.currency in _FIAT_IA_CURRENCIES else 1),
+        key=lambda ia: 0 if ia.currency in _FIAT_IA_CURRENCIES else 1,
     )
     for ia in ias_ordered:
         cid_str = ia.connection_id
@@ -349,7 +347,10 @@ def inject_legal_entity_psp_connection_id(
             resolved["connection_id"] = cid
             logger.debug(
                 "Injected connection_id for {} from {} (via IA {}) → {}…",
-                typed_ref, conn_tref, ia.ref, cid[:12],
+                typed_ref,
+                conn_tref,
+                ia.ref,
+                cid[:12],
             )
             return
 
@@ -362,7 +363,9 @@ def inject_legal_entity_psp_connection_id(
             resolved["connection_id"] = cid
             logger.debug(
                 "Injected connection_id for {} from {} (fallback) → {}…",
-                typed_ref, tref, cid[:12],
+                typed_ref,
+                tref,
+                cid[:12],
             )
             return
 
@@ -424,17 +427,16 @@ def dry_run(
     from webhooks import FIREABLE_TYPES
 
     staged_refs = {
-        ref
-        for ref, resource in resource_map.items()
-        if getattr(resource, "staged", False)
+        ref for ref, resource in resource_map.items() if getattr(resource, "staged", False)
     }
     for ref in staged_refs:
         rtype = resource_map[ref].resource_type
         if rtype not in FIREABLE_TYPES:
             logger.warning(
-                "Staged resource '{}' has type '{}' which cannot be fired. "
-                "Fireable types: {}",
-                ref, rtype, ", ".join(sorted(FIREABLE_TYPES)),
+                "Staged resource '{}' has type '{}' which cannot be fired. Fireable types: {}",
+                ref,
+                rtype,
+                ", ".join(sorted(FIREABLE_TYPES)),
             )
     if staged_refs:
 
@@ -563,7 +565,9 @@ async def _execute_with_error_strategy(
         except Exception as exc:
             logger.log(strategy.log_level.upper(), "Skipping {} after error: {}", typed_ref, exc)
             await emit_sse("skipped", typed_ref, {"error": str(exc)})
-            return HandlerResult(created_id="SKIPPED", resource_type=resource.resource_type, deletable=False)
+            return HandlerResult(
+                created_id="SKIPPED", resource_type=resource.resource_type, deletable=False
+            )
 
     if strategy.action == "retry":
         n = strategy.max_retries
@@ -578,7 +582,10 @@ async def _execute_with_error_strategy(
                 logger.log(
                     strategy.log_level.upper(),
                     "Retry {}/{} for {} after: {}",
-                    attempt, n, typed_ref, exc,
+                    attempt,
+                    n,
+                    typed_ref,
+                    exc,
                 )
                 await emit_sse("retrying", typed_ref, {"attempt": attempt, "error": str(exc)})
                 if attempt < n:
@@ -593,12 +600,18 @@ async def _execute_with_error_strategy(
             logger.log(
                 strategy.log_level.upper(),
                 "Substituting {} with {} after: {}",
-                typed_ref, strategy.substitute_ref, exc,
+                typed_ref,
+                strategy.substitute_ref,
+                exc,
             )
-            await emit_sse("substituting", typed_ref, {
-                "substitute": strategy.substitute_ref,
-                "error": str(exc),
-            })
+            await emit_sse(
+                "substituting",
+                typed_ref,
+                {
+                    "substitute": strategy.substitute_ref,
+                    "error": str(exc),
+                },
+            )
             sub_ref = strategy.substitute_ref
             if sub_ref.startswith("$ref:"):
                 sub_ref = sub_ref[5:]
@@ -690,7 +703,10 @@ async def execute(
                         resolved = resolve_refs(resource, registry)
                         if resource.resource_type == "legal_entity":
                             inject_legal_entity_psp_connection_id(
-                                config, registry, resolved, typed_ref=typed_ref,
+                                config,
+                                registry,
+                                resolved,
+                                typed_ref=typed_ref,
                             )
 
                         if getattr(resource, "staged", False):
@@ -722,9 +738,7 @@ async def execute(
                 if on_resource_created:
                     on_resource_created(run_id, result.created_id, typed_ref)
                     for child_key, child_id in result.child_refs.items():
-                        on_resource_created(
-                            run_id, child_id, f"{typed_ref}.{child_key}"
-                        )
+                        on_resource_created(run_id, child_id, f"{typed_ref}.{child_key}")
 
                 manifest.record(
                     ManifestEntry(
@@ -752,11 +766,7 @@ async def execute(
                     eph = _find_execution_phase_error(exc)
                     if eph is not None:
                         failed_ref = eph.typed_ref
-                        leaf: BaseException = (
-                            eph.__cause__
-                            if eph.__cause__ is not None
-                            else eph
-                        )
+                        leaf: BaseException = eph.__cause__ if eph.__cause__ is not None else eph
                     else:
                         leaf = exc
                         failed_ref = _guess_failed_ref(leaf, to_create, resource_map)
@@ -783,9 +793,7 @@ async def execute(
     return manifest
 
 
-def _write_staged_payloads(
-    staged_payloads: dict[str, dict], runs_dir: str, run_id: str
-) -> None:
+def _write_staged_payloads(staged_payloads: dict[str, dict], runs_dir: str, run_id: str) -> None:
     if not staged_payloads:
         return
     staged_path = Path(runs_dir) / f"{run_id}_staged.json"
@@ -859,8 +867,4 @@ def list_manifest_ids(runs_dir: str | Path) -> list[str]:
     d = Path(runs_dir)
     if not d.exists():
         return []
-    return [
-        p.stem
-        for p in sorted(d.glob("*.json"), reverse=True)
-        if _MANIFEST_RE.match(p.name)
-    ]
+    return [p.stem for p in sorted(d.glob("*.json"), reverse=True) if _MANIFEST_RE.match(p.name)]
