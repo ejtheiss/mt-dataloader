@@ -336,7 +336,7 @@ session.py           SessionState dataclass (per-session state)
 seed_loader.py       Faker hybrid seed engine (standard, industry, pop-culture)
 flow_validator.py    Config-level flow validation
 flow_views.py        Ledger + payments view data computation
-webhooks.py          Webhook receiver, run detail, staged fire, listener
+webhooks/            Webhook package (routes.py: receiver, run detail, staged fire, listener)
 
 models/              Pydantic config schemas
   config.py          DataLoaderConfig (root schema)

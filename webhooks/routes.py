@@ -1,5 +1,9 @@
 """Webhook receiver, SSE stream, run detail, staged fire, and listener.
 
+Package entrypoint: ``webhooks`` re-exports ``router`` and helpers from
+``webhooks.__init__`` (FastAPI *bigger applications* pattern:
+https://fastapi.tiangolo.com/tutorial/bigger-applications/ ).
+
 Provides:
 - POST /webhooks/mt           — inbound webhook receiver
 - GET  /webhooks/stream       — SSE fan-out for live webhook events
