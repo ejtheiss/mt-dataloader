@@ -341,6 +341,7 @@ dataloader/          Application package (02a Phase E)
     tunnel.py        /listen tunnel UI
     deps.py          FastAPI Depends helpers
   webhooks/          Webhook package (routes.py: receiver, run detail, staged fire, listener)
+  staged_fire.py     FIREABLE_TYPES shared by webhooks + engine dry-run (must match _FIRE_DISPATCH)
   engine/            DAG executor (submodules: refs, dag, runner, run_meta)
   handlers/          MT SDK handlers (submodules: constants, operations, dispatch)
   session/           In-memory SessionState + process-local session store (import: dataloader.session)
@@ -353,14 +354,16 @@ flow_views.py        Ledger + payments view data computation
 ### Application wiring
 
 - **ASGI:** `uvicorn dataloader.main:app` (root `main.py` may re-export `app`).
+- **SQLite (Plan 0):** `DATALOADER_DATA_DIR` (default `data/`) holds `dataloader.sqlite`; lifespan runs `alembic upgrade head` then opens an async SQLAlchemy engine. CI runs `alembic upgrade head` before `pytest`.
 - **Factory + lifespan:** `dataloader/main.py` — settings, logging, static, templates, router includes, tunnel manager.
 - **HTTP:** `dataloader/routers/`; **webhooks:** `dataloader/webhooks/`.
-- **DAG + SDK:** `dataloader/engine/`, `dataloader/handlers/`.
+- **DAG + SDK:** `dataloader/engine/`, `dataloader/handlers/`; **staged fire allowlist:** `dataloader/staged_fire.py` (`FIREABLE_TYPES`).
 - **Loader session:** `dataloader/session/` — `SessionState` and the in-memory `sessions` map (single-worker; see maintainer **Plan 0** for durable session design).
 - **Injection:** `dataloader/routers/deps.py` — settings, templates, tunnel, session lookup helpers.
-- **Import boundaries:** run `lint-imports` (config: `pyproject.toml` → `[tool.importlinter]`). `flow_compiler` and `models` must not import `dataloader`; `org` may use `dataloader.engine` only (not routers/webhooks/handlers/session/main).
+- **Import boundaries:** run `lint-imports` (config: `pyproject.toml` → `[tool.importlinter]`). `flow_compiler` and `models` must not import `dataloader`. **`org`** is forbidden from `dataloader.routers`, `webhooks`, `handlers`, `session`, `main` — in practice **`org` imports `dataloader.engine` only** (matches contracts).
 
 ```
+db/                  SQLAlchemy ORM + Alembic (`tables`, `database`, `repositories/`) — no imports from `dataloader`
 models/              Pydantic config schemas
   config.py          DataLoaderConfig (root schema)
   resources.py       MT resource models (Layers 0-6)

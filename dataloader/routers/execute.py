@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -11,10 +12,13 @@ from modern_treasury import AsyncModernTreasury
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from dataloader.engine import execute, generate_run_id
+from dataloader.engine.run_meta import config_hash
 from dataloader.handlers import build_handler_dispatch, build_update_dispatch
 from dataloader.routers.deps import SessionFormDep, SettingsDep, TemplatesDep
 from dataloader.session import sessions
 from dataloader.webhooks import index_resource, register_run_org
+from db.repositories import correlation as correlation_repo
+from db.repositories import runs as runs_repo
 from helpers import error_html, error_response
 from models import DisplayPhase
 from sse_helpers import make_emit_sse, sse_error_response
@@ -47,6 +51,7 @@ async def execute_page(
 
 @router.get("/api/execute/stream")
 async def execute_stream(
+    request: Request,
     templates: TemplatesDep,
     settings: SettingsDep,
     session_token: str,
@@ -71,9 +76,58 @@ async def execute_stream(
         config_path.write_text(session.config_json_text, encoding="utf-8")
 
         disconnected = False
+        session_factory = getattr(request.app.state, "async_session_factory", None)
+        default_uid = getattr(request.app.state, "default_user_id", None)
 
         async def run_engine():
             nonlocal disconnected
+            started_at = datetime.now(timezone.utc).isoformat()
+            cfg_h = config_hash(session.config)
+            if session_factory is not None and default_uid is not None:
+                try:
+                    async with session_factory() as s:
+                        await runs_repo.ensure_run(
+                            s,
+                            run_id=run_id,
+                            user_id=default_uid,
+                            mt_org_id=session.org_id or None,
+                            mt_org_label=session.org_label or None,
+                            config_hash=cfg_h,
+                            started_at=started_at,
+                        )
+                        await s.commit()
+                except Exception as exc:
+                    logger.bind(run_id=run_id).warning("db ensure_run failed (non-fatal): {}", exc)
+
+            async def on_resource_created_db(rid: str, created_id: str, tref: str) -> None:
+                index_resource(rid, created_id, tref)
+                if session_factory is None:
+                    return
+                try:
+                    async with session_factory() as s:
+                        await correlation_repo.upsert_correlation(
+                            s,
+                            created_id=created_id,
+                            run_id=rid,
+                            typed_ref=tref,
+                        )
+                        await s.commit()
+                except Exception as exc:
+                    logger.bind(run_id=rid, created_id=created_id).warning(
+                        "db correlation upsert failed (non-fatal): {}", exc
+                    )
+
+            async def on_run_org_registered_db(rid: str, org_id: str) -> None:
+                register_run_org(rid, org_id)
+                if session_factory is None:
+                    return
+                try:
+                    async with session_factory() as s:
+                        await runs_repo.update_mt_org(s, rid, org_id)
+                        await s.commit()
+                except Exception as exc:
+                    logger.warning("db update_mt_org failed (non-fatal): {}", exc)
+
             async with AsyncModernTreasury(
                 api_key=session.api_key,
                 organization_id=session.org_id,
@@ -90,13 +144,13 @@ async def execute_stream(
                         emit_sse=emit_sse,
                         is_disconnected=lambda: disconnected,
                         runs_dir=settings.runs_dir,
-                        on_resource_created=index_resource,
+                        on_resource_created=on_resource_created_db,
                         skip_refs=session.skip_refs or None,
                         update_refs=session.update_refs or None,
                         update_dispatch=update_dispatch,
                         mt_org_id=session.org_id,
                         mt_org_label=session.org_label,
-                        on_run_org_registered=register_run_org,
+                        on_run_org_registered=on_run_org_registered_db,
                     )
                     html = templates.get_template("partials/run_complete.html").render(
                         manifest=manifest, run_id=run_id

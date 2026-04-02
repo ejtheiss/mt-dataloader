@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
+from sqlalchemy import text
 
 from _version import __version__
 from dataloader.routers.cleanup import router as cleanup_router
@@ -28,6 +29,11 @@ from dataloader.routers.setup import router as setup_router
 from dataloader.routers.tunnel import router as tunnel_router
 from dataloader.webhooks import rebuild_correlation_index
 from dataloader.webhooks import router as webhook_router
+from db.database import (
+    build_sqlite_file_urls,
+    create_async_engine_and_sessionmaker,
+    run_alembic_upgrade,
+)
 from helpers import set_templates
 from models import AppSettings
 from mt_doc_links import MT_DOCS
@@ -96,31 +102,58 @@ async def lifespan(app: FastAPI):
     settings = AppSettings()
     app.state.settings = settings
     _configure_logging(settings)
-    # Single-writer assumption: index + session store match one process (see dataloader/session/).
-    rebuild_correlation_index(settings.runs_dir)
 
-    tunnel_mgr = TunnelManager(runs_dir=settings.runs_dir)
-    app.state.tunnel = tunnel_mgr
+    data_path = Path(settings.data_dir).expanduser().resolve()
+    data_path.mkdir(parents=True, exist_ok=True)
+    sqlite_file = data_path / "dataloader.sqlite"
+    sync_url, async_url = build_sqlite_file_urls(sqlite_file)
+    try:
+        run_alembic_upgrade(_REPO_ROOT, sync_url)
+    except Exception as exc:
+        logger.exception("Alembic upgrade failed: {}", exc)
+        raise
 
-    authtoken = settings.ngrok_authtoken or tunnel_mgr.saved_authtoken
-    if authtoken and settings.ngrok_auto_start:
-        try:
-            domain = settings.ngrok_domain or tunnel_mgr.saved_domain or None
-            url = tunnel_mgr.start(authtoken, domain=domain)
-            logger.info("Tunnel auto-started: {}", url)
-        except NgrokStartError as exc:
-            logger.warning(
-                "Tunnel auto-start failed ({}): {} — start manually from /listen or free agent slots.",
-                exc.code or "ngrok",
-                exc,
-            )
-        except Exception as exc:
-            logger.warning("Tunnel auto-start failed (start manually from /listen): {}", exc)
+    engine = None
+    tunnel_mgr = None
+    try:
+        engine, session_factory = create_async_engine_and_sessionmaker(async_url)
+        app.state.async_engine = engine
+        app.state.async_session_factory = session_factory
+        async with session_factory() as _s:
+            result = await _s.execute(text("SELECT id FROM users ORDER BY id ASC LIMIT 1"))
+            row = result.first()
+        app.state.default_user_id = int(row[0]) if row else 1
+        logger.info("SQLite at {} (default user id={})", sqlite_file, app.state.default_user_id)
 
-    logger.info("Dataloader v{} started", __version__)
-    yield
-    tunnel_mgr.stop()
-    logger.info("Dataloader shutting down")
+        # Single-writer assumption: index + session store match one process (see dataloader/session/).
+        rebuild_correlation_index(settings.runs_dir)
+
+        tunnel_mgr = TunnelManager(runs_dir=settings.runs_dir)
+        app.state.tunnel = tunnel_mgr
+
+        authtoken = settings.ngrok_authtoken or tunnel_mgr.saved_authtoken
+        if authtoken and settings.ngrok_auto_start:
+            try:
+                domain = settings.ngrok_domain or tunnel_mgr.saved_domain or None
+                url = tunnel_mgr.start(authtoken, domain=domain)
+                logger.info("Tunnel auto-started: {}", url)
+            except NgrokStartError as exc:
+                logger.warning(
+                    "Tunnel auto-start failed ({}): {} — start manually from /listen or free agent slots.",
+                    exc.code or "ngrok",
+                    exc,
+                )
+            except Exception as exc:
+                logger.warning("Tunnel auto-start failed (start manually from /listen): {}", exc)
+
+        logger.info("Dataloader v{} started", __version__)
+        yield
+    finally:
+        if tunnel_mgr is not None:
+            tunnel_mgr.stop()
+        if engine is not None:
+            await engine.dispose()
+        logger.info("Dataloader shutting down")
 
 
 # ---------------------------------------------------------------------------

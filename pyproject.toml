@@ -15,8 +15,12 @@ select = [
   "I",    # isort
 ]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
 [tool.importlinter]
-root_packages = ["dataloader", "flow_compiler", "org", "models"]
+root_packages = ["dataloader", "db", "flow_compiler", "org", "models"]
 
 [[tool.importlinter.contracts]]
 name = "Compiler stays independent of the packaged app"
@@ -40,4 +44,10 @@ forbidden_modules = [
 name = "Models stay free of the FastAPI app package"
 type = "forbidden"
 source_modules = ["models"]
+forbidden_modules = ["dataloader"]
+
+[[tool.importlinter.contracts]]
+name = "DB layer stays free of the FastAPI app package"
+type = "forbidden"
+source_modules = ["db"]
 forbidden_modules = ["dataloader"]

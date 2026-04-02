@@ -25,6 +25,13 @@ jobs:
           pip install -r requirements.txt
           pip install pytest ruff import-linter
 
+      - name: Alembic upgrade (fresh SQLite, Plan 0)
+        env:
+          DATALOADER_DATA_DIR: ${{ runner.temp }}/dataloader_ci_db
+        run: |
+          mkdir -p "$DATALOADER_DATA_DIR"
+          alembic upgrade head
+
       - name: Ruff lint + format check
         run: |
           ruff check .

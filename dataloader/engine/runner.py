@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
@@ -47,8 +48,8 @@ class ExecutionPhaseError(Exception):
 HandlerFn = Callable[..., Awaitable[HandlerResult]]
 EmitFn = Callable[[str, str, dict[str, Any]], Awaitable[None]]
 DisconnectCheckFn = Callable[[], bool]
-ResourceCreatedFn = Callable[[str, str, str], None]
-RunOrgRegisteredFn = Callable[[str, str], None]
+ResourceCreatedFn = Callable[[str, str, str], None | Awaitable[None]]
+RunOrgRegisteredFn = Callable[[str, str], None | Awaitable[None]]
 
 
 async def _execute_with_error_strategy(
@@ -202,7 +203,9 @@ async def execute(
         mt_org_label=mt_org_label,
     )
     if mt_org_id and on_run_org_registered:
-        on_run_org_registered(run_id, mt_org_id)
+        _maybe = on_run_org_registered(run_id, mt_org_id)
+        if inspect.isawaitable(_maybe):
+            await _maybe
     staged_payloads: dict[str, dict] = {}
 
     batch_index = 0
@@ -267,9 +270,13 @@ async def execute(
                     registry.register(f"{typed_ref}.{child_key}", child_id)
 
                 if on_resource_created:
-                    on_resource_created(run_id, result.created_id, typed_ref)
+                    _r = on_resource_created(run_id, result.created_id, typed_ref)
+                    if inspect.isawaitable(_r):
+                        await _r
                     for child_key, child_id in result.child_refs.items():
-                        on_resource_created(run_id, child_id, f"{typed_ref}.{child_key}")
+                        _c = on_resource_created(run_id, child_id, f"{typed_ref}.{child_key}")
+                        if inspect.isawaitable(_c):
+                            await _c
 
                 manifest.record(
                     ManifestEntry(
