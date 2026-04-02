@@ -90,8 +90,8 @@ class TestMetadataEndpoint:
         import json
 
         from dataloader.engine import RefRegistry
+        from dataloader.session import SessionState, sessions
         from models import DataLoaderConfig
-        from session import SessionState, sessions
 
         config_data = {
             "funds_flows": [

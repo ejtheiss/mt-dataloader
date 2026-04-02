@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Dataloader — Python layers and edges
 
-Use this when editing **application Python** (`dataloader/routers/`, `dataloader/engine/`, `dataloader/handlers/`, `models/`, `flow_compiler/`, `org/`, repo-root helpers). For **templates / static / JS**, see **`mint-mt-ui.mdc`**; for **Pydantic-first + HTMX vs JS**, see **`python-first-ui.mdc`**.
+Use this when editing **application Python** (`dataloader/routers/`, `dataloader/engine/`, `dataloader/handlers/`, `dataloader/session/`, `models/`, `flow_compiler/`, `org/`, repo-root helpers). For **templates / static / JS**, see **`mint-mt-ui.mdc`**; for **Pydantic-first + HTMX vs JS**, see **`python-first-ui.mdc`**.
 
 ## Where logic lives
 
@@ -25,7 +25,7 @@ Use this when editing **application Python** (`dataloader/routers/`, `dataloader
 ## Tooling (tracked repo)
 
 - **Lint/format:** **`ruff check`** / **`ruff format`** — config in **`pyproject.toml`**; CI enforces both.
-- **Full layout + phased CI (import-linter, etc.):** maintainer doc under **`plan/3.31.26 plans-data loader/00_repo_conventions.md`** (often gitignored); do not duplicate long prose here.
+- **Full layout + phased CI:** maintainer doc under **`plan/3.31.26 plans-data loader/00_repo_conventions.md`** (often gitignored). **Import boundaries:** **`lint-imports`** — **`[tool.importlinter]`** in **`pyproject.toml`**.
 
 ## Tests
 

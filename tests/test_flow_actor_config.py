@@ -5,10 +5,10 @@ from __future__ import annotations
 from starlette.testclient import TestClient
 
 from dataloader.engine import RefRegistry
+from dataloader.session import SessionState, sessions
 from flow_compiler.core import compile_flows
 from main import app
 from models import DataLoaderConfig, GenerationRecipeV1
-from session import SessionState, sessions
 
 
 def _make_actor_flow_config() -> dict:

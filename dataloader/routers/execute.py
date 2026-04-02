@@ -13,10 +13,10 @@ from sse_starlette import EventSourceResponse, ServerSentEvent
 from dataloader.engine import execute, generate_run_id
 from dataloader.handlers import build_handler_dispatch, build_update_dispatch
 from dataloader.routers.deps import SessionFormDep, SettingsDep, TemplatesDep
+from dataloader.session import sessions
 from dataloader.webhooks import index_resource
 from helpers import error_html, error_response
 from models import DisplayPhase
-from session import sessions
 from sse_helpers import make_emit_sse, sse_error_response
 
 router = APIRouter(tags=["execute"])

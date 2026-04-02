@@ -343,12 +343,24 @@ dataloader/          Application package (02a Phase E)
   webhooks/          Webhook package (routes.py: receiver, run detail, staged fire, listener)
   engine/            DAG executor, ref registry, run manifests (import: dataloader.engine)
   handlers/          MT SDK async handlers + dispatch tables (import: dataloader.handlers)
+  session/           In-memory SessionState + process-local session store (import: dataloader.session)
 helpers.py           Shared rendering: build_preview, extract_display_name, format helpers
-session.py           SessionState dataclass (per-session state)
 seed_loader.py       Faker hybrid seed engine (standard, industry, pop-culture)
 flow_validator.py    Config-level flow validation
 flow_views.py        Ledger + payments view data computation
+```
 
+### Application wiring
+
+- **ASGI:** `uvicorn dataloader.main:app` (root `main.py` may re-export `app`).
+- **Factory + lifespan:** `dataloader/main.py` — settings, logging, static, templates, router includes, tunnel manager.
+- **HTTP:** `dataloader/routers/`; **webhooks:** `dataloader/webhooks/`.
+- **DAG + SDK:** `dataloader/engine/`, `dataloader/handlers/`.
+- **Loader session:** `dataloader/session/` — `SessionState` and the in-memory `sessions` map (single-worker; see maintainer **Plan 0** for durable session design).
+- **Injection:** `dataloader/routers/deps.py` — settings, templates, tunnel, session lookup helpers.
+- **Import boundaries:** run `lint-imports` (config: `pyproject.toml` → `[tool.importlinter]`). Today: `flow_compiler` and `models` must not import `dataloader` (transitive). Tighter `org` layering waits on engine ↔ webhooks decoupling (**plan 07**).
+
+```
 models/              Pydantic config schemas
   config.py          DataLoaderConfig (root schema)
   resources.py       MT resource models (Layers 0-6)
@@ -380,7 +392,7 @@ seeds/               Seed catalog (4 YAML files + Faker standard)
 
 Makefile             setup, run, tunnel, validate shortcuts
 runs/, logs/         Runtime (gitignored)
-tests/               Pytest suite (575 tests)
+tests/               Pytest suite (677 tests)
 ```
 
 A local **`plan/`** directory (roadmaps, design notes) is **gitignored** and is not part of the published repository.
@@ -391,7 +403,7 @@ A local **`plan/`** directory (roadmaps, design notes) is **gitignored** and is 
 
 ```bash
 source .venv/bin/activate
-python -m pytest tests/ -q           # all 575 tests
+python -m pytest tests/ -q           # all 677 tests
 python -m pytest tests/ -x -q        # stop on first failure
 ```
 

@@ -1,4 +1,4 @@
-"""Server-side session cache for the Dataloader application.
+"""Server-side session cache for the Dataloader application (``dataloader.session``).
 
 Houses ``SessionState``, the in-memory session store, and the
 ``get_session`` helper (not yet wired as a FastAPI ``Depends`` everywhere).

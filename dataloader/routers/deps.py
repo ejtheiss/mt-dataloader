@@ -7,8 +7,8 @@ from typing import Annotated
 from fastapi import Depends, Form, Header, Query, Request
 from fastapi.templating import Jinja2Templates
 
+from dataloader.session import SessionState, sessions
 from models import AppSettings
-from session import SessionState, sessions
 from tunnel import TunnelManager
 
 

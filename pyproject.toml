@@ -1,5 +1,5 @@
 # Modern Treasury Dataloader — tool configuration (runtime deps remain in requirements.txt).
-# See plan/3.31.26 plans-data loader/00_repo_organization.md § CI/CD — phased enforcement.
+# CI: Ruff, lint-imports ([tool.importlinter]), pytest — see plan/3.31.26 plans-data loader/00_repo_conventions.md.
 
 [tool.ruff]
 target-version = "py312"
@@ -14,3 +14,21 @@ select = [
   "F",    # pyflakes
   "I",    # isort
 ]
+
+[tool.importlinter]
+root_packages = ["dataloader", "flow_compiler", "org", "models"]
+
+[[tool.importlinter.contracts]]
+name = "Compiler stays independent of the packaged app"
+type = "forbidden"
+source_modules = ["flow_compiler"]
+forbidden_modules = ["dataloader"]
+
+# Org → dataloader.engine currently pulls webhooks/handlers/routers transitively
+# (engine registers run org). A stricter org-layer contract belongs in plan 07.
+
+[[tool.importlinter.contracts]]
+name = "Models stay free of the FastAPI app package"
+type = "forbidden"
+source_modules = ["models"]
+forbidden_modules = ["dataloader"]

@@ -17,6 +17,7 @@ from dataloader.routers.deps import (
     SessionHeaderDep,
     TemplatesDep,
 )
+from dataloader.session import sessions
 from flow_compiler import (
     GenerationResult,
     compile_diagnostics,
@@ -39,7 +40,6 @@ from models import (
     GenerationRecipeV1,
 )
 from org import reconcile_config, sync_connection_entities_from_reconciliation
-from session import sessions
 
 router = APIRouter(tags=["flows"])
 

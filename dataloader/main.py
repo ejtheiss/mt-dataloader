@@ -96,7 +96,7 @@ async def lifespan(app: FastAPI):
     settings = AppSettings()
     app.state.settings = settings
     _configure_logging(settings)
-    # Single-writer assumption: index + session store match one process (see session.py).
+    # Single-writer assumption: index + session store match one process (see dataloader/session/).
     rebuild_correlation_index(settings.runs_dir)
 
     tunnel_mgr = TunnelManager(runs_dir=settings.runs_dir)
