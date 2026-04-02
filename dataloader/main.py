@@ -1,8 +1,7 @@
 """FastAPI application for the Modern Treasury Dataloader.
 
 Configures the app, mounts static files, sets up templates, and
-includes all APIRouter modules. Route handlers live in ``routers/`` (Phase E2
-will move them under ``dataloader/routers/``).
+includes all APIRouter modules. Route handlers live in ``dataloader/routers/``.
 
 Paths (templates, static, logs) resolve from the **repository root**, not the
 package directory — same behavior as the former root ``main.py``.
@@ -20,16 +19,16 @@ from fastapi.templating import Jinja2Templates
 from loguru import logger
 
 from _version import __version__
+from dataloader.routers.cleanup import router as cleanup_router
+from dataloader.routers.connection import router as connection_router
+from dataloader.routers.execute import router as execute_router
+from dataloader.routers.flows import router as flows_router
+from dataloader.routers.runs import router as runs_router
+from dataloader.routers.setup import router as setup_router
+from dataloader.routers.tunnel import router as tunnel_router
 from helpers import set_templates
 from models import AppSettings
 from mt_doc_links import MT_DOCS
-from routers.cleanup import router as cleanup_router
-from routers.connection import router as connection_router
-from routers.execute import router as execute_router
-from routers.flows import router as flows_router
-from routers.runs import router as runs_router
-from routers.setup import router as setup_router
-from routers.tunnel import router as tunnel_router
 from tunnel import NgrokStartError, TunnelManager
 from webhooks import rebuild_correlation_index
 from webhooks import router as webhook_router

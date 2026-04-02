@@ -913,7 +913,7 @@ class TestBuildPreviewSetupOrder:
 
 class TestEditedResourceTypedRefs:
     def test_detects_connection_payload_change(self):
-        from routers.setup import _edited_resource_typed_refs
+        from dataloader.routers.setup import _edited_resource_typed_refs
 
         raw = {
             "connections": [
@@ -931,7 +931,7 @@ class TestEditedResourceTypedRefs:
         assert "connection.c1" in refs
 
     def test_prior_none_returns_empty(self):
-        from routers.setup import _edited_resource_typed_refs
+        from dataloader.routers.setup import _edited_resource_typed_refs
 
         raw = {
             "connections": [

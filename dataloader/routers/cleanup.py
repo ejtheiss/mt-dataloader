@@ -12,11 +12,11 @@ from loguru import logger
 from modern_treasury import AsyncModernTreasury
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
+from dataloader.routers.deps import SettingsDep, TemplatesDep
 from engine import RefRegistry
 from handlers import DELETABILITY
 from helpers import error_html, error_response
 from models import DataLoaderConfig, RunManifest
-from routers.deps import SettingsDep, TemplatesDep
 from session import SessionState, sessions
 from sse_helpers import sse_error_response
 

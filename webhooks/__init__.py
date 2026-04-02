@@ -2,7 +2,7 @@
 
 Phase **02a** moved the former root ``webhooks.py`` into ``webhooks/routes.py``;
 this module re-exports the public API so ``main``, ``engine``, and
-``routers.execute`` keep stable imports.
+``dataloader.routers.execute`` keep stable imports.
 """
 
 from __future__ import annotations

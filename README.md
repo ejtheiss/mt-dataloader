@@ -331,6 +331,15 @@ for p in sorted(Path('examples').glob('*.json')):
 main.py              ASGI shim → re-exports dataloader.main.app (uvicorn dataloader.main:app preferred)
 dataloader/          Application package (02a Phase E)
   main.py            FastAPI app, lifespan, router includes, static/templates paths
+  routers/           FastAPI route modules (import: dataloader.routers)
+    setup.py         /api/validate, /api/revalidate
+    flows.py         /flows, /flows/view, /api/flows/generate, /api/flows/metadata
+    execute.py       /api/execute, SSE stream
+    cleanup.py       /api/cleanup
+    runs.py          /runs, run detail, staged fire
+    connection.py    /api/connections
+    tunnel.py        /listen tunnel UI
+    deps.py          FastAPI Depends helpers
 engine.py            Ref resolution, DAG (graphlib), execute loop, run manifests
 handlers.py          MT SDK calls, polling, retry logic, metadata stripping
 helpers.py           Shared rendering: build_preview, extract_display_name, format helpers
@@ -361,14 +370,6 @@ org/                 Org discovery + reconciliation
   discovery.py       Query MT org for existing resources
   reconciliation.py  Match config refs to discovered resources
   registry.py        RefRegistry for ref → UUID mapping
-
-routers/             FastAPI route modules
-  setup.py           /api/validate, /api/revalidate
-  flows.py           /flows, /flows/view, /api/flows/generate, /api/flows/metadata
-  execute.py         /api/execute, SSE stream
-  cleanup.py         /api/cleanup
-  runs.py            /runs, run detail, staged fire
-  connection.py      /api/connections
 
 templates/           HTMX + Jinja2 UI
   partials/          Reusable fragments (mermaid, scenario_builder, resource_row, etc.)

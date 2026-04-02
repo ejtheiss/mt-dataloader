@@ -6,9 +6,9 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from modern_treasury import AsyncModernTreasury, AuthenticationError
 
+from dataloader.routers.deps import OptionalSessionQueryDep, TemplatesDep
 from models import DataLoaderConfig
 from org import OrgRegistry, discover_org
-from routers.deps import OptionalSessionQueryDep, TemplatesDep
 
 router = APIRouter(tags=["connection"])
 

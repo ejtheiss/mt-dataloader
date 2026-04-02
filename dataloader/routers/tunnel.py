@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 import ngrok_cloud
+from dataloader.routers.deps import SettingsDep, TunnelDep
 from mt_webhook_endpoints import (
     analyze_org_webhook_listeners,
     create_webhook_endpoint,
@@ -24,7 +25,6 @@ from mt_webhook_endpoints import (
     normalize_webhook_url,
     patch_webhook_endpoint,
 )
-from routers.deps import SettingsDep, TunnelDep
 from tunnel import NgrokStartError
 
 router = APIRouter()
