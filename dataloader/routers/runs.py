@@ -7,10 +7,11 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from loguru import logger
 
-from engine import _MANIFEST_RE
-from handlers import DELETABILITY
+from dataloader.engine import manifest_json_run_id
+from dataloader.handlers import DELETABILITY
+from dataloader.routers.deps import SettingsDep, TemplatesDep
+from db.repositories import runs as runs_repo
 from models import RunManifest
-from routers.deps import SettingsDep, TemplatesDep
 
 router = APIRouter(tags=["runs"])
 
@@ -30,17 +31,40 @@ async def list_runs(
     status: str | None = None,
     mt_org_id: str | None = None,
 ):
-    """List past run manifests with optional sort and filter."""
+    """List past run manifests with optional sort and filter.
+
+    When the DB is available, run order starts from SQL ``runs.started_at`` (newest
+    first), then appends disk-only manifests (historical / not yet mirrored).
+    """
     runs_dir = Path(settings.runs_dir)
     manifests: list[RunManifest] = []
+    seen: set[str] = set()
+    factory = getattr(request.app.state, "async_session_factory", None)
+
+    if factory is not None:
+        try:
+            async with factory() as session:
+                db_order = await runs_repo.list_run_ids_by_started_desc(session)
+            for rid in db_order:
+                m = _find_manifest(runs_dir, rid)
+                if m is not None:
+                    manifests.append(m)
+                    seen.add(m.run_id)
+        except Exception as exc:
+            logger.warning("db list_run_ids failed, using disk-only listing: {}", exc)
+
     if runs_dir.exists():
         for path in sorted(runs_dir.glob("*.json"), reverse=True):
-            if not _MANIFEST_RE.match(path.name):
+            if manifest_json_run_id(path.name) is None:
                 continue
             try:
-                manifests.append(RunManifest.load(path))
+                m = RunManifest.load(path)
             except Exception as e:
                 logger.bind(path=str(path), error=str(e)).warning("Failed to load manifest")
+                continue
+            if m.run_id in seen:
+                continue
+            manifests.append(m)
 
     if status:
         manifests = [

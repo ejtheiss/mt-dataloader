@@ -1,4 +1,4 @@
-"""Server-side session cache for the Dataloader application.
+"""Server-side session cache for the Dataloader application (``dataloader.session``).
 
 Houses ``SessionState``, the in-memory session store, and the
 ``get_session`` helper (not yet wired as a FastAPI ``Depends`` everywhere).
@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 
 from fastapi import Request
 
-from engine import RefRegistry
+from dataloader.engine import RefRegistry
 from flow_compiler import FlowIR
 from models import DataLoaderConfig, RunManifest
 from org import DiscoveryResult, OrgRegistry, ReconciliationResult

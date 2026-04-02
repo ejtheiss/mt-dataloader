@@ -1,0 +1,32 @@
+---
+description: Python layout — routers vs compiler vs models, session deps, JSON policy (matches CI + repo conventions)
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Dataloader — Python layers and edges
+
+Use this when editing **application Python** (`dataloader/routers/`, `dataloader/engine/`, `dataloader/handlers/`, `dataloader/session/`, `models/`, `flow_compiler/`, `org/`, repo-root helpers). For **templates / static / JS**, see **`mint-mt-ui.mdc`**; for **Pydantic-first + HTMX vs JS**, see **`python-first-ui.mdc`**.
+
+## Where logic lives
+
+- **`dataloader/routers/`** — Thin HTTP: parse input, call domain, return response. Avoid embedding rules that belong in compiler / **`dataloader.engine`** / org.
+- **`dataloader/engine/`** — DAG execution, ref resolution, manifests (no MT SDK). Submodules: **`refs`**, **`dag`**, **`runner`**, **`run_meta`**; **`dataloader.staged_fire`** holds staged fireable types (shared with webhooks).
+- **`dataloader/handlers/`** — MT SDK calls only; consumed via dispatch tables from **`dataloader.engine`**. Submodules: **`constants`**, **`operations`**, **`dispatch`**.
+- **`flow_compiler/`** — Compile pipeline only. **Do not** import **`dataloader.routers`** or **`dataloader.webhooks`**.
+- **`models/`** — Pydantic + settings only. **No** FastAPI, **no** Jinja.
+- **JSON policy** — Prefer **`jsonutil`** (`loads_str`, `loads_path`, `dumps_pretty`, `dumps_jsonl_record`) or **Pydantic** for parse/serialize; avoid scattered raw **`json.loads`** in route modules without justification.
+
+## FastAPI session injection
+
+- Use **`dataloader.routers.deps`** (`OptionalSessionQueryDep`, `SessionHeaderDep`, `SessionFormDep`, etc.) instead of ad hoc **`sessions.get`** when adding routes.
+- **Do not** name the injected parameter **`session`** — use **`sess`**, **`hdr_sess`**, or **`old_session`** so FastAPI does not treat it as a query field.
+
+## Tooling (tracked repo)
+
+- **Lint/format:** **`ruff check`** / **`ruff format`** — config in **`pyproject.toml`**; CI enforces both.
+- **Full layout + phased CI:** maintainer doc under **`plan/3.31.26 plans-data loader/00_repo_conventions.md`** (often gitignored). **Import boundaries:** **`lint-imports`** — **`[tool.importlinter]`** in **`pyproject.toml`**.
+
+## Tests
+
+- Shared paths: **`tests/paths.py`**, **`tests/conftest.py`**. Avoid new **`sys.path`** hacks outside **`conftest`**.

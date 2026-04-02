@@ -16,7 +16,7 @@ from typing import Any, TypeVar
 from loguru import logger
 from modern_treasury import AsyncModernTreasury
 
-from engine import all_resources
+from dataloader.engine import all_resources
 
 __all__ = [
     "DiscoveredConnection",

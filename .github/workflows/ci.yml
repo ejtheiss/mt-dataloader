@@ -1,4 +1,4 @@
-# CI phases: pytest + compileall now; Ruff / import-linter per plan/00_repo_organization.md §6.
+# CI: Ruff + pytest + compileall; import-linter per plan/3.31.26 plans-data loader/00_repo_conventions.md §6.
 name: CI
 
 on:
@@ -23,12 +23,24 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest ruff
+          # Pin Ruff so `ruff format --check` matches local `ruff format` (upgrade deliberately).
+          pip install pytest import-linter ruff==0.15.9
 
-      - name: Ruff lint + format check
+      - name: Alembic upgrade (fresh SQLite, Plan 0)
+        env:
+          DATALOADER_DATA_DIR: ${{ runner.temp }}/dataloader_ci_db
         run: |
-          ruff check .
-          ruff format --check .
+          mkdir -p "$DATALOADER_DATA_DIR"
+          alembic upgrade head
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format (check only)
+        run: ruff format --check .
+
+      - name: Import linter (layer contracts)
+        run: lint-imports
 
       - name: Byte-compile Python (syntax / stale imports surface early)
         run: python -m compileall -q -x '^\./(\.git|\.venv|venv)/' .

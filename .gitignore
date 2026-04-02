@@ -37,6 +37,7 @@ static/css/tokens.regen-preview.css
 
 # Runtime artifacts
 runs/
+data/
 logs/
 
 # Test artifacts

@@ -595,7 +595,7 @@ class TestEndToEnd:
 
     def test_demo_json_dry_run(self):
         """Compiled output produces valid batches via dry_run."""
-        from engine import dry_run
+        from dataloader.engine import dry_run
 
         raw = (EXAMPLES_DIR / "funds_flow_demo.json").read_text()
         compiled, _ = _compile(DataLoaderConfig.model_validate_json(raw))

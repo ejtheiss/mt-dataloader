@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from engine import (
+from dataloader.engine import (
     RefRegistry,
     all_resources,
     inject_legal_entity_psp_connection_id,
@@ -512,7 +512,7 @@ class TestCompilePipeline:
 
 class TestDagConnectionsBeforeLegalEntities:
     def test_legal_entities_run_in_later_batch_than_connections(self):
-        from engine import dry_run
+        from dataloader.engine import dry_run
 
         batches = dry_run(
             DataLoaderConfig.model_validate(
@@ -913,7 +913,7 @@ class TestBuildPreviewSetupOrder:
 
 class TestEditedResourceTypedRefs:
     def test_detects_connection_payload_change(self):
-        from routers.setup import _edited_resource_typed_refs
+        from dataloader.routers.setup import _edited_resource_typed_refs
 
         raw = {
             "connections": [
@@ -931,7 +931,7 @@ class TestEditedResourceTypedRefs:
         assert "connection.c1" in refs
 
     def test_prior_none_returns_empty(self):
-        from routers.setup import _edited_resource_typed_refs
+        from dataloader.routers.setup import _edited_resource_typed_refs
 
         raw = {
             "connections": [

@@ -11,7 +11,13 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field, ValidationError
 
 import seed_loader
-from engine import all_resources, dry_run, typed_ref_for
+from dataloader.engine import all_resources, dry_run, typed_ref_for
+from dataloader.routers.deps import (
+    OptionalSessionQueryDep,
+    SessionHeaderDep,
+    TemplatesDep,
+)
+from dataloader.session import sessions
 from flow_compiler import (
     GenerationResult,
     compile_diagnostics,
@@ -34,12 +40,6 @@ from models import (
     GenerationRecipeV1,
 )
 from org import reconcile_config, sync_connection_entities_from_reconciliation
-from routers.deps import (
-    OptionalSessionQueryDep,
-    SessionHeaderDep,
-    TemplatesDep,
-)
-from session import sessions
 
 router = APIRouter(tags=["flows"])
 

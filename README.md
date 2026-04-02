@@ -38,7 +38,7 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 make run                           # starts uvicorn with auto-reload
 ```
 
-Or manually: `python3 -m venv .venv && pip install -r requirements.txt && uvicorn main:app --reload`
+Or manually: `python3 -m venv .venv && pip install -r requirements.txt && uvicorn dataloader.main:app --reload` (repo-root `main.py` still supports `uvicorn main:app` as a shim).
 
 ---
 
@@ -328,16 +328,42 @@ for p in sorted(Path('examples').glob('*.json')):
 ## Layout
 
 ```
-main.py              FastAPI app factory, session init, SSE stream
-engine.py            Ref resolution, DAG (graphlib), execute loop, run manifests
-handlers.py          MT SDK calls, polling, retry logic, metadata stripping
+main.py              ASGI shim → re-exports dataloader.main.app (uvicorn dataloader.main:app preferred)
+dataloader/          Application package (02a Phase E)
+  main.py            FastAPI app, lifespan, router includes, static/templates paths
+  routers/           FastAPI route modules (import: dataloader.routers)
+    setup.py         /api/validate, /api/revalidate
+    flows.py         /flows, /flows/view, /api/flows/generate, /api/flows/metadata
+    execute.py       /api/execute, SSE stream
+    cleanup.py       /api/cleanup
+    runs.py          /runs, run detail, staged fire
+    connection.py    /api/connections
+    tunnel.py        /listen tunnel UI
+    deps.py          FastAPI Depends helpers
+  webhooks/          Webhook package (routes.py: receiver, run detail, staged fire, listener)
+  staged_fire.py     FIREABLE_TYPES shared by webhooks + engine dry-run (must match _FIRE_DISPATCH)
+  engine/            DAG executor (submodules: refs, dag, runner, run_meta)
+  handlers/          MT SDK handlers (submodules: constants, operations, dispatch)
+  session/           In-memory SessionState + process-local session store (import: dataloader.session)
 helpers.py           Shared rendering: build_preview, extract_display_name, format helpers
-session.py           SessionState dataclass (per-session state)
 seed_loader.py       Faker hybrid seed engine (standard, industry, pop-culture)
 flow_validator.py    Config-level flow validation
 flow_views.py        Ledger + payments view data computation
-webhooks/            Webhook package (routes.py: receiver, run detail, staged fire, listener)
+```
 
+### Application wiring
+
+- **ASGI:** `uvicorn dataloader.main:app` (root `main.py` may re-export `app`).
+- **SQLite (Plan 0):** `DATALOADER_DATA_DIR` (default `data/`) holds `dataloader.sqlite`; lifespan runs `alembic upgrade head` then opens an async SQLAlchemy engine. CI runs `alembic upgrade head` before `pytest`.
+- **Factory + lifespan:** `dataloader/main.py` — settings, logging, static, templates, router includes, tunnel manager.
+- **HTTP:** `dataloader/routers/`; **webhooks:** `dataloader/webhooks/`.
+- **DAG + SDK:** `dataloader/engine/`, `dataloader/handlers/`; **staged fire allowlist:** `dataloader/staged_fire.py` (`FIREABLE_TYPES`).
+- **Loader session:** `dataloader/session/` — `SessionState` and the in-memory `sessions` map (single-worker; see maintainer **Plan 0** for durable session design).
+- **Injection:** `dataloader/routers/deps.py` — settings, templates, tunnel, session lookup helpers.
+- **Import boundaries:** run `lint-imports` (config: `pyproject.toml` → `[tool.importlinter]`). `flow_compiler` and `models` must not import `dataloader`. **`org`** is forbidden from `dataloader.routers`, `webhooks`, `handlers`, `session`, `main` — in practice **`org` imports `dataloader.engine` only** (matches contracts).
+
+```
+db/                  SQLAlchemy ORM + Alembic (`tables`, `database`, `repositories/`) — no imports from `dataloader`
 models/              Pydantic config schemas
   config.py          DataLoaderConfig (root schema)
   resources.py       MT resource models (Layers 0-6)
@@ -360,14 +386,6 @@ org/                 Org discovery + reconciliation
   reconciliation.py  Match config refs to discovered resources
   registry.py        RefRegistry for ref → UUID mapping
 
-routers/             FastAPI route modules
-  setup.py           /api/validate, /api/revalidate
-  flows.py           /flows, /flows/view, /api/flows/generate, /api/flows/metadata
-  execute.py         /api/execute, SSE stream
-  cleanup.py         /api/cleanup
-  runs.py            /runs, run detail, staged fire
-  connection.py      /api/connections
-
 templates/           HTMX + Jinja2 UI
   partials/          Reusable fragments (mermaid, scenario_builder, resource_row, etc.)
 static/              CSS
@@ -377,7 +395,7 @@ seeds/               Seed catalog (4 YAML files + Faker standard)
 
 Makefile             setup, run, tunnel, validate shortcuts
 runs/, logs/         Runtime (gitignored)
-tests/               Pytest suite (575 tests)
+tests/               Pytest suite (677 tests)
 ```
 
 A local **`plan/`** directory (roadmaps, design notes) is **gitignored** and is not part of the published repository.
@@ -388,7 +406,7 @@ A local **`plan/`** directory (roadmaps, design notes) is **gitignored** and is 
 
 ```bash
 source .venv/bin/activate
-python -m pytest tests/ -q           # all 575 tests
+python -m pytest tests/ -q           # all 677 tests
 python -m pytest tests/ -x -q        # stop on first failure
 ```
 

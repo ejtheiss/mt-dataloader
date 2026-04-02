@@ -22,6 +22,7 @@ class AppSettings(BaseSettings):
 
     mt_api_key: str = ""
     mt_org_id: str = ""
+    data_dir: str = "data"
     runs_dir: str = "runs"
     log_level: str = "INFO"
     stamp_loader_metadata: bool = False

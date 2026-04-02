@@ -13,7 +13,7 @@ import tempfile
 
 import pytest
 
-from engine import RunManifest, _now_iso
+from dataloader.engine import RunManifest, _now_iso
 from flow_compiler import (
     AuthoringConfig,
     FlowIR,

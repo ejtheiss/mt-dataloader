@@ -1,140 +1,24 @@
-"""Async handler functions for Modern Treasury SDK resource creation.
-
-Each handler:
-1. Receives a resolved dict (all $ref: strings replaced with UUIDs)
-2. Calls the corresponding AsyncModernTreasury SDK method
-3. Returns a HandlerResult with created ID, child refs, and deletability
-
-This is the ONLY module that imports the MT SDK.
-"""
-
 from __future__ import annotations
 
-import functools
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from loguru import logger
 from modern_treasury import AsyncModernTreasury
 from modern_treasury._exceptions import APIStatusError
 from modern_treasury.types.connection import Connection
-from tenacity import (
-    RetryError,
-    retry,
-    retry_if_exception,
-    retry_if_result,
-    stop_after_delay,
-    wait_exponential,
-)
+from tenacity import RetryError, retry, retry_if_exception, retry_if_result
 
 from models import HandlerResult
 
-__all__ = [
-    "DELETABILITY",
-    "SDK_ATTR_MAP",
-    "build_handler_dispatch",
-    "build_update_dispatch",
-    "create_connection",
-    "create_legal_entity",
-    "create_ledger",
-    "create_counterparty",
-    "create_ledger_account",
-    "create_internal_account",
-    "create_external_account",
-    "create_ledger_account_category",
-    "create_virtual_account",
-    "create_expected_payment",
-    "create_payment_order",
-    "create_incoming_payment_detail",
-    "create_ledger_transaction",
-    "create_return",
-    "create_reversal",
-    "create_category_membership",
-    "create_nested_category",
-    "transition_ledger_transaction",
-    "create_ledger_account_settlement",
-    "create_ledger_account_balance_monitor",
-    "create_ledger_account_statement",
-    "create_legal_entity_association",
-    "create_transaction",
-    "verify_external_account",
-    "complete_verification",
-    "archive_resource",
-    "read_resource",
-    "list_resources",
-]
-
-# ---------------------------------------------------------------------------
-# Type aliases
-# ---------------------------------------------------------------------------
-
-EmitFn = Callable[[str, str, dict[str, Any]], Awaitable[None]]
-HandlerFn = Callable[..., Awaitable[HandlerResult]]
-UpdateHandlerFn = Callable[..., Awaitable[HandlerResult]]
-
-# Tenacity presets (shared with ``webhooks`` staged IPD fire)
-TENACITY_WAIT_EXP_2_10 = wait_exponential(multiplier=1, min=2, max=10)
-TENACITY_WAIT_EXP_2_5 = wait_exponential(multiplier=1, min=2, max=5)
-TENACITY_STOP_30 = stop_after_delay(30)
-TENACITY_STOP_60 = stop_after_delay(60)
-
-# ---------------------------------------------------------------------------
-# Deletability mapping (resource_type -> can be deleted via API)
-# ---------------------------------------------------------------------------
-
-DELETABILITY: dict[str, bool] = {
-    "connection": False,
-    "legal_entity": False,
-    "legal_entity_association": False,
-    "ledger": True,
-    "counterparty": True,
-    "ledger_account": True,
-    "internal_account": False,
-    "external_account": True,
-    "ledger_account_category": True,
-    "ledger_account_settlement": False,
-    "ledger_account_balance_monitor": True,
-    "ledger_account_statement": False,
-    "virtual_account": True,
-    "expected_payment": True,
-    "payment_order": False,
-    "incoming_payment_detail": False,
-    "ledger_transaction": False,
-    "transaction": False,
-    "return": False,
-    "reversal": False,
-    "category_membership": True,
-    "nested_category": True,
-    "transition_ledger_transaction": False,
-    "verify_external_account": False,
-    "complete_verification": False,
-    "archive_resource": False,
-}
-
-SDK_ATTR_MAP: dict[str, str] = {
-    "connection": "connections",
-    "legal_entity": "legal_entities",
-    "ledger": "ledgers",
-    "counterparty": "counterparties",
-    "ledger_account": "ledger_accounts",
-    "internal_account": "internal_accounts",
-    "external_account": "external_accounts",
-    "ledger_account_category": "ledger_account_categories",
-    "virtual_account": "virtual_accounts",
-    "expected_payment": "expected_payments",
-    "payment_order": "payment_orders",
-    "incoming_payment_detail": "incoming_payment_details",
-    "ledger_transaction": "ledger_transactions",
-    "return": "returns",
-    "reversal": "payment_orders",
-    "ledger_account_settlement": "ledger_account_settlements",
-    "ledger_account_balance_monitor": "ledger_account_balance_monitors",
-    "ledger_account_statement": "ledger_account_statements",
-    "transaction": "transactions",
-}
-
-# ---------------------------------------------------------------------------
-# Lifecycle polling helpers
-# ---------------------------------------------------------------------------
+from .constants import (
+    DELETABILITY,
+    SDK_ATTR_MAP,
+    TENACITY_STOP_30,
+    TENACITY_STOP_60,
+    TENACITY_WAIT_EXP_2_5,
+    TENACITY_WAIT_EXP_2_10,
+    EmitFn,
+)
 
 
 async def _poll_ipd_status(
@@ -1144,127 +1028,3 @@ async def list_resources(
         if len(results) >= 100:
             break
     return results
-
-
-# ---------------------------------------------------------------------------
-# Dispatch table factory
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Update handlers (reconciled resources with edited payloads)
-# ---------------------------------------------------------------------------
-
-_STRIP_ON_UPDATE: dict[str, set[str]] = {
-    "internal_account": {"connection_id", "currency"},
-    "legal_entity": {"legal_entity_type", "connection_id"},
-    "counterparty": set(),
-    "ledger": set(),
-    "ledger_account": {"currency", "ledger_id", "normal_balance"},
-    "ledger_account_category": {"currency", "ledger_id", "normal_balance"},
-    "external_account": {"counterparty_id"},
-    "virtual_account": {"internal_account_id"},
-    "expected_payment": set(),
-}
-
-
-async def _generic_update(
-    client: AsyncModernTreasury,
-    emit_sse: EmitFn,
-    resolved: dict,
-    *,
-    resource_id: str,
-    resource_type: str,
-    sdk_attr: str,
-    idempotency_key: str,
-    typed_ref: str = "",
-) -> HandlerResult:
-    for key in _STRIP_ON_UPDATE.get(resource_type, set()):
-        resolved.pop(key, None)
-    logger.bind(ref=typed_ref).info("Updating {} {}", resource_type, resource_id[:12])
-    sdk_resource = getattr(client, sdk_attr)
-    result = await sdk_resource.update(resource_id, **resolved)
-    return HandlerResult(
-        created_id=result.id,
-        resource_type=resource_type,
-        deletable=DELETABILITY.get(resource_type, False),
-    )
-
-
-def build_update_dispatch(
-    client: AsyncModernTreasury,
-    emit_sse: EmitFn,
-) -> dict[str, UpdateHandlerFn]:
-    """Build the update handler dispatch table.
-
-    Each handler calls ``.update(resource_id, ...)`` instead of ``.create()``,
-    stripping immutable fields per resource type.
-    """
-    bind = functools.partial
-
-    def _bind(resource_type: str, sdk_attr: str) -> UpdateHandlerFn:
-        return bind(
-            _generic_update,
-            client,
-            emit_sse,
-            resource_type=resource_type,
-            sdk_attr=sdk_attr,
-        )
-
-    return {
-        "internal_account": _bind("internal_account", "internal_accounts"),
-        "legal_entity": _bind("legal_entity", "legal_entities"),
-        "counterparty": _bind("counterparty", "counterparties"),
-        "ledger": _bind("ledger", "ledgers"),
-        "ledger_account": _bind("ledger_account", "ledger_accounts"),
-        "ledger_account_category": _bind(
-            "ledger_account_category",
-            "ledger_account_categories",
-        ),
-        "external_account": _bind("external_account", "external_accounts"),
-        "virtual_account": _bind("virtual_account", "virtual_accounts"),
-        "expected_payment": _bind("expected_payment", "expected_payments"),
-    }
-
-
-def build_handler_dispatch(
-    client: AsyncModernTreasury,
-    emit_sse: EmitFn,
-) -> dict[str, HandlerFn]:
-    """Build the handler dispatch table with client and emit_sse pre-bound.
-
-    The engine calls each handler as:
-        result = await handler(resolved, idempotency_key=..., typed_ref=...)
-    """
-    bind = functools.partial
-
-    return {
-        "connection": bind(create_connection, client, emit_sse),
-        "legal_entity": bind(create_legal_entity, client, emit_sse),
-        "legal_entity_association": bind(create_legal_entity_association, client, emit_sse),
-        "ledger": bind(create_ledger, client, emit_sse),
-        "counterparty": bind(create_counterparty, client, emit_sse),
-        "ledger_account": bind(create_ledger_account, client, emit_sse),
-        "internal_account": bind(create_internal_account, client, emit_sse),
-        "external_account": bind(create_external_account, client, emit_sse),
-        "ledger_account_category": bind(create_ledger_account_category, client, emit_sse),
-        "ledger_account_settlement": bind(create_ledger_account_settlement, client, emit_sse),
-        "ledger_account_balance_monitor": bind(
-            create_ledger_account_balance_monitor, client, emit_sse
-        ),
-        "ledger_account_statement": bind(create_ledger_account_statement, client, emit_sse),
-        "virtual_account": bind(create_virtual_account, client, emit_sse),
-        "expected_payment": bind(create_expected_payment, client, emit_sse),
-        "payment_order": bind(create_payment_order, client, emit_sse),
-        "incoming_payment_detail": bind(create_incoming_payment_detail, client, emit_sse),
-        "ledger_transaction": bind(create_ledger_transaction, client, emit_sse),
-        "transaction": bind(create_transaction, client, emit_sse),
-        "return": bind(create_return, client, emit_sse),
-        "reversal": bind(create_reversal, client, emit_sse),
-        "category_membership": bind(create_category_membership, client, emit_sse),
-        "nested_category": bind(create_nested_category, client, emit_sse),
-        "transition_ledger_transaction": bind(transition_ledger_transaction, client, emit_sse),
-        "verify_external_account": bind(verify_external_account, client, emit_sse),
-        "complete_verification": bind(complete_verification, client, emit_sse),
-        "archive_resource": bind(archive_resource, client, emit_sse),
-    }

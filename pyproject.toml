@@ -1,5 +1,5 @@
 # Modern Treasury Dataloader — tool configuration (runtime deps remain in requirements.txt).
-# See plan/3.31.26 plans-data loader/00_repo_organization.md § CI/CD — phased enforcement.
+# CI: Ruff, lint-imports ([tool.importlinter]), pytest — see plan/3.31.26 plans-data loader/00_repo_conventions.md.
 
 [tool.ruff]
 target-version = "py312"
@@ -14,3 +14,40 @@ select = [
   "F",    # pyflakes
   "I",    # isort
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.importlinter]
+root_packages = ["dataloader", "db", "flow_compiler", "org", "models"]
+
+[[tool.importlinter.contracts]]
+name = "Compiler stays independent of the packaged app"
+type = "forbidden"
+source_modules = ["flow_compiler"]
+forbidden_modules = ["dataloader"]
+
+[[tool.importlinter.contracts]]
+name = "Org stays out of HTTP, webhooks, handlers, session"
+type = "forbidden"
+source_modules = ["org"]
+forbidden_modules = [
+  "dataloader.handlers",
+  "dataloader.main",
+  "dataloader.routers",
+  "dataloader.session",
+  "dataloader.webhooks",
+]
+
+[[tool.importlinter.contracts]]
+name = "Models stay free of the FastAPI app package"
+type = "forbidden"
+source_modules = ["models"]
+forbidden_modules = ["dataloader"]
+
+[[tool.importlinter.contracts]]
+name = "DB layer stays free of the FastAPI app package"
+type = "forbidden"
+source_modules = ["db"]
+forbidden_modules = ["dataloader"]

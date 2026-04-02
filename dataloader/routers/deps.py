@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import Depends, Form, Header, Query, Request
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from dataloader.session import SessionState, sessions
 from models import AppSettings
-from session import SessionState, sessions
 from tunnel import TunnelManager
 
 
@@ -55,3 +57,15 @@ OptionalSessionQueryDep = Annotated[SessionState | None, Depends(session_from_qu
 RequiredSessionQueryDep = Annotated[SessionState | None, Depends(session_from_query_required)]
 SessionFormDep = Annotated[SessionState | None, Depends(session_from_form)]
 SessionHeaderDep = Annotated[SessionState | None, Depends(session_from_header)]
+
+
+async def get_db_session(request: Request) -> AsyncGenerator[AsyncSession, None]:
+    """One ``AsyncSession`` per request — Plan 0 (``db_session`` naming)."""
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        raise RuntimeError("Database not initialized (async_session_factory missing)")
+    async with factory() as session:
+        yield session
+
+
+AsyncSessionDep = Annotated[AsyncSession, Depends(get_db_session)]

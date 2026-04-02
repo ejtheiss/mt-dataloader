@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from starlette.testclient import TestClient
 
-from engine import RefRegistry
+from dataloader.engine import RefRegistry
+from dataloader.session import SessionState, sessions
 from flow_compiler.core import compile_flows
 from main import app
 from models import DataLoaderConfig, GenerationRecipeV1
-from session import SessionState, sessions
 
 
 def _make_actor_flow_config() -> dict:
@@ -101,8 +101,8 @@ def test_actor_config_get_ok():
 
 def test_actor_config_post_sets_dataset(monkeypatch):
     """Merge + compose; stub dry_run/preview — minimal actor_test config lacks full DAG."""
-    monkeypatch.setattr("routers.flows.dry_run", lambda *args, **kwargs: [])
-    monkeypatch.setattr("routers.flows.build_preview", lambda *args, **kwargs: [])
+    monkeypatch.setattr("dataloader.routers.flows.dry_run", lambda *args, **kwargs: [])
+    monkeypatch.setattr("dataloader.routers.flows.build_preview", lambda *args, **kwargs: [])
 
     token, sess = _actor_flow_session()
     sessions[token] = sess
