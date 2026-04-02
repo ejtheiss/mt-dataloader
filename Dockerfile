@@ -27,4 +27,4 @@ EXPOSE 8000
 ENV DATALOADER_RUNS_DIR=runs \
     DATALOADER_LOG_LEVEL=INFO
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "dataloader.main:app", "--host", "0.0.0.0", "--port", "8000"]

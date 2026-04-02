@@ -38,7 +38,7 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 make run                           # starts uvicorn with auto-reload
 ```
 
-Or manually: `python3 -m venv .venv && pip install -r requirements.txt && uvicorn main:app --reload`
+Or manually: `python3 -m venv .venv && pip install -r requirements.txt && uvicorn dataloader.main:app --reload` (repo-root `main.py` still supports `uvicorn main:app` as a shim).
 
 ---
 
@@ -328,7 +328,9 @@ for p in sorted(Path('examples').glob('*.json')):
 ## Layout
 
 ```
-main.py              FastAPI app factory, session init, SSE stream
+main.py              ASGI shim → re-exports dataloader.main.app (uvicorn dataloader.main:app preferred)
+dataloader/          Application package (02a Phase E)
+  main.py            FastAPI app, lifespan, router includes, static/templates paths
 engine.py            Ref resolution, DAG (graphlib), execute loop, run manifests
 handlers.py          MT SDK calls, polling, retry logic, metadata stripping
 helpers.py           Shared rendering: build_preview, extract_display_name, format helpers

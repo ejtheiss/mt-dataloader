@@ -11,7 +11,7 @@ setup: ## Create venv and install dependencies
 	@echo "\n  Activate with:  source .venv/bin/activate"
 
 run: ## Start the dataloader (auto-reload)
-	.venv/bin/uvicorn main:app --reload --host 127.0.0.1 --port 8000
+	.venv/bin/uvicorn dataloader.main:app --reload --host 127.0.0.1 --port 8000
 
 test: ## Run pytest (same as CI)
 	.venv/bin/python -m pytest tests/ -q
