@@ -856,7 +856,7 @@ def _format_exception_detail(exc: BaseException, failed_ref: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Manifest listing (shared by main.py and webhooks.py)
+# Manifest listing (shared by main.py and webhooks package)
 # ---------------------------------------------------------------------------
 
 _MANIFEST_RE = re.compile(r"^\d{8}T\d{6}_[0-9a-f]{8}\.json$")
