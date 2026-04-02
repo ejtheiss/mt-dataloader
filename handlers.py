@@ -71,7 +71,7 @@ EmitFn = Callable[[str, str, dict[str, Any]], Awaitable[None]]
 HandlerFn = Callable[..., Awaitable[HandlerResult]]
 UpdateHandlerFn = Callable[..., Awaitable[HandlerResult]]
 
-# Tenacity presets (shared with ``webhooks`` staged IPD fire)
+# Tenacity presets (shared with ``dataloader.webhooks`` staged IPD fire)
 TENACITY_WAIT_EXP_2_10 = wait_exponential(multiplier=1, min=2, max=10)
 TENACITY_WAIT_EXP_2_5 = wait_exponential(multiplier=1, min=2, max=5)
 TENACITY_STOP_30 = stop_after_delay(30)

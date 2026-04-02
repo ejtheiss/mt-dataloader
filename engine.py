@@ -45,7 +45,7 @@ def _register_run_org_for_webhooks(run_id: str, org_id: str | None) -> None:
     """Tell the webhook layer which MT org owns a run (for listener filtering)."""
     if not org_id:
         return
-    import webhooks as wh_mod
+    import dataloader.webhooks as wh_mod
 
     wh_mod.register_run_org(run_id, org_id)
 
@@ -424,7 +424,7 @@ def dry_run(
                         f"config."
                     )
 
-    from webhooks import FIREABLE_TYPES
+    from dataloader.webhooks import FIREABLE_TYPES
 
     staged_refs = {
         ref for ref, resource in resource_map.items() if getattr(resource, "staged", False)
@@ -856,7 +856,7 @@ def _format_exception_detail(exc: BaseException, failed_ref: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Manifest listing (shared by main.py and webhooks package)
+# Manifest listing (shared by dataloader.main and dataloader.webhooks)
 # ---------------------------------------------------------------------------
 
 _MANIFEST_RE = re.compile(r"^\d{8}T\d{6}_[0-9a-f]{8}\.json$")

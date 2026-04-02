@@ -26,12 +26,12 @@ from dataloader.routers.flows import router as flows_router
 from dataloader.routers.runs import router as runs_router
 from dataloader.routers.setup import router as setup_router
 from dataloader.routers.tunnel import router as tunnel_router
+from dataloader.webhooks import rebuild_correlation_index
+from dataloader.webhooks import router as webhook_router
 from helpers import set_templates
 from models import AppSettings
 from mt_doc_links import MT_DOCS
 from tunnel import NgrokStartError, TunnelManager
-from webhooks import rebuild_correlation_index
-from webhooks import router as webhook_router
 
 # Repository root (parent of ``dataloader/`` package).
 _REPO_ROOT = Path(__file__).resolve().parent.parent
