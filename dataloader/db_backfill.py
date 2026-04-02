@@ -56,6 +56,13 @@ async def backfill_missing_runs_from_disk(
             config_hash=manifest.config_hash or None,
             started_at=manifest.started_at,
             completed_at=manifest.completed_at,
+            resources_created_count=len(manifest.resources_created),
+            resources_staged_count=len(manifest.resources_staged)
+            if manifest.resources_staged
+            else 0,
+            resources_failed_count=len(manifest.resources_failed)
+            if manifest.resources_failed
+            else 0,
         )
         stats["runs_backfilled"] += 1
 

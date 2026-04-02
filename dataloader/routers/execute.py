@@ -12,7 +12,7 @@ from modern_treasury import AsyncModernTreasury
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from dataloader.engine import execute, generate_run_id
-from dataloader.engine.run_meta import config_hash
+from dataloader.engine.run_meta import config_hash, resolve_manifest_path
 from dataloader.handlers import build_handler_dispatch, build_update_dispatch
 from dataloader.routers.deps import SessionFormDep, SettingsDep, TemplatesDep
 from dataloader.session import sessions
@@ -31,9 +31,9 @@ async def _persist_manifest_status_to_db(
     runs_dir: str,
     run_id: str,
 ) -> None:
-    """Mirror terminal manifest status into ``runs`` (best-effort)."""
-    path = Path(runs_dir) / f"{run_id}.json"
-    if not path.exists():
+    """Mirror terminal manifest status and list counts into ``runs`` (best-effort)."""
+    path = resolve_manifest_path(Path(runs_dir), run_id)
+    if path is None:
         return
     try:
         manifest = RunManifest.load(path)
@@ -47,6 +47,13 @@ async def _persist_manifest_status_to_db(
                 run_id=manifest.run_id,
                 status=manifest.status,
                 completed_at=manifest.completed_at,
+                resources_created_count=len(manifest.resources_created),
+                resources_staged_count=len(manifest.resources_staged)
+                if manifest.resources_staged
+                else 0,
+                resources_failed_count=len(manifest.resources_failed)
+                if manifest.resources_failed
+                else 0,
             )
             await s.commit()
     except Exception as exc:

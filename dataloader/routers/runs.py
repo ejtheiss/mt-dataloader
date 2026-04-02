@@ -7,11 +7,11 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from loguru import logger
 
-from dataloader.engine import manifest_json_run_id
+from dataloader.engine import manifest_json_run_id, resolve_manifest_path
 from dataloader.handlers import DELETABILITY
 from dataloader.routers.deps import SettingsDep, TemplatesDep
 from db.repositories import runs as runs_repo
-from models import RunManifest
+from models import RunListRow, RunManifest
 
 router = APIRouter(tags=["runs"])
 
@@ -31,27 +31,19 @@ async def list_runs(
     status: str | None = None,
     mt_org_id: str | None = None,
 ):
-    """List past run manifests with optional sort and filter.
-
-    When the DB is available, run order starts from SQL ``runs.started_at`` (newest
-    first), then appends disk-only manifests (historical / not yet mirrored).
-    """
+    """List runs: Wave B reads row metadata from SQLite; disk-only manifests fill gaps."""
     runs_dir = Path(settings.runs_dir)
-    manifests: list[RunManifest] = []
+    rows: list[RunListRow] = []
     seen: set[str] = set()
     factory = getattr(request.app.state, "async_session_factory", None)
 
     if factory is not None:
         try:
             async with factory() as session:
-                db_order = await runs_repo.list_run_ids_by_started_desc(session)
-            for rid in db_order:
-                m = _find_manifest(runs_dir, rid)
-                if m is not None:
-                    manifests.append(m)
-                    seen.add(m.run_id)
+                rows = await runs_repo.list_run_rows_for_api(session)
+            seen = {r.run_id for r in rows}
         except Exception as exc:
-            logger.warning("db list_run_ids failed, using disk-only listing: {}", exc)
+            logger.warning("db list_run_rows_for_api failed, using disk-only listing: {}", exc)
 
     if runs_dir.exists():
         for path in sorted(runs_dir.glob("*.json"), reverse=True):
@@ -64,34 +56,32 @@ async def list_runs(
                 continue
             if m.run_id in seen:
                 continue
-            manifests.append(m)
+            rows.append(RunListRow.from_manifest(m))
 
     if status:
-        manifests = [
-            m
-            for m in manifests
-            if str(m.status) == status or getattr(m.status, "value", None) == status
-        ]
+        rows = [r for r in rows if r.status == status]
 
     if mt_org_id and mt_org_id.strip():
         oid = mt_org_id.strip()
-        manifests = [m for m in manifests if getattr(m, "mt_org_id", None) == oid]
+        rows = [r for r in rows if r.mt_org_id == oid]
 
     sort_keys = {
-        "run_id": lambda m: m.run_id,
-        "status": lambda m: str(getattr(m.status, "value", m.status)),
-        "resources": lambda m: len(m.resources_created),
-        "staged": lambda m: len(m.resources_staged) if m.resources_staged else 0,
-        "failed": lambda m: len(m.resources_failed) if m.resources_failed else 0,
+        "run_id": lambda r: r.run_id,
+        "status": lambda r: r.status,
+        "resources": lambda r: r.resource_count,
+        "staged": lambda r: r.staged_count,
+        "failed": lambda r: r.failed_count,
     }
     if sort and sort in sort_keys:
-        manifests.sort(key=sort_keys[sort], reverse=(dir == "desc"))
+        rows.sort(key=sort_keys[sort], reverse=(dir == "desc"))
+    else:
+        rows.sort(key=lambda r: r.started_at, reverse=True)
 
     return templates.TemplateResponse(
         request,
         "runs.html",
         {
-            "manifests": manifests,
+            "manifests": rows,
             "deletability": DELETABILITY,
             "sort_key": sort or "",
             "sort_dir": dir,
@@ -109,19 +99,8 @@ async def run_drawer(
 ):
     """Return drawer partial for a single run."""
     runs_dir = Path(settings.runs_dir)
-    path = runs_dir / f"{run_id}.json"
-    if not path.exists():
-        path = runs_dir / f"manifest_{run_id}.json"
-    if not path.exists():
-        path = next(
-            (
-                p
-                for p in runs_dir.glob("*.json")
-                if p.stem == run_id or p.stem == f"manifest_{run_id}"
-            ),
-            None,
-        )
-    if not path or not path.exists():
+    path = resolve_manifest_path(runs_dir, run_id)
+    if path is None or not path.exists():
         return templates.TemplateResponse(
             request,
             "partials/empty_state.html",
@@ -129,24 +108,6 @@ async def run_drawer(
         )
     manifest = RunManifest.load(path)
     return templates.TemplateResponse(request, "partials/run_drawer.html", {"manifest": manifest})
-
-
-def _find_manifest(runs_dir: Path, run_id: str) -> RunManifest | None:
-    path = runs_dir / f"{run_id}.json"
-    if not path.exists():
-        path = runs_dir / f"manifest_{run_id}.json"
-    if not path.exists():
-        path = next(
-            (
-                p
-                for p in runs_dir.glob("*.json")
-                if p.stem == run_id or p.stem == f"manifest_{run_id}"
-            ),
-            None,
-        )
-    if not path or not path.exists():
-        return None
-    return RunManifest.load(path)
 
 
 @router.get("/api/runs/{run_id}/resources/drawer")
@@ -158,13 +119,14 @@ async def resource_drawer_in_run(
     ref: str = "",
 ):
     """Return drawer partial for a single resource within a run."""
-    manifest = _find_manifest(Path(settings.runs_dir), run_id)
-    if not manifest:
+    path = resolve_manifest_path(Path(settings.runs_dir), run_id)
+    if path is None or not path.exists():
         return templates.TemplateResponse(
             request,
             "partials/empty_state.html",
             {"empty_title": "Run not found"},
         )
+    manifest = RunManifest.load(path)
     entry = next((e for e in manifest.resources_created if e.typed_ref == ref), None)
     if not entry:
         return templates.TemplateResponse(

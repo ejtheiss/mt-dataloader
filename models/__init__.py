@@ -62,6 +62,7 @@ from models.resources import (
     TransitionLedgerTransactionConfig,
     VirtualAccountConfig,
 )
+from models.run_list import RunListRow
 
 # --- runtime types ---
 from models.runtime import HandlerResult
@@ -221,6 +222,7 @@ __all__ = [
     "FailedEntry",
     "StagedEntry",
     "RunManifest",
+    "RunListRow",
     # App settings
     "AppSettings",
 ]
