@@ -64,11 +64,7 @@ def resolve_manifest_path(runs_dir: str | Path, run_id: str) -> Path | None:
     if path.is_file():
         return path
     path = next(
-        (
-            p
-            for p in d.glob("*.json")
-            if p.stem == run_id or p.stem == f"manifest_{run_id}"
-        ),
+        (p for p in d.glob("*.json") if p.stem == run_id or p.stem == f"manifest_{run_id}"),
         None,
     )
     if path is not None and path.is_file():

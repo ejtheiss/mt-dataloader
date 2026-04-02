@@ -109,5 +109,7 @@ async def backfill_upsert_run(
 
 async def fetch_run_mt_org_rows(session: AsyncSession) -> list[tuple[str, str]]:
     """``(run_id, mt_org_id)`` for runs with a non-null org (webhook UI enrichment)."""
-    result = await session.execute(select(Run.run_id, Run.mt_org_id).where(Run.mt_org_id.isnot(None)))
+    result = await session.execute(
+        select(Run.run_id, Run.mt_org_id).where(Run.mt_org_id.isnot(None))
+    )
     return [(rid, oid) for rid, oid in result.all() if oid]

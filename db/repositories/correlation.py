@@ -41,6 +41,10 @@ async def fetch_correlation_rows(
 ) -> list[tuple[str, str, str]]:
     """All correlation rows as ``(created_id, run_id, typed_ref)`` for in-memory index."""
     result = await session.execute(
-        select(ResourceCorrelation.created_id, ResourceCorrelation.run_id, ResourceCorrelation.typed_ref)
+        select(
+            ResourceCorrelation.created_id,
+            ResourceCorrelation.run_id,
+            ResourceCorrelation.typed_ref,
+        )
     )
     return list(result.all())
