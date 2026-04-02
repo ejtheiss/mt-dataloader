@@ -11,12 +11,12 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field, ValidationError
 
 import seed_loader
+from dataloader.engine import all_resources, dry_run, typed_ref_for
 from dataloader.routers.deps import (
     OptionalSessionQueryDep,
     SessionHeaderDep,
     TemplatesDep,
 )
-from engine import all_resources, dry_run, typed_ref_for
 from flow_compiler import (
     GenerationResult,
     compile_diagnostics,

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
-    from engine import RefRegistry
+    from dataloader.engine import RefRegistry
 
 from .discovery import DiscoveryResult
 

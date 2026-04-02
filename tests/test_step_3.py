@@ -799,7 +799,7 @@ class TestGenerateFromRecipe:
 class TestFlowMetadataStripping:
     """Verify that _flow_* keys are stripped from handler payloads.
 
-    We test the stripping logic directly (handlers.py modifications) by
+    We test the stripping logic directly (``dataloader.handlers`` modifications) by
     checking that the compiled config resources carry _flow_* metadata
     internally (pre-handler), but the handler code strips them.
     """

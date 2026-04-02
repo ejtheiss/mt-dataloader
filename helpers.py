@@ -11,9 +11,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
+from dataloader.handlers import DELETABILITY
 from flow_compiler import actor_display_name, compute_flow_status, flatten_actor_refs
 from flow_views import compute_view_data
-from handlers import DELETABILITY
 from models import DataLoaderConfig, DisplayPhase
 from org import DiscoveryResult, _le_display_name
 
@@ -219,7 +219,7 @@ def build_preview(
     were reconciled but their payload was edited, so they will update the
     existing resource during execution.
     """
-    from engine import extract_ref_dependencies
+    from dataloader.engine import extract_ref_dependencies
 
     _update = update_refs or {}
 

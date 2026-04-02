@@ -341,8 +341,8 @@ dataloader/          Application package (02a Phase E)
     tunnel.py        /listen tunnel UI
     deps.py          FastAPI Depends helpers
   webhooks/          Webhook package (routes.py: receiver, run detail, staged fire, listener)
-engine.py            Ref resolution, DAG (graphlib), execute loop, run manifests
-handlers.py          MT SDK calls, polling, retry logic, metadata stripping
+  engine/            DAG executor, ref registry, run manifests (import: dataloader.engine)
+  handlers/          MT SDK async handlers + dispatch tables (import: dataloader.handlers)
 helpers.py           Shared rendering: build_preview, extract_display_name, format helpers
 session.py           SessionState dataclass (per-session state)
 seed_loader.py       Faker hybrid seed engine (standard, industry, pop-culture)

@@ -11,7 +11,7 @@ from typing import Literal, cast
 
 from loguru import logger
 
-from engine import all_resources, typed_ref_for
+from dataloader.engine import all_resources, typed_ref_for
 from models import (
     DataLoaderConfig,
     _BaseResourceConfig,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from starlette.testclient import TestClient
 
-from engine import RefRegistry
+from dataloader.engine import RefRegistry
 from flow_compiler.core import compile_flows
 from main import app
 from models import DataLoaderConfig, GenerationRecipeV1

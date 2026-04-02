@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from engine import (
+from dataloader.engine import (
     RefRegistry,
     all_resources,
     inject_legal_entity_psp_connection_id,
@@ -512,7 +512,7 @@ class TestCompilePipeline:
 
 class TestDagConnectionsBeforeLegalEntities:
     def test_legal_entities_run_in_later_batch_than_connections(self):
-        from engine import dry_run
+        from dataloader.engine import dry_run
 
         batches = dry_run(
             DataLoaderConfig.model_validate(

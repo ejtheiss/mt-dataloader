@@ -1,7 +1,7 @@
 """Webhook domain package: routes, correlation index, JSONL persistence.
 
 Phase **02a** moved the former root ``webhooks.py`` into ``dataloader/webhooks/routes.py``;
-this module re-exports the public API so ``dataloader.main``, ``engine``, and
+this module re-exports the public API so ``dataloader.main``, ``dataloader.engine``, and
 ``dataloader.routers.execute`` keep stable imports.
 """
 

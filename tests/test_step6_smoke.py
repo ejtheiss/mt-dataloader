@@ -89,7 +89,7 @@ class TestMetadataEndpoint:
     def test_metadata_updates_working_config(self, client):
         import json
 
-        from engine import RefRegistry
+        from dataloader.engine import RefRegistry
         from models import DataLoaderConfig
         from session import SessionState, sessions
 
