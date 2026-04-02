@@ -54,6 +54,7 @@ async def _persist_manifest_status_to_db(
                 resources_failed_count=len(manifest.resources_failed)
                 if manifest.resources_failed
                 else 0,
+                manifest_json=manifest.model_dump_json(),
             )
             await s.commit()
     except Exception as exc:

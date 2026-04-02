@@ -65,3 +65,43 @@ async def test_list_run_rows_for_api_reflects_counts(
         assert r0.mt_org_id == "org_a"
     finally:
         await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_fetch_manifest_json_roundtrip(
+    tmp_path: Path,
+    repo_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATALOADER_DATA_DIR", str(tmp_path))
+    sqlite_path = tmp_path / "dataloader.sqlite"
+    sync_url, async_url = build_sqlite_file_urls(sqlite_path)
+    run_alembic_upgrade(repo_root, sync_url)
+    engine, factory = create_async_engine_and_sessionmaker(async_url)
+    payload = '{"run_id":"x","config_hash":"h","started_at":"2026-01-01T00:00:00+00:00","status":"completed","resources_created":[],"resources_failed":[],"resources_staged":[]}'
+    try:
+        async with factory() as s:
+            await runs_repo.ensure_run(
+                s,
+                run_id="x",
+                user_id=1,
+                mt_org_id=None,
+                mt_org_label=None,
+                config_hash="h",
+                started_at="2026-01-01T00:00:00+00:00",
+            )
+            await s.commit()
+        async with factory() as s:
+            await runs_repo.finalize_run(
+                s,
+                run_id="x",
+                status="completed",
+                completed_at="2026-01-01T01:00:00+00:00",
+                manifest_json=payload,
+            )
+            await s.commit()
+        async with factory() as s:
+            got = await runs_repo.fetch_manifest_json(s, "x")
+        assert got == payload
+    finally:
+        await engine.dispose()

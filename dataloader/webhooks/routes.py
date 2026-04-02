@@ -129,8 +129,8 @@ def ensure_run_indexed(run_id: str, manifest: Any) -> None:
                 )
 
 
-def build_run_org_map(runs_dir: str) -> dict[str, str]:
-    """Map run_id → MT org id from manifests (for listener / run detail UI)."""
+def _build_run_org_map_from_disk(runs_dir: str) -> dict[str, str]:
+    """Legacy: scan manifests when in-memory map is empty (no DB / pre-hydrate)."""
     out: dict[str, str] = {}
     rpath = Path(runs_dir)
     for run_id in list_manifest_ids(runs_dir):
@@ -142,6 +142,13 @@ def build_run_org_map(runs_dir: str) -> dict[str, str]:
         if oid:
             out[run_id] = oid
     return out
+
+
+def build_run_org_map(runs_dir: str) -> dict[str, str]:
+    """Map run_id → MT org id (DB-hydrated ``_run_org_map`` first, else disk scan)."""
+    if _run_org_map:
+        return dict(_run_org_map)
+    return _build_run_org_map_from_disk(runs_dir)
 
 
 def enrich_webhooks_run_org(webhooks: list[dict], run_org_map: dict[str, str]) -> None:

@@ -1,4 +1,4 @@
-"""Run row upserts — metadata mirror; manifest JSON stays on disk until a later wave."""
+"""Run row upserts — metadata + optional canonical ``manifest_json`` (Wave B)."""
 
 from __future__ import annotations
 
@@ -60,6 +60,7 @@ async def finalize_run(
     resources_created_count: int | None = None,
     resources_staged_count: int | None = None,
     resources_failed_count: int | None = None,
+    manifest_json: str | None = None,
 ) -> None:
     values: dict[str, Any] = {"status": status, "completed_at": completed_at}
     if resources_created_count is not None:
@@ -68,14 +69,21 @@ async def finalize_run(
         values["resources_staged_count"] = resources_staged_count
     if resources_failed_count is not None:
         values["resources_failed_count"] = resources_failed_count
+    if manifest_json is not None:
+        values["manifest_json"] = manifest_json
     await session.execute(update(Run).where(Run.run_id == run_id).values(**values))
 
 
-async def list_run_rows_for_api(session: AsyncSession) -> list[RunListRow]:
-    """Wave B: all run rows for list UI, ordered newest-first by ``started_at`` (SQL only).
+async def fetch_manifest_json(session: AsyncSession, run_id: str) -> str | None:
+    """Canonical manifest body stored on the run row, if present."""
+    result = await session.scalar(select(Run.manifest_json).where(Run.run_id == run_id))
+    return result if result else None
 
-    Callers merge with disk-only manifests and apply ``status`` / ``mt_org_id`` filters
-    in memory so filters apply uniformly.
+
+async def list_run_rows_for_api(session: AsyncSession) -> list[RunListRow]:
+    """Wave B: all run rows for list UI, ordered newest-first by ``started_at`` (SQL).
+
+    When the app DB is available, ``GET /api/runs`` uses this alone (no disk glob).
     """
     stmt = select(Run).order_by(Run.started_at.desc())
     result = await session.scalars(stmt)
@@ -113,8 +121,23 @@ async def backfill_upsert_run(
     resources_created_count: int = 0,
     resources_staged_count: int = 0,
     resources_failed_count: int = 0,
+    manifest_json: str | None = None,
 ) -> None:
     """Insert or replace run metadata from disk manifest (historical import)."""
+    set_: dict[str, Any] = {
+        "user_id": user_id,
+        "mt_org_id": mt_org_id,
+        "mt_org_label": mt_org_label,
+        "status": status,
+        "config_hash": config_hash,
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "resources_created_count": resources_created_count,
+        "resources_staged_count": resources_staged_count,
+        "resources_failed_count": resources_failed_count,
+    }
+    if manifest_json is not None:
+        set_["manifest_json"] = manifest_json
     stmt = (
         sqlite_insert(Run)
         .values(
@@ -129,21 +152,11 @@ async def backfill_upsert_run(
             resources_created_count=resources_created_count,
             resources_staged_count=resources_staged_count,
             resources_failed_count=resources_failed_count,
+            manifest_json=manifest_json,
         )
         .on_conflict_do_update(
             index_elements=["run_id"],
-            set_={
-                "user_id": user_id,
-                "mt_org_id": mt_org_id,
-                "mt_org_label": mt_org_label,
-                "status": status,
-                "config_hash": config_hash,
-                "started_at": started_at,
-                "completed_at": completed_at,
-                "resources_created_count": resources_created_count,
-                "resources_staged_count": resources_staged_count,
-                "resources_failed_count": resources_failed_count,
-            },
+            set_=set_,
         )
     )
     await session.execute(stmt)

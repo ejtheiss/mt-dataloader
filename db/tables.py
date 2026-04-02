@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -35,6 +35,7 @@ class Run(Base):
     resources_created_count: Mapped[int] = mapped_column(Integer, default=0)
     resources_staged_count: Mapped[int] = mapped_column(Integer, default=0)
     resources_failed_count: Mapped[int] = mapped_column(Integer, default=0)
+    manifest_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user: Mapped[User | None] = relationship(back_populates="runs")
     correlations: Mapped[list[ResourceCorrelation]] = relationship(
