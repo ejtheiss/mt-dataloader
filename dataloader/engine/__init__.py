@@ -16,7 +16,15 @@ from .refs import (
     resolve_refs,
     typed_ref_for,
 )
-from .run_meta import _MANIFEST_RE, _now_iso, config_hash, generate_run_id, list_manifest_ids
+from .run_meta import (
+    _MANIFEST_RE,
+    _now_iso,
+    config_hash,
+    generate_run_id,
+    list_manifest_ids,
+    manifest_json_run_id,
+    resolve_manifest_path,
+)
 from .runner import ExecutionPhaseError, execute
 
 __all__ = [
@@ -33,6 +41,8 @@ __all__ = [
     "config_hash",
     "RunManifest",
     "list_manifest_ids",
+    "manifest_json_run_id",
+    "resolve_manifest_path",
     "_now_iso",
     "inject_legal_entity_psp_connection_id",
     "_MANIFEST_RE",

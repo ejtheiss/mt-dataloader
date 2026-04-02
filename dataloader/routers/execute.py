@@ -20,10 +20,37 @@ from dataloader.webhooks import index_resource, register_run_org
 from db.repositories import correlation as correlation_repo
 from db.repositories import runs as runs_repo
 from helpers import error_html, error_response
-from models import DisplayPhase
+from models import DisplayPhase, RunManifest
 from sse_helpers import make_emit_sse, sse_error_response
 
 router = APIRouter(tags=["execute"])
+
+
+async def _persist_manifest_status_to_db(
+    session_factory,
+    runs_dir: str,
+    run_id: str,
+) -> None:
+    """Mirror terminal manifest status into ``runs`` (best-effort)."""
+    path = Path(runs_dir) / f"{run_id}.json"
+    if not path.exists():
+        return
+    try:
+        manifest = RunManifest.load(path)
+    except Exception as exc:
+        logger.bind(run_id=run_id).warning("db finalize_run: could not load manifest: {}", exc)
+        return
+    try:
+        async with session_factory() as s:
+            await runs_repo.finalize_run(
+                s,
+                run_id=manifest.run_id,
+                status=manifest.status,
+                completed_at=manifest.completed_at,
+            )
+            await s.commit()
+    except Exception as exc:
+        logger.bind(run_id=run_id).warning("db finalize_run failed (non-fatal): {}", exc)
 
 
 @router.post("/api/execute")
@@ -161,6 +188,10 @@ async def execute_stream(
                     html = templates.get_template("partials/error.html").render(error=str(exc))
                     await queue.put(ServerSentEvent(data=html, event="error"))
                 finally:
+                    if session_factory is not None:
+                        await _persist_manifest_status_to_db(
+                            session_factory, settings.runs_dir, run_id
+                        )
                     await queue.put(ServerSentEvent(data="", event="close"))
                     await queue.put(None)
 

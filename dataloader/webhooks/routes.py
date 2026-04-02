@@ -24,6 +24,7 @@ import os
 import secrets
 import tempfile
 from collections import deque
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -169,15 +170,40 @@ def load_webhooks(path: Path) -> list[dict]:
     return entries
 
 
+def replace_runtime_correlation_state(
+    correlations: Sequence[tuple[str, str, str]],
+    run_org_pairs: Sequence[tuple[str, str]],
+) -> None:
+    """Replace in-memory correlation + run→org maps from DB rows (startup)."""
+    _correlation_index.clear()
+    _run_org_map.clear()
+    for created_id, run_id, typed_ref in correlations:
+        _correlation_index[created_id] = (run_id, typed_ref)
+    for run_id, org_id in run_org_pairs:
+        if org_id:
+            _run_org_map[run_id] = org_id
+
+
+def correlation_index_size() -> int:
+    """Count of resource IDs in the webhook correlation index."""
+    return len(_correlation_index)
+
+
+def recorrelate_unmatched_webhooks(runs_dir: str) -> int:
+    """Run ``_webhooks_unmatched.jsonl`` recovery after the index is populated."""
+    return _recorrelate_unmatched(runs_dir)
+
+
 def rebuild_correlation_index(runs_dir: str) -> int:
-    """Load all manifests and populate ``_correlation_index``.
+    """Load all manifests and populate ``_correlation_index`` (legacy full scan).
 
-    Called once at startup from ``lifespan()`` so that webhooks arriving
-    after a server restart can be matched to historical runs.  Also
-    re-correlates entries in ``_webhooks_unmatched.jsonl`` — any that now
-    match are moved to their run-specific JSONL file.
+    Prefer :func:`dataloader.db_backfill.bootstrap_webhook_correlation` at
+    startup (DB backfill + hydrate). Use this only when the database is
+    unavailable or for ad-hoc repair.
 
-    Returns the total number of IDs indexed.
+    Also re-correlates entries in ``_webhooks_unmatched.jsonl``.
+
+    Returns the total number of resource IDs indexed from manifests.
     """
     count = 0
     runs_path = Path(runs_dir)

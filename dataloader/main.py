@@ -20,6 +20,7 @@ from loguru import logger
 from sqlalchemy import text
 
 from _version import __version__
+from dataloader.db_backfill import bootstrap_webhook_correlation
 from dataloader.routers.cleanup import router as cleanup_router
 from dataloader.routers.connection import router as connection_router
 from dataloader.routers.execute import router as execute_router
@@ -27,7 +28,6 @@ from dataloader.routers.flows import router as flows_router
 from dataloader.routers.runs import router as runs_router
 from dataloader.routers.setup import router as setup_router
 from dataloader.routers.tunnel import router as tunnel_router
-from dataloader.webhooks import rebuild_correlation_index
 from dataloader.webhooks import router as webhook_router
 from db.database import (
     build_sqlite_file_urls,
@@ -126,7 +126,11 @@ async def lifespan(app: FastAPI):
         logger.info("SQLite at {} (default user id={})", sqlite_file, app.state.default_user_id)
 
         # Single-writer assumption: index + session store match one process (see dataloader/session/).
-        rebuild_correlation_index(settings.runs_dir)
+        await bootstrap_webhook_correlation(
+            session_factory,
+            settings.runs_dir,
+            default_user_id=app.state.default_user_id,
+        )
 
         tunnel_mgr = TunnelManager(runs_dir=settings.runs_dir)
         app.state.tunnel = tunnel_mgr

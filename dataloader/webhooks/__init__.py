@@ -12,23 +12,29 @@ from dataloader.staged_fire import FIREABLE_TYPES
 
 from .routes import (
     build_run_org_map,
+    correlation_index_size,
     enrich_webhooks_run_org,
     ensure_run_indexed,
     index_resource,
     load_webhooks,
     rebuild_correlation_index,
+    recorrelate_unmatched_webhooks,
     register_run_org,
+    replace_runtime_correlation_state,
     router,
 )
 
 __all__ = [
     "FIREABLE_TYPES",
     "build_run_org_map",
+    "correlation_index_size",
     "enrich_webhooks_run_org",
     "ensure_run_indexed",
     "index_resource",
     "load_webhooks",
     "rebuild_correlation_index",
+    "recorrelate_unmatched_webhooks",
     "register_run_org",
+    "replace_runtime_correlation_state",
     "router",
 ]

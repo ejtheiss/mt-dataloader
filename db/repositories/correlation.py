@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,3 +34,13 @@ async def upsert_correlation(
         )
     )
     await session.execute(stmt)
+
+
+async def fetch_correlation_rows(
+    session: AsyncSession,
+) -> list[tuple[str, str, str]]:
+    """All correlation rows as ``(created_id, run_id, typed_ref)`` for in-memory index."""
+    result = await session.execute(
+        select(ResourceCorrelation.created_id, ResourceCorrelation.run_id, ResourceCorrelation.typed_ref)
+    )
+    return list(result.all())
