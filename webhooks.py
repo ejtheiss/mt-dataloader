@@ -31,10 +31,10 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from loguru import logger
 from modern_treasury import AsyncModernTreasury
 from sse_starlette import EventSourceResponse, ServerSentEvent
-from tenacity import RetryError, retry, retry_if_result, stop_after_delay, wait_exponential
+from tenacity import RetryError, retry, retry_if_result
 
 from engine import _now_iso, list_manifest_ids
-from handlers import DELETABILITY
+from handlers import DELETABILITY, TENACITY_STOP_30, TENACITY_WAIT_EXP_2_10
 from jsonutil import dumps_jsonl_record, dumps_pretty, loads_path
 from models import ManifestEntry, RunManifest
 from routers.deps import SettingsDep, TemplatesDep, TunnelDep
@@ -138,9 +138,7 @@ def build_run_org_map(runs_dir: str) -> dict[str, str]:
     return out
 
 
-def enrich_webhooks_run_org(
-    webhooks: list[dict], run_org_map: dict[str, str]
-) -> None:
+def enrich_webhooks_run_org(webhooks: list[dict], run_org_map: dict[str, str]) -> None:
     """Fill ``mt_org_id`` on webhook dicts using the run manifest map."""
     for wh in webhooks:
         if wh.get("mt_org_id"):
@@ -241,9 +239,7 @@ def _recorrelate_unmatched(runs_dir: str) -> int:
         else:
             still_unmatched.append(entry)
 
-    tmp = tempfile.NamedTemporaryFile(
-        dir=runs_dir, mode="w", suffix=".tmp", delete=False
-    )
+    tmp = tempfile.NamedTemporaryFile(dir=runs_dir, mode="w", suffix=".tmp", delete=False)
     try:
         for entry in still_unmatched:
             tmp.write(dumps_jsonl_record(entry) + "\n")
@@ -325,16 +321,21 @@ def _persist_webhook(entry: WebhookEntry, runs_dir: str) -> None:
     dirpath = Path(runs_dir)
     dirpath.mkdir(parents=True, exist_ok=True)
 
-    line = dumps_jsonl_record({
-        "received_at": entry.received_at,
-        "event_type": entry.event_type,
-        "resource_type": entry.resource_type,
-        "resource_id": entry.resource_id,
-        "webhook_id": entry.webhook_id,
-        "run_id": entry.run_id,
-        "typed_ref": entry.typed_ref,
-        "raw": entry.raw,
-    }) + "\n"
+    line = (
+        dumps_jsonl_record(
+            {
+                "received_at": entry.received_at,
+                "event_type": entry.event_type,
+                "resource_type": entry.resource_type,
+                "resource_id": entry.resource_id,
+                "webhook_id": entry.webhook_id,
+                "run_id": entry.run_id,
+                "typed_ref": entry.typed_ref,
+                "raw": entry.raw,
+            }
+        )
+        + "\n"
+    )
 
     if entry.run_id:
         path = dirpath / f"{entry.run_id}_webhooks.jsonl"
@@ -388,14 +389,10 @@ async def receive_webhook(
             )
             if not is_valid:
                 logger.warning("Webhook signature mismatch — rejecting")
-                return JSONResponse(
-                    {"error": "invalid signature"}, status_code=401
-                )
+                return JSONResponse({"error": "invalid signature"}, status_code=401)
         except Exception as exc:
             logger.warning("Webhook signature verification failed: {}", exc)
-            return JSONResponse(
-                {"error": "signature verification failed"}, status_code=401
-            )
+            return JSONResponse({"error": "signature verification failed"}, status_code=401)
 
     try:
         body = json.loads(raw_str)
@@ -409,9 +406,7 @@ async def receive_webhook(
         webhook_id = request.headers.get("X-Webhook-ID", "")
     except (json.JSONDecodeError, ValueError, AttributeError) as exc:
         logger.warning("Malformed webhook payload: {}", exc)
-        return JSONResponse(
-            {"error": f"malformed payload: {exc}"}, status_code=400
-        )
+        return JSONResponse({"error": f"malformed payload: {exc}"}, status_code=400)
 
     if webhook_id and _mark_seen(webhook_id):
         logger.debug("Duplicate webhook {} — skipping", webhook_id)
@@ -548,10 +543,14 @@ _fire_locks: dict[str, asyncio.Lock] = {}
 
 
 async def _fire_payment_order(
-    client: AsyncModernTreasury, resolved: dict, *, idempotency_key: str,
+    client: AsyncModernTreasury,
+    resolved: dict,
+    *,
+    idempotency_key: str,
 ) -> dict:
     result = await client.payment_orders.create(
-        **resolved, idempotency_key=idempotency_key,
+        **resolved,
+        idempotency_key=idempotency_key,
     )
     child_refs: dict[str, str] = {}
     if result.ledger_transaction_id:
@@ -560,33 +559,45 @@ async def _fire_payment_order(
 
 
 async def _fire_expected_payment(
-    client: AsyncModernTreasury, resolved: dict, *, idempotency_key: str,
+    client: AsyncModernTreasury,
+    resolved: dict,
+    *,
+    idempotency_key: str,
 ) -> dict:
     result = await client.expected_payments.create(
-        **resolved, idempotency_key=idempotency_key,
+        **resolved,
+        idempotency_key=idempotency_key,
     )
     return {"created_id": result.id}
 
 
 async def _fire_ledger_transaction(
-    client: AsyncModernTreasury, resolved: dict, *, idempotency_key: str,
+    client: AsyncModernTreasury,
+    resolved: dict,
+    *,
+    idempotency_key: str,
 ) -> dict:
     result = await client.ledger_transactions.create(
-        **resolved, idempotency_key=idempotency_key,
+        **resolved,
+        idempotency_key=idempotency_key,
     )
     return {"created_id": result.id}
 
 
 async def _fire_incoming_payment_detail(
-    client: AsyncModernTreasury, resolved: dict, *, idempotency_key: str,
+    client: AsyncModernTreasury,
+    resolved: dict,
+    *,
+    idempotency_key: str,
 ) -> dict:
     result = await client.incoming_payment_details.create_async(
-        **resolved, idempotency_key=idempotency_key,
+        **resolved,
+        idempotency_key=idempotency_key,
     )
 
     @retry(
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        stop=stop_after_delay(30),
+        wait=TENACITY_WAIT_EXP_2_10,
+        stop=TENACITY_STOP_30,
         retry=retry_if_result(lambda r: r.status not in _IPD_TERMINAL),
     )
     async def _poll():
@@ -596,9 +607,7 @@ async def _fire_incoming_payment_detail(
         ipd = await _poll()
     except RetryError as e:
         last = e.last_attempt.result()
-        raise HTTPException(
-            504, f"IPD did not complete within 30s (status: {last.status})"
-        )
+        raise HTTPException(504, f"IPD did not complete within 30s (status: {last.status})")
 
     if ipd.status != "completed":
         raise HTTPException(
@@ -703,15 +712,13 @@ async def fire_staged(
             supported = ", ".join(sorted(FIREABLE_TYPES))
             raise HTTPException(
                 400,
-                f"Cannot fire staged '{resource_type}'. "
-                f"Fireable types: {supported}",
+                f"Cannot fire staged '{resource_type}'. Fireable types: {supported}",
             )
 
-        async with AsyncModernTreasury(
-            api_key=api_key, organization_id=org_id
-        ) as client:
+        async with AsyncModernTreasury(api_key=api_key, organization_id=org_id) as client:
             result = await handler(
-                client, resolved,
+                client,
+                resolved,
                 idempotency_key=f"{run_id}:staged:{typed_ref}",
             )
 
@@ -876,7 +883,10 @@ async def webhook_drawer(
     return templates.TemplateResponse(
         request,
         "partials/empty_state.html",
-        {"empty_title": "Webhook not found", "empty_description": f"No data for webhook {webhook_id[:16]}…"},
+        {
+            "empty_title": "Webhook not found",
+            "empty_description": f"No data for webhook {webhook_id[:16]}…",
+        },
         status_code=404,
     )
 

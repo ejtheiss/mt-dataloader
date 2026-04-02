@@ -71,6 +71,12 @@ EmitFn = Callable[[str, str, dict[str, Any]], Awaitable[None]]
 HandlerFn = Callable[..., Awaitable[HandlerResult]]
 UpdateHandlerFn = Callable[..., Awaitable[HandlerResult]]
 
+# Tenacity presets (shared with ``webhooks`` staged IPD fire)
+TENACITY_WAIT_EXP_2_10 = wait_exponential(multiplier=1, min=2, max=10)
+TENACITY_WAIT_EXP_2_5 = wait_exponential(multiplier=1, min=2, max=5)
+TENACITY_STOP_30 = stop_after_delay(30)
+TENACITY_STOP_60 = stop_after_delay(60)
+
 # ---------------------------------------------------------------------------
 # Deletability mapping (resource_type -> can be deleted via API)
 # ---------------------------------------------------------------------------
@@ -152,8 +158,8 @@ async def _poll_ipd_status(
         )
 
     @retry(
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        stop=stop_after_delay(30),
+        wait=TENACITY_WAIT_EXP_2_10,
+        stop=TENACITY_STOP_30,
         retry=retry_if_result(lambda r: r.status != "completed"),
         before_sleep=_before_sleep,
     )
@@ -189,8 +195,8 @@ async def _poll_po_status(
         )
 
     @retry(
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        stop=stop_after_delay(60),
+        wait=TENACITY_WAIT_EXP_2_10,
+        stop=TENACITY_STOP_60,
         retry=retry_if_result(lambda r: r.status not in _PO_REVERSIBLE_STATUSES),
         before_sleep=_before_sleep,
     )
@@ -239,9 +245,7 @@ async def create_connection(
                 "Production orgs must have connections provisioned by MT."
             ) from exc
         if exc.status_code == 422:
-            logger.bind(ref=typed_ref).info(
-                "Connection already exists, looking up by entity_id"
-            )
+            logger.bind(ref=typed_ref).info("Connection already exists, looking up by entity_id")
             async for conn in client.connections.list():
                 if getattr(conn, "vendor_id", None) == resolved["entity_id"]:
                     return HandlerResult(
@@ -292,8 +296,8 @@ async def _poll_le_status(
         )
 
     @retry(
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        stop=stop_after_delay(60),
+        wait=TENACITY_WAIT_EXP_2_10,
+        stop=TENACITY_STOP_60,
         retry=retry_if_result(lambda r: r.status not in ("active", "denied")),
         before_sleep=_before_sleep,
     )
@@ -319,15 +323,16 @@ async def create_legal_entity(
     if result.status != "active":
         try:
             result = await _poll_le_status(
-                client, result.id, typed_ref, emit_sse,
+                client,
+                result.id,
+                typed_ref,
+                emit_sse,
             )
         except RetryError as e:
             last_result = e.last_attempt.result()
             status = getattr(last_result, "status", "unknown")
             if status == "denied":
-                raise RuntimeError(
-                    f"Legal entity {typed_ref} was denied by compliance"
-                ) from e
+                raise RuntimeError(f"Legal entity {typed_ref} was denied by compliance") from e
             logger.bind(ref=typed_ref, status=status).warning(
                 "LE did not reach 'active' within timeout — proceeding anyway"
             )
@@ -706,10 +711,12 @@ async def create_return(
         )
 
     @retry(
-        wait=wait_exponential(multiplier=1, min=2, max=5),
-        stop=stop_after_delay(30),
+        wait=TENACITY_WAIT_EXP_2_5,
+        stop=TENACITY_STOP_30,
         retry=retry_if_exception(
-            lambda exc: isinstance(exc, APIStatusError) and exc.status_code in (429, 500, 502, 503, 504)
+            lambda exc: (
+                isinstance(exc, APIStatusError) and exc.status_code in (429, 500, 502, 503, 504)
+            )
         ),
         before_sleep=_before_sleep,
     )
@@ -742,9 +749,7 @@ async def create_reversal(
 
     try:
         po = await _poll_po_status(client, payment_order_id, typed_ref, emit_sse)
-        logger.bind(ref=typed_ref, po_status=po.status).info(
-            "PO reached reversible state"
-        )
+        logger.bind(ref=typed_ref, po_status=po.status).info("PO reached reversible state")
     except RetryError as e:
         last = e.last_attempt.result()
         raise RuntimeError(
@@ -780,9 +785,7 @@ async def create_category_membership(
     category_id = resolved["category_id"]
     ledger_account_id = resolved["ledger_account_id"]
 
-    logger.bind(ref=typed_ref).info(
-        "Adding ledger account to category"
-    )
+    logger.bind(ref=typed_ref).info("Adding ledger account to category")
 
     try:
         await client.ledger_account_categories.add_ledger_account(
@@ -826,9 +829,7 @@ async def create_nested_category(
         )
     except APIStatusError as exc:
         if exc.status_code == 422 and "already" in str(exc).lower():
-            logger.bind(ref=typed_ref).info(
-                "Sub-category already nested — treating as success"
-            )
+            logger.bind(ref=typed_ref).info("Sub-category already nested — treating as success")
         else:
             raise
 
@@ -884,13 +885,14 @@ async def _poll_settlement_status(
 
     async def _before_sleep(retry_state: Any) -> None:
         await emit_sse(
-            "waiting", typed_ref,
+            "waiting",
+            typed_ref,
             {"attempt": retry_state.attempt_number, "detail": "Settlement processing"},
         )
 
     @retry(
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        stop=stop_after_delay(30),
+        wait=TENACITY_WAIT_EXP_2_10,
+        stop=TENACITY_STOP_30,
         retry=retry_if_result(lambda r: r.status in ("pending", "processing")),
         before_sleep=_before_sleep,
     )
@@ -1066,7 +1068,8 @@ async def complete_verification(
         )
 
     result = await client.external_accounts.complete_verification(
-        ea_id, amounts=amounts,
+        ea_id,
+        amounts=amounts,
     )
     return HandlerResult(
         created_id=result.id,
@@ -1087,9 +1090,7 @@ async def archive_resource(
     resource_ref = resolved.pop("resource_ref")
     method = resolved.pop("archive_method", "delete")
 
-    logger.bind(ref=typed_ref, target_type=resource_type, method=method).info(
-        "Archiving resource"
-    )
+    logger.bind(ref=typed_ref, target_type=resource_type, method=method).info("Archiving resource")
 
     if method == "delete":
         sdk_attr = SDK_ATTR_MAP.get(resource_type)
@@ -1203,8 +1204,11 @@ def build_update_dispatch(
 
     def _bind(resource_type: str, sdk_attr: str) -> UpdateHandlerFn:
         return bind(
-            _generic_update, client, emit_sse,
-            resource_type=resource_type, sdk_attr=sdk_attr,
+            _generic_update,
+            client,
+            emit_sse,
+            resource_type=resource_type,
+            sdk_attr=sdk_attr,
         )
 
     return {
@@ -1214,7 +1218,8 @@ def build_update_dispatch(
         "ledger": _bind("ledger", "ledgers"),
         "ledger_account": _bind("ledger_account", "ledger_accounts"),
         "ledger_account_category": _bind(
-            "ledger_account_category", "ledger_account_categories",
+            "ledger_account_category",
+            "ledger_account_categories",
         ),
         "external_account": _bind("external_account", "external_accounts"),
         "virtual_account": _bind("virtual_account", "virtual_accounts"),
@@ -1236,46 +1241,30 @@ def build_handler_dispatch(
     return {
         "connection": bind(create_connection, client, emit_sse),
         "legal_entity": bind(create_legal_entity, client, emit_sse),
-        "legal_entity_association": bind(
-            create_legal_entity_association, client, emit_sse
-        ),
+        "legal_entity_association": bind(create_legal_entity_association, client, emit_sse),
         "ledger": bind(create_ledger, client, emit_sse),
         "counterparty": bind(create_counterparty, client, emit_sse),
         "ledger_account": bind(create_ledger_account, client, emit_sse),
         "internal_account": bind(create_internal_account, client, emit_sse),
         "external_account": bind(create_external_account, client, emit_sse),
-        "ledger_account_category": bind(
-            create_ledger_account_category, client, emit_sse
-        ),
-        "ledger_account_settlement": bind(
-            create_ledger_account_settlement, client, emit_sse
-        ),
+        "ledger_account_category": bind(create_ledger_account_category, client, emit_sse),
+        "ledger_account_settlement": bind(create_ledger_account_settlement, client, emit_sse),
         "ledger_account_balance_monitor": bind(
             create_ledger_account_balance_monitor, client, emit_sse
         ),
-        "ledger_account_statement": bind(
-            create_ledger_account_statement, client, emit_sse
-        ),
+        "ledger_account_statement": bind(create_ledger_account_statement, client, emit_sse),
         "virtual_account": bind(create_virtual_account, client, emit_sse),
         "expected_payment": bind(create_expected_payment, client, emit_sse),
         "payment_order": bind(create_payment_order, client, emit_sse),
-        "incoming_payment_detail": bind(
-            create_incoming_payment_detail, client, emit_sse
-        ),
+        "incoming_payment_detail": bind(create_incoming_payment_detail, client, emit_sse),
         "ledger_transaction": bind(create_ledger_transaction, client, emit_sse),
         "transaction": bind(create_transaction, client, emit_sse),
         "return": bind(create_return, client, emit_sse),
         "reversal": bind(create_reversal, client, emit_sse),
         "category_membership": bind(create_category_membership, client, emit_sse),
         "nested_category": bind(create_nested_category, client, emit_sse),
-        "transition_ledger_transaction": bind(
-            transition_ledger_transaction, client, emit_sse
-        ),
-        "verify_external_account": bind(
-            verify_external_account, client, emit_sse
-        ),
-        "complete_verification": bind(
-            complete_verification, client, emit_sse
-        ),
+        "transition_ledger_transaction": bind(transition_ledger_transaction, client, emit_sse),
+        "verify_external_account": bind(verify_external_account, client, emit_sse),
+        "complete_verification": bind(complete_verification, client, emit_sse),
         "archive_resource": bind(archive_resource, client, emit_sse),
     }

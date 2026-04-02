@@ -8,12 +8,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
 # ---------------------------------------------------------------------------
 # Timing configuration (Step 9: Seasoning & Date Configuration)
 # ---------------------------------------------------------------------------
-
-from models.shared import SettlementDefaultsConfig, StepTimingConfig  # noqa: E402 (re-export)
+from models.shared import SettlementDefaultsConfig  # noqa: E402 (re-export)
 
 
 class FlowTimingConfig(BaseModel):
@@ -40,9 +38,7 @@ class RecipeTimingConfig(BaseModel):
         "Set to a past date to ensure payments settle immediately.",
     )
     instance_spread_days: int = 0
-    spread_pattern: Literal["uniform", "ramp_up", "ramp_down", "clustered"] = (
-        "uniform"
-    )
+    spread_pattern: Literal["uniform", "ramp_up", "ramp_down", "clustered"] = "uniform"
     spread_jitter_days: float = 0.0
     step_delay_overrides: dict[str, float] = Field(
         default_factory=dict,
@@ -54,13 +50,13 @@ class RecipeTimingConfig(BaseModel):
     )
 
 
-from models.steps import (
+from models.steps import (  # noqa: E402 — after FlowTimingConfig / RecipeTimingConfig (circular import guard)
     FundsFlowStep,
     IncomingPaymentDetailStep,
     ReturnStep,
     ReversalStep,
-    _StepBase,
     _extract_step_ref,
+    _StepBase,
 )
 
 
@@ -123,7 +119,8 @@ class OptionalGroupConfig(BaseModel):
     )
     applicable_when: ApplicabilityRule | None = None
     weight: float = Field(
-        default=1.0, ge=0.0,
+        default=1.0,
+        ge=0.0,
         description="Relative weight within an exclusion_group for weighted selection.",
     )
 
@@ -138,10 +135,17 @@ class FundsFlowScaleConfig(BaseModel):
 
 
 _TRACE_FORMATTER = string.Formatter()
-_ALLOWED_TRACE_PLACEHOLDERS = frozenset({
-    "ref", "instance",
-    "first_name", "last_name", "business_name", "industry", "country",
-})
+_ALLOWED_TRACE_PLACEHOLDERS = frozenset(
+    {
+        "ref",
+        "instance",
+        "first_name",
+        "last_name",
+        "business_name",
+        "industry",
+        "country",
+    }
+)
 
 
 class LedgerViewConfig(BaseModel):
@@ -193,10 +197,15 @@ class ActorSlot(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ref: str
-    slot_type: Literal[
-        "external_account", "internal_account",
-        "ledger_account", "virtual_account",
-    ] | None = Field(
+    slot_type: (
+        Literal[
+            "external_account",
+            "internal_account",
+            "ledger_account",
+            "virtual_account",
+        ]
+        | None
+    ) = Field(
         default=None,
         description="When None, inferred from $ref: prefix.",
     )
@@ -324,8 +333,7 @@ class FundsFlowConfig(BaseModel):
                 target = _extract_step_ref(step.returnable_id)
                 if target and target not in step_ids:
                     raise ValueError(
-                        f"Return '{step.step_id}' references unknown "
-                        f"returnable target '{target}'"
+                        f"Return '{step.step_id}' references unknown returnable target '{target}'"
                     )
 
         for step in all_steps:
@@ -333,17 +341,14 @@ class FundsFlowConfig(BaseModel):
                 target = _extract_step_ref(step.payment_order_id)
                 if target and target not in step_ids:
                     raise ValueError(
-                        f"Reversal '{step.step_id}' references unknown "
-                        f"PO target '{target}'"
+                        f"Reversal '{step.step_id}' references unknown PO target '{target}'"
                     )
 
         for step in all_steps:
             if isinstance(step, IncomingPaymentDetailStep) and step.fulfills:
                 target = _extract_step_ref(step.fulfills)
                 if target and target not in step_ids:
-                    raise ValueError(
-                        f"IPD '{step.step_id}' fulfills unknown EP '{target}'"
-                    )
+                    raise ValueError(f"IPD '{step.step_id}' fulfills unknown EP '{target}'")
 
         return self
 
@@ -390,7 +395,8 @@ class EdgeCaseOverride(BaseModel):
 
     enabled: bool = True
     count: int | None = Field(
-        default=None, ge=0,
+        default=None,
+        ge=0,
         description="Exact number of instances that get this edge case (None = use global edge_case_count)",
     )
     value_overrides: dict[str, Any] = Field(default_factory=dict)
@@ -434,7 +440,8 @@ class GenerationRecipeV1(BaseModel):
         description="Seed dataset for individual profiles (overrides seed_dataset)",
     )
     edge_case_count: int = Field(
-        default=0, ge=0,
+        default=0,
+        ge=0,
         description="Default number of instances that get each edge case (capped at instances)",
     )
     edge_case_overrides: dict[str, EdgeCaseOverride] = Field(
@@ -442,18 +449,22 @@ class GenerationRecipeV1(BaseModel):
         description="Per-group overrides keyed by optional group label",
     )
     amount_variance_min_pct: float = Field(
-        default=0.0, ge=-100.0, le=0.0,
+        default=0.0,
+        ge=-100.0,
+        le=0.0,
         description="Minimum percentage variance on amounts (e.g. -10.0 = down to 90% of base)",
     )
     amount_variance_max_pct: float = Field(
-        default=0.0, ge=0.0, le=100.0,
+        default=0.0,
+        ge=0.0,
+        le=100.0,
         description="Maximum percentage variance on amounts (e.g. 10.0 = up to 110% of base)",
     )
     step_variance: dict[str, dict[str, float]] = Field(
         default_factory=dict,
         description=(
             "Per-step variance overrides keyed by step_id. "
-            "Each value is {\"min_pct\": ..., \"max_pct\": ...} or empty dict to lock (no variance)."
+            'Each value is {"min_pct": ..., "max_pct": ...} or empty dict to lock (no variance).'
         ),
     )
     staging_rules: list[StagingRule] = Field(
@@ -464,7 +475,8 @@ class GenerationRecipeV1(BaseModel):
         ),
     )
     staged_count: int = Field(
-        default=0, ge=0,
+        default=0,
+        ge=0,
         description="(Legacy) Shorthand for a single staging rule — prefer staging_rules.",
     )
     staged_selection: str = Field(

@@ -2,12 +2,7 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from engine import RefRegistry
 
@@ -52,9 +47,7 @@ class TestExtraResourcesDedup:
         from flow_compiler.generation import _expand_instance_resources
 
         ir_template = {
-            "legal_entities": [
-                {"ref": "shared_le", "type": "business", "legal_name": "Shared"}
-            ]
+            "legal_entities": [{"ref": "shared_le", "type": "business", "legal_name": "Shared"}]
         }
 
         seen: dict[str, list[dict]] = {}
@@ -63,8 +56,7 @@ class TestExtraResourcesDedup:
             for section, items in expanded.items():
                 bucket = seen.setdefault(section, [])
                 existing_refs = {
-                    it.get("ref") for it in bucket
-                    if isinstance(it, dict) and it.get("ref")
+                    it.get("ref") for it in bucket if isinstance(it, dict) and it.get("ref")
                 }
                 for item in items:
                     ref = item.get("ref") if isinstance(item, dict) else None
@@ -79,8 +71,9 @@ class TestExtraResourcesDedup:
     def test_pipeline_dedup_extra_resources(self):
         """pass_emit_resources should deduplicate extra_resources by ref."""
         import hashlib
-        from flow_compiler.pipeline import CompilationContext, pass_emit_resources
+
         from flow_compiler import AuthoringConfig
+        from flow_compiler.pipeline import CompilationContext, pass_emit_resources
         from models import DataLoaderConfig
 
         minimal_config = DataLoaderConfig(
@@ -94,8 +87,14 @@ class TestExtraResourcesDedup:
             source_hash=hashlib.sha256(raw).hexdigest(),
         )
         extra = (
-            ("legal_entities", [{"ref": "dup_le", "legal_entity_type": "business", "business_name": "A Corp"}]),
-            ("legal_entities", [{"ref": "dup_le", "legal_entity_type": "business", "business_name": "B Corp"}]),
+            (
+                "legal_entities",
+                [{"ref": "dup_le", "legal_entity_type": "business", "business_name": "A Corp"}],
+            ),
+            (
+                "legal_entities",
+                [{"ref": "dup_le", "legal_entity_type": "business", "business_name": "B Corp"}],
+            ),
         )
         ctx = CompilationContext(
             authoring=auth,

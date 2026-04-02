@@ -9,13 +9,9 @@ and passthrough regression.
 from __future__ import annotations
 
 import json
-import sys
 import tempfile
-from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from engine import RunManifest, _now_iso
 from flow_compiler import (
@@ -31,6 +27,8 @@ from flow_compiler import (
     flow_account_deltas,
     render_mermaid,
 )
+from models import DataLoaderConfig, FundsFlowConfig
+from tests.paths import EXAMPLES_DIR
 
 
 def _compile(config):
@@ -39,9 +37,6 @@ def _compile(config):
     plan = compile_to_plan(AuthoringConfig.from_json(raw))
     irs = list(plan.flow_irs) or None
     return plan.config, irs
-from models import DataLoaderConfig, FundsFlowConfig
-
-EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
 
 
 # ---------------------------------------------------------------------------
@@ -64,9 +59,19 @@ def _make_flow_ir(
         lg = LedgerGroup(
             group_id="lg0",
             inline=False,
-            entries=tuple(entries) if entries else (
-                {"ledger_account_id": "$ref:ledger_account.cash", "direction": "debit", "amount": 10000},
-                {"ledger_account_id": "$ref:ledger_account.revenue", "direction": "credit", "amount": 10000},
+            entries=tuple(entries)
+            if entries
+            else (
+                {
+                    "ledger_account_id": "$ref:ledger_account.cash",
+                    "direction": "debit",
+                    "amount": 10000,
+                },
+                {
+                    "ledger_account_id": "$ref:ledger_account.revenue",
+                    "direction": "credit",
+                    "amount": 10000,
+                },
             ),
             metadata={},
             status=None,
@@ -138,10 +143,12 @@ class TestComputeFlowStatus:
 
 class TestFlowAccountDeltas:
     def test_basic_debit_credit(self):
-        ir = _make_flow_ir([
-            {"ledger_account_id": "acct_a", "direction": "debit", "amount": 5000},
-            {"ledger_account_id": "acct_b", "direction": "credit", "amount": 5000},
-        ])
+        ir = _make_flow_ir(
+            [
+                {"ledger_account_id": "acct_a", "direction": "debit", "amount": 5000},
+                {"ledger_account_id": "acct_b", "direction": "credit", "amount": 5000},
+            ]
+        )
         deltas = flow_account_deltas(ir)
         assert deltas["acct_a"] == 5000
         assert deltas["acct_b"] == -5000
@@ -151,10 +158,12 @@ class TestFlowAccountDeltas:
         assert flow_account_deltas(ir) == {}
 
     def test_multiple_entries_accumulate(self):
-        ir = _make_flow_ir([
-            {"ledger_account_id": "acct_a", "direction": "debit", "amount": 3000},
-            {"ledger_account_id": "acct_a", "direction": "credit", "amount": 1000},
-        ])
+        ir = _make_flow_ir(
+            [
+                {"ledger_account_id": "acct_a", "direction": "debit", "amount": 3000},
+                {"ledger_account_id": "acct_a", "direction": "credit", "amount": 1000},
+            ]
+        )
         deltas = flow_account_deltas(ir)
         assert deltas["acct_a"] == 2000
 
@@ -177,6 +186,7 @@ class TestCompileDiagnostics:
 
     def test_multiple_flows(self):
         import dataclasses as dc
+
         ir1 = _make_flow_ir()
         ir2 = dc.replace(_make_flow_ir(), trace_value="test-0001")
         diag = compile_diagnostics([ir1, ir2])
@@ -205,17 +215,27 @@ class TestActorDisplayName:
 class TestFlowIRStepOptionalGroup:
     def test_default_is_none(self):
         step = FlowIRStep(
-            step_id="s1", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="payment_order",
-            payload={}, ledger_groups=(), trace_metadata={},
+            step_id="s1",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="payment_order",
+            payload={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         assert step.optional_group is None
 
     def test_set_optional_group(self):
         step = FlowIRStep(
-            step_id="s1", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="payment_order",
-            payload={}, ledger_groups=(), trace_metadata={},
+            step_id="s1",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="payment_order",
+            payload={},
+            ledger_groups=(),
+            trace_metadata={},
             optional_group="ach_return",
         )
         assert step.optional_group == "ach_return"
@@ -236,6 +256,7 @@ class TestFlowIRStepOptionalGroup:
                     step.setdefault("metadata", {})
                     step["metadata"]["_flow_optional_group"] = og["label"]
             from flow_compiler import flatten_optional_groups
+
             flatten_optional_groups(d, activated_groups=None)
             flows_with_og.append(FundsFlowConfig.model_validate(d))
 
@@ -256,28 +277,43 @@ class TestFlowIRStepOptionalGroup:
 class TestFlowIRFrozen:
     def test_flowir_step_frozen(self):
         import dataclasses as dc
+
         step = FlowIRStep(
-            step_id="s", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="payment_order",
-            payload={}, ledger_groups=(), trace_metadata={},
+            step_id="s",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="payment_order",
+            payload={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         with pytest.raises(dc.FrozenInstanceError):
             step.depends_on = ("new",)
 
     def test_flowir_frozen(self):
         import dataclasses as dc
+
         ir = FlowIR(
-            flow_ref="f", instance_id="0000", pattern_type="test",
-            trace_key="k", trace_value="v", trace_metadata={},
+            flow_ref="f",
+            instance_id="0000",
+            pattern_type="test",
+            trace_key="k",
+            trace_value="v",
+            trace_metadata={},
         )
         with pytest.raises(dc.FrozenInstanceError):
             ir.steps = ()
 
     def test_ledger_group_frozen(self):
         import dataclasses as dc
+
         lg = LedgerGroup(
-            group_id="g", inline=False, entries=(),
-            metadata={}, status=None,
+            group_id="g",
+            inline=False,
+            entries=(),
+            metadata={},
+            status=None,
         )
         with pytest.raises(dc.FrozenInstanceError):
             lg.inline = True

@@ -84,10 +84,29 @@ class IdentificationConfig(BaseModel):
 
     id_number: str
     id_type: Literal[
-        "ar_cuil", "ar_cuit", "br_cnpj", "br_cpf", "ca_sin", "cl_run",
-        "cl_rut", "co_cedulas", "co_nit", "drivers_license", "hn_id",
-        "hn_rtn", "in_lei", "kr_brn", "kr_crn", "kr_rrn", "passport",
-        "sa_tin", "sa_vat", "us_ein", "us_itin", "us_ssn", "vn_tin",
+        "ar_cuil",
+        "ar_cuit",
+        "br_cnpj",
+        "br_cpf",
+        "ca_sin",
+        "cl_run",
+        "cl_rut",
+        "co_cedulas",
+        "co_nit",
+        "drivers_license",
+        "hn_id",
+        "hn_rtn",
+        "in_lei",
+        "kr_brn",
+        "kr_crn",
+        "kr_rrn",
+        "passport",
+        "sa_tin",
+        "sa_vat",
+        "us_ein",
+        "us_itin",
+        "us_ssn",
+        "vn_tin",
     ]
     issuing_country: str | None = None
     documents: list[DocumentConfig] | None = None
@@ -123,47 +142,130 @@ class PhoneNumberConfig(BaseModel):
 class WealthAndEmploymentDetailsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     annual_income: int | None = None
-    source_of_funds: Literal[
-        "alimony", "annuity", "business_owner", "business_revenue",
-        "debt_financing", "general_employee", "government_benefits",
-        "homemaker", "inheritance_gift", "intercompany_loan", "investment",
-        "investor_funding", "legal_settlement", "lottery", "real_estate",
-        "retained_earnings_or_savings", "retired", "retirement", "salary",
-        "sale_of_business_assets", "sale_of_real_estate", "self_employed",
-        "senior_executive", "trust_income",
-    ] | None = None
-    wealth_source: Literal[
-        "business_sale", "family_support", "government_benefits",
-        "inheritance", "investments", "other", "rental_income",
-        "retirement", "salary", "self_employed",
-    ] | None = None
-    occupation: Literal[
-        "consulting", "executive", "finance_accounting", "food_services",
-        "government", "healthcare", "legal_services", "manufacturing",
-        "other", "sales", "science_engineering", "technology",
-    ] | None = None
-    employment_status: Literal[
-        "employed", "retired", "self_employed", "student", "unemployed",
-    ] | None = None
+    source_of_funds: (
+        Literal[
+            "alimony",
+            "annuity",
+            "business_owner",
+            "business_revenue",
+            "debt_financing",
+            "general_employee",
+            "government_benefits",
+            "homemaker",
+            "inheritance_gift",
+            "intercompany_loan",
+            "investment",
+            "investor_funding",
+            "legal_settlement",
+            "lottery",
+            "real_estate",
+            "retained_earnings_or_savings",
+            "retired",
+            "retirement",
+            "salary",
+            "sale_of_business_assets",
+            "sale_of_real_estate",
+            "self_employed",
+            "senior_executive",
+            "trust_income",
+        ]
+        | None
+    ) = None
+    wealth_source: (
+        Literal[
+            "business_sale",
+            "family_support",
+            "government_benefits",
+            "inheritance",
+            "investments",
+            "other",
+            "rental_income",
+            "retirement",
+            "salary",
+            "self_employed",
+        ]
+        | None
+    ) = None
+    occupation: (
+        Literal[
+            "consulting",
+            "executive",
+            "finance_accounting",
+            "food_services",
+            "government",
+            "healthcare",
+            "legal_services",
+            "manufacturing",
+            "other",
+            "sales",
+            "science_engineering",
+            "technology",
+        ]
+        | None
+    ) = None
+    employment_status: (
+        Literal[
+            "employed",
+            "retired",
+            "self_employed",
+            "student",
+            "unemployed",
+        ]
+        | None
+    ) = None
     employer_name: str | None = None
     employer_country: str | None = None
-    income_source: Literal[
-        "family_support", "government_benefits", "inheritance",
-        "investments", "rental_income", "retirement", "salary",
-        "self_employed",
-    ] | None = None
-    industry: Literal[
-        "accounting", "agriculture", "automotive",
-        "chemical_manufacturing", "construction", "educational_medical",
-        "food_service", "finance", "gasoline", "health_stores", "laundry",
-        "maintenance", "manufacturing", "merchant_wholesale", "mining",
-        "performing_arts", "professional_non_legal", "public_administration",
-        "publishing", "real_estate", "recreation_gambling",
-        "religious_charity", "rental_services", "retail_clothing",
-        "retail_electronics", "retail_food", "retail_furnishing",
-        "retail_home", "retail_non_store", "retail_sporting",
-        "transportation", "travel", "utilities",
-    ] | None = None
+    income_source: (
+        Literal[
+            "family_support",
+            "government_benefits",
+            "inheritance",
+            "investments",
+            "rental_income",
+            "retirement",
+            "salary",
+            "self_employed",
+        ]
+        | None
+    ) = None
+    industry: (
+        Literal[
+            "accounting",
+            "agriculture",
+            "automotive",
+            "chemical_manufacturing",
+            "construction",
+            "educational_medical",
+            "food_service",
+            "finance",
+            "gasoline",
+            "health_stores",
+            "laundry",
+            "maintenance",
+            "manufacturing",
+            "merchant_wholesale",
+            "mining",
+            "performing_arts",
+            "professional_non_legal",
+            "public_administration",
+            "publishing",
+            "real_estate",
+            "recreation_gambling",
+            "religious_charity",
+            "rental_services",
+            "retail_clothing",
+            "retail_electronics",
+            "retail_food",
+            "retail_furnishing",
+            "retail_home",
+            "retail_non_store",
+            "retail_sporting",
+            "transportation",
+            "travel",
+            "utilities",
+        ]
+        | None
+    ) = None
 
 
 class LegalEntityConfig(MetadataMixin, _BaseResourceConfig):
@@ -195,10 +297,17 @@ class LegalEntityConfig(MetadataMixin, _BaseResourceConfig):
     # Business fields
     business_name: str | None = None
     date_formed: str | None = None
-    legal_structure: Literal[
-        "corporation", "llc", "non_profit", "partnership",
-        "sole_proprietorship", "trust",
-    ] | None = None
+    legal_structure: (
+        Literal[
+            "corporation",
+            "llc",
+            "non_profit",
+            "partnership",
+            "sole_proprietorship",
+            "trust",
+        ]
+        | None
+    ) = None
     country_of_incorporation: str | None = None
     website: str | None = None
 
@@ -256,11 +365,9 @@ class LegalEntityConfig(MetadataMixin, _BaseResourceConfig):
             if self.operating_jurisdictions is None:
                 self.operating_jurisdictions = ["US"]
             if self.wealth_and_employment_details is None:
-                self.wealth_and_employment_details = (
-                    WealthAndEmploymentDetailsConfig(
-                        source_of_funds="business_revenue",
-                        industry="finance",
-                    )
+                self.wealth_and_employment_details = WealthAndEmploymentDetailsConfig(
+                    source_of_funds="business_revenue",
+                    industry="finance",
                 )
             self.identifications = [
                 IdentificationConfig(
@@ -305,15 +412,13 @@ class LegalEntityConfig(MetadataMixin, _BaseResourceConfig):
             if self.middle_name is None:
                 self.middle_name = "M"
             if self.wealth_and_employment_details is None:
-                self.wealth_and_employment_details = (
-                    WealthAndEmploymentDetailsConfig(
-                        annual_income=100000,
-                        wealth_source="salary",
-                        occupation="technology",
-                        employment_status="employed",
-                        income_source="salary",
-                        source_of_funds="salary",
-                    )
+                self.wealth_and_employment_details = WealthAndEmploymentDetailsConfig(
+                    annual_income=100000,
+                    wealth_source="salary",
+                    occupation="technology",
+                    employment_status="employed",
+                    income_source="salary",
+                    source_of_funds="salary",
                 )
             self.identifications = [
                 IdentificationConfig(
@@ -388,10 +493,12 @@ class CounterpartyAccountConfig(MetadataMixin, BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     sandbox_behavior: Literal["success", "failure", "return"] | None = Field(
-        None, exclude=True,
+        None,
+        exclude=True,
     )
     sandbox_return_code: str | None = Field(
-        None, exclude=True,
+        None,
+        exclude=True,
     )
 
     account_type: str | None = None
@@ -454,7 +561,9 @@ class LedgerAccountConfig(MetadataMixin, _BaseResourceConfig):
     normal_balance: Literal["credit", "debit"]
     currency: str = "USD"
     description: str | None = None
-    ledgerable_type: Literal["external_account", "internal_account", "virtual_account"] | None = None
+    ledgerable_type: Literal["external_account", "internal_account", "virtual_account"] | None = (
+        None
+    )
     ledgerable_id: RefStr | None = None
 
 
@@ -471,10 +580,16 @@ class InternalAccountConfig(MetadataMixin, _BaseResourceConfig):
     name: str
     party_name: str
     currency: Literal["USD", "CAD", "USDC", "USDG"]
-    status: Literal[
-        "active", "closed", "pending_closure",
-        "pending_activation", "suspended",
-    ] | None = None
+    status: (
+        Literal[
+            "active",
+            "closed",
+            "pending_closure",
+            "pending_activation",
+            "suspended",
+        ]
+        | None
+    ) = None
     counterparty_id: RefStr | None = None
     legal_entity_id: RefStr | None = None
     party_address: AddressConfig | None = None
@@ -614,9 +729,18 @@ class PaymentOrderConfig(MetadataMixin, _BaseResourceConfig):
     resource_type: ClassVar[str] = "payment_order"
 
     type: str
-    subtype: Literal[
-        "CCD", "PPD", "IAT", "CTX", "WEB", "CIE", "TEL",
-    ] | None = None
+    subtype: (
+        Literal[
+            "CCD",
+            "PPD",
+            "IAT",
+            "CTX",
+            "WEB",
+            "CIE",
+            "TEL",
+        ]
+        | None
+    ) = None
     amount: int = Field(..., gt=0)
     direction: Literal["credit", "debit"]
     originating_account_id: RefStr
@@ -725,6 +849,7 @@ class ReturnConfig(MetadataMixin, _BaseResourceConfig):
 # Layer 6 — Post-create mutations
 # ---------------------------------------------------------------------------
 
+
 class ReversalConfig(MetadataMixin, _BaseResourceConfig):
     display_phase: ClassVar[int] = DisplayPhase.MUTATIONS
     resource_type: ClassVar[str] = "reversal"
@@ -825,9 +950,7 @@ class LegalEntityAssociationConfig(MetadataMixin, _BaseResourceConfig):
 
     parent_legal_entity_id: RefStr
     child_legal_entity_id: RefStr
-    relationship_types: list[
-        Literal["beneficial_owner", "control_person"]
-    ] | None = None
+    relationship_types: list[Literal["beneficial_owner", "control_person"]] | None = None
     title: str | None = None
     ownership_percentage: int | None = None
 

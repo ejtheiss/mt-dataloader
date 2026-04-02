@@ -35,8 +35,7 @@ from .ir import FlowIR, FlowIRStep, LedgerGroup
 def _validate_ref_segment(segment: str) -> None:
     if "__" in segment:
         raise ValueError(
-            f"Ref segment '{segment}' must not contain '__' "
-            f"(reserved as instance separator)"
+            f"Ref segment '{segment}' must not contain '__' (reserved as instance separator)"
         )
 
 
@@ -62,10 +61,7 @@ def resolve_actors(obj: Any, actor_refs: dict[str, str]) -> Any:
     if isinstance(obj, str) and obj.startswith("@actor:"):
         key = obj[7:]
         if key not in actor_refs:
-            raise ValueError(
-                f"Unknown actor ref '{key}' — "
-                f"available: {sorted(actor_refs.keys())}"
-            )
+            raise ValueError(f"Unknown actor ref '{key}' — available: {sorted(actor_refs.keys())}")
         return actor_refs[key]
     if isinstance(obj, dict):
         return {k: resolve_actors(v, actor_refs) for k, v in obj.items()}
@@ -81,15 +77,14 @@ def expand_trace_value(
     profile: dict[str, str] | None = None,
 ) -> str:
     from collections import defaultdict
+
     mapping: dict[str, Any] = {"ref": ref, "instance": instance}
     if profile:
         mapping.update(profile)
     try:
         return template.format_map(defaultdict(str, mapping))
     except (ValueError, KeyError) as e:
-        raise ValueError(
-            f"Bad placeholder in trace_value_template '{template}': {e}"
-        ) from e
+        raise ValueError(f"Bad placeholder in trace_value_template '{template}': {e}") from e
 
 
 def _auto_derive_lifecycle_refs(
@@ -122,7 +117,10 @@ def _auto_derive_lifecycle_refs(
                 step_dict["payment_order_id"] = step_ref_map[dep_id]
                 break
 
-    if isinstance(step, TransitionLedgerTransactionStep) and "ledger_transaction_id" not in step_dict:
+    if (
+        isinstance(step, TransitionLedgerTransactionStep)
+        and "ledger_transaction_id" not in step_dict
+    ):
         for dep_id in step.depends_on:
             dep_step = next((s for s in all_steps if s.step_id == dep_id), None)
             if dep_step is None:
@@ -130,7 +128,9 @@ def _auto_derive_lifecycle_refs(
             if isinstance(dep_step, LedgerTransactionStep):
                 step_dict["ledger_transaction_id"] = step_ref_map[dep_id]
                 break
-            if isinstance(dep_step, (PaymentOrderStep, ExpectedPaymentStep, ReturnStep, ReversalStep)):
+            if isinstance(
+                dep_step, (PaymentOrderStep, ExpectedPaymentStep, ReturnStep, ReversalStep)
+            ):
                 entries = getattr(dep_step, "ledger_entries", None)
                 inline = getattr(dep_step, "ledger_inline", False)
                 if isinstance(entries, list) and entries and inline:
@@ -209,9 +209,7 @@ def _with_lifecycle_depends_on(step: FlowIRStep) -> FlowIRStep:
 # ---------------------------------------------------------------------------
 
 
-def flatten_optional_groups(
-    flow_dict: dict, activated_groups: set[str] | None = None
-) -> dict:
+def flatten_optional_groups(flow_dict: dict, activated_groups: set[str] | None = None) -> dict:
     """Merge activated optional group steps into the main steps list.
 
     If activated_groups is None, ALL groups are included
@@ -253,9 +251,7 @@ def flatten_optional_groups(
                     for s in steps:
                         deps = s.get("depends_on")
                         if deps and anchor in deps:
-                            s["depends_on"] = [
-                                last_new_id if d == anchor else d for d in deps
-                            ]
+                            s["depends_on"] = [last_new_id if d == anchor else d for d in deps]
             else:
                 steps.extend(og_steps)
 
@@ -296,7 +292,9 @@ _INTERNAL_ACCOUNT_PREFIXES = frozenset({"internal_account"})
 
 
 def _validate_account_roles(
-    step: _StepBase, resolved: dict[str, Any], flow_ref: str,
+    step: _StepBase,
+    resolved: dict[str, Any],
+    flow_ref: str,
 ) -> None:
     """Validate that account refs are appropriate for the step type."""
     orig = resolved.get("originating_account_id", "")
@@ -328,11 +326,18 @@ def _validate_account_roles(
 # ---------------------------------------------------------------------------
 
 
-_DSL_ONLY_FIELDS = frozenset({
-    "step_id", "type", "depends_on",
-    "ledger_entries", "ledger_status", "ledger_inline",
-    "staged", "fulfills",
-})
+_DSL_ONLY_FIELDS = frozenset(
+    {
+        "step_id",
+        "type",
+        "depends_on",
+        "ledger_entries",
+        "ledger_status",
+        "ledger_inline",
+        "staged",
+        "fulfills",
+    }
+)
 
 
 def _compile_step(
@@ -346,8 +351,6 @@ def _compile_step(
     og_step_ids: dict[str, str],
 ) -> FlowIRStep:
     """Compile a single DSL step into a FlowIRStep."""
-    emitted_ref = f"{flow.ref}__{instance_id}__{step.step_id}"
-
     exclude = _DSL_ONLY_FIELDS & set(type(step).model_fields)
     step_dict = step.model_dump(exclude=exclude, exclude_none=True)
 
@@ -382,13 +385,15 @@ def _compile_step(
                 )
                 inline = getattr(step, "ledger_inline", False)
                 status = getattr(step, "ledger_status", None)
-                ledger_groups.append(LedgerGroup(
-                    group_id=f"{step.step_id}_lg0",
-                    inline=inline,
-                    entries=tuple(reversed_entries),
-                    metadata=trace_meta.copy(),
-                    status=status,
-                ))
+                ledger_groups.append(
+                    LedgerGroup(
+                        group_id=f"{step.step_id}_lg0",
+                        inline=inline,
+                        entries=tuple(reversed_entries),
+                        metadata=trace_meta.copy(),
+                        status=status,
+                    )
+                )
     elif isinstance(entries, list) and entries:
         entries_resolved = resolve_actors(
             [e.model_dump(exclude_none=True) for e in entries],
@@ -396,13 +401,15 @@ def _compile_step(
         )
         inline = getattr(step, "ledger_inline", False)
         status = getattr(step, "ledger_status", None)
-        ledger_groups.append(LedgerGroup(
-            group_id=f"{step.step_id}_lg0",
-            inline=inline,
-            entries=tuple(entries_resolved),
-            metadata=trace_meta.copy(),
-            status=status,
-        ))
+        ledger_groups.append(
+            LedgerGroup(
+                group_id=f"{step.step_id}_lg0",
+                inline=inline,
+                entries=tuple(entries_resolved),
+                metadata=trace_meta.copy(),
+                status=status,
+            )
+        )
 
     return FlowIRStep(
         step_id=step.step_id,
@@ -437,9 +444,7 @@ def compile_flows(
         else:
             _validate_ref_segment(flow.ref)
             instance_id = "0000"
-        trace_value = expand_trace_value(
-            flow.trace_value_template, flow.ref, 0
-        )
+        trace_value = expand_trace_value(flow.trace_value_template, flow.ref, 0)
         trace_meta = {flow.trace_key: trace_value, **flow.trace_metadata}
 
         og_step_ids: dict[str, str] = {}
@@ -468,10 +473,18 @@ def compile_flows(
         # --- Pass 2: compile main steps ---
         ir_steps: list[FlowIRStep] = []
         for step in flow.steps:
-            ir_steps.append(_compile_step(
-                step, flow, instance_id, trace_meta,
-                step_ref_map, all_steps, actor_refs, og_step_ids,
-            ))
+            ir_steps.append(
+                _compile_step(
+                    step,
+                    flow,
+                    instance_id,
+                    trace_meta,
+                    step_ref_map,
+                    all_steps,
+                    actor_refs,
+                    og_step_ids,
+                )
+            )
 
         # --- Pass 3: compile optional group steps (preview_only for Mermaid) ---
         main_step_ids = [s.step_id for s in ir_steps]
@@ -479,8 +492,14 @@ def compile_flows(
             compiled_og: list[FlowIRStep] = []
             for step in og.steps:
                 ir_step = _compile_step(
-                    step, flow, instance_id, trace_meta,
-                    step_ref_map, all_steps, actor_refs, og_step_ids,
+                    step,
+                    flow,
+                    instance_id,
+                    trace_meta,
+                    step_ref_map,
+                    all_steps,
+                    actor_refs,
+                    og_step_ids,
                 )
                 compiled_og.append(dataclasses.replace(ir_step, preview_only=True))
 
@@ -518,15 +537,17 @@ def compile_flows(
                 ir_steps.extend(compiled_og)
             main_step_ids = [s.step_id for s in ir_steps]
 
-        result.append(FlowIR(
-            flow_ref=flow.ref,
-            instance_id=instance_id,
-            pattern_type=flow.pattern_type,
-            trace_key=flow.trace_key,
-            trace_value=trace_value,
-            trace_metadata=trace_meta,
-            steps=tuple(ir_steps),
-        ))
+        result.append(
+            FlowIR(
+                flow_ref=flow.ref,
+                instance_id=instance_id,
+                pattern_type=flow.pattern_type,
+                trace_key=flow.trace_key,
+                trace_value=trace_value,
+                trace_metadata=trace_meta,
+                steps=tuple(ir_steps),
+            )
+        )
 
     return result
 

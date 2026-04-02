@@ -8,16 +8,15 @@ import pytest
 
 from flow_compiler import FlowIR, FlowIRStep, LedgerGroup
 from flow_views import (
-    AccountImpact,
     FlowViewData,
     LedgerColumnDef,
     LedgerEntryPlacement,
     LedgerViewRow,
     PaymentColumnDef,
     PaymentViewRow,
-    compute_view_data,
     _build_ledger_columns,
     _build_payment_columns,
+    compute_view_data,
 )
 from models import (
     FundFlowViewConfig,
@@ -26,7 +25,6 @@ from models import (
     LedgerViewConfig,
     PaymentsViewConfig,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -73,22 +71,26 @@ def _minimal_config(
         pattern_type="test",
         actors=actors or {},
         steps=[
-            FundsFlowStepConfig.model_validate({
-                "step_id": "core",
-                "type": "payment_order",
-                "payment_type": "ach",
-                "direction": "credit",
-                "amount": 100,
-                "originating_account_id": "$ref:internal_account.ia1",
-                "receiving_account_id": "$ref:external_account.ea1",
-            }),
+            FundsFlowStepConfig.model_validate(
+                {
+                    "step_id": "core",
+                    "type": "payment_order",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 100,
+                    "originating_account_id": "$ref:internal_account.ia1",
+                    "receiving_account_id": "$ref:external_account.ea1",
+                }
+            ),
         ],
         view_config=view_config,
     )
 
 
 _PLATFORM_FRAME = {
-    "alias": "Platform", "frame_type": "direct", "customer_name": "Platform",
+    "alias": "Platform",
+    "frame_type": "direct",
+    "customer_name": "Platform",
 }
 
 
@@ -112,7 +114,9 @@ class TestFrozenTypes:
             col.display_name = "changed"  # type: ignore[misc]
 
     def test_payment_column_def_frozen(self):
-        col = PaymentColumnDef(account_ref="$ref:ia.x", display_name="X", account_type="internal_account")
+        col = PaymentColumnDef(
+            account_ref="$ref:ia.x", display_name="X", account_type="internal_account"
+        )
         with pytest.raises(dataclasses.FrozenInstanceError):
             col.account_type = "changed"  # type: ignore[misc]
 
@@ -128,8 +132,11 @@ class TestFrozenTypes:
 
     def test_payment_view_row_frozen(self):
         row = PaymentViewRow(
-            step_ref="test__0000__po1", description="PO", resource_type="payment_order",
-            status="pending", amount=100,
+            step_ref="test__0000__po1",
+            description="PO",
+            resource_type="payment_order",
+            status="pending",
+            amount=100,
         )
         with pytest.raises(dataclasses.FrozenInstanceError):
             row.amount = 200  # type: ignore[misc]
@@ -147,13 +154,17 @@ class TestFrozenTypes:
 
 class TestBuildLedgerColumns:
     def test_auto_derive_from_actors(self):
-        config = _minimal_config(actors={
-            "direct_1": _direct({
-                "cash": "$ref:ledger_account.cash",
-                "revenue": "$ref:ledger_account.revenue",
-                "ia": "$ref:internal_account.ia1",
-            }),
-        })
+        config = _minimal_config(
+            actors={
+                "direct_1": _direct(
+                    {
+                        "cash": "$ref:ledger_account.cash",
+                        "revenue": "$ref:ledger_account.revenue",
+                        "ia": "$ref:internal_account.ia1",
+                    }
+                ),
+            }
+        )
         cols = _build_ledger_columns(config)
         refs = [c.account_ref for c in cols]
         assert "$ref:ledger_account.cash" in refs
@@ -161,12 +172,16 @@ class TestBuildLedgerColumns:
         assert "$ref:internal_account.ia1" not in refs
 
     def test_explicit_refs(self):
-        config = _minimal_config(actors={
-            "direct_1": _direct({
-                "cash": "$ref:ledger_account.cash",
-                "revenue": "$ref:ledger_account.revenue",
-            }),
-        })
+        config = _minimal_config(
+            actors={
+                "direct_1": _direct(
+                    {
+                        "cash": "$ref:ledger_account.cash",
+                        "revenue": "$ref:ledger_account.revenue",
+                    }
+                ),
+            }
+        )
         cols = _build_ledger_columns(config, explicit_refs=["$ref:ledger_account.revenue"])
         assert len(cols) == 1
         assert cols[0].account_ref == "$ref:ledger_account.revenue"
@@ -179,13 +194,17 @@ class TestBuildLedgerColumns:
 
 class TestBuildPaymentColumns:
     def test_auto_derive_from_actors(self):
-        config = _minimal_config(actors={
-            "direct_1": _direct({
-                "ia": "$ref:internal_account.ia1",
-                "cash": "$ref:ledger_account.cash",
-            }),
-            "user_1": _user("Customer", {"bank": "$ref:external_account.ea1"}),
-        })
+        config = _minimal_config(
+            actors={
+                "direct_1": _direct(
+                    {
+                        "ia": "$ref:internal_account.ia1",
+                        "cash": "$ref:ledger_account.cash",
+                    }
+                ),
+                "user_1": _user("Customer", {"bank": "$ref:external_account.ea1"}),
+            }
+        )
         cols = _build_payment_columns(config)
         refs = [c.account_ref for c in cols]
         assert "$ref:internal_account.ia1" in refs
@@ -193,10 +212,12 @@ class TestBuildPaymentColumns:
         assert "$ref:ledger_account.cash" not in refs
 
     def test_explicit_refs(self):
-        config = _minimal_config(actors={
-            "direct_1": _direct({"ia": "$ref:internal_account.ia1"}),
-            "user_1": _user("Customer", {"bank": "$ref:external_account.ea1"}),
-        })
+        config = _minimal_config(
+            actors={
+                "direct_1": _direct({"ia": "$ref:internal_account.ia1"}),
+                "user_1": _user("Customer", {"bank": "$ref:external_account.ea1"}),
+            }
+        )
         cols = _build_payment_columns(config, explicit_refs=["$ref:internal_account.ia1"])
         assert len(cols) == 1
         assert cols[0].account_ref == "$ref:internal_account.ia1"
@@ -218,26 +239,43 @@ class TestComputeViewData:
 
     def test_ledger_actors_enable_ledger_view(self):
         actors = {
-            "direct_1": _direct({
-                "cash": "$ref:ledger_account.cash",
-                "revenue": "$ref:ledger_account.revenue",
-            }),
+            "direct_1": _direct(
+                {
+                    "cash": "$ref:ledger_account.cash",
+                    "revenue": "$ref:ledger_account.revenue",
+                }
+            ),
         }
-        ir = _minimal_ir([
-            _minimal_step("lt1", "ledger_transaction", payload={
-                "description": "Record cash in",
-            }, ledger_groups=(
-                LedgerGroup(
-                    group_id="lt1_lg0",
-                    inline=False,
-                    entries=(
-                        {"ledger_account_id": "$ref:ledger_account.cash", "direction": "debit", "amount": 100},
-                        {"ledger_account_id": "$ref:ledger_account.revenue", "direction": "credit", "amount": 100},
+        ir = _minimal_ir(
+            [
+                _minimal_step(
+                    "lt1",
+                    "ledger_transaction",
+                    payload={
+                        "description": "Record cash in",
+                    },
+                    ledger_groups=(
+                        LedgerGroup(
+                            group_id="lt1_lg0",
+                            inline=False,
+                            entries=(
+                                {
+                                    "ledger_account_id": "$ref:ledger_account.cash",
+                                    "direction": "debit",
+                                    "amount": 100,
+                                },
+                                {
+                                    "ledger_account_id": "$ref:ledger_account.revenue",
+                                    "direction": "credit",
+                                    "amount": 100,
+                                },
+                            ),
+                            metadata={},
+                        ),
                     ),
-                    metadata={},
                 ),
-            )),
-        ])
+            ]
+        )
         config = _minimal_config(actors=actors)
         result = compute_view_data(ir, config)
 
@@ -258,15 +296,21 @@ class TestComputeViewData:
             "direct_1": _direct({"ia": "$ref:internal_account.ia1"}),
             "user_1": _user("Customer", {"bank": "$ref:external_account.ea1"}),
         }
-        ir = _minimal_ir([
-            _minimal_step("po1", "payment_order", payload={
-                "description": "Send payment",
-                "direction": "credit",
-                "amount": 500,
-                "originating_account_id": "$ref:internal_account.ia1",
-                "receiving_account_id": "$ref:external_account.ea1",
-            }),
-        ])
+        ir = _minimal_ir(
+            [
+                _minimal_step(
+                    "po1",
+                    "payment_order",
+                    payload={
+                        "description": "Send payment",
+                        "direction": "credit",
+                        "amount": 500,
+                        "originating_account_id": "$ref:internal_account.ia1",
+                        "receiving_account_id": "$ref:external_account.ea1",
+                    },
+                ),
+            ]
+        )
         config = _minimal_config(actors=actors)
         result = compute_view_data(ir, config)
 
@@ -283,26 +327,47 @@ class TestComputeViewData:
 
     def test_both_views_available(self):
         actors = {
-            "direct_1": _direct({
-                "ia": "$ref:internal_account.ia1",
-                "cash": "$ref:ledger_account.cash",
-            }),
+            "direct_1": _direct(
+                {
+                    "ia": "$ref:internal_account.ia1",
+                    "cash": "$ref:ledger_account.cash",
+                }
+            ),
         }
-        ir = _minimal_ir([
-            _minimal_step("po1", "payment_order", payload={
-                "direction": "credit", "amount": 100,
-                "originating_account_id": "$ref:internal_account.ia1",
-            }),
-            _minimal_step("lt1", "ledger_transaction", payload={
-                "description": "Record",
-            }, ledger_groups=(
-                LedgerGroup(
-                    group_id="lt1_lg0", inline=False,
-                    entries=({"ledger_account_id": "$ref:ledger_account.cash", "direction": "debit", "amount": 100},),
-                    metadata={},
+        ir = _minimal_ir(
+            [
+                _minimal_step(
+                    "po1",
+                    "payment_order",
+                    payload={
+                        "direction": "credit",
+                        "amount": 100,
+                        "originating_account_id": "$ref:internal_account.ia1",
+                    },
                 ),
-            )),
-        ])
+                _minimal_step(
+                    "lt1",
+                    "ledger_transaction",
+                    payload={
+                        "description": "Record",
+                    },
+                    ledger_groups=(
+                        LedgerGroup(
+                            group_id="lt1_lg0",
+                            inline=False,
+                            entries=(
+                                {
+                                    "ledger_account_id": "$ref:ledger_account.cash",
+                                    "direction": "debit",
+                                    "amount": 100,
+                                },
+                            ),
+                            metadata={},
+                        ),
+                    ),
+                ),
+            ]
+        )
         config = _minimal_config(actors=actors)
         result = compute_view_data(ir, config)
 
@@ -314,14 +379,20 @@ class TestComputeViewData:
             "direct_1": _direct({"ia": "$ref:internal_account.ia1"}),
             "user_1": _user("Customer", {"bank": "$ref:external_account.ea1"}),
         }
-        ir = _minimal_ir([
-            _minimal_step("po1", "payment_order", payload={
-                "direction": "debit",
-                "amount": 200,
-                "originating_account_id": "$ref:internal_account.ia1",
-                "receiving_account_id": "$ref:external_account.ea1",
-            }),
-        ])
+        ir = _minimal_ir(
+            [
+                _minimal_step(
+                    "po1",
+                    "payment_order",
+                    payload={
+                        "direction": "debit",
+                        "amount": 200,
+                        "originating_account_id": "$ref:internal_account.ia1",
+                        "receiving_account_id": "$ref:external_account.ea1",
+                    },
+                ),
+            ]
+        )
         config = _minimal_config(actors=actors)
         result = compute_view_data(ir, config)
         row = result.payment_rows[0]
@@ -343,11 +414,13 @@ class TestComputeViewData:
 class TestViewConfigOverrides:
     def test_explicit_ledger_columns(self):
         actors = {
-            "direct_1": _direct({
-                "cash": "$ref:ledger_account.cash",
-                "revenue": "$ref:ledger_account.revenue",
-                "fees": "$ref:ledger_account.fees",
-            }),
+            "direct_1": _direct(
+                {
+                    "cash": "$ref:ledger_account.cash",
+                    "revenue": "$ref:ledger_account.revenue",
+                    "fees": "$ref:ledger_account.fees",
+                }
+            ),
         }
         vc = FundFlowViewConfig(
             ledger_view=LedgerViewConfig(
@@ -363,10 +436,12 @@ class TestViewConfigOverrides:
 
     def test_explicit_payment_columns(self):
         actors = {
-            "direct_1": _direct({
-                "ia1": "$ref:internal_account.ia1",
-                "ia2": "$ref:internal_account.ia2",
-            }),
+            "direct_1": _direct(
+                {
+                    "ia1": "$ref:internal_account.ia1",
+                    "ia2": "$ref:internal_account.ia2",
+                }
+            ),
             "user_1": _user("Customer", {"bank": "$ref:external_account.ea1"}),
         }
         vc = FundFlowViewConfig(
@@ -389,10 +464,12 @@ class TestViewConfigOverrides:
 class TestAccountActorMap:
     def test_map_populated(self):
         actors = {
-            "direct_1": _direct({
-                "cash": "$ref:ledger_account.cash",
-                "ia": "$ref:internal_account.ia1",
-            }),
+            "direct_1": _direct(
+                {
+                    "cash": "$ref:ledger_account.cash",
+                    "ia": "$ref:internal_account.ia1",
+                }
+            ),
         }
         config = _minimal_config(actors=actors)
         ir = _minimal_ir()
@@ -411,13 +488,19 @@ class TestIPDRows:
         actors = {
             "direct_1": _direct({"ia": "$ref:internal_account.ia1"}),
         }
-        ir = _minimal_ir([
-            _minimal_step("ipd1", "incoming_payment_detail", payload={
-                "description": "ACH deposit",
-                "amount": 300,
-                "internal_account_id": "$ref:internal_account.ia1",
-            }),
-        ])
+        ir = _minimal_ir(
+            [
+                _minimal_step(
+                    "ipd1",
+                    "incoming_payment_detail",
+                    payload={
+                        "description": "ACH deposit",
+                        "amount": 300,
+                        "internal_account_id": "$ref:internal_account.ia1",
+                    },
+                ),
+            ]
+        )
         config = _minimal_config(actors=actors)
         result = compute_view_data(ir, config)
         assert len(result.payment_rows) == 1
@@ -438,17 +521,31 @@ class TestTLTExcluded:
         actors = {
             "direct_1": _direct({"cash": "$ref:ledger_account.cash"}),
         }
-        ir = _minimal_ir([
-            _minimal_step("tlt1", "transition_ledger_transaction", payload={
-                "description": "TLT",
-            }, ledger_groups=(
-                LedgerGroup(
-                    group_id="tlt1_lg0", inline=False,
-                    entries=({"ledger_account_id": "$ref:ledger_account.cash", "direction": "debit", "amount": 50},),
-                    metadata={},
+        ir = _minimal_ir(
+            [
+                _minimal_step(
+                    "tlt1",
+                    "transition_ledger_transaction",
+                    payload={
+                        "description": "TLT",
+                    },
+                    ledger_groups=(
+                        LedgerGroup(
+                            group_id="tlt1_lg0",
+                            inline=False,
+                            entries=(
+                                {
+                                    "ledger_account_id": "$ref:ledger_account.cash",
+                                    "direction": "debit",
+                                    "amount": 50,
+                                },
+                            ),
+                            metadata={},
+                        ),
+                    ),
                 ),
-            )),
-        ])
+            ]
+        )
         config = _minimal_config(actors=actors)
         result = compute_view_data(ir, config)
         assert len(result.ledger_rows) == 0
@@ -457,9 +554,11 @@ class TestTLTExcluded:
         actors = {
             "direct_1": _direct({"ia": "$ref:internal_account.ia1"}),
         }
-        ir = _minimal_ir([
-            _minimal_step("tlt1", "transition_ledger_transaction", payload={}),
-        ])
+        ir = _minimal_ir(
+            [
+                _minimal_step("tlt1", "transition_ledger_transaction", payload={}),
+            ]
+        )
         config = _minimal_config(actors=actors)
         result = compute_view_data(ir, config)
         assert len(result.payment_rows) == 0
@@ -473,29 +572,47 @@ class TestTLTExcluded:
 class TestChildLTRows:
     def test_payment_row_has_child_lt_when_ledger_groups_exist(self):
         actors = {
-            "direct_1": _direct({
-                "ia": "$ref:internal_account.ia1",
-                "cash": "$ref:ledger_account.cash",
-                "revenue": "$ref:ledger_account.revenue",
-            }),
+            "direct_1": _direct(
+                {
+                    "ia": "$ref:internal_account.ia1",
+                    "cash": "$ref:ledger_account.cash",
+                    "revenue": "$ref:ledger_account.revenue",
+                }
+            ),
         }
-        ir = _minimal_ir([
-            _minimal_step("po1", "payment_order", payload={
-                "description": "PO with inline LT",
-                "direction": "credit",
-                "amount": 100,
-                "originating_account_id": "$ref:internal_account.ia1",
-            }, ledger_groups=(
-                LedgerGroup(
-                    group_id="po1_lg0", inline=True,
-                    entries=(
-                        {"ledger_account_id": "$ref:ledger_account.cash", "direction": "debit", "amount": 100},
-                        {"ledger_account_id": "$ref:ledger_account.revenue", "direction": "credit", "amount": 100},
+        ir = _minimal_ir(
+            [
+                _minimal_step(
+                    "po1",
+                    "payment_order",
+                    payload={
+                        "description": "PO with inline LT",
+                        "direction": "credit",
+                        "amount": 100,
+                        "originating_account_id": "$ref:internal_account.ia1",
+                    },
+                    ledger_groups=(
+                        LedgerGroup(
+                            group_id="po1_lg0",
+                            inline=True,
+                            entries=(
+                                {
+                                    "ledger_account_id": "$ref:ledger_account.cash",
+                                    "direction": "debit",
+                                    "amount": 100,
+                                },
+                                {
+                                    "ledger_account_id": "$ref:ledger_account.revenue",
+                                    "direction": "credit",
+                                    "amount": 100,
+                                },
+                            ),
+                            metadata={},
+                        ),
                     ),
-                    metadata={},
                 ),
-            )),
-        ])
+            ]
+        )
         config = _minimal_config(actors=actors)
         result = compute_view_data(ir, config)
 
@@ -512,14 +629,20 @@ class TestChildLTRows:
             "direct_1": _direct({"ia": "$ref:internal_account.ia1"}),
             "user_1": _user("Customer", {"bank": "$ref:external_account.ea1"}),
         }
-        ir = _minimal_ir([
-            _minimal_step("po1", "payment_order", payload={
-                "direction": "credit",
-                "amount": 50,
-                "originating_account_id": "$ref:internal_account.ia1",
-                "receiving_account_id": "$ref:external_account.ea1",
-            }),
-        ])
+        ir = _minimal_ir(
+            [
+                _minimal_step(
+                    "po1",
+                    "payment_order",
+                    payload={
+                        "direction": "credit",
+                        "amount": 50,
+                        "originating_account_id": "$ref:internal_account.ia1",
+                        "receiving_account_id": "$ref:external_account.ea1",
+                    },
+                ),
+            ]
+        )
         config = _minimal_config(actors=actors)
         result = compute_view_data(ir, config)
         row = result.payment_rows[0]
@@ -530,27 +653,41 @@ class TestChildLTRows:
 class TestEmbeddedLTRows:
     def test_po_with_inline_lt_produces_ledger_row(self):
         actors = {
-            "direct_1": _direct({
-                "ia": "$ref:internal_account.ia1",
-                "cash": "$ref:ledger_account.cash",
-            }),
+            "direct_1": _direct(
+                {
+                    "ia": "$ref:internal_account.ia1",
+                    "cash": "$ref:ledger_account.cash",
+                }
+            ),
         }
-        ir = _minimal_ir([
-            _minimal_step("po1", "payment_order", payload={
-                "description": "PO with inline LT",
-                "direction": "credit",
-                "amount": 100,
-                "originating_account_id": "$ref:internal_account.ia1",
-            }, ledger_groups=(
-                LedgerGroup(
-                    group_id="po1_lg0", inline=True,
-                    entries=(
-                        {"ledger_account_id": "$ref:ledger_account.cash", "direction": "debit", "amount": 100},
+        ir = _minimal_ir(
+            [
+                _minimal_step(
+                    "po1",
+                    "payment_order",
+                    payload={
+                        "description": "PO with inline LT",
+                        "direction": "credit",
+                        "amount": 100,
+                        "originating_account_id": "$ref:internal_account.ia1",
+                    },
+                    ledger_groups=(
+                        LedgerGroup(
+                            group_id="po1_lg0",
+                            inline=True,
+                            entries=(
+                                {
+                                    "ledger_account_id": "$ref:ledger_account.cash",
+                                    "direction": "debit",
+                                    "amount": 100,
+                                },
+                            ),
+                            metadata={},
+                        ),
                     ),
-                    metadata={},
                 ),
-            )),
-        ])
+            ]
+        )
         config = _minimal_config(actors=actors)
         result = compute_view_data(ir, config)
 

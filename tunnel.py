@@ -13,8 +13,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
-from jsonutil import dumps_pretty, loads_path
 from loguru import logger
+
+from jsonutil import dumps_pretty, loads_path
 
 _CONFIG_FILENAME = ".tunnel_config.json"
 

@@ -1,0 +1,16 @@
+# Modern Treasury Dataloader — tool configuration (runtime deps remain in requirements.txt).
+# See plan/3.31.26 plans-data loader/00_repo_organization.md § CI/CD — phased enforcement.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["."]
+
+[tool.ruff.lint]
+select = [
+  "E4",   # import
+  "E7",   # statement
+  "E9",   # runtime
+  "F",    # pyflakes
+  "I",    # isort
+]

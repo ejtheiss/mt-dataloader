@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from enum import IntEnum
-from typing import Annotated, ClassVar, Literal
+from typing import Annotated, Literal
 
 from pydantic import (
     AfterValidator,
@@ -22,9 +22,7 @@ from pydantic import (
 # Constants & custom types
 # ---------------------------------------------------------------------------
 
-REF_PATTERN = re.compile(
-    r"^\$ref:[a-z_]+\.[a-zA-Z0-9_{}\[\]]+(\.[a-zA-Z0-9_{}\[\]]+)*$"
-)
+REF_PATTERN = re.compile(r"^\$ref:[a-z_]+\.[a-zA-Z0-9_{}\[\]]+(\.[a-zA-Z0-9_{}\[\]]+)*$")
 
 # Payment-related resource labels for fund-flow views / templates (single source of truth).
 SOURCE_BADGE: dict[str, str] = {
@@ -80,10 +78,7 @@ def _validate_ref_or_literal(v: str) -> str:
     """Accept either a ``$ref:type.key[.selector]`` string or a literal UUID."""
     if v.startswith("$ref:"):
         if not REF_PATTERN.match(v):
-            raise ValueError(
-                f"Invalid ref format: '{v}'. "
-                f"Expected $ref:<type>.<key>[.<selector>]"
-            )
+            raise ValueError(f"Invalid ref format: '{v}'. Expected $ref:<type>.<key>[.<selector>]")
         ref_type = v.split(":")[1].split(".")[0]
         if ref_type not in RESOURCE_TYPES:
             raise ValueError(
@@ -113,8 +108,7 @@ class MetadataMixin(BaseModel):
     metadata: dict[str, str] = Field(
         default_factory=dict,
         description=(
-            "Business metadata passed through to Modern Treasury. "
-            "Keys and values must be strings."
+            "Business metadata passed through to Modern Treasury. Keys and values must be strings."
         ),
     )
 
@@ -176,9 +170,7 @@ class _BaseResourceConfig(BaseModel):
 class AddressConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    address_types: list[
-        Literal["business", "mailing", "other", "po_box", "residential"]
-    ] = Field(
+    address_types: list[Literal["business", "mailing", "other", "po_box", "residential"]] = Field(
         default_factory=lambda: ["business"],
         description=(
             "Each entry must be one of: business, mailing, other, po_box, residential. "
@@ -229,28 +221,31 @@ class RoutingDetailConfig(BaseModel):
         "swift",
         "za_national_clearing_code",
     ] = "aba"
-    payment_type: Literal[
-        "ach",
-        "au_becs",
-        "bacs",
-        "book",
-        "card",
-        "check",
-        "cross_border",
-        "eft",
-        "interac",
-        "neft",
-        "nics",
-        "nz_becs",
-        "provxchange",
-        "rtp",
-        "sen",
-        "sepa",
-        "sic",
-        "signet",
-        "wire",
-        "zengin",
-    ] | None = None
+    payment_type: (
+        Literal[
+            "ach",
+            "au_becs",
+            "bacs",
+            "book",
+            "card",
+            "check",
+            "cross_border",
+            "eft",
+            "interac",
+            "neft",
+            "nics",
+            "nz_becs",
+            "provxchange",
+            "rtp",
+            "sen",
+            "sepa",
+            "sic",
+            "signet",
+            "wire",
+            "zengin",
+        ]
+        | None
+    ) = None
 
 
 class InlineLedgerAccountConfig(MetadataMixin, BaseModel):
@@ -386,7 +381,10 @@ class SettlementDefaultsConfig(BaseModel):
     )
 
     def lookup_settlement(
-        self, payment_type: str, direction: str, step_type: str,
+        self,
+        payment_type: str,
+        direction: str,
+        step_type: str,
     ) -> float:
         """Resolve the default settlement delay (hours) for a step."""
         if step_type in self.no_delay_step_types:

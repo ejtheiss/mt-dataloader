@@ -14,7 +14,6 @@ from flow_compiler.timing import (
 )
 from models.flow_dsl import FlowTimingConfig, RecipeTimingConfig
 
-
 # ---------------------------------------------------------------------------
 # Spread patterns — deterministic
 # ---------------------------------------------------------------------------
@@ -99,10 +98,10 @@ class TestHoursToDays:
         assert _hours_to_days(48.0) == 2
 
     def test_rounding(self):
-        assert _hours_to_days(36.0) == 2   # 1.5 rounds to 2
-        assert _hours_to_days(11.0) == 0   # 0.46 rounds to 0
-        assert _hours_to_days(12.0) == 0   # 0.5 rounds to 0 (banker's rounding)
-        assert _hours_to_days(13.0) == 1   # 0.54 rounds to 1
+        assert _hours_to_days(36.0) == 2  # 1.5 rounds to 2
+        assert _hours_to_days(11.0) == 0  # 0.46 rounds to 0
+        assert _hours_to_days(12.0) == 0  # 0.5 rounds to 0 (banker's rounding)
+        assert _hours_to_days(13.0) == 1  # 0.54 rounds to 1
 
     def test_negative_clamps_to_zero(self):
         assert _hours_to_days(-10.0) == 0
@@ -181,8 +180,11 @@ class TestComputeEffectiveDates:
     def test_existing_effective_date_preserved(self):
         steps = [
             {
-                "step_id": "a", "type": "payment_order", "payment_type": "ach",
-                "depends_on": [], "effective_date": "2025-06-01",
+                "step_id": "a",
+                "type": "payment_order",
+                "payment_type": "ach",
+                "depends_on": [],
+                "effective_date": "2025-06-01",
             },
         ]
         flow = self._make_flow_dict(steps)
@@ -245,8 +247,13 @@ class TestComputeEffectiveDates:
     def test_deterministic_jitter(self):
         def run():
             steps = [
-                {"step_id": "a", "type": "payment_order", "payment_type": "book",
-                 "depends_on": [], "timing": {"delay_hours": 120, "delay_jitter_hours": 48}},
+                {
+                    "step_id": "a",
+                    "type": "payment_order",
+                    "payment_type": "book",
+                    "depends_on": [],
+                    "timing": {"delay_hours": 120, "delay_jitter_hours": 48},
+                },
             ]
             flow = {"steps": steps}
             compute_effective_dates(flow, seed=42)
@@ -257,8 +264,12 @@ class TestComputeEffectiveDates:
     def test_ipd_no_effective_date(self):
         """IPDs should not get effective_date stamped (API doesn't accept it)."""
         steps = [
-            {"step_id": "ipd", "type": "incoming_payment_detail", "payment_type": "ach",
-             "depends_on": []},
+            {
+                "step_id": "ipd",
+                "type": "incoming_payment_detail",
+                "payment_type": "ach",
+                "depends_on": [],
+            },
         ]
         flow = self._make_flow_dict(steps)
         compute_effective_dates(flow, seed=1)

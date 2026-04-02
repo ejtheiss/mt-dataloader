@@ -6,10 +6,12 @@ import hashlib
 import json
 import secrets
 from collections import Counter
+from dataclasses import asdict, dataclass
+from dataclasses import field as dc_field
+from graphlib import CycleError
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
-from graphlib import CycleError
 from loguru import logger
 from modern_treasury import (
     APIConnectionError,
@@ -38,8 +40,7 @@ from helpers import (
     error_response,
     format_validation_errors,
 )
-from jsonutil import dumps_pretty
-from routers.deps import TemplatesDep
+from jsonutil import dumps_pretty, loads_str
 from models import DataLoaderConfig, DisplayPhase
 from org import (
     DiscoveryResult,
@@ -48,7 +49,8 @@ from org import (
     reconcile_config,
     sync_connection_entities_from_reconciliation,
 )
-from session import SessionState, sessions, prune_expired_sessions
+from routers.deps import OptionalSessionQueryDep, SessionFormDep, TemplatesDep
+from session import SessionState, prune_expired_sessions, sessions
 
 router = APIRouter(tags=["setup"])
 
@@ -57,12 +59,11 @@ router = APIRouter(tags=["setup"])
 # Shared validation pipeline
 # ---------------------------------------------------------------------------
 
-from dataclasses import asdict, dataclass, field as dc_field
-
 
 @dataclass
 class _PipelineResult:
     """Intermediate result from the shared validate/revalidate pipeline."""
+
     config: DataLoaderConfig
     config_json_text: str
     #: JSON of parsed config before ``compile_to_plan`` clears ``funds_flows`` (emit pass).
@@ -125,7 +126,7 @@ async def _validate_pipeline(
     except ValidationError as e:
         structured = format_validation_errors(e)
         detail_lines = [f"• {err['path']}: {err['message']}" for err in structured]
-        return f"Config Validation Error\n" + ("\n".join(detail_lines) or str(e))
+        return "Config Validation Error\n" + ("\n".join(detail_lines) or str(e))
 
     authoring_config_json = config.model_dump_json(indent=2, exclude_none=True)
 
@@ -166,9 +167,7 @@ async def _validate_pipeline(
     # 3. Discover org
     discovery: DiscoveryResult | None = None
     org_registry: OrgRegistry | None = None
-    async with AsyncModernTreasury(
-        api_key=api_key, organization_id=org_id
-    ) as client:
+    async with AsyncModernTreasury(api_key=api_key, organization_id=org_id) as client:
         try:
             await client.ping()
         except AuthenticationError:
@@ -226,7 +225,10 @@ async def _validate_pipeline(
                         reconciliation.unmatched_config.remove(config_ref)
 
         sync_connection_entities_from_reconciliation(
-            config, discovery, reconciliation, mappings,
+            config,
+            discovery,
+            reconciliation,
+            mappings,
         )
 
     # 5. DAG dry-run
@@ -240,8 +242,10 @@ async def _validate_pipeline(
     # 6. Build preview
     resource_map = {typed_ref_for(r): r for r in all_resources(config)}
     preview_items = build_preview(
-        batches, resource_map,
-        skip_refs=skip_refs, reconciliation=reconciliation,
+        batches,
+        resource_map,
+        skip_refs=skip_refs,
+        reconciliation=reconciliation,
     )
 
     config_json_text = config.model_dump_json(indent=2, exclude_none=True)
@@ -338,7 +342,8 @@ def _render_preview_or_redirect(
             "discovered_by_type": build_discovered_by_type(session.discovery),
             "has_funds_flows": bool(session.flow_ir),
             "available_connections": build_available_connections(
-                session.config, session.discovery,
+                session.config,
+                session.discovery,
             ),
         },
     )
@@ -347,6 +352,7 @@ def _render_preview_or_redirect(
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @router.get("/", include_in_schema=False)
 async def root():
@@ -404,8 +410,11 @@ async def validate_json(request: Request):
 
     try:
         from flow_compiler import (
-            pass_expand_instances, pass_compile_to_ir, pass_emit_resources,
+            pass_compile_to_ir,
+            pass_emit_resources,
+            pass_expand_instances,
         )
+
         authoring = AuthoringConfig(
             config=config.model_copy(deep=True),
             json_text=body.decode(),
@@ -417,20 +426,23 @@ async def validate_json(request: Request):
         )
         config = plan.config
     except (ValueError, KeyError, NotImplementedError) as e:
-        return {"valid": False, "errors": [
-            {"path": "(compiler)", "type": "compile_error", "message": str(e)}
-        ]}
+        return {
+            "valid": False,
+            "errors": [{"path": "(compiler)", "type": "compile_error", "message": str(e)}],
+        }
 
     try:
         batches = dry_run(config)
     except CycleError as e:
-        return {"valid": False, "errors": [
-            {"path": "(dag)", "type": "cycle_error", "message": str(e)}
-        ]}
+        return {
+            "valid": False,
+            "errors": [{"path": "(dag)", "type": "cycle_error", "message": str(e)}],
+        }
     except KeyError as e:
-        return {"valid": False, "errors": [
-            {"path": "(dag)", "type": "unresolvable_ref", "message": str(e)}
-        ]}
+        return {
+            "valid": False,
+            "errors": [{"path": "(dag)", "type": "unresolvable_ref", "message": str(e)}],
+        }
 
     return {
         "valid": True,
@@ -475,22 +487,22 @@ async def validate(
 async def revalidate(
     request: Request,
     templates: TemplatesDep,
-    session_token: str = Form(...),
+    old_session: SessionFormDep,
     config_json: str = Form(...),
     reconcile_overrides: str | None = Form(None),
 ):
     """Re-validate edited JSON using credentials from an existing session."""
-    old_session = sessions.get(session_token)
     if not old_session:
         return error_response("Session Expired", "Please start over from Setup.")
 
     raw_json = config_json.strip().encode()
+    prev_token = old_session.session_token
 
     overrides: dict = {}
     manual_maps: dict = {}
     if reconcile_overrides:
         try:
-            raw_ov = json.loads(reconcile_overrides)
+            raw_ov = loads_str(reconcile_overrides)
             overrides = raw_ov.get("overrides", raw_ov) if isinstance(raw_ov, dict) else {}
             if isinstance(raw_ov, dict):
                 manual_maps = raw_ov.get("manual_mappings", {})
@@ -517,25 +529,28 @@ async def revalidate(
         working_config_json=old_session.working_config_json,
     )
     sessions[session.session_token] = session
-    del sessions[session_token]
+    del sessions[prev_token]
 
     return _render_preview_or_redirect(request, session, templates)
 
 
 @router.get("/preview", include_in_schema=False)
-async def preview_page(request: Request, templates: TemplatesDep):
+async def preview_page(
+    request: Request,
+    templates: TemplatesDep,
+    sess: OptionalSessionQueryDep,
+):
     """Preview page — flow-grouped when funds_flows present, flat otherwise."""
-    session_token = request.query_params.get("session_token", "")
-    session = sessions.get(session_token)
-    if not session:
+    if not sess:
         return RedirectResponse(url="/setup")
 
-    total_resources = sum(len(b) for b in session.batches)
-    deletable_count = sum(1 for i in session.preview_items if i["deletable"])
-    non_deletable_count = sum(1 for i in session.preview_items if not i["deletable"])
+    session_token = sess.session_token
+    total_resources = sum(len(b) for b in sess.batches)
+    deletable_count = sum(1 for i in sess.preview_items if i["deletable"])
+    non_deletable_count = sum(1 for i in sess.preview_items if not i["deletable"])
 
-    if session.flow_ir:
-        flow_groups = build_flow_grouped_preview(session)
+    if sess.flow_ir:
+        flow_groups = build_flow_grouped_preview(sess)
         return templates.TemplateResponse(
             request,
             "preview_flows_page.html",
@@ -545,13 +560,14 @@ async def preview_page(request: Request, templates: TemplatesDep):
                 "resource_count": total_resources,
                 "deletable_count": deletable_count,
                 "non_deletable_count": non_deletable_count,
-                "discovery": session.discovery,
-                "reconciliation": session.reconciliation,
-                "config_json_text": session.config_json_text,
+                "discovery": sess.discovery,
+                "reconciliation": sess.reconciliation,
+                "config_json_text": sess.config_json_text,
                 "has_funds_flows": True,
-                "mermaid_diagrams": session.mermaid_diagrams or [],
+                "mermaid_diagrams": sess.mermaid_diagrams or [],
                 "available_connections": build_available_connections(
-                    session.config, session.discovery,
+                    sess.config,
+                    sess.discovery,
                 ),
             },
         )
@@ -561,35 +577,40 @@ async def preview_page(request: Request, templates: TemplatesDep):
         "preview_page.html",
         {
             "session_token": session_token,
-            "batches": session.batches,
-            "preview_items": session.preview_items,
-            "config_hash": config_hash(session.config),
+            "batches": sess.batches,
+            "preview_items": sess.preview_items,
+            "config_hash": config_hash(sess.config),
             "resource_count": total_resources,
             "deletable_count": deletable_count,
             "non_deletable_count": non_deletable_count,
             "display_phases": DisplayPhase,
-            "discovery": session.discovery,
-            "reconciliation": session.reconciliation,
-            "config_json_text": session.config_json_text,
-            "discovered_by_type": build_discovered_by_type(session.discovery),
+            "discovery": sess.discovery,
+            "reconciliation": sess.reconciliation,
+            "config_json_text": sess.config_json_text,
+            "discovered_by_type": build_discovered_by_type(sess.discovery),
             "has_funds_flows": False,
             "available_connections": build_available_connections(
-                session.config, session.discovery,
+                sess.config,
+                sess.discovery,
             ),
         },
     )
 
 
 @router.get("/api/resource-detail", include_in_schema=False)
-async def resource_detail_drawer(request: Request, templates: TemplatesDep):
+async def resource_detail_drawer(
+    request: Request,
+    templates: TemplatesDep,
+    sess: OptionalSessionQueryDep,
+):
     """Return a drawer-friendly KV table for a single resource."""
-    session_token = request.query_params.get("session_token", "")
     typed_ref = request.query_params.get("ref", "")
-    session = sessions.get(session_token)
-    if not session:
+    if not sess:
         return HTMLResponse("<p>Session expired</p>", status_code=404)
 
-    item = next((i for i in session.preview_items if i["typed_ref"] == typed_ref), None)
+    session_token = sess.session_token
+
+    item = next((i for i in sess.preview_items if i["typed_ref"] == typed_ref), None)
     if not item:
         return HTMLResponse(f"<p>Resource not found: {typed_ref}</p>", status_code=404)
 
@@ -601,20 +622,24 @@ async def resource_detail_drawer(request: Request, templates: TemplatesDep):
 
 
 @router.post("/api/update-ia-connection", include_in_schema=False)
-async def update_ia_connection(request: Request, templates: TemplatesDep):
+async def update_ia_connection(
+    request: Request,
+    templates: TemplatesDep,
+    sess: SessionFormDep,
+):
     """Change an internal account's connection_id, re-reconcile, rebuild preview."""
     form = await request.form()
-    session_token = form.get("session_token", "")
     typed_ref = form.get("typed_ref", "")
     new_conn = form.get(f"connection_for_{typed_ref}", "")
-    session = sessions.get(session_token)
-    if not session:
+    if not sess:
         return HTMLResponse("<p>Session expired</p>", status_code=404)
+
+    session_token = sess.session_token
 
     ia_ref = typed_ref.split(".", 1)[1] if "." in typed_ref else typed_ref
 
     updated = False
-    for ia in session.config.internal_accounts:
+    for ia in sess.config.internal_accounts:
         if ia.ref == ia_ref:
             ia.connection_id = new_conn
             updated = True
@@ -623,16 +648,18 @@ async def update_ia_connection(request: Request, templates: TemplatesDep):
     if not updated:
         return HTMLResponse(f"<p>IA not found: {typed_ref}</p>", status_code=404)
 
-    session.config_json_text = session.config.model_dump_json(
-        indent=2, exclude_none=True,
+    sess.config_json_text = sess.config.model_dump_json(
+        indent=2,
+        exclude_none=True,
     )
-    if session.working_config_json is not None:
-        session.working_config_json = session.config_json_text
+    if sess.working_config_json is not None:
+        sess.working_config_json = sess.config_json_text
 
-    _rereconcile_session(session)
+    _rereconcile_session(sess)
 
     available_connections = build_available_connections(
-        session.config, session.discovery,
+        sess.config,
+        sess.discovery,
     )
 
     return templates.TemplateResponse(
@@ -640,7 +667,7 @@ async def update_ia_connection(request: Request, templates: TemplatesDep):
         "partials/resource_table.html",
         {
             "session_token": session_token,
-            "preview_items": session.preview_items,
+            "preview_items": sess.preview_items,
             "available_connections": available_connections,
         },
     )
@@ -664,16 +691,15 @@ def _rereconcile_session(session: SessionState) -> None:
                 session.registry.register_or_update(m.config_ref, m.discovered_id)
                 skip_refs.add(m.config_ref)
                 for ck, cid in m.child_refs.items():
-                    session.registry.register_or_update(
-                        f"{m.config_ref}.{ck}", cid
-                    )
+                    session.registry.register_or_update(f"{m.config_ref}.{ck}", cid)
 
         for tref in session.payload_overrides:
             if tref not in skip_refs:
                 continue
             rtype = tref.split(".", 1)[0] if "." in tref else ""
             match = next(
-                (m for m in recon.matches if m.config_ref == tref), None,
+                (m for m in recon.matches if m.config_ref == tref),
+                None,
             )
             if match is None:
                 continue
@@ -687,7 +713,10 @@ def _rereconcile_session(session: SessionState) -> None:
                     session.registry.unregister(f"{tref}.{ck}")
 
         sync_connection_entities_from_reconciliation(
-            session.config, session.discovery, recon, {},
+            session.config,
+            session.discovery,
+            recon,
+            {},
         )
 
     session.skip_refs = skip_refs
@@ -702,14 +731,16 @@ def _rereconcile_session(session: SessionState) -> None:
     resource_map = {typed_ref_for(r): r for r in all_resources(session.config)}
     session.batches = batches
     session.preview_items = build_preview(
-        batches, resource_map,
+        batches,
+        resource_map,
         skip_refs=skip_refs,
         reconciliation=session.reconciliation,
         update_refs=update_refs,
     )
 
     session.config_json_text = session.config.model_dump_json(
-        indent=2, exclude_none=True,
+        indent=2,
+        exclude_none=True,
     )
     if session.working_config_json is not None:
         session.working_config_json = session.config_json_text
@@ -762,12 +793,14 @@ async def update_resource_payload(request: Request):
     resource_type, ref = typed_ref.split(".", 1)
 
     try:
-        payload = json.loads(payload_str) if isinstance(payload_str, str) else payload_str
+        payload = loads_str(payload_str) if isinstance(payload_str, str) else payload_str
     except json.JSONDecodeError as exc:
         return {"status": "error", "detail": f"Invalid JSON: {exc}"}
 
     section_list, idx, resource = _find_resource_in_config(
-        session.config, resource_type, ref,
+        session.config,
+        resource_type,
+        ref,
     )
     if resource is None:
         return {"status": "error", "detail": f"Resource not found: {typed_ref}"}
@@ -781,14 +814,15 @@ async def update_resource_payload(request: Request):
         updated = model_cls.model_validate(payload)
     except ValidationError as exc:
         errors = "; ".join(
-            f"{'.'.join(str(l) for l in e['loc'])}: {e['msg']}" for e in exc.errors()
+            f"{'.'.join(str(part) for part in e['loc'])}: {e['msg']}" for e in exc.errors()
         )
         return {"status": "error", "detail": f"Validation failed: {errors}"}
 
     section_list[idx] = updated
 
     session.config_json_text = session.config.model_dump_json(
-        indent=2, exclude_none=True,
+        indent=2,
+        exclude_none=True,
     )
     if session.working_config_json is not None:
         session.working_config_json = session.config_json_text

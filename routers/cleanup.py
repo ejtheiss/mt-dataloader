@@ -91,19 +91,15 @@ async def cleanup_stream(token: str, templates: TemplatesDep):
             try:
                 for entry in reversed_resources:
                     action, status = await _cleanup_one(client, entry)
-                    html = templates.get_template(
-                        "partials/cleanup_row.html"
-                    ).render(entry=entry, action=action, status=status)
-                    yield ServerSentEvent(
-                        data=html, event="cleanup_progress"
+                    html = templates.get_template("partials/cleanup_row.html").render(
+                        entry=entry, action=action, status=status
                     )
+                    yield ServerSentEvent(data=html, event="cleanup_progress")
 
-                html = templates.get_template(
-                    "partials/cleanup_complete.html"
-                ).render(run_id=manifest.run_id)
-                yield ServerSentEvent(
-                    data=html, event="cleanup_complete"
+                html = templates.get_template("partials/cleanup_complete.html").render(
+                    run_id=manifest.run_id
                 )
+                yield ServerSentEvent(data=html, event="cleanup_complete")
             except asyncio.CancelledError:
                 pass
             finally:
@@ -126,23 +122,17 @@ async def _cleanup_one(
 
     try:
         if rtype == "ledger_transaction":
-            await client.ledger_transactions.update(
-                entry.created_id, status="archived"
-            )
+            await client.ledger_transactions.update(entry.created_id, status="archived")
             return ("archived", "success")
 
         elif rtype == "category_membership":
             cat_id, la_id = entry.created_id.split(":", 1)
-            await client.ledger_account_categories.remove_ledger_account(
-                la_id, id=cat_id
-            )
+            await client.ledger_account_categories.remove_ledger_account(la_id, id=cat_id)
             return ("removed", "success")
 
         elif rtype == "nested_category":
             parent_id, sub_id = entry.created_id.split(":", 1)
-            await client.ledger_account_categories.remove_nested_category(
-                sub_id, id=parent_id
-            )
+            await client.ledger_account_categories.remove_nested_category(sub_id, id=parent_id)
             return ("removed", "success")
 
         elif entry.deletable:
@@ -160,9 +150,7 @@ async def _cleanup_one(
         return ("failed", str(e))
 
 
-def _get_resource_client(
-    client: AsyncModernTreasury, resource_type: str
-) -> Any | None:
+def _get_resource_client(client: AsyncModernTreasury, resource_type: str) -> Any | None:
     """Map a resource type string to its SDK sub-client for deletion."""
     return {
         "counterparty": client.counterparties,

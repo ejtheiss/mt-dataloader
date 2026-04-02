@@ -11,9 +11,10 @@ def test_variance_ui_absent_step_follows_global():
     }
     assert _step_variance_ui_fields("deposit", {})["variance_mode"] == "global"
     assert _step_variance_ui_fields("deposit", {"step_variance": {}})["variance_mode"] == "global"
-    assert _step_variance_ui_fields("deposit", {"step_variance": {"other": {}}})[
-        "variance_mode"
-    ] == "global"
+    assert (
+        _step_variance_ui_fields("deposit", {"step_variance": {"other": {}}})["variance_mode"]
+        == "global"
+    )
 
 
 def test_variance_ui_empty_dict_is_locked():

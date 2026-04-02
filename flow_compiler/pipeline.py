@@ -103,8 +103,11 @@ def pass_expand_instances(ctx: CompilationContext) -> CompilationContext:
     extra_resources: list[tuple[str, list[dict]]] = []
 
     default_profile = {
-        "first_name": "Demo", "last_name": "User",
-        "business_name": "Demo Corp", "industry": "fintech", "country": "US",
+        "first_name": "Demo",
+        "last_name": "User",
+        "business_name": "Demo Corp",
+        "industry": "fintech",
+        "country": "US",
     }
 
     for flow in config.funds_flows:
@@ -121,10 +124,7 @@ def pass_expand_instances(ctx: CompilationContext) -> CompilationContext:
             flow_dict["trace_value_template"] = saved_trace_tpl
         expanded_flows.append(FundsFlowConfig.model_validate(flow_dict))
 
-    rels = tuple(
-        build_step_relationships(f.steps, f.optional_groups)
-        for f in expanded_flows
-    )
+    rels = tuple(build_step_relationships(f.steps, f.optional_groups) for f in expanded_flows)
 
     return dataclasses.replace(
         ctx,
@@ -148,8 +148,7 @@ def pass_emit_resources(ctx: CompilationContext) -> CompilationContext:
     for section, items in ctx.extra_resources:
         existing = base_dict.setdefault(section, [])
         seen_refs = {
-            item.get("ref") for item in existing
-            if isinstance(item, dict) and item.get("ref")
+            item.get("ref") for item in existing if isinstance(item, dict) and item.get("ref")
         }
         for item in items:
             ref = item.get("ref") if isinstance(item, dict) else None
@@ -190,6 +189,7 @@ def pass_compute_view_data(ctx: CompilationContext) -> CompilationContext:
             views.append(_compute(ir, fc))
         else:
             from flow_views import FlowViewData
+
             views.append(FlowViewData())
     return dataclasses.replace(ctx, view_data=tuple(views))
 

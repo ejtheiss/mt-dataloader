@@ -5,12 +5,9 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
-import sys
 from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from flow_compiler import (
     AuthoringConfig,
@@ -20,8 +17,7 @@ from flow_compiler import (
     compile_to_plan,
 )
 from models import DataLoaderConfig
-
-EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
+from tests.paths import EXAMPLES_DIR
 
 
 def _minimal_json() -> bytes:
@@ -107,8 +103,12 @@ class TestCompilationContext:
         ac = AuthoringConfig.from_json(_minimal_json())
         ctx = CompilationContext(authoring=ac)
         ir = FlowIR(
-            flow_ref="f", instance_id="0000", pattern_type="t",
-            trace_key="k", trace_value="v", trace_metadata={},
+            flow_ref="f",
+            instance_id="0000",
+            pattern_type="t",
+            trace_key="k",
+            trace_value="v",
+            trace_metadata={},
         )
         new_ctx = dataclasses.replace(ctx, flow_irs=(ir,))
         assert new_ctx.flow_irs == (ir,)

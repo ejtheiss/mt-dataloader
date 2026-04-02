@@ -8,24 +8,18 @@ grouping, exclusion_group mutual exclusion, and all example JSONs.
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from flow_compiler import (
     FlowIR,
     FlowIRStep,
     LedgerGroup,
     MermaidSequenceBuilder,
-    _build_ref_display_map,
     _classify_participant,
     _collect_participants,
     _find_parent_step,
-    _ref_account_type,
-    _resolve_actor_display,
     _resolve_ipd_source,
     _resolve_step_participants,
     activate_optional_groups,
@@ -33,15 +27,19 @@ from flow_compiler import (
     preselect_edge_cases,
     render_mermaid,
 )
+from flow_compiler.display import (
+    build_ref_display_map,
+    ref_account_type,
+    resolve_actor_display,
+)
 from models import (
+    REVERSES_DIRECTION,
     ActorFrame,
     DataLoaderConfig,
     FundsFlowConfig,
     OptionalGroupConfig,
-    REVERSES_DIRECTION,
 )
-
-EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
+from tests.paths import EXAMPLES_DIR
 
 
 def _labels_for_instance(selections: dict[str, set[int]], instance: int) -> set[str]:
@@ -149,25 +147,34 @@ class TestMermaidSequenceBuilder:
 
 def _make_ipd_step() -> FlowIRStep:
     return FlowIRStep(
-        step_id="deposit", flow_ref="f", instance_id="0000",
-        depends_on=(), resource_type="incoming_payment_detail",
+        step_id="deposit",
+        flow_ref="f",
+        instance_id="0000",
+        depends_on=(),
+        resource_type="incoming_payment_detail",
         payload={
             "internal_account_id": "$ref:internal_account.ops_usd",
-            "amount": 50000, "direction": "credit",
+            "amount": 50000,
+            "direction": "credit",
         },
-        ledger_groups=(), trace_metadata={},
+        ledger_groups=(),
+        trace_metadata={},
     )
 
 
 def _make_po_step() -> FlowIRStep:
     return FlowIRStep(
-        step_id="payout", flow_ref="f", instance_id="0000",
-        depends_on=(), resource_type="payment_order",
+        step_id="payout",
+        flow_ref="f",
+        instance_id="0000",
+        depends_on=(),
+        resource_type="payment_order",
         payload={
             "originating_account_id": "$ref:internal_account.ops_usd",
             "amount": 50000,
         },
-        ledger_groups=(), trace_metadata={},
+        ledger_groups=(),
+        trace_metadata={},
     )
 
 
@@ -176,11 +183,14 @@ class TestDirectionReversal:
         """Return step resolves participants from its parent IPD and reverses."""
         ipd = _make_ipd_step()
         ret = FlowIRStep(
-            step_id="ret", flow_ref="f", instance_id="0000",
+            step_id="ret",
+            flow_ref="f",
+            instance_id="0000",
             depends_on=("$ref:incoming_payment_detail.f__0000__deposit",),
             resource_type="return",
             payload={"returnable_id": "$ref:incoming_payment_detail.f__0000__deposit"},
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         lookup = {"deposit": ipd, "ret": ret}
         src, dest = _resolve_step_participants(ret, {}, lookup)
@@ -192,11 +202,14 @@ class TestDirectionReversal:
         """Reversal step resolves participants from its parent PO and reverses."""
         po = _make_po_step()
         rev = FlowIRStep(
-            step_id="rev", flow_ref="f", instance_id="0000",
+            step_id="rev",
+            flow_ref="f",
+            instance_id="0000",
             depends_on=("$ref:payment_order.f__0000__payout",),
             resource_type="reversal",
             payload={"payment_order_id": "$ref:payment_order.f__0000__payout"},
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         lookup = {"payout": po, "rev": rev}
         src, dest = _resolve_step_participants(rev, {}, lookup)
@@ -218,41 +231,53 @@ class TestDirectionReversal:
 class TestTLTStatusNote:
     def test_tlt_renders_note_not_arrow(self):
         lt = FlowIRStep(
-            step_id="book", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="ledger_transaction",
+            step_id="book",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="ledger_transaction",
             payload={"description": "Book deposit", "ledger_status": "pending"},
             ledger_groups=(
                 LedgerGroup(
-                    group_id="lg0", inline=False,
+                    group_id="lg0",
+                    inline=False,
                     entries=(
                         {"ledger_account_id": "$ref:la.cash", "direction": "debit", "amount": 100},
                         {"ledger_account_id": "$ref:la.rev", "direction": "credit", "amount": 100},
                     ),
-                    metadata={}, status="pending",
+                    metadata={},
+                    status="pending",
                 ),
             ),
             trace_metadata={},
         )
         tlt = FlowIRStep(
-            step_id="post", flow_ref="f", instance_id="0000",
+            step_id="post",
+            flow_ref="f",
+            instance_id="0000",
             depends_on=("$ref:ledger_transaction.f__0000__book",),
             resource_type="transition_ledger_transaction",
             payload={
                 "status": "posted",
                 "ledger_transaction_id": "$ref:ledger_transaction.f__0000__book",
             },
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         ir = FlowIR(
-            flow_ref="f", instance_id="0000", pattern_type="t",
-            trace_key="k", trace_value="test-0",
-            trace_metadata={}, steps=(lt, tlt),
+            flow_ref="f",
+            instance_id="0000",
+            pattern_type="t",
+            trace_key="k",
+            trace_value="test-0",
+            trace_metadata={},
+            steps=(lt, tlt),
         )
         output = render_mermaid(ir)
         assert "LT pending" in output
         assert "posted" in output
         lines = output.split("\n")
-        tlt_lines = [l for l in lines if "transition" in l.lower() and "->>" in l]
+        tlt_lines = [line for line in lines if "transition" in line.lower() and "->>" in line]
         assert len(tlt_lines) == 0, "TLT should render as note, not arrow"
 
 
@@ -265,9 +290,13 @@ class TestBoxGrouping:
     def test_platform_and_external_boxed(self):
         ipd = _make_ipd_step()
         ir = FlowIR(
-            flow_ref="f", instance_id="0000", pattern_type="t",
-            trace_key="k", trace_value="test-0",
-            trace_metadata={}, steps=(ipd,),
+            flow_ref="f",
+            instance_id="0000",
+            pattern_type="t",
+            trace_key="k",
+            trace_value="test-0",
+            trace_metadata={},
+            steps=(ipd,),
         )
         output = render_mermaid(ir)
         assert "box Platform" in output
@@ -276,9 +305,13 @@ class TestBoxGrouping:
     def test_no_boxes_when_disabled(self):
         ipd = _make_ipd_step()
         ir = FlowIR(
-            flow_ref="f", instance_id="0000", pattern_type="t",
-            trace_key="k", trace_value="test-0",
-            trace_metadata={}, steps=(ipd,),
+            flow_ref="f",
+            instance_id="0000",
+            pattern_type="t",
+            trace_key="k",
+            trace_value="test-0",
+            trace_metadata={},
+            steps=(ipd,),
         )
         output = render_mermaid(ir, show_participant_boxes=False)
         assert "box" not in output
@@ -294,31 +327,51 @@ class TestReturnBreak:
     def test_return_in_opt_uses_break(self):
         ipd = _make_ipd_step()
         ret = FlowIRStep(
-            step_id="ret", flow_ref="f", instance_id="0000",
+            step_id="ret",
+            flow_ref="f",
+            instance_id="0000",
             depends_on=("$ref:incoming_payment_detail.f__0000__deposit",),
             resource_type="return",
             payload={"returnable_id": "$ref:incoming_payment_detail.f__0000__deposit"},
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         ir = FlowIR(
-            flow_ref="f", instance_id="0000", pattern_type="t",
-            trace_key="k", trace_value="test-0",
-            trace_metadata={}, steps=(ipd, ret),
+            flow_ref="f",
+            instance_id="0000",
+            pattern_type="t",
+            trace_key="k",
+            trace_value="test-0",
+            trace_metadata={},
+            steps=(ipd, ret),
         )
-        from models import ReturnStep
         fc = FundsFlowConfig(
-            ref="f", pattern_type="t",
-            trace_key="k", trace_value_template="test-{instance}",
+            ref="f",
+            pattern_type="t",
+            trace_key="k",
+            trace_value_template="test-{instance}",
             steps=[
-                {"step_id": "deposit", "type": "incoming_payment_detail",
-                 "payment_type": "ach", "direction": "credit", "amount": 50000,
-                 "internal_account_id": "$ref:internal_account.ops_usd"},
+                {
+                    "step_id": "deposit",
+                    "type": "incoming_payment_detail",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 50000,
+                    "internal_account_id": "$ref:internal_account.ops_usd",
+                },
             ],
             optional_groups=[
-                {"label": "Customer return", "steps": [
-                    {"step_id": "ret", "type": "return", "depends_on": ["deposit"],
-                     "returnable_id": "$ref:incoming_payment_detail.f__0000__deposit"},
-                ]},
+                {
+                    "label": "Customer return",
+                    "steps": [
+                        {
+                            "step_id": "ret",
+                            "type": "return",
+                            "depends_on": ["deposit"],
+                            "returnable_id": "$ref:incoming_payment_detail.f__0000__deposit",
+                        },
+                    ],
+                },
             ],
         )
         output = render_mermaid(ir, flow_config=fc)
@@ -381,35 +434,44 @@ class TestExclusionGroup:
                 {"label": "Wire", "exclusion_group": "payout"},
             ]
         }
-        a = preselect_edge_cases(
-            flow_dict, global_count=1, total_instances=8, seed=42
-        )
-        b = preselect_edge_cases(
-            flow_dict, global_count=1, total_instances=8, seed=42
-        )
+        a = preselect_edge_cases(flow_dict, global_count=1, total_instances=8, seed=42)
+        b = preselect_edge_cases(flow_dict, global_count=1, total_instances=8, seed=42)
         assert a == b
 
     def test_exclusion_group_on_model(self):
-        og = OptionalGroupConfig.model_validate({
-            "label": "RTP payout",
-            "exclusion_group": "payout_method",
-            "steps": [
-                {"step_id": "rtp", "type": "payment_order", "payment_type": "rtp",
-                 "direction": "credit", "amount": 1000,
-                 "originating_account_id": "$ref:ia.ops",
-                 "receiving_account_id": "$ref:ea.customer"},
-            ],
-        })
+        og = OptionalGroupConfig.model_validate(
+            {
+                "label": "RTP payout",
+                "exclusion_group": "payout_method",
+                "steps": [
+                    {
+                        "step_id": "rtp",
+                        "type": "payment_order",
+                        "payment_type": "rtp",
+                        "direction": "credit",
+                        "amount": 1000,
+                        "originating_account_id": "$ref:ia.ops",
+                        "receiving_account_id": "$ref:ea.customer",
+                    },
+                ],
+            }
+        )
         assert og.exclusion_group == "payout_method"
 
     def test_exclusion_group_default_none(self):
-        og = OptionalGroupConfig.model_validate({
-            "label": "Return group",
-            "steps": [
-                {"step_id": "ret", "type": "return", "depends_on": ["s1"],
-                 "returnable_id": "$ref:incoming_payment_detail.f__0000__s1"},
-            ],
-        })
+        og = OptionalGroupConfig.model_validate(
+            {
+                "label": "Return group",
+                "steps": [
+                    {
+                        "step_id": "ret",
+                        "type": "return",
+                        "depends_on": ["s1"],
+                        "returnable_id": "$ref:incoming_payment_detail.f__0000__s1",
+                    },
+                ],
+            }
+        )
         assert og.exclusion_group is None
 
 
@@ -421,52 +483,90 @@ class TestExclusionGroup:
 class TestAltElseRendering:
     def test_exclusive_groups_render_alt_else(self):
         rtp_step = FlowIRStep(
-            step_id="rtp", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="payment_order",
+            step_id="rtp",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="payment_order",
             payload={"originating_account_id": "$ref:ia.ops", "amount": 5000},
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         wire_step = FlowIRStep(
-            step_id="wire", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="payment_order",
+            step_id="wire",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="payment_order",
             payload={"originating_account_id": "$ref:ia.ops", "amount": 5000},
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         core_step = FlowIRStep(
-            step_id="setup", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="incoming_payment_detail",
-            payload={"internal_account_id": "$ref:ia.ops", "amount": 5000,
-                     "direction": "credit"},
-            ledger_groups=(), trace_metadata={},
+            step_id="setup",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="incoming_payment_detail",
+            payload={"internal_account_id": "$ref:ia.ops", "amount": 5000, "direction": "credit"},
+            ledger_groups=(),
+            trace_metadata={},
         )
         ir = FlowIR(
-            flow_ref="f", instance_id="0000", pattern_type="t",
-            trace_key="k", trace_value="test-0",
-            trace_metadata={}, steps=(core_step, rtp_step, wire_step),
+            flow_ref="f",
+            instance_id="0000",
+            pattern_type="t",
+            trace_key="k",
+            trace_value="test-0",
+            trace_metadata={},
+            steps=(core_step, rtp_step, wire_step),
         )
         fc = FundsFlowConfig(
-            ref="f", pattern_type="t",
-            trace_key="k", trace_value_template="test-{instance}",
+            ref="f",
+            pattern_type="t",
+            trace_key="k",
+            trace_value_template="test-{instance}",
             steps=[
-                {"step_id": "setup", "type": "incoming_payment_detail",
-                 "payment_type": "ach", "direction": "credit", "amount": 5000,
-                 "internal_account_id": "$ref:ia.ops"},
+                {
+                    "step_id": "setup",
+                    "type": "incoming_payment_detail",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 5000,
+                    "internal_account_id": "$ref:ia.ops",
+                },
             ],
             optional_groups=[
-                {"label": "RTP payout", "exclusion_group": "payout_method",
-                 "steps": [
-                     {"step_id": "rtp", "type": "payment_order", "payment_type": "rtp",
-                      "direction": "credit", "amount": 5000,
-                      "originating_account_id": "$ref:ia.ops",
-                      "receiving_account_id": "$ref:ea.customer"},
-                 ]},
-                {"label": "Wire payout", "exclusion_group": "payout_method",
-                 "steps": [
-                     {"step_id": "wire", "type": "payment_order", "payment_type": "wire",
-                      "direction": "credit", "amount": 5000,
-                      "originating_account_id": "$ref:ia.ops",
-                      "receiving_account_id": "$ref:ea.customer"},
-                 ]},
+                {
+                    "label": "RTP payout",
+                    "exclusion_group": "payout_method",
+                    "steps": [
+                        {
+                            "step_id": "rtp",
+                            "type": "payment_order",
+                            "payment_type": "rtp",
+                            "direction": "credit",
+                            "amount": 5000,
+                            "originating_account_id": "$ref:ia.ops",
+                            "receiving_account_id": "$ref:ea.customer",
+                        },
+                    ],
+                },
+                {
+                    "label": "Wire payout",
+                    "exclusion_group": "payout_method",
+                    "steps": [
+                        {
+                            "step_id": "wire",
+                            "type": "payment_order",
+                            "payment_type": "wire",
+                            "direction": "credit",
+                            "amount": 5000,
+                            "originating_account_id": "$ref:ia.ops",
+                            "receiving_account_id": "$ref:ea.customer",
+                        },
+                    ],
+                },
             ],
         )
         output = render_mermaid(ir, flow_config=fc)
@@ -498,11 +598,17 @@ class TestExampleMermaid:
             assert "autonumber" in output
             assert "participant" in output
             lines = output.split("\n")
-            end_count = sum(1 for l in lines if l.strip() == "end")
-            box_count = sum(1 for l in lines if l.strip().startswith("box "))
-            opt_count = sum(1 for l in lines if l.strip().startswith("opt ") or l.strip() == "opt")
-            alt_count = sum(1 for l in lines if l.strip().startswith("alt ") or l.strip() == "alt")
-            brk_count = sum(1 for l in lines if l.strip().startswith("break ") or l.strip() == "break")
+            end_count = sum(1 for line in lines if line.strip() == "end")
+            box_count = sum(1 for line in lines if line.strip().startswith("box "))
+            opt_count = sum(
+                1 for line in lines if line.strip().startswith("opt ") or line.strip() == "opt"
+            )
+            alt_count = sum(
+                1 for line in lines if line.strip().startswith("alt ") or line.strip() == "alt"
+            )
+            brk_count = sum(
+                1 for line in lines if line.strip().startswith("break ") or line.strip() == "break"
+            )
             expected_ends = box_count + opt_count + alt_count + brk_count
             assert end_count == expected_ends, (
                 f"Unmatched end count: {end_count} ends vs "
@@ -513,11 +619,8 @@ class TestExampleMermaid:
     def test_stablecoin_ramp_has_exclusion_groups(self):
         raw = json.loads((EXAMPLES_DIR / "stablecoin_ramp.json").read_text())
         config = DataLoaderConfig.model_validate(raw)
-        off_ramp = next(
-            f for f in config.funds_flows if "off" in f.ref.lower()
-        )
-        egs = [og.exclusion_group for og in off_ramp.optional_groups
-               if og.exclusion_group]
+        off_ramp = next(f for f in config.funds_flows if "off" in f.ref.lower())
+        egs = [og.exclusion_group for og in off_ramp.optional_groups if og.exclusion_group]
         assert "payout_method" in egs
 
 
@@ -525,10 +628,14 @@ class TestFindParentStep:
     def test_return_finds_ipd(self):
         ipd = _make_ipd_step()
         ret = FlowIRStep(
-            step_id="ret", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="return",
+            step_id="ret",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="return",
             payload={"returnable_id": "$ref:incoming_payment_detail.f__0000__deposit"},
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         lookup = {"deposit": ipd, "ret": ret}
         parent = _find_parent_step(ret, lookup)
@@ -547,50 +654,59 @@ class TestFindParentStep:
 
 class TestRefAccountType:
     def test_internal(self):
-        assert _ref_account_type("$ref:internal_account.ops_usd") == "internal_account"
+        assert ref_account_type("$ref:internal_account.ops_usd") == "internal_account"
 
     def test_counterparty(self):
-        assert _ref_account_type("$ref:counterparty.cust.account[0]") == "external_account"
+        assert ref_account_type("$ref:counterparty.cust.account[0]") == "external_account"
 
     def test_external_account(self):
-        assert _ref_account_type("$ref:external_account.vendor") == "external_account"
+        assert ref_account_type("$ref:external_account.vendor") == "external_account"
 
     def test_ledger(self):
-        assert _ref_account_type("$ref:ledger_account.cash") == "ledger_account"
+        assert ref_account_type("$ref:ledger_account.cash") == "ledger_account"
 
     def test_virtual(self):
-        assert _ref_account_type("$ref:virtual_account.sub") == "virtual_account"
+        assert ref_account_type("$ref:virtual_account.sub") == "virtual_account"
 
     def test_unknown_prefix(self):
-        assert _ref_account_type("$ref:foo.bar") == "unknown"
+        assert ref_account_type("$ref:foo.bar") == "unknown"
 
 
 class TestBuildRefDisplayMap:
     def test_single_slot(self):
-        actors = {"direct_1": ActorFrame(
-            alias="Customer", frame_type="direct",
-            slots={"bank": "$ref:counterparty.demo.account[0]"},
-        )}
-        m = _build_ref_display_map(actors)
+        actors = {
+            "direct_1": ActorFrame(
+                alias="Customer",
+                frame_type="direct",
+                slots={"bank": "$ref:counterparty.demo.account[0]"},
+            )
+        }
+        m = build_ref_display_map(actors)
         assert m["$ref:counterparty.demo.account[0]"] == "Customer Bank"
 
     def test_currency_suffix_stripped(self):
-        actors = {"direct_1": ActorFrame(
-            alias="Platform", frame_type="direct",
-            slots={"c2_usd": "$ref:internal_account.c2_payment_usd"},
-        )}
-        m = _build_ref_display_map(actors)
+        actors = {
+            "direct_1": ActorFrame(
+                alias="Platform",
+                frame_type="direct",
+                slots={"c2_usd": "$ref:internal_account.c2_payment_usd"},
+            )
+        }
+        m = build_ref_display_map(actors)
         assert m["$ref:internal_account.c2_payment_usd"] == "Platform C2"
 
     def test_multi_slot(self):
-        actors = {"direct_1": ActorFrame(
-            alias="Platform", frame_type="direct",
-            slots={
-                "ops": "$ref:internal_account.ops_usd",
-                "revenue": "$ref:ledger_account.revenue",
-            },
-        )}
-        m = _build_ref_display_map(actors)
+        actors = {
+            "direct_1": ActorFrame(
+                alias="Platform",
+                frame_type="direct",
+                slots={
+                    "ops": "$ref:internal_account.ops_usd",
+                    "revenue": "$ref:ledger_account.revenue",
+                },
+            )
+        }
+        m = build_ref_display_map(actors)
         assert m["$ref:internal_account.ops_usd"] == "Platform Ops"
         assert m["$ref:ledger_account.revenue"] == "Platform Revenue"
 
@@ -598,10 +714,10 @@ class TestBuildRefDisplayMap:
 class TestResolveActorDisplay:
     def test_finds_in_map(self):
         ref_map = {"$ref:internal_account.ops_usd": "Platform Ops"}
-        assert _resolve_actor_display("$ref:internal_account.ops_usd", ref_map) == "Platform Ops"
+        assert resolve_actor_display("$ref:internal_account.ops_usd", ref_map) == "Platform Ops"
 
     def test_fallback_when_not_in_map(self):
-        assert _resolve_actor_display("$ref:internal_account.ops_usd", {}) == "Ops"
+        assert resolve_actor_display("$ref:internal_account.ops_usd", {}) == "Ops"
 
 
 class TestClassifyParticipant:
@@ -627,34 +743,51 @@ class TestClassifyParticipant:
 class TestResolveIpdSource:
     def test_single_cp(self):
         actors = {
-            "direct_1": ActorFrame(alias="Platform", frame_type="direct",
-                                   slots={"ops": "$ref:internal_account.ops_usd"}),
-            "user_1": ActorFrame(alias="Customer", frame_type="user",
-                                 slots={"bank": "$ref:counterparty.cust.account[0]"}),
+            "direct_1": ActorFrame(
+                alias="Platform",
+                frame_type="direct",
+                slots={"ops": "$ref:internal_account.ops_usd"},
+            ),
+            "user_1": ActorFrame(
+                alias="Customer",
+                frame_type="user",
+                slots={"bank": "$ref:counterparty.cust.account[0]"},
+            ),
         }
-        ref_map = _build_ref_display_map(actors)
+        ref_map = build_ref_display_map(actors)
         assert _resolve_ipd_source(ref_map) == "Customer Bank"
 
     def test_multiple_cps_picks_first(self):
         actors = {
-            "direct_1": ActorFrame(alias="Platform", frame_type="direct",
-                                   slots={"ops": "$ref:internal_account.ops_usd"}),
-            "user_1": ActorFrame(alias="Customer", frame_type="user", slots={
-                "bank": "$ref:counterparty.bank.account[0]",
-                "wallet": "$ref:counterparty.wallet.account[0]",
-            }),
+            "direct_1": ActorFrame(
+                alias="Platform",
+                frame_type="direct",
+                slots={"ops": "$ref:internal_account.ops_usd"},
+            ),
+            "user_1": ActorFrame(
+                alias="Customer",
+                frame_type="user",
+                slots={
+                    "bank": "$ref:counterparty.bank.account[0]",
+                    "wallet": "$ref:counterparty.wallet.account[0]",
+                },
+            ),
         }
-        ref_map = _build_ref_display_map(actors)
+        ref_map = build_ref_display_map(actors)
         assert _resolve_ipd_source(ref_map) == "Customer Bank"
 
     def test_no_cp_returns_external(self):
         actors = {
-            "direct_1": ActorFrame(alias="Platform", frame_type="direct", slots={
-                "ops": "$ref:internal_account.ops_usd",
-                "cash": "$ref:ledger_account.cash",
-            }),
+            "direct_1": ActorFrame(
+                alias="Platform",
+                frame_type="direct",
+                slots={
+                    "ops": "$ref:internal_account.ops_usd",
+                    "cash": "$ref:ledger_account.cash",
+                },
+            ),
         }
-        ref_map = _build_ref_display_map(actors)
+        ref_map = build_ref_display_map(actors)
         assert _resolve_ipd_source(ref_map) == "External"
 
     def test_empty_actors(self):
@@ -664,22 +797,32 @@ class TestResolveIpdSource:
 class TestPODirectionResolution:
     def test_credit_po_uses_receiving_actor(self):
         actors = {
-            "direct_1": ActorFrame(alias="Platform", frame_type="direct",
-                                   slots={"ops": "$ref:internal_account.ops_usd"}),
-            "user_1": ActorFrame(alias="Customer", frame_type="user",
-                                 slots={"bank": "$ref:counterparty.cust.account[0]"}),
+            "direct_1": ActorFrame(
+                alias="Platform",
+                frame_type="direct",
+                slots={"ops": "$ref:internal_account.ops_usd"},
+            ),
+            "user_1": ActorFrame(
+                alias="Customer",
+                frame_type="user",
+                slots={"bank": "$ref:counterparty.cust.account[0]"},
+            ),
         }
-        ref_map = _build_ref_display_map(actors)
+        ref_map = build_ref_display_map(actors)
         step = FlowIRStep(
-            step_id="pay", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="payment_order",
+            step_id="pay",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="payment_order",
             payload={
                 "direction": "credit",
                 "originating_account_id": "$ref:internal_account.ops_usd",
                 "receiving_account_id": "$ref:counterparty.cust.account[0]",
                 "amount": 5000,
             },
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         src, dest = _resolve_step_participants(step, ref_map)
         assert src == "Platform Ops"
@@ -687,22 +830,32 @@ class TestPODirectionResolution:
 
     def test_debit_po_reverses_direction(self):
         actors = {
-            "direct_1": ActorFrame(alias="Platform", frame_type="direct",
-                                   slots={"c2": "$ref:internal_account.c2_payment_usd"}),
-            "user_1": ActorFrame(alias="Customer", frame_type="user",
-                                 slots={"bank": "$ref:counterparty.cust.account[0]"}),
+            "direct_1": ActorFrame(
+                alias="Platform",
+                frame_type="direct",
+                slots={"c2": "$ref:internal_account.c2_payment_usd"},
+            ),
+            "user_1": ActorFrame(
+                alias="Customer",
+                frame_type="user",
+                slots={"bank": "$ref:counterparty.cust.account[0]"},
+            ),
         }
-        ref_map = _build_ref_display_map(actors)
+        ref_map = build_ref_display_map(actors)
         step = FlowIRStep(
-            step_id="debit", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="payment_order",
+            step_id="debit",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="payment_order",
             payload={
                 "direction": "debit",
                 "originating_account_id": "$ref:internal_account.c2_payment_usd",
                 "receiving_account_id": "$ref:counterparty.cust.account[0]",
                 "amount": 5000,
             },
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         src, dest = _resolve_step_participants(step, ref_map)
         assert src == "Customer Bank"
@@ -710,22 +863,30 @@ class TestPODirectionResolution:
 
     def test_book_transfer_ia_to_ia(self):
         actors = {
-            "direct_1": ActorFrame(alias="Platform", frame_type="direct", slots={
-                "c2": "$ref:internal_account.c2_payment_usd",
-                "usdc_account": "$ref:internal_account.payment_usdc",
-            }),
+            "direct_1": ActorFrame(
+                alias="Platform",
+                frame_type="direct",
+                slots={
+                    "c2": "$ref:internal_account.c2_payment_usd",
+                    "usdc_account": "$ref:internal_account.payment_usdc",
+                },
+            ),
         }
-        ref_map = _build_ref_display_map(actors)
+        ref_map = build_ref_display_map(actors)
         step = FlowIRStep(
-            step_id="book", flow_ref="f", instance_id="0000",
-            depends_on=(), resource_type="payment_order",
+            step_id="book",
+            flow_ref="f",
+            instance_id="0000",
+            depends_on=(),
+            resource_type="payment_order",
             payload={
                 "direction": "credit",
                 "originating_account_id": "$ref:internal_account.c2_payment_usd",
                 "receiving_account_id": "$ref:internal_account.payment_usdc",
                 "amount": 100000,
             },
-            ledger_groups=(), trace_metadata={},
+            ledger_groups=(),
+            trace_metadata={},
         )
         src, dest = _resolve_step_participants(step, ref_map)
         assert src == "Platform C2"
@@ -735,38 +896,65 @@ class TestPODirectionResolution:
 class TestActorsAsParticipants:
     def _flow_with_actors(self):
         return FundsFlowConfig(
-            ref="f", pattern_type="t",
-            trace_key="k", trace_value_template="test-{instance}",
+            ref="f",
+            pattern_type="t",
+            trace_key="k",
+            trace_value_template="test-{instance}",
             actors={
-                "direct_1": ActorFrame(alias="Platform", frame_type="direct",
-                                       slots={"ops": "$ref:internal_account.ops_usd"}),
-                "user_1": ActorFrame(alias="Customer", frame_type="user",
-                                     slots={"bank": "$ref:counterparty.cust.account[0]"}),
-                "direct_2": ActorFrame(alias="Ledger", frame_type="direct",
-                                       slots={"cash": "$ref:ledger_account.cash"}),
+                "direct_1": ActorFrame(
+                    alias="Platform",
+                    frame_type="direct",
+                    slots={"ops": "$ref:internal_account.ops_usd"},
+                ),
+                "user_1": ActorFrame(
+                    alias="Customer",
+                    frame_type="user",
+                    slots={"bank": "$ref:counterparty.cust.account[0]"},
+                ),
+                "direct_2": ActorFrame(
+                    alias="Ledger", frame_type="direct", slots={"cash": "$ref:ledger_account.cash"}
+                ),
             },
             steps=[
-                {"step_id": "deposit", "type": "incoming_payment_detail",
-                 "payment_type": "ach", "direction": "credit", "amount": 50000,
-                 "internal_account_id": "$ref:internal_account.ops_usd"},
+                {
+                    "step_id": "deposit",
+                    "type": "incoming_payment_detail",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 50000,
+                    "internal_account_id": "$ref:internal_account.ops_usd",
+                },
             ],
         )
 
     def test_all_actors_become_participants(self):
         fc = self._flow_with_actors()
         ir = FlowIR(
-            flow_ref="f", instance_id="0000", pattern_type="t",
-            trace_key="k", trace_value="test-0", trace_metadata={},
-            steps=(FlowIRStep(
-                step_id="deposit", flow_ref="f", instance_id="0000",
-                depends_on=(), resource_type="incoming_payment_detail",
-                payload={"internal_account_id": "$ref:internal_account.ops_usd",
-                         "amount": 50000, "direction": "credit"},
-                ledger_groups=(), trace_metadata={},
-            ),),
+            flow_ref="f",
+            instance_id="0000",
+            pattern_type="t",
+            trace_key="k",
+            trace_value="test-0",
+            trace_metadata={},
+            steps=(
+                FlowIRStep(
+                    step_id="deposit",
+                    flow_ref="f",
+                    instance_id="0000",
+                    depends_on=(),
+                    resource_type="incoming_payment_detail",
+                    payload={
+                        "internal_account_id": "$ref:internal_account.ops_usd",
+                        "amount": 50000,
+                        "direction": "credit",
+                    },
+                    ledger_groups=(),
+                    trace_metadata={},
+                ),
+            ),
         )
         lookup = {s.step_id: s for s in ir.steps}
-        ref_map = _build_ref_display_map(fc.actors)
+        ref_map = build_ref_display_map(fc.actors)
         participants, roles = _collect_participants(ir, ref_map, lookup, fc)
         assert "Platform Ops" in participants.values()
         assert "Customer Bank" in participants.values()
@@ -776,18 +964,31 @@ class TestActorsAsParticipants:
     def test_actors_display_from_alias(self):
         fc = self._flow_with_actors()
         ir = FlowIR(
-            flow_ref="f", instance_id="0000", pattern_type="t",
-            trace_key="k", trace_value="test-0", trace_metadata={},
-            steps=(FlowIRStep(
-                step_id="deposit", flow_ref="f", instance_id="0000",
-                depends_on=(), resource_type="incoming_payment_detail",
-                payload={"internal_account_id": "$ref:internal_account.ops_usd",
-                         "amount": 50000, "direction": "credit"},
-                ledger_groups=(), trace_metadata={},
-            ),),
+            flow_ref="f",
+            instance_id="0000",
+            pattern_type="t",
+            trace_key="k",
+            trace_value="test-0",
+            trace_metadata={},
+            steps=(
+                FlowIRStep(
+                    step_id="deposit",
+                    flow_ref="f",
+                    instance_id="0000",
+                    depends_on=(),
+                    resource_type="incoming_payment_detail",
+                    payload={
+                        "internal_account_id": "$ref:internal_account.ops_usd",
+                        "amount": 50000,
+                        "direction": "credit",
+                    },
+                    ledger_groups=(),
+                    trace_metadata={},
+                ),
+            ),
         )
         lookup = {s.step_id: s for s in ir.steps}
-        ref_map = _build_ref_display_map(fc.actors)
+        ref_map = build_ref_display_map(fc.actors)
         participants, _ = _collect_participants(ir, ref_map, lookup, fc)
         assert "CustomerBank" in participants
         assert participants["CustomerBank"] == "Customer Bank"
@@ -795,18 +996,31 @@ class TestActorsAsParticipants:
     def test_classification_by_ref_prefix(self):
         fc = self._flow_with_actors()
         ir = FlowIR(
-            flow_ref="f", instance_id="0000", pattern_type="t",
-            trace_key="k", trace_value="test-0", trace_metadata={},
-            steps=(FlowIRStep(
-                step_id="deposit", flow_ref="f", instance_id="0000",
-                depends_on=(), resource_type="incoming_payment_detail",
-                payload={"internal_account_id": "$ref:internal_account.ops_usd",
-                         "amount": 50000, "direction": "credit"},
-                ledger_groups=(), trace_metadata={},
-            ),),
+            flow_ref="f",
+            instance_id="0000",
+            pattern_type="t",
+            trace_key="k",
+            trace_value="test-0",
+            trace_metadata={},
+            steps=(
+                FlowIRStep(
+                    step_id="deposit",
+                    flow_ref="f",
+                    instance_id="0000",
+                    depends_on=(),
+                    resource_type="incoming_payment_detail",
+                    payload={
+                        "internal_account_id": "$ref:internal_account.ops_usd",
+                        "amount": 50000,
+                        "direction": "credit",
+                    },
+                    ledger_groups=(),
+                    trace_metadata={},
+                ),
+            ),
         )
         lookup = {s.step_id: s for s in ir.steps}
-        ref_map = _build_ref_display_map(fc.actors)
+        ref_map = build_ref_display_map(fc.actors)
         _, roles = _collect_participants(ir, ref_map, lookup, fc)
         assert roles["PlatformOps"] == "platform"
         assert roles["CustomerBank"] == "external"
@@ -814,35 +1028,62 @@ class TestActorsAsParticipants:
 
     def test_multiple_cp_actors_discrete(self):
         fc = FundsFlowConfig(
-            ref="f", pattern_type="t",
-            trace_key="k", trace_value_template="test-{instance}",
+            ref="f",
+            pattern_type="t",
+            trace_key="k",
+            trace_value_template="test-{instance}",
             actors={
-                "direct_1": ActorFrame(alias="Platform", frame_type="direct",
-                                       slots={"ops": "$ref:internal_account.ops_usd"}),
-                "user_1": ActorFrame(alias="Customer", frame_type="user", slots={
-                    "bank": "$ref:counterparty.bank.account[0]",
-                    "wallet": "$ref:counterparty.wallet.account[0]",
-                }),
+                "direct_1": ActorFrame(
+                    alias="Platform",
+                    frame_type="direct",
+                    slots={"ops": "$ref:internal_account.ops_usd"},
+                ),
+                "user_1": ActorFrame(
+                    alias="Customer",
+                    frame_type="user",
+                    slots={
+                        "bank": "$ref:counterparty.bank.account[0]",
+                        "wallet": "$ref:counterparty.wallet.account[0]",
+                    },
+                ),
             },
             steps=[
-                {"step_id": "deposit", "type": "incoming_payment_detail",
-                 "payment_type": "ach", "direction": "credit", "amount": 50000,
-                 "internal_account_id": "$ref:internal_account.ops_usd"},
+                {
+                    "step_id": "deposit",
+                    "type": "incoming_payment_detail",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 50000,
+                    "internal_account_id": "$ref:internal_account.ops_usd",
+                },
             ],
         )
         ir = FlowIR(
-            flow_ref="f", instance_id="0000", pattern_type="t",
-            trace_key="k", trace_value="test-0", trace_metadata={},
-            steps=(FlowIRStep(
-                step_id="deposit", flow_ref="f", instance_id="0000",
-                depends_on=(), resource_type="incoming_payment_detail",
-                payload={"internal_account_id": "$ref:internal_account.ops_usd",
-                         "amount": 50000, "direction": "credit"},
-                ledger_groups=(), trace_metadata={},
-            ),),
+            flow_ref="f",
+            instance_id="0000",
+            pattern_type="t",
+            trace_key="k",
+            trace_value="test-0",
+            trace_metadata={},
+            steps=(
+                FlowIRStep(
+                    step_id="deposit",
+                    flow_ref="f",
+                    instance_id="0000",
+                    depends_on=(),
+                    resource_type="incoming_payment_detail",
+                    payload={
+                        "internal_account_id": "$ref:internal_account.ops_usd",
+                        "amount": 50000,
+                        "direction": "credit",
+                    },
+                    ledger_groups=(),
+                    trace_metadata={},
+                ),
+            ),
         )
         lookup = {s.step_id: s for s in ir.steps}
-        ref_map = _build_ref_display_map(fc.actors)
+        ref_map = build_ref_display_map(fc.actors)
         participants, roles = _collect_participants(ir, ref_map, lookup, fc)
         assert "CustomerBank" in participants
         assert "CustomerWallet" in participants
@@ -873,7 +1114,7 @@ class TestExampleAccountConsistency:
         onramp = next(f for f in config.funds_flows if f.ref == "usdc_onramp")
         flow_irs = compile_flows([onramp], config)
         output = render_mermaid(flow_irs[0], flow_config=onramp)
-        ref_map = _build_ref_display_map(onramp.actors)
+        ref_map = build_ref_display_map(onramp.actors)
         for display in ref_map.values():
             assert display in output, f"Actor display '{display}' missing from Mermaid"
 
@@ -899,7 +1140,7 @@ class TestExampleAccountConsistency:
         flow = config.funds_flows[0]
         flow_irs = compile_flows([flow], config)
         output = render_mermaid(flow_irs[0], flow_config=flow)
-        ref_map = _build_ref_display_map(flow.actors)
+        ref_map = build_ref_display_map(flow.actors)
         for display in ref_map.values():
             assert display in output, f"Actor display '{display}' missing"
         assert "box External" in output
@@ -987,9 +1228,7 @@ class TestLendingPlatformOptionalGroups:
         assert len(self.config.funds_flows) == 3
 
     def test_disbursement_has_reversal_group(self):
-        disbursement = next(
-            f for f in self.config.funds_flows if f.ref == "loan_disbursement"
-        )
+        disbursement = next(f for f in self.config.funds_flows if f.ref == "loan_disbursement")
         assert len(disbursement.optional_groups) == 1
         og = disbursement.optional_groups[0]
         assert og.label == "Disbursement reversal"
@@ -1009,9 +1248,7 @@ class TestLendingPlatformOptionalGroups:
                 assert output.startswith("sequenceDiagram")
 
     def test_disbursement_with_optional_group_activated(self):
-        disbursement = next(
-            f for f in self.config.funds_flows if f.ref == "loan_disbursement"
-        )
+        disbursement = next(f for f in self.config.funds_flows if f.ref == "loan_disbursement")
         og = disbursement.optional_groups[0]
         all_steps = list(disbursement.steps) + list(og.steps)
         step_ids = {s.step_id for s in all_steps}
@@ -1021,9 +1258,7 @@ class TestLendingPlatformOptionalGroups:
         assert "disburse" in rev.depends_on
 
     def test_repayment_flow_step_chain(self):
-        repayment = next(
-            f for f in self.config.funds_flows if f.ref == "loan_repayment"
-        )
+        repayment = next(f for f in self.config.funds_flows if f.ref == "loan_repayment")
         step_ids = {s.step_id for s in repayment.steps}
         assert "pull_repayment" in step_ids
         assert "apply_principal" in step_ids
@@ -1033,12 +1268,14 @@ class TestLendingPlatformOptionalGroups:
     def test_edge_case_selections(self):
         """preselect_edge_cases covers OGs on disbursement flow."""
         raw = json.loads((EXAMPLES_DIR / "lending_platform.json").read_text())
-        flow_dict = next(
-            f for f in raw["funds_flows"] if f["ref"] == "loan_disbursement"
-        )
+        flow_dict = next(f for f in raw["funds_flows"] if f["ref"] == "loan_disbursement")
         from flow_compiler import preselect_edge_cases
+
         selections = preselect_edge_cases(
-            flow_dict, global_count=1, total_instances=3, seed=42,
+            flow_dict,
+            global_count=1,
+            total_instances=3,
+            seed=42,
         )
         assert isinstance(selections, dict)
         assert "Disbursement reversal" in selections
