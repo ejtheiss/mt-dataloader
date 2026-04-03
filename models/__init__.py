@@ -10,6 +10,7 @@ continues to work unchanged after the monolith → package decomposition.
 # --- shared types & constants ---
 # --- top-level config ---
 from models.config import DataLoaderConfig
+from models.current_user import AppUserRole, CurrentAppUser, coerce_app_user_role
 
 # --- flow DSL + generation ---
 from models.flow_dsl import (
@@ -223,6 +224,10 @@ __all__ = [
     "StagedEntry",
     "RunManifest",
     "RunListRow",
+    # App user stub (Plan 0 roles)
+    "AppUserRole",
+    "CurrentAppUser",
+    "coerce_app_user_role",
     # App settings
     "AppSettings",
 ]

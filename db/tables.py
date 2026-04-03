@@ -17,6 +17,7 @@ class User(Base):
     created_at: Mapped[str] = mapped_column(String(64))
     email: Mapped[str | None] = mapped_column(String(256), unique=True, nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    role: Mapped[str] = mapped_column(String(16), default="user")
 
     runs: Mapped[list[Run]] = relationship(back_populates="user")
 

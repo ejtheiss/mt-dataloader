@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
-from sqlalchemy import text
+from sqlalchemy import select
 
 from _version import __version__
 from dataloader.db_backfill import bootstrap_webhook_correlation
@@ -34,6 +34,7 @@ from db.database import (
     create_async_engine_and_sessionmaker,
     run_alembic_upgrade,
 )
+from db.tables import User
 from helpers import set_templates
 from models import AppSettings
 from mt_doc_links import MT_DOCS
@@ -120,10 +121,20 @@ async def lifespan(app: FastAPI):
         app.state.async_engine = engine
         app.state.async_session_factory = session_factory
         async with session_factory() as _s:
-            result = await _s.execute(text("SELECT id FROM users ORDER BY id ASC LIMIT 1"))
-            row = result.first()
-        app.state.default_user_id = int(row[0]) if row else 1
-        logger.info("SQLite at {} (default user id={})", sqlite_file, app.state.default_user_id)
+            result = await _s.execute(select(User).order_by(User.id.asc()).limit(1))
+            first_user = result.scalar_one_or_none()
+        if first_user is not None:
+            app.state.default_user_id = int(first_user.id)
+            app.state.default_user_role = str(first_user.role)
+        else:
+            app.state.default_user_id = 1
+            app.state.default_user_role = "admin"
+        logger.info(
+            "SQLite at {} (default user id={}, role={})",
+            sqlite_file,
+            app.state.default_user_id,
+            getattr(app.state, "default_user_role", "?"),
+        )
 
         # Single-writer assumption: index + session store match one process (see dataloader/session/).
         await bootstrap_webhook_correlation(

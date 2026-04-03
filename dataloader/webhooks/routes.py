@@ -40,7 +40,8 @@ from tenacity import RetryError, retry, retry_if_result
 
 from dataloader.engine import _now_iso, list_manifest_ids
 from dataloader.handlers import DELETABILITY, TENACITY_STOP_30, TENACITY_WAIT_EXP_2_10
-from dataloader.routers.deps import SettingsDep, TemplatesDep, TunnelDep
+from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep, TunnelDep
+from dataloader.run_access import load_run_manifest_for_reader, run_is_readable
 from dataloader.staged_fire import FIREABLE_TYPES
 from jsonutil import dumps_jsonl_record, dumps_pretty, loads_path
 from models import ManifestEntry, RunManifest
@@ -529,15 +530,14 @@ async def run_detail_page(
     run_id: str,
     settings: SettingsDep,
     templates: TemplatesDep,
+    current_user: CurrentAppUserDep,
 ):
     """Four-tab run detail page: Config, Resources, Staged, Webhooks."""
     runs_dir = Path(settings.runs_dir)
 
-    manifest_path = runs_dir / f"{run_id}.json"
-    if not manifest_path.exists():
+    manifest = await load_run_manifest_for_reader(request, settings, run_id, current_user)
+    if manifest is None:
         raise HTTPException(404, f"Run '{run_id}' not found")
-
-    manifest = RunManifest.load(manifest_path)
     ensure_run_indexed(run_id, manifest)
 
     config_path = runs_dir / f"{run_id}_config.json"
@@ -679,9 +679,13 @@ async def staged_drawer(
     run_id: str,
     settings: SettingsDep,
     templates: TemplatesDep,
+    current_user: CurrentAppUserDep,
     ref: str = Query(...),
 ):
     """Return drawer HTML for a staged resource payload."""
+    if not await run_is_readable(request, settings, run_id, current_user):
+        raise HTTPException(404, "Run not found")
+
     runs_dir = Path(settings.runs_dir)
 
     staged_path = runs_dir / f"{run_id}_staged.json"
@@ -721,10 +725,14 @@ async def fire_staged(
     typed_ref: str,
     settings: SettingsDep,
     templates: TemplatesDep,
+    current_user: CurrentAppUserDep,
     api_key: str = Form(...),
     org_id: str = Form(...),
 ):
     """Fire a staged resource — sends the resolved payload to the MT API."""
+    if not await run_is_readable(request, settings, run_id, current_user):
+        raise HTTPException(404, "Run not found")
+
     runs_dir = Path(settings.runs_dir)
 
     lock = _fire_locks.setdefault(run_id, asyncio.Lock())

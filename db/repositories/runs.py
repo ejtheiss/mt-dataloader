@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import select, update
@@ -10,6 +11,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.tables import Run
 from models.run_list import RunListRow
+
+
+@dataclass(frozen=True)
+class RunAccessContext:
+    """Who is reading run data — Plan 0 ``admin`` (all rows) vs ``user`` (``runs.user_id`` only)."""
+
+    user_id: int
+    is_admin: bool
+
+
+async def get_run_row_for_access(
+    session: AsyncSession,
+    run_id: str,
+    ctx: RunAccessContext,
+) -> Run | None:
+    """Return the ``Run`` row if *run_id* exists and *ctx* may read it; else ``None``."""
+    row = await session.scalar(select(Run).where(Run.run_id == run_id))
+    if row is None:
+        return None
+    if ctx.is_admin:
+        return row
+    if row.user_id is None or row.user_id != ctx.user_id:
+        return None
+    return row
 
 
 async def ensure_run(
@@ -74,18 +99,29 @@ async def finalize_run(
     await session.execute(update(Run).where(Run.run_id == run_id).values(**values))
 
 
-async def fetch_manifest_json(session: AsyncSession, run_id: str) -> str | None:
-    """Canonical manifest body stored on the run row, if present."""
-    result = await session.scalar(select(Run.manifest_json).where(Run.run_id == run_id))
-    return result if result else None
+async def fetch_manifest_json(
+    session: AsyncSession,
+    run_id: str,
+    ctx: RunAccessContext,
+) -> str | None:
+    """Canonical manifest body on the run row if *ctx* may read that run."""
+    row = await get_run_row_for_access(session, run_id, ctx)
+    if row is None or not row.manifest_json:
+        return None
+    return row.manifest_json
 
 
-async def list_run_rows_for_api(session: AsyncSession) -> list[RunListRow]:
-    """Wave B: all run rows for list UI, ordered newest-first by ``started_at`` (SQL).
+async def list_run_rows_for_api(
+    session: AsyncSession,
+    ctx: RunAccessContext,
+) -> list[RunListRow]:
+    """Run rows visible to *ctx*, newest-first by ``started_at`` (SQL).
 
-    When the app DB is available, ``GET /api/runs`` uses this alone (no disk glob).
+    ``GET /api/runs`` uses this when the DB is up (no disk glob for ``user``).
     """
     stmt = select(Run).order_by(Run.started_at.desc())
+    if not ctx.is_admin:
+        stmt = stmt.where(Run.user_id == ctx.user_id)
     result = await session.scalars(stmt)
     return [
         RunListRow(

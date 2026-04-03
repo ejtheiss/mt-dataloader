@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import secrets
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Form, Request
@@ -14,10 +13,11 @@ from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from dataloader.engine import RefRegistry
 from dataloader.handlers import DELETABILITY
-from dataloader.routers.deps import SettingsDep, TemplatesDep
+from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep
+from dataloader.run_access import load_run_manifest_for_reader
 from dataloader.session import SessionState, sessions
 from helpers import error_html, error_response
-from models import DataLoaderConfig, RunManifest
+from models import DataLoaderConfig
 from sse_helpers import sse_error_response
 
 router = APIRouter(tags=["cleanup"])
@@ -29,15 +29,14 @@ async def cleanup_page(
     run_id: str,
     settings: SettingsDep,
     templates: TemplatesDep,
+    current_user: CurrentAppUserDep,
     api_key: str = Form(...),
     org_id: str = Form(...),
 ):
     """Return cleanup page with pre-rendered rows and SSE container."""
-    manifest_path = Path(settings.runs_dir) / f"{run_id}.json"
-    if not manifest_path.exists():
+    manifest = await load_run_manifest_for_reader(request, settings, run_id, current_user)
+    if manifest is None:
         return error_response("Not Found", f"Run '{run_id}' not found", 404)
-
-    manifest = RunManifest.load(manifest_path)
     token = f"cleanup-{secrets.token_urlsafe(16)}"
     sessions[token] = SessionState(
         session_token=token,
