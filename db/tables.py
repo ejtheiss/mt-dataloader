@@ -44,6 +44,22 @@ class Run(Base):
     )
 
 
+class WebhookEvent(Base):
+    """Append-only inbound webhook receipt (Wave C). ``run_id`` nullable = unmatched."""
+
+    __tablename__ = "webhook_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    webhook_id: Mapped[str | None] = mapped_column(String(256), unique=True, nullable=True)
+    run_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    typed_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    received_at: Mapped[str] = mapped_column(String(64))
+    event_type: Mapped[str] = mapped_column(String(256))
+    resource_type: Mapped[str] = mapped_column(String(128))
+    resource_id: Mapped[str] = mapped_column(String(256), default="")
+    raw_json: Mapped[str] = mapped_column(Text)
+
+
 class ResourceCorrelation(Base):
     __tablename__ = "resource_correlation"
 

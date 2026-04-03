@@ -13,7 +13,7 @@ Provides:
 - POST /api/webhooks/test     — inject synthetic test webhook (bypasses sig check)
 - Correlation index mapping MT resource IDs to run_id + typed_ref
 - In-memory ring buffer for recent webhooks
-- JSONL persistence per run
+- JSONL persistence per run (dual-write Wave C; reads prefer SQLite ``webhook_events``)
 """
 
 from __future__ import annotations
@@ -41,10 +41,12 @@ from tenacity import RetryError, retry, retry_if_result
 from dataloader.engine import _now_iso, list_manifest_ids
 from dataloader.handlers import DELETABILITY, TENACITY_STOP_30, TENACITY_WAIT_EXP_2_10
 from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep, TunnelDep
-from dataloader.run_access import load_run_manifest_for_reader, run_is_readable
+from dataloader.run_access import load_run_manifest_for_reader, run_is_readable, user_to_ctx
 from dataloader.staged_fire import FIREABLE_TYPES
+from db.repositories import runs as runs_repo
+from db.repositories import webhooks as webhooks_repo
 from jsonutil import dumps_jsonl_record, dumps_pretty, loads_path
-from models import ManifestEntry, RunManifest
+from models import AppSettings, CurrentAppUser, ManifestEntry, RunManifest
 from tunnel import TunnelManager, first_https_tunnel_url
 
 router = APIRouter()
@@ -176,6 +178,96 @@ def load_webhooks(path: Path) -> list[dict]:
                 pass
     entries.reverse()
     return entries
+
+
+async def _persist_webhook_to_db(request: Request, entry: WebhookEntry) -> None:
+    """Wave C: append ``webhook_events`` (JSONL remains dual-written)."""
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        return
+    raw = entry.raw if isinstance(entry.raw, dict) else {}
+    try:
+        async with factory() as session:
+            await webhooks_repo.insert_webhook_event(
+                session,
+                webhook_id=entry.webhook_id or None,
+                run_id=entry.run_id,
+                typed_ref=entry.typed_ref,
+                received_at=entry.received_at,
+                event_type=entry.event_type,
+                resource_type=entry.resource_type,
+                resource_id=entry.resource_id,
+                raw=raw,
+            )
+            await session.commit()
+    except Exception as exc:
+        logger.bind(run_id=entry.run_id or "unmatched").warning(
+            "webhook DB persist failed (JSONL still written): {}",
+            exc,
+        )
+
+
+async def _load_webhook_history_for_run(
+    request: Request,
+    settings: AppSettings,
+    run_id: str,
+    user: CurrentAppUser,
+) -> list[dict]:
+    """Prefer DB; fall back to per-run JSONL when empty or DB unavailable."""
+    ctx = user_to_ctx(user)
+    factory = getattr(request.app.state, "async_session_factory", None)
+    runs_dir = Path(settings.runs_dir)
+    if factory is not None:
+        try:
+            async with factory() as session:
+                rows = await webhooks_repo.list_webhook_history_dicts_for_run(
+                    session, run_id, ctx
+                )
+            if rows:
+                return rows
+        except Exception as exc:
+            logger.bind(run_id=run_id).warning(
+                "webhook DB list failed, falling back to JSONL: {}",
+                exc,
+            )
+    return load_webhooks(runs_dir / f"{run_id}_webhooks.jsonl")
+
+
+async def _buffer_entry_allowed(request: Request, entry: WebhookEntry, user: CurrentAppUser) -> bool:
+    """Hide in-memory buffer rows from callers who cannot read the parent run."""
+    ctx = user_to_ctx(user)
+    if entry.run_id is None:
+        return ctx.is_admin
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        return True
+    try:
+        async with factory() as session:
+            row = await runs_repo.get_run_row_for_access(session, entry.run_id, ctx)
+        return row is not None
+    except Exception:
+        return False
+
+
+async def _jsonl_webhook_dict_visible(
+    request: Request,
+    wh_dict: dict,
+    user: CurrentAppUser,
+) -> bool:
+    ctx = user_to_ctx(user)
+    rid = wh_dict.get("run_id")
+    if not isinstance(rid, str) or not rid:
+        return ctx.is_admin
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        return True
+    try:
+        async with factory() as session:
+            return (
+                await runs_repo.get_run_row_for_access(session, rid, ctx) is not None
+            )
+    except Exception:
+        return False
 
 
 def replace_runtime_correlation_state(
@@ -469,6 +561,7 @@ async def receive_webhook(
     entry.html = _render_webhook_html(entry, templates)
 
     _persist_webhook(entry, settings.runs_dir)
+    await _persist_webhook_to_db(request, entry)
     _webhook_buffer.append(entry)
     await _fanout(entry)
 
@@ -553,8 +646,9 @@ async def run_detail_page(
         except (json.JSONDecodeError, OSError, TypeError):
             pass
 
-    webhooks_path = runs_dir / f"{run_id}_webhooks.jsonl"
-    webhook_history = load_webhooks(webhooks_path)
+    webhook_history = await _load_webhook_history_for_run(
+        request, settings, run_id, current_user
+    )
     rom = build_run_org_map(str(runs_dir))
     enrich_webhooks_run_org(webhook_history, rom)
 
@@ -850,6 +944,7 @@ async def listen_page(
     settings: SettingsDep,
     templates: TemplatesDep,
     tunnel_mgr: TunnelDep,
+    current_user: CurrentAppUserDep,
     run_id: str | None = None,
 ):
     """Standalone webhook listener with tunnel auto-detection and run filter."""
@@ -869,9 +964,11 @@ async def listen_page(
     webhook_history: list[dict] = []
     run_org_map = build_run_org_map(settings.runs_dir)
     if run_id:
-        webhooks_path = Path(settings.runs_dir) / f"{run_id}_webhooks.jsonl"
-        webhook_history = load_webhooks(webhooks_path)
-        enrich_webhooks_run_org(webhook_history, run_org_map)
+        if await run_is_readable(request, settings, run_id, current_user):
+            webhook_history = await _load_webhook_history_for_run(
+                request, settings, run_id, current_user
+            )
+            enrich_webhooks_run_org(webhook_history, run_org_map)
 
     run_ids = list_manifest_ids(settings.runs_dir)
 
@@ -899,20 +996,43 @@ async def webhook_drawer(
     webhook_id: str,
     settings: SettingsDep,
     templates: TemplatesDep,
+    current_user: CurrentAppUserDep,
 ):
-    """Return drawer HTML for a single webhook by ID."""
+    """Return drawer HTML for a single webhook by ID (MT id or synthetic ``db-{pk}``)."""
     for entry in reversed(_webhook_buffer):
-        if entry.webhook_id == webhook_id:
+        if entry.webhook_id == webhook_id and await _buffer_entry_allowed(
+            request, entry, current_user
+        ):
             return templates.TemplateResponse(
                 request,
                 "partials/webhook_detail_drawer.html",
                 {"wh": entry},
             )
 
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is not None:
+        try:
+            async with factory() as session:
+                d = await webhooks_repo.get_webhook_history_dict_for_reader(
+                    session,
+                    webhook_id,
+                    user_to_ctx(current_user),
+                )
+            if d:
+                return templates.TemplateResponse(
+                    request,
+                    "partials/webhook_detail_drawer.html",
+                    {"wh": d},
+                )
+        except Exception as exc:
+            logger.warning("webhook drawer DB lookup failed: {}", exc)
+
     runs_dir = Path(settings.runs_dir)
     for jsonl_path in runs_dir.glob("*_webhooks.jsonl"):
         for wh_dict in load_webhooks(jsonl_path):
-            if wh_dict.get("webhook_id") == webhook_id:
+            if wh_dict.get("webhook_id") == webhook_id and await _jsonl_webhook_dict_visible(
+                request, wh_dict, current_user
+            ):
                 return templates.TemplateResponse(
                     request,
                     "partials/webhook_detail_drawer.html",
@@ -920,7 +1040,9 @@ async def webhook_drawer(
                 )
     unmatched = runs_dir / "_webhooks_unmatched.jsonl"
     for wh_dict in load_webhooks(unmatched):
-        if wh_dict.get("webhook_id") == webhook_id:
+        if wh_dict.get("webhook_id") == webhook_id and await _jsonl_webhook_dict_visible(
+            request, wh_dict, current_user
+        ):
             return templates.TemplateResponse(
                 request,
                 "partials/webhook_detail_drawer.html",
@@ -958,6 +1080,7 @@ async def send_test_webhook(
     entry.html = _render_webhook_html(entry, templates)
 
     _persist_webhook(entry, settings.runs_dir)
+    await _persist_webhook_to_db(request, entry)
     _webhook_buffer.append(entry)
     await _fanout(entry)
     return {"ok": True}
