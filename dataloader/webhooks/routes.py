@@ -6,7 +6,7 @@ https://fastapi.tiangolo.com/tutorial/bigger-applications/ ).
 
 Provides:
 - POST /webhooks/mt           — inbound webhook receiver
-- GET  /webhooks/stream       — SSE fan-out for live webhook events
+- GET  /webhooks/stream       — SSE fan-out (**admin:** all runs; **user:** ``run_id`` required + readable)
 - GET  /runs/{run_id}         — four-tab run detail page
 - POST /api/runs/{run_id}/fire/{typed_ref} — fire a staged resource
 - GET  /listen                — standalone webhook listener with tunnel detection
@@ -577,24 +577,40 @@ async def receive_webhook(
 @router.get("/webhooks/stream")
 async def webhook_stream(
     request: Request,
+    settings: SettingsDep,
+    current_user: CurrentAppUserDep,
     run_id: str | None = None,
     no_replay: bool = False,
 ):
-    """SSE stream of incoming webhooks.  Optionally filtered by run_id.
+    """SSE stream of incoming webhooks.
+
+    **Admin** may omit ``run_id`` to receive all runs. **User** must pass a
+    ``run_id`` they are allowed to read (same rule as run detail); otherwise
+    ``404`` / ``403`` as appropriate.
 
     Pass ``no_replay=true`` to skip ring-buffer replay (used by the run
     detail page where historical webhooks are already server-rendered).
     """
+    rid = (run_id or "").strip()
+    if not current_user.is_admin:
+        if not rid:
+            raise HTTPException(
+                status_code=403,
+                detail="Non-admin clients must pass run_id to subscribe to /webhooks/stream",
+            )
+        if not await run_is_readable(request, settings, rid, current_user):
+            raise HTTPException(status_code=404, detail="Run not found")
 
     async def event_generator():
         q: asyncio.Queue[WebhookEntry] = asyncio.Queue(maxsize=100)
-        listener = (run_id, q)
+        filter_run_id = rid if rid else None
+        listener = (filter_run_id, q)
         _webhook_listeners.append(listener)
 
         try:
             if not no_replay:
                 for entry in list(_webhook_buffer):
-                    if run_id is None or entry.run_id == run_id:
+                    if filter_run_id is None or entry.run_id == filter_run_id:
                         yield ServerSentEvent(data=entry.html, event="webhook")
 
             while True:
@@ -986,6 +1002,7 @@ async def listen_page(
             "saved_domain": saved_domain,
             "saved_webhook_endpoint_id": saved_webhook_endpoint_id,
             "tunnel_setup_collapsed": tunnel_setup_collapsed,
+            "webhook_stream_requires_run_filter": not current_user.is_admin,
         },
     )
 

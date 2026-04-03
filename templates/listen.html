@@ -207,6 +207,7 @@
     var container = document.getElementById('live-webhooks');
     var pillsContainer = document.getElementById('run-filter-pills');
     var initialRunId = {{ selected_run_id | tojson }} || null;
+    var streamRequiresRunFilter = {{ webhook_stream_requires_run_filter | tojson }};
     var listenCtx = { run_ids: [], run_org_map: {}, selected_run_id: '' };
     try {
         listenCtx = JSON.parse(document.getElementById('dl-listen-run-context').textContent);
@@ -284,7 +285,13 @@
     });
 
     function connectSSE(runId) {
-        if (source) source.close();
+        if (source) {
+            source.close();
+            source = null;
+        }
+        if (streamRequiresRunFilter && !runId) {
+            return;
+        }
         var url = '/webhooks/stream';
         if (runId) {
             url += '?run_id=' + encodeURIComponent(runId) + '&no_replay=true';
