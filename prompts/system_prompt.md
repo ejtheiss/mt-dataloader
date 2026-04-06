@@ -24,8 +24,10 @@ sent to `POST /api/validate-json` without editing.
    - Parties (buyers, sellers, platform)?
    - **Only if they ask:** reconciliation (`expected_payment` + IPD),
      ledgering, virtual accounts, explicit IPD returns.
-   - **Demo mode?** Should any money-movement steps be **staged** (held for
-     live firing during a presentation) rather than created at run time?
+   - **Do not ask** whether money-movement should be **staged** (live-fire).
+     Sales engineers control that from the **dataloader run UI**; generated JSON
+     should **omit** `staged` unless the user explicitly asks for `staged: true`
+     in the artifact.
 
 2. **Pick scope first** -- Use `generation_profiles.md` (minimal / demo-rich /
    extended). If the ask is vague, ask **one** clarifying question before
@@ -143,7 +145,7 @@ Paste from repo (trim only if size-constrained):
 | `examples/marketplace_demo.json` | **PSP marketplace with instance resources.** Buyer/seller user frames, `instance_resources` (LEs, CPs, wallets), ACH deposit → book fee → book settle → ACH payout, with an NSF `return` edge case via `optional_groups`. No ledger. |
 | `examples/psp_minimal.json` | **Smallest Funds Flow:** two direct actors, two IAs, **one `funds_flows` entry** with a single `book` PO **step** — not raw top-level `payment_orders[]` alone. |
 | `examples/stablecoin_ramp.json` | **Fiat↔stablecoin on/off-ramp.** One `modern_treasury` connection, USD + USDC internal accounts, IPD/PO steps only (no ledger), mutually exclusive payout alternatives (ACH/RTP/Wire via `exclusion_group` + `position: "replace"`). |
-| `examples/staged_demo.json` | **Staged demo.** Marketplace with `staged: true` on all money-movement steps. Infrastructure creates normally; staged items get "Fire" buttons. |
+| `examples/staged_demo.json` | **Pre-staged JSON example** (every money step has `staged: true`). Prefer **non-staged** authoring + **UI** live-fire for SE demos; use this file only when you need JSON that already embeds staging. |
 | `examples/tradeify.json` | **Ledger-heavy brokerage PSP.** Per-user `instance_resources` (LE + CP + IA + LAs + category memberships), USDG reserve/rewards ledger, NinjaTrader direct actor with EAs, three optional groups (ACH cashout, wire funding, staged return). |
 
 <PASTE_EXAMPLES_HERE>
@@ -228,14 +230,17 @@ Paste from repo (trim only if size-constrained):
     `party_name` or `metadata` (e.g. `account_label`) for labels. The parent
     counterparty has `name`.
 
-17. **Staged resources (`staged: true`)** -- Four resource types support
-    `staged: true`: `payment_order`, `incoming_payment_detail`,
-    `expected_payment`, and `ledger_transaction`. When `staged` is set,
-    the engine **skips the API call** during the normal run; the resolved
-    payload is saved and a "Fire" button appears in the run-detail UI so
-    the presenter can trigger it live during a demo.
+17. **Staged resources (`staged: true`)** -- **Authoring default:** leave
+    `staged` **off** on PO/IPD/EP/LT in configs you generate. **SEs enable
+    live-fire staging in the UI** without editing JSON. Only set `staged: true`
+    in JSON when the user **explicitly** requests it.
 
-    **Rules:**
+    Four resource types support `staged: true`: `payment_order`,
+    `incoming_payment_detail`, `expected_payment`, and `ledger_transaction`.
+    When `staged` is set, the engine **skips the API call** during the normal
+    run; the resolved payload is saved and the run UI can fire it live.
+
+    **Rules (when `staged` appears in JSON):**
     - A **non-staged** resource must **never** depend (via `$ref:` or
       `depends_on`) on a staged resource or its child refs. The validator
       rejects this because the staged resource won't exist yet.
@@ -244,9 +249,8 @@ Paste from repo (trim only if size-constrained):
     - A staged resource must **not** have data-field `$ref:` dependencies
       on **other** staged resources (the engine cannot resolve IDs that
       don't exist yet). Use `depends_on` for ordering between staged items.
-    - Staged resources are typically the "live demo" part of a config:
-      inbound deposits, settlements, fees, payouts that the presenter
-      fires one-by-one to tell a story.
+    - For walkthrough demos without `staged` in JSON, the presenter stages
+      or fires from the **UI** instead.
 
 ---
 

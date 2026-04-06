@@ -90,7 +90,7 @@ line with `decision_rubrics.md`.
 | "Smallest", "one transfer", "minimal PSP" | A | `psp_minimal.json` |
 | "Marketplace", "buyer/seller", "wallets", "settle", "fee" | B | `marketplace_demo.json` |
 | "Lifecycle", "deposit-to-settle", "flow pattern" | B | `funds_flow_demo.json` |
-| "Live demo", "staged", "fire one-by-one", "click-through" | B + staged | `staged_demo.json` |
+| "Live demo", "fire one-by-one", "click-through" | B | `marketplace_demo.json` or `funds_flow_demo.json` — **do not** ask about `staged`; SE uses **run UI** for live-fire. `staged_demo.json` only if the user wants JSON with `staged: true` baked in. |
 | "Stablecoin", "on-ramp", "off-ramp", "USDC", "USDG" | C | `stablecoin_ramp.json` (one `modern_treasury` connection; USD + USDC IAs on same `connection_id`) |
 | "Brokerage", "rewards", "chart of accounts" | C | `tradeify.json` |
 | "Reconciliation", "expected payment", "match inbound" | C | B + EP/IPD per rubrics |
@@ -111,7 +111,7 @@ Start at **B** unless the user chose **A** or **C**.
 | LEs + CPs + sandbox_behavior | Yes | — |
 | Book settle / fee / ACH payout | Yes | — |
 | IPD (sandbox inbound simulation) | If the story needs it | — |
-| `staged` on PO/IPD/EP/LT | If presenter wants live-fire demo | — |
+| `staged` on PO/IPD/EP/LT | **No** (default) — SE enables live-fire in **UI** | Only if user explicitly asks for `staged: true` in JSON |
 | `expected_payments` | No | Yes |
 | `virtual_accounts` | No | Yes |
 | Ledgers / categories / ledger TXNs | No | Yes |

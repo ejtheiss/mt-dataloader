@@ -4,9 +4,9 @@ Produce **one** `DataLoaderConfig` JSON (paste in UI or `POST /api/validate-json
 
 **Branding:** Always **generic** demos. Never ask “template vs customer names baked in.” Use `metadata`/tags, `trace_key`/`trace_value_template`, `{placeholder}` per `metadata_patterns.md`.
 
-**Discovery (short):** (1) BYOB? No → `entity_id: modern_treasury`; yes → `decision_rubrics.md` + GWB/IBB, EP/PO, returns/checks/VAs. (2) Bank vs PSP (3) Products (4) Flow of funds (5) Parties (6) IPD vs ACH debit (7) Ledgers/recon/VAs only if asked (8) Staged?
+**Discovery (short):** (1) BYOB? No → `entity_id: modern_treasury`; yes → `decision_rubrics.md` + GWB/IBB, EP/PO, returns/checks/VAs. (2) Bank vs PSP (3) Products (4) Flow of funds (5) Parties (6) IPD vs ACH debit (7) Ledgers/recon/VAs only if asked. **Do not ask** about **staged** / live-fire — SE controls that in the **run UI**.
 
-**Scope:** `generation_profiles.md` — A = minimal **funds flow** (`psp_minimal.json`), B default, B+staged, C = extended only if asked. Minimal ≠ raw-only.
+**Scope:** `generation_profiles.md` — A = minimal **funds flow** (`psp_minimal.json`), B default, C = extended only if asked. Minimal ≠ raw-only.
 
 ## Output
 
@@ -36,7 +36,7 @@ Author **all** money movement in **`funds_flows`** (`steps` + `optional_groups`)
 10. **IPD:** only as `incoming_payment_detail` **steps**; `sandbox_behavior` is for POs. IPD steps: `originating_account_id` + `internal_account_id` per `step_field_reference.md` (compiler strips `originating_account_id` on emit). Compiled IPD fixes: `validation_fixes.md`.
 11. EP+IPD: IPD step `depends_on` EP. Same-wallet debits: order with `depends_on`.
 12. No `name` on CP inline accounts — `party_name`.
-13. **Staged:** PO/IPD/EP/LT only. Non-staged must not depend on staged; no data-field `$ref:` between staged items.
+13. **Staged:** Omit `staged` on PO/IPD/EP/LT unless the user explicitly wants it in JSON; SE uses the **UI** for live-fire. If `staged` is present: only those types; non-staged must not depend on staged; no data-field `$ref:` between staged items (`ordering_rules.md`).
 14. **Verification steps:** `verify_external_account` and `complete_verification` require **`external_account_ref`** (`@actor:...` or `$ref:external_account...`). Never **`external_account_id`** — that name matches MT APIs but is **rejected** in funds-flow JSON (`step_field_reference.md`). **`archive_resource`** uses `resource_type`, `resource_ref`, optional `archive_method`.
 15. **`sandbox_behavior`:** counterparty **inline `accounts[]` only** — never on **`external_accounts[]`** (`decision_rubrics.md`).
 
@@ -50,4 +50,4 @@ Raw-only configs (top-level PO/IPD/etc. without `funds_flows`). Template-vs-cust
 
 ## Knowledge
 
-Schema: `GET /api/schema`. Docs: `decision_rubrics`, `naming_conventions`, `ordering_rules`, `metadata_patterns`, `generation_profiles`, `validation_fixes`, `step_field_reference`. Examples (funds-flow-first): `psp_minimal`, `funds_flow_demo`, `marketplace_demo`, `stablecoin_ramp`, `tradeify`, `staged_demo`.
+Schema: `GET /api/schema`. Docs: `decision_rubrics`, `naming_conventions`, `ordering_rules`, `metadata_patterns`, `generation_profiles`, `validation_fixes`, `step_field_reference`. Examples (funds-flow-first): `psp_minimal`, `funds_flow_demo`, `marketplace_demo`, `stablecoin_ramp`, `tradeify` (`staged_demo` only if embedding `staged: true` in JSON).

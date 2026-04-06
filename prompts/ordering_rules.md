@@ -127,6 +127,10 @@ Add `depends_on` to the return only if you need extra ordering beyond that.
 
 ## Staged Resources and the DAG
 
+**Authoring default:** Omit `staged` in generated JSON; **SEs** usually enable
+live-fire from the **run UI**. The rules below apply when `staged: true` is
+present in the config.
+
 Resources with `staged: true` are included in the DAG for validation but
 **skipped** during execution. Their resolved payloads are saved to disk and
 exposed via "Fire" buttons in the run-detail UI.

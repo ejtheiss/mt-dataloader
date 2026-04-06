@@ -625,19 +625,26 @@ state (up to 60s). Not all sandbox connections support reversals.
 
 ## Staged Resources (Cross-Cutting)
 
+**Config generation (LLM):** Default to **no** `staged` on PO/IPD/EP/LT. **Sales
+engineers** usually turn on live-fire / staged behavior from the **dataloader
+run UI** without editing JSON. Only embed `staged: true` when the author
+explicitly wants it in the file (e.g. `examples/staged_demo.json`).
+
 Four resource types support `staged: true`: **payment_order**,
 **incoming_payment_detail**, **expected_payment**, and
 **ledger_transaction**. Staged resources are skipped during the normal run
 and appear as "Fire" buttons in the run-detail UI.
 
-**When to use staged:**
-- The demo involves a presenter clicking through a money-movement story
-  step by step (deposit → fee → settlement → payout).
-- You want to show webhook events arriving in real time after each action.
+**When `staged: true` belongs in JSON (uncommon for generated configs):**
+- A hand-maintained demo file where every step is pre-marked staged.
+- Testing validator / DAG rules for staged chains.
 
-**When NOT to use staged:**
-- The demo is non-interactive (batch creation, overnight job simulation).
-- The resource is a prerequisite for other non-staged resources.
+**When to omit `staged` and use the UI instead:**
+- Typical SE walkthrough: presenter stages or fires from **run UI** after load.
+- Non-interactive batch stories.
+
+**When NOT to use staged (in JSON):**
+- The resource is a prerequisite for other non-staged resources (validator rule).
 
 **Dependency rules (enforced by the validator):**
 1. Non-staged resources must **never** depend on staged resources.
