@@ -28,11 +28,7 @@ from dataloader.engine import (
     dry_run,
     typed_ref_for,
 )
-from dataloader.routers.deps import OptionalSessionQueryDep, SessionFormDep, TemplatesDep
-from dataloader.session import SessionState, prune_expired_sessions, sessions
-from flow_compiler import AuthoringConfig, compile_to_plan, flatten_actor_refs
-from flow_validator import validate_flow
-from helpers import (
+from dataloader.helpers import (
     UPDATABLE_RESOURCE_TYPES,
     build_available_connections,
     build_discovered_by_type,
@@ -42,6 +38,21 @@ from helpers import (
     error_response,
     format_validation_errors,
 )
+from dataloader.routers.deps import (
+    AsyncSessionDep,
+    OptionalSessionQueryDep,
+    SessionFormDep,
+    TemplatesDep,
+)
+from dataloader.session import SessionState, prune_expired_sessions, sessions
+from dataloader.session.draft_persist import (
+    merge_loader_draft_into_session,
+    persist_loader_draft,
+    run_access_context_for_request,
+)
+from db.repositories import loader_drafts as drafts_repo
+from flow_compiler import AuthoringConfig, compile_to_plan, flatten_actor_refs
+from flow_compiler.flow_validator import validate_flow
 from jsonutil import dumps_pretty, loads_str
 from models import DataLoaderConfig, DisplayPhase
 from org import (
@@ -360,8 +371,19 @@ async def root():
 
 
 @router.get("/setup", include_in_schema=False)
-async def setup_page(request: Request, templates: TemplatesDep):
-    return templates.TemplateResponse(request, "setup.html", {"title": "Setup"})
+async def setup_page(
+    request: Request,
+    templates: TemplatesDep,
+    db_session: AsyncSessionDep,
+):
+    ctx = run_access_context_for_request(request)
+    row = await drafts_repo.get_loader_draft_row(db_session, ctx.user_id, ctx)
+    has_saved_draft = row is not None
+    return templates.TemplateResponse(
+        request,
+        "setup.html",
+        {"title": "Setup", "has_saved_draft": has_saved_draft},
+    )
 
 
 @router.post("/api/config/save")
@@ -393,6 +415,8 @@ async def save_config(request: Request):
     session.config = config
     session.config_json_text = dumps_pretty(json.loads(config_json))
     session.working_config_json = session.config_json_text
+
+    await persist_loader_draft(request, session)
 
     return {"status": "ok", "message": "Config saved to session"}
 
@@ -480,6 +504,7 @@ async def validate(
     ol = org_name.strip() or None
     session = _pipeline_result_to_session(result, api_key, org_id, org_label=ol)
     sessions[session.session_token] = session
+    await persist_loader_draft(request, session)
     return _render_preview_or_redirect(request, session, templates)
 
 
@@ -531,7 +556,58 @@ async def revalidate(
     sessions[session.session_token] = session
     del sessions[prev_token]
 
+    await persist_loader_draft(request, session)
     return _render_preview_or_redirect(request, session, templates)
+
+
+@router.post("/api/draft/restore", include_in_schema=False)
+async def restore_draft(
+    request: Request,
+    templates: TemplatesDep,
+    api_key: str = Form(...),
+    org_id: str = Form(...),
+    org_name: str = Form(""),
+):
+    """Reload stored config through the validate pipeline (API key from client only)."""
+    prune_expired_sessions()
+
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        return error_response("Database unavailable", "Cannot restore draft.")
+
+    ctx = run_access_context_for_request(request)
+    async with factory() as db:
+        draft = await drafts_repo.get_loader_draft(db, ctx.user_id, ctx)
+    if draft is None:
+        return error_response("No saved draft", "Validate a config first to create one.")
+
+    raw_json = draft.config_json_text.encode()
+    result = await _validate_pipeline(raw_json, api_key, org_id)
+    if isinstance(result, str):
+        return _pipeline_error_response(result)
+
+    ol = org_name.strip() or draft.org_label or None
+    session = _pipeline_result_to_session(
+        result,
+        api_key,
+        org_id,
+        org_label=ol,
+        working_config_json=draft.working_config_json,
+        generation_recipes=draft.generation_recipes,
+    )
+    merge_loader_draft_into_session(session, draft)
+    sessions[session.session_token] = session
+    await persist_loader_draft(request, session)
+    return _render_preview_or_redirect(request, session, templates)
+
+
+@router.post("/api/draft/discard", include_in_schema=False)
+async def discard_loader_draft(request: Request, db_session: AsyncSessionDep):
+    """Explicitly remove the durable draft for the current app user (runs unchanged)."""
+    ctx = run_access_context_for_request(request)
+    await drafts_repo.delete_loader_draft(db_session, ctx.user_id, ctx)
+    await db_session.commit()
+    return RedirectResponse(url="/setup", status_code=303)
 
 
 @router.get("/preview", include_in_schema=False)

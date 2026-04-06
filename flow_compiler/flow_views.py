@@ -284,20 +284,28 @@ def _resolve_payment_impacts(
         if direction == "credit":
             if orig_ref in col_refs:
                 impacts.append(
-                    AccountImpact(column_ref=orig_ref, direction="out", amount=amount, fi_role="ODFI")
+                    AccountImpact(
+                        column_ref=orig_ref, direction="out", amount=amount, fi_role="ODFI"
+                    )
                 )
             if recv_ref and recv_ref in col_refs:
                 impacts.append(
-                    AccountImpact(column_ref=recv_ref, direction="in", amount=amount, fi_role="RDFI")
+                    AccountImpact(
+                        column_ref=recv_ref, direction="in", amount=amount, fi_role="RDFI"
+                    )
                 )
         else:
             if recv_ref and recv_ref in col_refs:
                 impacts.append(
-                    AccountImpact(column_ref=recv_ref, direction="out", amount=amount, fi_role="RDFI")
+                    AccountImpact(
+                        column_ref=recv_ref, direction="out", amount=amount, fi_role="RDFI"
+                    )
                 )
             if orig_ref in col_refs:
                 impacts.append(
-                    AccountImpact(column_ref=orig_ref, direction="in", amount=amount, fi_role="ODFI")
+                    AccountImpact(
+                        column_ref=orig_ref, direction="in", amount=amount, fi_role="ODFI"
+                    )
                 )
 
     elif rtype == "incoming_payment_detail":
@@ -319,7 +327,9 @@ def _resolve_payment_impacts(
         if ep_dir == "credit":
             if orig_ref and orig_ref in col_refs:
                 impacts.append(
-                    AccountImpact(column_ref=orig_ref, direction="out", amount=amount, fi_role="ODFI")
+                    AccountImpact(
+                        column_ref=orig_ref, direction="out", amount=amount, fi_role="ODFI"
+                    )
                 )
             if ia_ref in col_refs:
                 impacts.append(
@@ -332,7 +342,9 @@ def _resolve_payment_impacts(
                 )
             if orig_ref and orig_ref in col_refs:
                 impacts.append(
-                    AccountImpact(column_ref=orig_ref, direction="in", amount=amount, fi_role="ODFI")
+                    AccountImpact(
+                        column_ref=orig_ref, direction="in", amount=amount, fi_role="ODFI"
+                    )
                 )
 
     elif rtype in ("return", "reversal"):

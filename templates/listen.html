@@ -134,6 +134,11 @@
     {# ================================================================
        Section 2: Filter bar + Live Feed (unchanged)
        ================================================================ #}
+    {% if not listen_run_list_ok %}
+    <p class="text-muted" style="margin: 0 0 12px;" role="status">
+        Run filter list is unavailable (database not configured or query failed). Live webhooks via SSE still work.
+    </p>
+    {% endif %}
     <div class="mt-filter-bar">
         <div class="mt-filter-bar-inner">
             <div class="mt-filter-bar-left">

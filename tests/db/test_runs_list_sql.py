@@ -57,7 +57,9 @@ async def test_list_run_rows_for_api_reflects_counts(
             )
             await s.commit()
         async with factory() as s:
-            rows = await runs_repo.list_run_rows_for_api(s, RunAccessContext(user_id=1, is_admin=True))
+            rows = await runs_repo.list_run_rows_for_api(
+                s, RunAccessContext(user_id=1, is_admin=True)
+            )
         assert len(rows) == 1
         r0 = rows[0]
         assert r0.run_id == "r1"
@@ -104,7 +106,9 @@ async def test_fetch_manifest_json_roundtrip(
             )
             await s.commit()
         async with factory() as s:
-            got = await runs_repo.fetch_manifest_json(s, "x", RunAccessContext(user_id=1, is_admin=True))
+            got = await runs_repo.fetch_manifest_json(
+                s, "x", RunAccessContext(user_id=1, is_admin=True)
+            )
         assert got == payload
     finally:
         await engine.dispose()
@@ -164,8 +168,12 @@ async def test_list_run_rows_scoped_to_user(
             )
             await s.commit()
         async with factory() as s:
-            rows_user2 = await runs_repo.list_run_rows_for_api(s, RunAccessContext(user_id=2, is_admin=False))
-            rows_admin = await runs_repo.list_run_rows_for_api(s, RunAccessContext(user_id=1, is_admin=True))
+            rows_user2 = await runs_repo.list_run_rows_for_api(
+                s, RunAccessContext(user_id=2, is_admin=False)
+            )
+            rows_admin = await runs_repo.list_run_rows_for_api(
+                s, RunAccessContext(user_id=1, is_admin=True)
+            )
         assert [r.run_id for r in rows_user2] == ["mine"]
         assert {r.run_id for r in rows_admin} == {"mine", "theirs"}
     finally:
@@ -206,7 +214,9 @@ async def test_fetch_manifest_json_denied_for_other_user(
             )
             await s.commit()
         async with factory() as s:
-            got = await runs_repo.fetch_manifest_json(s, "x", RunAccessContext(user_id=2, is_admin=False))
+            got = await runs_repo.fetch_manifest_json(
+                s, "x", RunAccessContext(user_id=2, is_admin=False)
+            )
         assert got is None
     finally:
         await engine.dispose()

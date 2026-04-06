@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -19,8 +20,10 @@ from fastapi.templating import Jinja2Templates
 from loguru import logger
 from sqlalchemy import select
 
-from _version import __version__
+from dataloader._version import __version__
 from dataloader.db_backfill import bootstrap_webhook_correlation
+from dataloader.helpers import set_templates
+from dataloader.mt_doc_links import MT_DOCS
 from dataloader.routers.cleanup import router as cleanup_router
 from dataloader.routers.connection import router as connection_router
 from dataloader.routers.execute import router as execute_router
@@ -28,17 +31,17 @@ from dataloader.routers.flows import router as flows_router
 from dataloader.routers.runs import router as runs_router
 from dataloader.routers.setup import router as setup_router
 from dataloader.routers.tunnel import router as tunnel_router
+from dataloader.session.draft_persist import LOADER_DRAFT_RETENTION_DAYS
+from dataloader.tunnel import NgrokStartError, TunnelManager
 from dataloader.webhooks import router as webhook_router
 from db.database import (
     build_sqlite_file_urls,
     create_async_engine_and_sessionmaker,
     run_alembic_upgrade,
 )
+from db.repositories import loader_drafts as loader_drafts_repo
 from db.tables import User
-from helpers import set_templates
 from models import AppSettings
-from mt_doc_links import MT_DOCS
-from tunnel import NgrokStartError, TunnelManager
 
 # Repository root (parent of ``dataloader/`` package).
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -120,9 +123,21 @@ async def lifespan(app: FastAPI):
         engine, session_factory = create_async_engine_and_sessionmaker(async_url)
         app.state.async_engine = engine
         app.state.async_session_factory = session_factory
+        pruned = 0
         async with session_factory() as _s:
             result = await _s.execute(select(User).order_by(User.id.asc()).limit(1))
             first_user = result.scalar_one_or_none()
+            cutoff = (
+                datetime.now(timezone.utc) - timedelta(days=LOADER_DRAFT_RETENTION_DAYS)
+            ).isoformat()
+            pruned = await loader_drafts_repo.prune_loader_drafts_older_than(_s, cutoff)
+            await _s.commit()
+        if pruned > 0:
+            logger.info(
+                "Pruned {} loader draft(s) older than {} days",
+                pruned,
+                LOADER_DRAFT_RETENTION_DAYS,
+            )
         if first_user is not None:
             app.state.default_user_id = int(first_user.id)
             app.state.default_user_role = str(first_user.role)

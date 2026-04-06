@@ -13,18 +13,15 @@ Provides:
 - POST /api/webhooks/test     — inject synthetic test webhook (bypasses sig check)
 - Correlation index mapping MT resource IDs to run_id + typed_ref
 - In-memory ring buffer for recent webhooks
-- JSONL persistence per run (dual-write Wave C; reads prefer SQLite ``webhook_events``)
+- SQLite ``webhook_events`` for persistence and history
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
-import os
 import secrets
-import tempfile
 from collections import deque
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,16 +35,17 @@ from modern_treasury import AsyncModernTreasury
 from sse_starlette import EventSourceResponse, ServerSentEvent
 from tenacity import RetryError, retry, retry_if_result
 
-from dataloader.engine import _now_iso, list_manifest_ids
+from dataloader.engine import _now_iso
 from dataloader.handlers import DELETABILITY, TENACITY_STOP_30, TENACITY_WAIT_EXP_2_10
 from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep, TunnelDep
 from dataloader.run_access import load_run_manifest_for_reader, run_is_readable, user_to_ctx
 from dataloader.staged_fire import FIREABLE_TYPES
+from dataloader.tunnel import TunnelManager, first_https_tunnel_url
+from dataloader.webhooks import correlation_state
 from db.repositories import runs as runs_repo
 from db.repositories import webhooks as webhooks_repo
-from jsonutil import dumps_jsonl_record, dumps_pretty, loads_path
+from jsonutil import dumps_pretty, loads_path
 from models import AppSettings, CurrentAppUser, ManifestEntry, RunManifest
-from tunnel import TunnelManager, first_https_tunnel_url
 
 router = APIRouter()
 
@@ -58,7 +56,7 @@ router = APIRouter()
 
 @dataclass
 class WebhookEntry:
-    """Single received webhook, stored in memory and on disk."""
+    """Single received webhook, stored in memory and in ``webhook_events``."""
 
     received_at: str
     event_type: str
@@ -81,81 +79,15 @@ _webhook_buffer: deque[WebhookEntry] = deque(maxlen=500)
 _seen_ids_order: deque[str] = deque(maxlen=2000)
 _seen_ids: set[str] = set()
 
-_correlation_index: dict[str, tuple[str, str]] = {}
-
-_run_org_map: dict[str, str] = {}
-
 _webhook_listeners: list[tuple[str | None, asyncio.Queue[WebhookEntry]]] = []
 
 _sig_client: AsyncModernTreasury | None = None
 
-# ---------------------------------------------------------------------------
-# Public interface (called from main.py)
-# ---------------------------------------------------------------------------
-
-
-def index_resource(run_id: str, created_id: str, typed_ref: str) -> None:
-    """Register a created resource for webhook correlation.
-
-    Called via the ``on_resource_created`` callback wired into
-    ``engine.execute()``, immediately after the handler returns.
-    """
-    _correlation_index[created_id] = (run_id, typed_ref)
-
-
-def register_run_org(run_id: str, org_id: str) -> None:
-    """Record which MT org executed a run (for webhook row org labels / filtering).
-
-    Called from ``engine.execute()`` when a manifest is created so inbound
-    webhooks correlated to this run_id can show ``mt_org_id`` before the
-    manifest is re-read from disk.
-    """
-    if run_id and org_id:
-        _run_org_map[run_id] = org_id
-
-
-def ensure_run_indexed(run_id: str, manifest: Any) -> None:
-    """Populate the correlation index from a historical manifest.
-
-    Called when loading a run detail page for an older run whose
-    resources may not be in memory (e.g. after server restart).
-    Indexes both primary IDs and child_refs.
-    """
-    for entry in manifest.resources_created:
-        if entry.created_id not in _correlation_index:
-            _correlation_index[entry.created_id] = (run_id, entry.typed_ref)
-        for child_key, child_id in entry.child_refs.items():
-            if child_id not in _correlation_index:
-                _correlation_index[child_id] = (
-                    run_id,
-                    f"{entry.typed_ref}.{child_key}",
-                )
-
-
-def _build_run_org_map_from_disk(runs_dir: str) -> dict[str, str]:
-    """Legacy: scan manifests when in-memory map is empty (no DB / pre-hydrate)."""
-    out: dict[str, str] = {}
-    rpath = Path(runs_dir)
-    for run_id in list_manifest_ids(runs_dir):
-        try:
-            manifest = RunManifest.load(rpath / f"{run_id}.json")
-        except Exception:
-            continue
-        oid = getattr(manifest, "mt_org_id", None)
-        if oid:
-            out[run_id] = oid
-    return out
-
-
-def build_run_org_map(runs_dir: str) -> dict[str, str]:
-    """Map run_id → MT org id (DB-hydrated ``_run_org_map`` first, else disk scan)."""
-    if _run_org_map:
-        return dict(_run_org_map)
-    return _build_run_org_map_from_disk(runs_dir)
+# Correlation index + run→org maps: ``dataloader.webhooks.correlation_state``
 
 
 def enrich_webhooks_run_org(webhooks: list[dict], run_org_map: dict[str, str]) -> None:
-    """Fill ``mt_org_id`` on webhook dicts using the run manifest map."""
+    """Fill ``mt_org_id`` on webhook dicts when missing (map from ``runs.mt_org_id``)."""
     for wh in webhooks:
         if wh.get("mt_org_id"):
             continue
@@ -164,24 +96,8 @@ def enrich_webhooks_run_org(webhooks: list[dict], run_org_map: dict[str, str]) -
             wh["mt_org_id"] = run_org_map[rid]
 
 
-def load_webhooks(path: Path) -> list[dict]:
-    """Load webhook entries from a JSONL file, newest first."""
-    entries: list[dict] = []
-    if not path.exists():
-        return entries
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line:
-            try:
-                entries.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
-    entries.reverse()
-    return entries
-
-
-async def _persist_webhook_to_db(request: Request, entry: WebhookEntry) -> None:
-    """Wave C: append ``webhook_events`` (JSONL remains dual-written)."""
+async def _persist_webhook(request: Request, entry: WebhookEntry) -> None:
+    """Insert into ``webhook_events``."""
     factory = getattr(request.app.state, "async_session_factory", None)
     if factory is None:
         return
@@ -202,7 +118,7 @@ async def _persist_webhook_to_db(request: Request, entry: WebhookEntry) -> None:
             await session.commit()
     except Exception as exc:
         logger.bind(run_id=entry.run_id or "unmatched").warning(
-            "webhook DB persist failed (JSONL still written): {}",
+            "webhook DB persist failed: {}",
             exc,
         )
 
@@ -213,27 +129,43 @@ async def _load_webhook_history_for_run(
     run_id: str,
     user: CurrentAppUser,
 ) -> list[dict]:
-    """Prefer DB; fall back to per-run JSONL when empty or DB unavailable."""
+    """List webhook history for a run from ``webhook_events`` (empty if unavailable)."""
     ctx = user_to_ctx(user)
     factory = getattr(request.app.state, "async_session_factory", None)
-    runs_dir = Path(settings.runs_dir)
-    if factory is not None:
-        try:
-            async with factory() as session:
-                rows = await webhooks_repo.list_webhook_history_dicts_for_run(
-                    session, run_id, ctx
-                )
-            if rows:
-                return rows
-        except Exception as exc:
-            logger.bind(run_id=run_id).warning(
-                "webhook DB list failed, falling back to JSONL: {}",
-                exc,
-            )
-    return load_webhooks(runs_dir / f"{run_id}_webhooks.jsonl")
+    if factory is None:
+        return []
+    try:
+        async with factory() as session:
+            return await webhooks_repo.list_webhook_history_dicts_for_run(session, run_id, ctx)
+    except Exception as exc:
+        logger.bind(run_id=run_id).warning("webhook DB list failed: {}", exc)
+        return []
 
 
-async def _buffer_entry_allowed(request: Request, entry: WebhookEntry, user: CurrentAppUser) -> bool:
+async def _webhook_history_and_org_for_run_detail(
+    request: Request,
+    run_id: str,
+    user: CurrentAppUser,
+) -> tuple[list[dict], dict[str, str]]:
+    """One session: webhook history + org map for the webhooks tab."""
+    ctx = user_to_ctx(user)
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        return [], {}
+    try:
+        async with factory() as session:
+            history = await webhooks_repo.list_webhook_history_dicts_for_run(session, run_id, ctx)
+            row = await runs_repo.get_run_row_for_access(session, run_id, ctx)
+        rom = {run_id: row.mt_org_id} if row and row.mt_org_id else {}
+        return history, rom
+    except Exception as exc:
+        logger.bind(run_id=run_id).warning("run detail: webhook history/org failed: {}", exc)
+        return [], {}
+
+
+async def _buffer_entry_allowed(
+    request: Request, entry: WebhookEntry, user: CurrentAppUser
+) -> bool:
     """Hide in-memory buffer rows from callers who cannot read the parent run."""
     ctx = user_to_ctx(user)
     if entry.run_id is None:
@@ -247,141 +179,6 @@ async def _buffer_entry_allowed(request: Request, entry: WebhookEntry, user: Cur
         return row is not None
     except Exception:
         return False
-
-
-async def _jsonl_webhook_dict_visible(
-    request: Request,
-    wh_dict: dict,
-    user: CurrentAppUser,
-) -> bool:
-    ctx = user_to_ctx(user)
-    rid = wh_dict.get("run_id")
-    if not isinstance(rid, str) or not rid:
-        return ctx.is_admin
-    factory = getattr(request.app.state, "async_session_factory", None)
-    if factory is None:
-        return True
-    try:
-        async with factory() as session:
-            return (
-                await runs_repo.get_run_row_for_access(session, rid, ctx) is not None
-            )
-    except Exception:
-        return False
-
-
-def replace_runtime_correlation_state(
-    correlations: Sequence[tuple[str, str, str]],
-    run_org_pairs: Sequence[tuple[str, str]],
-) -> None:
-    """Replace in-memory correlation + run→org maps from DB rows (startup)."""
-    _correlation_index.clear()
-    _run_org_map.clear()
-    for created_id, run_id, typed_ref in correlations:
-        _correlation_index[created_id] = (run_id, typed_ref)
-    for run_id, org_id in run_org_pairs:
-        if org_id:
-            _run_org_map[run_id] = org_id
-
-
-def correlation_index_size() -> int:
-    """Count of resource IDs in the webhook correlation index."""
-    return len(_correlation_index)
-
-
-def recorrelate_unmatched_webhooks(runs_dir: str) -> int:
-    """Run ``_webhooks_unmatched.jsonl`` recovery after the index is populated."""
-    return _recorrelate_unmatched(runs_dir)
-
-
-def rebuild_correlation_index(runs_dir: str) -> int:
-    """Load all manifests and populate ``_correlation_index`` (legacy full scan).
-
-    Prefer :func:`dataloader.db_backfill.bootstrap_webhook_correlation` at
-    startup (DB backfill + hydrate). Use this only when the database is
-    unavailable or for ad-hoc repair.
-
-    Also re-correlates entries in ``_webhooks_unmatched.jsonl``.
-
-    Returns the total number of resource IDs indexed from manifests.
-    """
-    count = 0
-    runs_path = Path(runs_dir)
-    for run_id in list_manifest_ids(runs_dir):
-        try:
-            manifest = RunManifest.load(runs_path / f"{run_id}.json")
-        except Exception as exc:
-            logger.warning("Skipping manifest {} during index rebuild: {}", run_id, exc)
-            continue
-        oid = getattr(manifest, "mt_org_id", None)
-        if oid:
-            _run_org_map[run_id] = oid
-        for entry in manifest.resources_created:
-            _correlation_index[entry.created_id] = (run_id, entry.typed_ref)
-            count += 1
-            for child_key, child_id in entry.child_refs.items():
-                _correlation_index[child_id] = (
-                    run_id,
-                    f"{entry.typed_ref}.{child_key}",
-                )
-                count += 1
-
-    recovered = _recorrelate_unmatched(runs_dir)
-    if recovered:
-        logger.info("Re-correlated {} previously unmatched webhooks", recovered)
-
-    logger.info(
-        "Correlation index rebuilt: {} IDs from {} runs",
-        count,
-        len(list_manifest_ids(runs_dir)),
-    )
-    return count
-
-
-def _recorrelate_unmatched(runs_dir: str) -> int:
-    """Scan ``_webhooks_unmatched.jsonl`` and move matched entries.
-
-    For each entry whose ``raw.data`` now matches the index, updates
-    ``run_id`` and ``typed_ref``, appends to the run-specific JSONL,
-    and atomically rewrites the unmatched file without them.
-    """
-    unmatched_path = Path(runs_dir) / "_webhooks_unmatched.jsonl"
-    if not unmatched_path.exists():
-        return 0
-
-    entries = load_webhooks(unmatched_path)
-    if not entries:
-        return 0
-
-    still_unmatched: list[dict] = []
-    recovered = 0
-
-    for entry in entries:
-        raw = entry.get("raw", {})
-        data = raw.get("data", {})
-        run_id, typed_ref = _correlate(data)
-        if run_id:
-            entry["run_id"] = run_id
-            entry["typed_ref"] = typed_ref
-            run_path = Path(runs_dir) / f"{run_id}_webhooks.jsonl"
-            with open(run_path, "a", encoding="utf-8") as f:
-                f.write(dumps_jsonl_record(entry) + "\n")
-            recovered += 1
-        else:
-            still_unmatched.append(entry)
-
-    tmp = tempfile.NamedTemporaryFile(dir=runs_dir, mode="w", suffix=".tmp", delete=False)
-    try:
-        for entry in still_unmatched:
-            tmp.write(dumps_jsonl_record(entry) + "\n")
-        tmp.close()
-        os.replace(tmp.name, str(unmatched_path))
-    except Exception:
-        tmp.close()
-        os.unlink(tmp.name)
-        raise
-
-    return recovered
 
 
 # ---------------------------------------------------------------------------
@@ -413,68 +210,9 @@ def _get_sig_client(secret: str) -> AsyncModernTreasury:
     return _sig_client
 
 
-_CORRELATION_FIELDS = (
-    "internal_account_id",
-    "originating_account_id",
-    "receiving_account_id",
-    "counterparty_id",
-    "legal_entity_id",
-    "ledger_transaction_id",
-    "ledger_account_id",
-    "batch_id",
-    "returnable_id",
-    "virtual_account_id",
-    "ledgerable_id",
-)
-
-
 def _correlate(data: dict) -> tuple[str | None, str | None]:
-    """Match a webhook payload to a run via the correlation index.
-
-    Checks ``data.id`` first (exact resource match), then scans reference
-    fields like ``internal_account_id``, ``originating_account_id``, etc.
-    for derivative webhooks (balance reports, transactions, returns).
-    """
-    if not isinstance(data, dict):
-        return None, None
-    primary = data.get("id", "")
-    if primary and primary in _correlation_index:
-        return _correlation_index[primary]
-    for field_name in _CORRELATION_FIELDS:
-        val = data.get(field_name)
-        if isinstance(val, str) and val in _correlation_index:
-            return _correlation_index[val]
-    return None, None
-
-
-def _persist_webhook(entry: WebhookEntry, runs_dir: str) -> None:
-    """Append webhook entry to the appropriate JSONL file."""
-    dirpath = Path(runs_dir)
-    dirpath.mkdir(parents=True, exist_ok=True)
-
-    line = (
-        dumps_jsonl_record(
-            {
-                "received_at": entry.received_at,
-                "event_type": entry.event_type,
-                "resource_type": entry.resource_type,
-                "resource_id": entry.resource_id,
-                "webhook_id": entry.webhook_id,
-                "run_id": entry.run_id,
-                "typed_ref": entry.typed_ref,
-                "raw": entry.raw,
-            }
-        )
-        + "\n"
-    )
-
-    if entry.run_id:
-        path = dirpath / f"{entry.run_id}_webhooks.jsonl"
-    else:
-        path = dirpath / "_webhooks_unmatched.jsonl"
-
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(line)
+    """Match a webhook payload to a run via the process correlation index (tests)."""
+    return correlation_state.correlate_inbound_payload(data)
 
 
 async def _fanout(entry: WebhookEntry) -> None:
@@ -544,7 +282,7 @@ async def receive_webhook(
         return {"ok": True, "duplicate": True}
 
     run_id, typed_ref = _correlate(data)
-    row_org = _run_org_map.get(run_id) if run_id else None
+    row_org = correlation_state.mt_org_for_run(run_id)
 
     entry = WebhookEntry(
         received_at=datetime.now(timezone.utc).isoformat(),
@@ -560,8 +298,7 @@ async def receive_webhook(
 
     entry.html = _render_webhook_html(entry, templates)
 
-    _persist_webhook(entry, settings.runs_dir)
-    await _persist_webhook_to_db(request, entry)
+    await _persist_webhook(request, entry)
     _webhook_buffer.append(entry)
     await _fanout(entry)
 
@@ -647,7 +384,7 @@ async def run_detail_page(
     manifest = await load_run_manifest_for_reader(request, settings, run_id, current_user)
     if manifest is None:
         raise HTTPException(404, f"Run '{run_id}' not found")
-    ensure_run_indexed(run_id, manifest)
+    correlation_state.ensure_run_indexed(run_id, manifest)
 
     config_path = runs_dir / f"{run_id}_config.json"
     config_json = config_path.read_text("utf-8") if config_path.exists() else "{}"
@@ -662,10 +399,9 @@ async def run_detail_page(
         except (json.JSONDecodeError, OSError, TypeError):
             pass
 
-    webhook_history = await _load_webhook_history_for_run(
-        request, settings, run_id, current_user
+    webhook_history, rom = await _webhook_history_and_org_for_run_detail(
+        request, run_id, current_user
     )
-    rom = build_run_org_map(str(runs_dir))
     enrich_webhooks_run_org(webhook_history, rom)
 
     return templates.TemplateResponse(
@@ -903,9 +639,9 @@ async def fire_staged(
         else:
             staged_path.unlink(missing_ok=True)
 
-    index_resource(run_id, result["created_id"], typed_ref)
+    correlation_state.index_resource(run_id, result["created_id"], typed_ref)
     for child_key, child_id in result.get("child_refs", {}).items():
-        index_resource(run_id, child_id, f"{typed_ref}.{child_key}")
+        correlation_state.index_resource(run_id, child_id, f"{typed_ref}.{child_key}")
 
     html = templates.get_template("partials/staged_row_fired.html").render(
         s_typed_ref=typed_ref,
@@ -978,15 +714,27 @@ async def listen_page(
     tunnel_setup_collapsed = bool(tunnel_url and saved_webhook_endpoint_id)
 
     webhook_history: list[dict] = []
-    run_org_map = build_run_org_map(settings.runs_dir)
+    run_ids: list[str] = []
+    run_org_map: dict[str, str] = {}
+    listen_run_list_ok = False
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is not None:
+        try:
+            async with factory() as session:
+                rows = await runs_repo.list_run_rows_for_api(session, user_to_ctx(current_user))
+            run_ids = [r.run_id for r in rows]
+            for r in rows:
+                if r.mt_org_id:
+                    run_org_map[r.run_id] = r.mt_org_id
+            listen_run_list_ok = True
+        except Exception as exc:
+            logger.warning("listen page: DB run list failed: {}", exc)
     if run_id:
         if await run_is_readable(request, settings, run_id, current_user):
             webhook_history = await _load_webhook_history_for_run(
                 request, settings, run_id, current_user
             )
             enrich_webhooks_run_org(webhook_history, run_org_map)
-
-    run_ids = list_manifest_ids(settings.runs_dir)
 
     return templates.TemplateResponse(
         request,
@@ -1003,6 +751,7 @@ async def listen_page(
             "saved_webhook_endpoint_id": saved_webhook_endpoint_id,
             "tunnel_setup_collapsed": tunnel_setup_collapsed,
             "webhook_stream_requires_run_filter": not current_user.is_admin,
+            "listen_run_list_ok": listen_run_list_ok,
         },
     )
 
@@ -1044,28 +793,6 @@ async def webhook_drawer(
         except Exception as exc:
             logger.warning("webhook drawer DB lookup failed: {}", exc)
 
-    runs_dir = Path(settings.runs_dir)
-    for jsonl_path in runs_dir.glob("*_webhooks.jsonl"):
-        for wh_dict in load_webhooks(jsonl_path):
-            if wh_dict.get("webhook_id") == webhook_id and await _jsonl_webhook_dict_visible(
-                request, wh_dict, current_user
-            ):
-                return templates.TemplateResponse(
-                    request,
-                    "partials/webhook_detail_drawer.html",
-                    {"wh": wh_dict},
-                )
-    unmatched = runs_dir / "_webhooks_unmatched.jsonl"
-    for wh_dict in load_webhooks(unmatched):
-        if wh_dict.get("webhook_id") == webhook_id and await _jsonl_webhook_dict_visible(
-            request, wh_dict, current_user
-        ):
-            return templates.TemplateResponse(
-                request,
-                "partials/webhook_detail_drawer.html",
-                {"wh": wh_dict},
-            )
-
     return templates.TemplateResponse(
         request,
         "partials/empty_state.html",
@@ -1096,8 +823,7 @@ async def send_test_webhook(
     )
     entry.html = _render_webhook_html(entry, templates)
 
-    _persist_webhook(entry, settings.runs_dir)
-    await _persist_webhook_to_db(request, entry)
+    await _persist_webhook(request, entry)
     _webhook_buffer.append(entry)
     await _fanout(entry)
     return {"ok": True}

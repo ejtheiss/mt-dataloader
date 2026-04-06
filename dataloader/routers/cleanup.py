@@ -1,4 +1,8 @@
-"""Cleanup routes: initiate cleanup and SSE stream."""
+"""Cleanup routes: initiate cleanup and SSE stream.
+
+Uses a separate in-memory ``SessionState`` for cleanup SSE only — does not
+delete or modify ``loader_drafts`` (Wave D continuity).
+"""
 
 from __future__ import annotations
 
@@ -13,12 +17,12 @@ from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from dataloader.engine import RefRegistry
 from dataloader.handlers import DELETABILITY
+from dataloader.helpers import error_html, error_response
 from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep
 from dataloader.run_access import load_run_manifest_for_reader
 from dataloader.session import SessionState, sessions
-from helpers import error_html, error_response
+from dataloader.sse_helpers import sse_error_response
 from models import DataLoaderConfig
-from sse_helpers import sse_error_response
 
 router = APIRouter(tags=["cleanup"])
 

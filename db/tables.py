@@ -20,6 +20,27 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(16), default="user")
 
     runs: Mapped[list[Run]] = relationship(back_populates="user")
+    loader_draft: Mapped[LoaderDraftRow | None] = relationship(
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+
+class LoaderDraftRow(Base):
+    """One durable loader draft per app user (Wave D)."""
+
+    __tablename__ = "loader_drafts"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    draft_json: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[str] = mapped_column(String(64))
+    last_run_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_run_at: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="loader_draft")
 
 
 class Run(Base):

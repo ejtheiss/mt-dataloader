@@ -20,8 +20,3 @@ def loads_path(path: str | Path, *, encoding: str = "utf-8") -> Any:
 def loads_str(s: str) -> Any:
     """Parse JSON from a string (stdlib policy lives in this module)."""
     return json.loads(s)
-
-
-def dumps_jsonl_record(obj: Any) -> str:
-    """Serialize one JSONL record (no newline). Compact, ``default=str``."""
-    return json.dumps(obj, ensure_ascii=False, default=str, separators=(",", ":"))

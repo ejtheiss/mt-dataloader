@@ -7,7 +7,7 @@ import json
 import pytest
 
 from flow_compiler import FlowIR, FlowIRStep, LedgerGroup, compile_flows, flatten_actor_refs
-from flow_validator import (
+from flow_compiler.flow_validator import (
     DEFAULT_RULES,
     FlowValidator,
     validate_flow,

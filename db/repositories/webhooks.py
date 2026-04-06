@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 
 from sqlalchemy import insert, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -68,8 +69,12 @@ async def insert_webhook_event(
         raw_json=raw_json,
     )
     if wid:
-        stmt = sqlite_insert(WebhookEvent).values(**values).on_conflict_do_nothing(
-            index_elements=["webhook_id"],
+        stmt = (
+            sqlite_insert(WebhookEvent)
+            .values(**values)
+            .on_conflict_do_nothing(
+                index_elements=["webhook_id"],
+            )
         )
     else:
         stmt = insert(WebhookEvent).values(**values)
@@ -113,3 +118,31 @@ async def get_webhook_history_dict_for_reader(
         return None
 
     return row_to_history_dict(row)
+
+
+async def recorrelate_unmatched_webhook_events(
+    session: AsyncSession,
+    correlate: Callable[[dict], tuple[str | None, str | None]],
+) -> int:
+    """Set ``run_id`` / ``typed_ref`` on rows that were stored unmatched but now resolve."""
+    result = await session.scalars(
+        select(WebhookEvent).where(WebhookEvent.run_id.is_(None)),
+    )
+    rows = list(result.all())
+    n = 0
+    for row in rows:
+        try:
+            raw = json.loads(row.raw_json) if row.raw_json else {}
+        except json.JSONDecodeError:
+            raw = {}
+        if not isinstance(raw, dict):
+            continue
+        data = raw.get("data") or {}
+        if not isinstance(data, dict):
+            data = {}
+        run_id, typed_ref = correlate(data)
+        if run_id:
+            row.run_id = run_id
+            row.typed_ref = typed_ref
+            n += 1
+    return n

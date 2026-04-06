@@ -12,7 +12,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
-import seed_loader
 from models import (
     PAYMENT_MIX_TYPE_MAP,
     DataLoaderConfig,
@@ -21,6 +20,7 @@ from models import (
     PaymentMixConfig,
 )
 
+from . import seed_loader
 from .core import compile_flows, emit_dataloader_config, flatten_optional_groups
 from .ir import FlowIR
 from .mermaid import render_mermaid

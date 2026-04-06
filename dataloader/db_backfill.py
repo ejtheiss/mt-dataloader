@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -10,9 +9,9 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from dataloader.engine.run_meta import list_manifest_ids, resolve_manifest_path
-from dataloader.webhooks.routes import (
+from dataloader.webhooks.correlation_state import (
+    correlate_inbound_payload,
     correlation_index_size,
-    recorrelate_unmatched_webhooks,
     replace_runtime_correlation_state,
 )
 from db.repositories import correlation as correlation_repo
@@ -89,57 +88,6 @@ async def backfill_missing_runs_from_disk(
     return stats
 
 
-async def backfill_webhook_jsonl_to_db(session: AsyncSession, runs_dir: str | Path) -> dict[str, int]:
-    """Import legacy ``*_webhooks.jsonl`` / ``_webhooks_unmatched.jsonl`` into ``webhook_events``.
-
-    Idempotent for rows with non-empty ``webhook_id`` (``ON CONFLICT DO NOTHING``).
-    """
-    rdir = Path(runs_dir)
-    stats = {"lines_seen": 0, "executed": 0}
-    paths = list(rdir.glob("*_webhooks.jsonl"))
-    unmatched = rdir / "_webhooks_unmatched.jsonl"
-    if unmatched.is_file():
-        paths.append(unmatched)
-
-    for path in paths:
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        for line in text.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                d = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(d, dict):
-                continue
-            stats["lines_seen"] += 1
-            raw = d.get("raw")
-            if not isinstance(raw, dict):
-                raw = {}
-            wid = d.get("webhook_id")
-            wid_s = wid.strip() if isinstance(wid, str) else None
-            if not wid_s:
-                continue
-            await webhooks_repo.insert_webhook_event(
-                session,
-                webhook_id=wid_s,
-                run_id=d.get("run_id") if isinstance(d.get("run_id"), str) else None,
-                typed_ref=d.get("typed_ref") if isinstance(d.get("typed_ref"), str) else None,
-                received_at=str(d.get("received_at", "")),
-                event_type=str(d.get("event_type", "unknown")),
-                resource_type=str(d.get("resource_type", "unknown")),
-                resource_id=str(d.get("resource_id", "")),
-                raw=raw,
-            )
-            stats["executed"] += 1
-
-    return stats
-
-
 async def load_runtime_correlation_from_db(session: AsyncSession) -> None:
     """Fill process-local webhook maps from ``resource_correlation`` + ``runs``."""
     cor_rows = await correlation_repo.fetch_correlation_rows(session)
@@ -153,7 +101,7 @@ async def bootstrap_webhook_correlation(
     *,
     default_user_id: int,
 ) -> dict[str, Any]:
-    """Plan 0 startup: backfill missing runs, hydrate correlation from DB, fix unmatched JSONL."""
+    """Plan 0 startup: backfill missing runs, hydrate correlation from DB, fix unmatched rows."""
     async with session_factory() as session:
         stats = await backfill_missing_runs_from_disk(
             session,
@@ -172,19 +120,14 @@ async def bootstrap_webhook_correlation(
     async with session_factory() as session:
         await load_runtime_correlation_from_db(session)
 
-    recovered = recorrelate_unmatched_webhooks(runs_dir)
-    if recovered:
-        logger.info("Re-correlated {} previously unmatched webhook(s)", recovered)
-
     async with session_factory() as session:
-        wh_stats = await backfill_webhook_jsonl_to_db(session, runs_dir)
-        await session.commit()
-    if wh_stats["lines_seen"]:
-        logger.info(
-            "Webhook JSONL → DB: processed {} line(s), {} insert attempt(s)",
-            wh_stats["lines_seen"],
-            wh_stats["executed"],
+        recovered = await webhooks_repo.recorrelate_unmatched_webhook_events(
+            session,
+            correlate_inbound_payload,
         )
+        await session.commit()
+    if recovered:
+        logger.info("Re-correlated {} previously unmatched webhook row(s)", recovered)
 
     n = correlation_index_size()
     logger.info("Webhook correlation index ready ({} resource IDs)", n)
@@ -192,6 +135,4 @@ async def bootstrap_webhook_correlation(
         **stats,
         "index_ids": n,
         "unmatched_recovered": recovered,
-        "webhook_jsonl_lines_seen": wh_stats["lines_seen"],
-        "webhook_db_inserts_attempted": wh_stats["executed"],
     }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import get_args
 
 import pytest
 import yaml
@@ -13,10 +14,11 @@ from dataloader.engine import (
     inject_legal_entity_psp_connection_id,
     typed_ref_for,
 )
+from dataloader.helpers import build_preview
 from flow_compiler import AuthoringConfig, compile_to_plan
-from helpers import build_preview
 from models import (
     VALID_STEP_TYPES,
+    CounterpartyAccountConfig,
     DataLoaderConfig,
     DisplayPhase,
     FundsFlowConfig,
@@ -28,6 +30,8 @@ from models import (
     ReturnStep,
     ReversalStep,
 )
+from models.sandbox import SANDBOX_WALLET_DEMO_ADDRESSES
+from models.shared import WalletAccountNumberType
 
 
 def _compile(config):
@@ -827,6 +831,73 @@ class TestSingleConnectionMultiCurrencyInternalAccounts:
         assert len(config.internal_accounts) == 2
 
 
+class TestCounterpartyWalletInlineAccount:
+    """Stablecoin wallet counterparties use MT account_details + account_number_type."""
+
+    def test_wallet_account_number_type_populates_account_details(self):
+        acct = CounterpartyAccountConfig(
+            wallet_account_number_type="ethereum_address",
+            party_name="Vendor",
+        )
+        dumped = acct.model_dump()
+        assert len(dumped["account_details"]) == 1
+        assert dumped["account_details"][0]["account_number_type"] == "ethereum_address"
+        assert dumped["account_details"][0]["account_number"].startswith("0x")
+        assert dumped["routing_details"] == []
+
+    @pytest.mark.parametrize("network_type", get_args(WalletAccountNumberType))
+    def test_wallet_account_number_type_covers_all_documented_networks(self, network_type: str):
+        assert network_type in SANDBOX_WALLET_DEMO_ADDRESSES
+        acct = CounterpartyAccountConfig(
+            wallet_account_number_type=network_type,  # type: ignore[arg-type]
+            party_name="Wallet",
+        )
+        dumped = acct.model_dump()
+        assert len(dumped["account_details"]) == 1
+        assert dumped["account_details"][0]["account_number_type"] == network_type
+        assert dumped["routing_details"] == []
+
+    def test_sandbox_wallet_demo_keys_match_wallet_account_number_type_literal(self):
+        literal_set = frozenset(get_args(WalletAccountNumberType))
+        assert frozenset(SANDBOX_WALLET_DEMO_ADDRESSES.keys()) == literal_set
+
+    def test_explicit_wallet_counterparty_matches_mt_post_shape(self):
+        """Hand-authored account_details (no wallet_account_number_type helper)."""
+        raw = {
+            "counterparties": [
+                {
+                    "ref": "vendor_wallet",
+                    "name": "Vendor Wallet",
+                    "accounts": [
+                        {
+                            "account_details": [
+                                {
+                                    "account_number": "0x9bE868839163E128971Bb6AE045e172Fa806E805",
+                                    "account_number_type": "ethereum_address",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        config = DataLoaderConfig.model_validate(raw)
+        cp = config.counterparties[0]
+        assert cp.name == "Vendor Wallet"
+        ad = cp.accounts[0].account_details[0]
+        assert ad.account_number_type == "ethereum_address"
+        assert ad.account_number.startswith("0x")
+
+    def test_wallet_and_sandbox_behavior_are_mutually_exclusive(self):
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            CounterpartyAccountConfig(
+                sandbox_behavior="success",
+                wallet_account_number_type="ethereum_address",
+            )
+
+
 # ---------------------------------------------------------------------------
 # Preview list order (execute / setup UI) — not Pydantic field order
 # ---------------------------------------------------------------------------
@@ -994,7 +1065,7 @@ class TestFundsFlowDemo:
 # Seed catalog
 # ---------------------------------------------------------------------------
 
-_SEEDS_DIR = Path(__file__).resolve().parent.parent / "seeds"
+_SEEDS_DIR = Path(__file__).resolve().parent.parent / "flow_compiler" / "seeds"
 
 
 class TestSeedCatalog:

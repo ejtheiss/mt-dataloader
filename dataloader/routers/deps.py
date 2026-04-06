@@ -10,8 +10,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dataloader.session import SessionState, sessions
+from dataloader.tunnel import TunnelManager
 from models import AppSettings, CurrentAppUser, coerce_app_user_role
-from tunnel import TunnelManager
 
 
 def get_settings(request: Request) -> AppSettings:

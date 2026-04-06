@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import mt_webhook_endpoints as mwe
+import dataloader.mt_webhook_endpoints as mwe
 
 
 def test_normalize_list_payload_array():

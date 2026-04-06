@@ -329,10 +329,17 @@ for p in sorted(Path('examples').glob('*.json')):
 
 ```
 main.py              ASGI shim → re-exports dataloader.main.app (uvicorn dataloader.main:app preferred)
-dataloader/          Application package (02a Phase E)
+dataloader/          Application package (02a Phase E — see maintainer plan 00 / 02a)
   main.py            FastAPI app, lifespan, router includes, static/templates paths
+  _version.py        App version (sidebar / GET /api/version)
+  helpers.py         Shared rendering: build_preview, extract_display_name, format helpers
+  tunnel.py          Ngrok tunnel manager used by /listen
+  sse_helpers.py     SSE stream helpers
+  ngrok_cloud.py     Optional ngrok Cloud API (remote agents)
+  mt_doc_links.py    MT dashboard deep links
+  mt_webhook_endpoints.py  Webhook endpoint registration helpers
   routers/           FastAPI route modules (import: dataloader.routers)
-    setup.py         /api/validate, /api/revalidate
+    setup.py         /api/validate, /api/revalidate, draft restore/discard
     flows.py         /flows, /flows/view, /api/flows/generate, /api/flows/metadata
     execute.py       /api/execute, SSE stream
     cleanup.py       /api/cleanup
@@ -340,15 +347,16 @@ dataloader/          Application package (02a Phase E)
     connection.py    /api/connections
     tunnel.py        /listen tunnel UI
     deps.py          FastAPI Depends helpers
-  webhooks/          Webhook package (routes.py: receiver, run detail, staged fire, listener)
+  webhooks/          Webhook package (routes.py + correlation helpers)
   staged_fire.py     FIREABLE_TYPES shared by webhooks + engine dry-run (must match _FIRE_DISPATCH)
   engine/            DAG executor (submodules: refs, dag, runner, run_meta)
   handlers/          MT SDK handlers (submodules: constants, operations, dispatch)
-  session/           In-memory SessionState + process-local session store (import: dataloader.session)
-helpers.py           Shared rendering: build_preview, extract_display_name, format helpers
-seed_loader.py       Faker hybrid seed engine (standard, industry, pop-culture)
-flow_validator.py    Config-level flow validation
-flow_compiler/flow_views.py  Ledger + payments view data computation
+  session/           SessionState + in-memory sessions; draft_persist (Plan 0 Wave D)
+flow_compiler/       Funds Flow DSL compiler (no imports from dataloader — plan 00)
+  flow_validator.py  Config-level flow validation
+  seed_loader.py     Faker hybrid seed engine (standard, industry, pop-culture)
+  seeds/             Seed catalogs (YAML)
+  flow_views.py      Ledger + payments view data for Fund Flows UI
 ```
 
 ### Application wiring
@@ -358,12 +366,13 @@ flow_compiler/flow_views.py  Ledger + payments view data computation
 - **Factory + lifespan:** `dataloader/main.py` — settings, logging, static, templates, router includes, tunnel manager.
 - **HTTP:** `dataloader/routers/`; **webhooks:** `dataloader/webhooks/`.
 - **DAG + SDK:** `dataloader/engine/`, `dataloader/handlers/`; **staged fire allowlist:** `dataloader/staged_fire.py` (`FIREABLE_TYPES`).
-- **Loader session:** `dataloader/session/` — `SessionState` and the in-memory `sessions` map (single-worker; see maintainer **Plan 0** for durable session design).
+- **Loader session:** `dataloader/session/` — `SessionState` and the in-memory `sessions` map (**cache**). **Plan 0 Wave D:** SQLite `loader_drafts` (see `db/repositories/loader_drafts.py`, `models/loader_draft.py`, `dataloader/session/draft_persist.py`) is the continuity store; execute does not delete the draft row. Single-worker; see maintainer **Plan 0** for follow-ups.
 - **Injection:** `dataloader/routers/deps.py` — settings, templates, tunnel, session lookup helpers.
 - **Import boundaries:** run `lint-imports` (config: `pyproject.toml` → `[tool.importlinter]`). `flow_compiler` and `models` must not import `dataloader`. **`org`** is forbidden from `dataloader.routers`, `webhooks`, `handlers`, `session`, `main` — in practice **`org` imports `dataloader.engine` only** (matches contracts).
 
 ```
-db/                  SQLAlchemy ORM + Alembic (`tables`, `database`, `repositories/`) — no imports from `dataloader`
+db/                  SQLAlchemy ORM + Alembic (`tables`, `database`, `repositories/*`) — no imports from `dataloader`
+                     (e.g. `runs`, `webhooks`, `loader_drafts`)
 models/              Pydantic config schemas
   config.py          DataLoaderConfig (root schema)
   resources.py       MT resource models (Layers 0-6)
@@ -376,10 +385,13 @@ models/              Pydantic config schemas
 flow_compiler/       Funds Flow DSL compiler
   core.py            compile_to_plan(), compile_flows(), emit_dataloader_config()
   generation.py      Generation pipeline: recipe → N instances, edge case pre-selection
+  flow_validator.py  Config-level flow validation (advisory diagnostics)
+  seed_loader.py     Dataset profiles + YAML seeds under seeds/
   mermaid.py         Mermaid sequenceDiagram rendering
   pipeline.py        Compilation pipeline passes
   ir.py              FlowIR intermediate representation
   diagnostics.py     Compilation diagnostics and warnings
+  flow_views.py      View rows/columns for T-account / payments UI
 
 org/                 Org discovery + reconciliation
   discovery.py       Query MT org for existing resources
@@ -391,11 +403,11 @@ templates/           HTMX + Jinja2 UI
 static/              CSS
 examples/            6 example configs (marketplace, stablecoin, tradeify, staged, psp, funds_flow)
 prompts/             LLM prompt kit (system_prompt, decision_rubrics, ChatGPT instructions)
-flow_compiler/seeds/ Seed catalog (YAML + Faker standard; used by ``seed_loader``)
+flow_compiler/seeds/ Seed catalog (YAML + Faker standard; used by flow_compiler.seed_loader)
 
 Makefile             setup, run, tunnel, validate shortcuts
 runs/, logs/         Runtime (gitignored)
-tests/               Pytest suite (677 tests)
+tests/               Pytest suite (718 tests)
 ```
 
 A local **`plan/`** directory (roadmaps, design notes) is **gitignored** and is not part of the published repository.
@@ -406,7 +418,7 @@ A local **`plan/`** directory (roadmaps, design notes) is **gitignored** and is 
 
 ```bash
 source .venv/bin/activate
-python -m pytest tests/ -q           # all 677 tests
+python -m pytest tests/ -q           # full suite (718 tests)
 python -m pytest tests/ -x -q        # stop on first failure
 ```
 

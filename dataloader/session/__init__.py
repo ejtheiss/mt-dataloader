@@ -3,11 +3,11 @@
 Houses ``SessionState``, the in-memory session store, and the
 ``get_session`` helper (not yet wired as a FastAPI ``Depends`` everywhere).
 
-**Process-local / single-worker assumption:** ``sessions`` is an in-memory
-``dict``. It does not survive restarts and is not visible to other workers.
-Multi-worker or durable continuity belongs in **Plan 0** (``plan_0_database_foundation.md``,
-Wave D — ``dataloader_sessions``). Do not add Redis or a second session store here
-until that plan drives the design.
+**Process-local cache:** ``sessions`` is an in-memory ``dict`` (tokens are not
+shared across workers). **Wave D:** durable continuity lives in SQLite
+(``loader_drafts``); this module remains the **hot cache**. After restart, use
+**Resume saved draft** on Setup (re-runs validate with stored config JSON; API
+key comes from the sidebar, not the DB). Do not add Redis as a second store.
 """
 
 from __future__ import annotations

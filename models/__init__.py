@@ -29,14 +29,17 @@ from models.flow_dsl import (
     PaymentsViewConfig,
     StepMatch,
 )
+from models.loader_draft import LoaderDraft
 
 # --- manifest (run JSON on disk) ---
 from models.manifest import FailedEntry, ManifestEntry, RunManifest, StagedEntry
 
 # --- resource configs (Layers 0–6) ---
 from models.resources import (
+    ArchiveResourceConfig,
     BalanceMonitorAlertCondition,
     CategoryMembershipConfig,
+    CompleteVerificationConfig,
     ConnectionConfig,
     CounterpartyAccountConfig,
     CounterpartyConfig,
@@ -61,6 +64,7 @@ from models.resources import (
     ReversalConfig,
     TransactionConfig,
     TransitionLedgerTransactionConfig,
+    VerifyExternalAccountConfig,
     VirtualAccountConfig,
 )
 from models.run_list import RunListRow
@@ -87,6 +91,7 @@ from models.shared import (
     PaymentDirection,
     RefStr,
     RoutingDetailConfig,
+    WalletAccountNumberType,
     _BaseResourceConfig,
 )
 
@@ -137,6 +142,7 @@ __all__ = [
     "AddressConfig",
     "AccountDetailConfig",
     "RoutingDetailConfig",
+    "WalletAccountNumberType",
     "InlineLedgerAccountConfig",
     # Layer 1 — foundation
     "LegalEntityConfig",
@@ -166,6 +172,9 @@ __all__ = [
     "CategoryMembershipConfig",
     "NestedCategoryConfig",
     "TransitionLedgerTransactionConfig",
+    "VerifyExternalAccountConfig",
+    "CompleteVerificationConfig",
+    "ArchiveResourceConfig",
     # New resource types (feature audit)
     "LedgerAccountSettlementConfig",
     "BalanceMonitorAlertCondition",
@@ -228,6 +237,7 @@ __all__ = [
     "AppUserRole",
     "CurrentAppUser",
     "coerce_app_user_role",
+    "LoaderDraft",
     # App settings
     "AppSettings",
 ]

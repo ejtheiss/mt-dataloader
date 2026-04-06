@@ -27,13 +27,13 @@ from flow_compiler import (
     preselect_edge_cases,
     select_staged_instances,
 )
+from flow_compiler.seed_loader import generate_profiles, list_datasets, pick_profile
 from models import (
     DataLoaderConfig,
     FundsFlowConfig,
     GenerationRecipeV1,
     PaymentMixConfig,
 )
-from seed_loader import generate_profiles, list_datasets, pick_profile
 from tests.paths import EXAMPLES_DIR
 
 

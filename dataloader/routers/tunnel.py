@@ -16,16 +16,16 @@ from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-import ngrok_cloud
-from dataloader.routers.deps import SettingsDep, TunnelDep
-from mt_webhook_endpoints import (
+import dataloader.ngrok_cloud as ngrok_cloud
+from dataloader.mt_webhook_endpoints import (
     analyze_org_webhook_listeners,
     create_webhook_endpoint,
     list_webhook_endpoints,
     normalize_webhook_url,
     patch_webhook_endpoint,
 )
-from tunnel import NgrokStartError
+from dataloader.routers.deps import SettingsDep, TunnelDep
+from dataloader.tunnel import NgrokStartError
 
 router = APIRouter()
 

@@ -1131,7 +1131,6 @@ class TestExampleAccountConsistency:
         assert "CustomerWallet" in output
         assert "box Platform" in output
         assert "box External" in output
-        assert "box Ledger" in output
 
     def test_marketplace_all_actors(self):
         """All actor slots in marketplace flow appear with correct grouping."""
@@ -1155,35 +1154,36 @@ class TestExampleAccountConsistency:
 class TestMermaidViewModeToggle:
     """Tests for view_mode parameter on render_mermaid."""
 
-    def _get_stablecoin_flow(self):
-        raw = json.loads(EXAMPLES_DIR.joinpath("stablecoin_ramp.json").read_text())
+    def _get_flow_with_ledger_mermaid(self):
+        """Use funds_flow_demo (ledger + PO) — stablecoin ramp is payments-only."""
+        raw = json.loads(EXAMPLES_DIR.joinpath("funds_flow_demo.json").read_text())
         config = DataLoaderConfig.model_validate(raw)
-        flow = config.funds_flows[0]
+        flow = next(f for f in config.funds_flows if f.ref == "simple_deposit")
         flow_irs = compile_flows([flow], config)
         return flow_irs[0], flow
 
     def test_default_mode_is_ledger(self):
-        ir, fc = self._get_stablecoin_flow()
+        ir, fc = self._get_flow_with_ledger_mermaid()
         output = render_mermaid(ir, flow_config=fc)
         assert "box Ledger" in output
 
     def test_payments_mode_excludes_ledger_box(self):
-        ir, fc = self._get_stablecoin_flow()
+        ir, fc = self._get_flow_with_ledger_mermaid()
         output = render_mermaid(ir, flow_config=fc, view_mode="payments")
         assert "box Ledger" not in output
 
     def test_payments_mode_has_platform_participants(self):
-        ir, fc = self._get_stablecoin_flow()
+        ir, fc = self._get_flow_with_ledger_mermaid()
         output = render_mermaid(ir, flow_config=fc, view_mode="payments")
         assert "box Platform" in output
 
     def test_payments_mode_lt_as_note(self):
-        ir, fc = self._get_stablecoin_flow()
+        ir, fc = self._get_flow_with_ledger_mermaid()
         output = render_mermaid(ir, flow_config=fc, view_mode="payments")
         assert "📒" in output
 
     def test_payments_mode_skips_tlt(self):
-        ir, fc = self._get_stablecoin_flow()
+        ir, fc = self._get_flow_with_ledger_mermaid()
         ledger_output = render_mermaid(ir, flow_config=fc, view_mode="ledger")
         payments_output = render_mermaid(ir, flow_config=fc, view_mode="payments")
         tlt_count_ledger = ledger_output.count("LT pending")
@@ -1191,7 +1191,7 @@ class TestMermaidViewModeToggle:
         assert tlt_count_payments <= tlt_count_ledger
 
     def test_payments_mode_no_ledger_entry_notes(self):
-        ir, fc = self._get_stablecoin_flow()
+        ir, fc = self._get_flow_with_ledger_mermaid()
         output = render_mermaid(ir, flow_config=fc, view_mode="payments")
         assert "Ledger:" not in output
 

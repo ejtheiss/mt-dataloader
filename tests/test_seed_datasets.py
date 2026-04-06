@@ -13,11 +13,11 @@ from flow_compiler import (
     clone_flow,
     deep_format_map,
 )
+from flow_compiler.seed_loader import generate_profiles, list_datasets, pick_profile
 from models import DataLoaderConfig, FundsFlowConfig, GenerationRecipeV1
-from seed_loader import generate_profiles, list_datasets, pick_profile
 from tests.paths import EXAMPLES_DIR, REPO_ROOT
 
-_SEEDS_DIR = REPO_ROOT / "seeds"
+_SEEDS_DIR = REPO_ROOT / "flow_compiler" / "seeds"
 _EXAMPLES_DIR = EXAMPLES_DIR
 
 

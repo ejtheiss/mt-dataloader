@@ -11,8 +11,8 @@ from dataloader.db_backfill import (
     bootstrap_webhook_correlation,
     load_runtime_correlation_from_db,
 )
-from dataloader.webhooks.routes import (
-    _correlate,
+from dataloader.webhooks.correlation_state import (
+    correlate_inbound_payload,
     correlation_index_size,
     replace_runtime_correlation_state,
 )
@@ -94,7 +94,7 @@ async def test_backfill_inserts_run_and_correlation_when_missing(
         async with factory() as s:
             await load_runtime_correlation_from_db(s)
         assert correlation_index_size() == 1
-        rid, tref = _correlate({"id": "res_abc"})
+        rid, tref = correlate_inbound_payload({"id": "res_abc"})
         assert rid == run_id
         assert tref == "internal_accounts.primary"
     finally:
@@ -157,7 +157,7 @@ async def test_bootstrap_webhook_correlation_end_to_end(
         out = await bootstrap_webhook_correlation(factory, str(runs_dir), default_user_id=1)
         assert out["runs_backfilled"] == 1
         assert out["index_ids"] == 1
-        rid, _t = _correlate({"id": "uuid-end2end"})
+        rid, _t = correlate_inbound_payload({"id": "uuid-end2end"})
         assert rid == run_id
     finally:
         await engine.dispose()

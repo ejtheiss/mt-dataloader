@@ -11,9 +11,10 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
+from dataloader.engine.resource_display import extract_display_name
 from dataloader.handlers import DELETABILITY
 from flow_compiler import actor_display_name, compute_flow_status, flatten_actor_refs
-from flow_views import compute_view_data
+from flow_compiler.flow_views import compute_view_data
 from models import DataLoaderConfig, DisplayPhase
 from org import DiscoveryResult, _le_display_name
 
@@ -121,51 +122,6 @@ def error_response(title: str, detail: str, status_code: int = 200) -> HTMLRespo
 # ---------------------------------------------------------------------------
 # Display name extraction
 # ---------------------------------------------------------------------------
-
-_NAME_ATTRS = {
-    "connection": ("nickname",),
-    "counterparty": ("name",),
-    "external_account": ("party_name",),
-    "internal_account": ("name",),
-    "virtual_account": ("name",),
-    "ledger": ("name",),
-    "ledger_account": ("name",),
-    "ledger_account_category": ("name",),
-    "payment_order": ("description",),
-    "expected_payment": ("description",),
-    "incoming_payment_detail": ("description",),
-    "ledger_transaction": ("description",),
-    "return": ("reason",),
-}
-
-
-def extract_display_name(resource: Any) -> str:
-    """Pull a human-meaningful label from a resource config.
-
-    Falls back to first_name + last_name for legal entities, then empty string.
-    """
-    rt = getattr(resource, "resource_type", "")
-    attrs = _NAME_ATTRS.get(rt)
-    if attrs:
-        for attr in attrs:
-            val = getattr(resource, attr, None)
-            if val:
-                return str(val)
-
-    if rt == "legal_entity":
-        le_type = getattr(resource, "legal_entity_type", "")
-        if le_type == "business":
-            bname = getattr(resource, "business_name", None)
-            if bname:
-                return str(bname)
-        first = getattr(resource, "first_name", "") or ""
-        last = getattr(resource, "last_name", "") or ""
-        full = f"{first} {last}".strip()
-        if full:
-            return full
-
-    return ""
-
 
 # ---------------------------------------------------------------------------
 # Preview builder
@@ -512,6 +468,9 @@ def extract_sandbox_info(resource: Any) -> str | None:
     if not accounts:
         return None
     for acct in accounts:
+        wtype = getattr(acct, "wallet_account_number_type", None)
+        if wtype:
+            return f"wallet demo: {wtype}"
         behavior = getattr(acct, "sandbox_behavior", None)
         if behavior == "success":
             return "sandbox: success"
@@ -600,7 +559,7 @@ def get_flow_view_data(session: Any, flow_idx: int):
     elif flow_config:
         view_data = compute_view_data(flow_ir, flow_config)
     else:
-        from flow_views import FlowViewData
+        from flow_compiler.flow_views import FlowViewData
 
         view_data = FlowViewData()
     return flow_ir, flow_config, view_data

@@ -703,7 +703,7 @@ class TestModelValidation:
 
 class TestViewDataOGTagging:
     def test_payment_rows_tagged_with_optional_group(self):
-        from flow_views import compute_view_data
+        from flow_compiler.flow_views import compute_view_data
         from models import ActorFrame, ActorSlot
 
         fc = _flow_config_with_og(

@@ -19,6 +19,18 @@ SANDBOX_FAILURE_PREFIX = "11111111"
 SANDBOX_RETURN_PREFIX = "100"
 SANDBOX_ROUTING_NUMBER = "121141822"
 
+# Placeholder addresses for stablecoin wallet counterparties. Keys MUST stay in
+# sync with ``WalletAccountNumberType`` in ``models.shared`` (MT
+# ``POST /api/counterparties`` wallet ``account_details[].account_number_type``).
+SANDBOX_WALLET_DEMO_ADDRESSES: dict[str, str] = {
+    "ethereum_address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+    "base_address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+    "polygon_address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+    "arbitrum_one_address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+    "solana_address": "So11111111111111111111111111111111111111112",
+    "stellar_address": "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+}
+
 
 class SandboxBehavior(BaseModel):
     """Expected sandbox behavior for a counterparty account."""
