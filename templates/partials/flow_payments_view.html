@@ -116,8 +116,8 @@
             </div>
         </div>
         <div class="flow-col-subheader flow-col-split">
-            <span class="flow-th">In</span>
-            <span class="flow-th">Out</span>
+            <span class="flow-th" title="Inbound leg; cell may show RDFI or ODFI depending on payment direction (see per-amount label).">In</span>
+            <span class="flow-th" title="Outbound leg; cell may show ODFI or RDFI depending on payment direction (see per-amount label).">Out</span>
         </div>
         <div class="flow-col-body thin-scrollbar flow-scroll-acct" onscroll="syncFlowScroll(this)">
             {% set ns = namespace(net_in=0, net_out=0) %}
@@ -136,7 +136,12 @@
                 <span class="flow-td-entry flow-td-debit">
                     {% for imp in row.account_impacts %}
                     {% if imp.column_ref == col.account_ref and imp.direction == 'in' %}
-                    <span class="entry-amount">{{ fmt_amt(imp.amount) }}</span>
+                    <span class="flow-account-cell">
+                        <span class="entry-amount">{{ fmt_amt(imp.amount) }}</span>
+                        {% if imp.fi_role %}
+                        <span class="flow-fi-role" title="{% if imp.fi_role == 'ODFI' %}Originating depository financial institution (initiator / sending side){% else %}Receiving depository financial institution (beneficiary / posting side){% endif %}">{{ imp.fi_role }}</span>
+                        {% endif %}
+                    </span>
                     {% set ns.net_in = ns.net_in + imp.amount %}
                     {% endif %}
                     {% endfor %}
@@ -144,7 +149,12 @@
                 <span class="flow-td-entry flow-td-credit">
                     {% for imp in row.account_impacts %}
                     {% if imp.column_ref == col.account_ref and imp.direction == 'out' %}
-                    <span class="entry-amount">{{ fmt_amt(imp.amount) }}</span>
+                    <span class="flow-account-cell">
+                        <span class="entry-amount">{{ fmt_amt(imp.amount) }}</span>
+                        {% if imp.fi_role %}
+                        <span class="flow-fi-role" title="{% if imp.fi_role == 'ODFI' %}Originating depository financial institution (initiator / sending side){% else %}Receiving depository financial institution (beneficiary / posting side){% endif %}">{{ imp.fi_role }}</span>
+                        {% endif %}
+                    </span>
                     {% set ns.net_out = ns.net_out + imp.amount %}
                     {% endif %}
                     {% endfor %}

@@ -324,6 +324,10 @@ class TestComputeViewData:
         out_impact = [i for i in row.account_impacts if i.direction == "out"]
         assert len(out_impact) == 1
         assert out_impact[0].column_ref == "$ref:internal_account.ia1"
+        assert out_impact[0].fi_role == "ODFI"
+        in_impact = [i for i in row.account_impacts if i.direction == "in"]
+        assert len(in_impact) == 1
+        assert in_impact[0].fi_role == "RDFI"
 
     def test_both_views_available(self):
         actors = {
@@ -404,6 +408,8 @@ class TestComputeViewData:
         ia_impact = [i for i in row.account_impacts if i.column_ref == "$ref:internal_account.ia1"]
         assert len(ia_impact) == 1
         assert ia_impact[0].direction == "in"
+        assert ea_impact[0].fi_role == "RDFI"
+        assert ia_impact[0].fi_role == "ODFI"
 
 
 # ---------------------------------------------------------------------------
@@ -509,6 +515,33 @@ class TestIPDRows:
         in_impacts = [i for i in row.account_impacts if i.direction == "in"]
         assert len(in_impacts) == 1
         assert in_impacts[0].column_ref == "$ref:internal_account.ia1"
+        assert in_impacts[0].fi_role == "RDFI"
+
+    def test_ipd_with_originating_adds_odfi_on_external_column(self):
+        actors = {
+            "direct_1": _direct({"ia": "$ref:internal_account.ia1"}),
+            "user_1": _user("Payer", {"bank": "$ref:external_account.ea1"}),
+        }
+        ir = _minimal_ir(
+            [
+                _minimal_step(
+                    "ipd1",
+                    "incoming_payment_detail",
+                    payload={
+                        "amount": 300,
+                        "internal_account_id": "$ref:internal_account.ia1",
+                        "originating_account_id": "$ref:external_account.ea1",
+                    },
+                ),
+            ]
+        )
+        config = _minimal_config(actors=actors)
+        result = compute_view_data(ir, config)
+        row = result.payment_rows[0]
+        odfi = [i for i in row.account_impacts if i.fi_role == "ODFI"]
+        rdfi = [i for i in row.account_impacts if i.fi_role == "RDFI"]
+        assert len(odfi) == 1 and odfi[0].direction == "out"
+        assert len(rdfi) == 1 and rdfi[0].direction == "in"
 
 
 # ---------------------------------------------------------------------------

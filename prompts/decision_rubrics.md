@@ -5,9 +5,11 @@ Which **Modern Treasury resource** to use for each intent, and how it appears in
 **Authoring rule:** Do **not** hand-write lifecycle resources in these
 top-level arrays (`payment_orders`, `incoming_payment_details`,
 `expected_payments`, `ledger_transactions`, `returns`, `reversals`,
-`transition_ledger_transactions`). Express
+`transition_ledger_transactions`, `verify_external_accounts`,
+`complete_verifications`, `archive_resources`). Express
 them only as **`funds_flows[].steps`** (and `optional_groups`). The compiler
-expands steps into the sections this document names.
+expands steps into the sections this document names and re-validates the flat
+`DataLoaderConfig` — including **`verify_external_account`**, **`complete_verification`**, and **`archive_resource`** (same pipeline as payment orders, not “schema-only” step types).
 
 ### Root JSON: which step types have a top-level array
 
@@ -24,9 +26,11 @@ keys** from step type names.
 | `return` | `returns` |
 | `reversal` | `reversals` |
 | `transition_ledger_transaction` | `transition_ledger_transactions` |
-| `verify_external_account` | **None** — only valid inside **`funds_flows[].steps`**. Never add `verify_external_accounts[]` at the root. |
-| `complete_verification` | **None** — only valid inside **`funds_flows[].steps`**. Never add `complete_verifications[]` at the root. |
-| `archive_resource` | **None** — only valid as a **step**. Never add `archive_resources[]` at the root. |
+| `verify_external_account` | **`verify_external_accounts`** after compile only. Author as a **`funds_flows`** step; do **not** hand-write the root array (same pattern as `payment_orders`). |
+| `complete_verification` | **`complete_verifications`** after compile only. Author as a **`funds_flows`** step; do **not** hand-write the root array. |
+| `archive_resource` | **`archive_resources`** after compile only. Author as a **`funds_flows`** step; do **not** hand-write the root array. |
+
+**Flat vs authoring:** `verify_external_accounts`, `complete_verifications`, and `archive_resources` are real top-level fields on `DataLoaderConfig` (so compile + validation succeed end-to-end). **Author** them as **`funds_flows`** steps; treat hand-written root rows as **compiled output** you are editing, not something to invent from scratch.
 
 **Do not infer** a root section name by pluralizing a step type. If the key is
 not in the schema, it is **`extra_forbidden`**.
@@ -241,14 +245,47 @@ inline with the counterparty and auto-registered as child refs:
 
 ### Stablecoin wallet accounts (Modern Treasury)
 
-For an external USDC (or other stablecoin) wallet, MT expects `accounts[].account_details`
-with `account_number` (the on-chain address) and `account_number_type` set to a
-network-specific value (e.g. `ethereum_address`, `base_address`, `polygon_address`,
-`arbitrum_one_address`, `solana_address`, `stellar_address`) — **not** ABA routing.
+#### Create a Wallet Counterparty (MT API shape)
 
-- Use **`wallet_account_number_type`** on the inline account to auto-fill a demo
-  address and the correct `account_number_type` (no `routing_details`).
-- Or omit that helper and set **`account_details`** explicitly yourself.
+Modern Treasury creates wallet counterparties with **`accounts[].account_details`**
+only — **no** `routing_details`. Each detail row uses the on-chain address as
+`account_number` and a network-specific `account_number_type`:
+
+```json
+{
+  "name": "Vendor Wallet",
+  "accounts": [
+    {
+      "account_details": [
+        {
+          "account_number": "<COUNTERPARTY_WALLET_ADDRESS>",
+          "account_number_type": "ethereum_address"
+        }
+      ]
+    }
+  ]
+}
+```
+
+In dataloader JSON, that lives under **`counterparties[]`** with a `ref`, same
+`name` / `accounts` structure, and optional `legal_entity_id` / `metadata` as
+elsewhere in this file.
+
+**Supported `account_number_type` values** for stablecoin wallets (network-specific;
+must match the chain you intend):
+
+| Network | `account_number_type` |
+|--------|------------------------|
+| Ethereum | `ethereum_address` |
+| Base | `base_address` |
+| Polygon PoS | `polygon_address` |
+| Arbitrum One | `arbitrum_one_address` |
+| Solana | `solana_address` |
+| Stellar | `stellar_address` |
+
+- Use **`wallet_account_number_type`** on the inline account to auto-fill a **sandbox
+  demo** address and the correct `account_number_type` (still **no** `routing_details`).
+- Or omit that helper and set **`account_details`** explicitly (production-style address).
 - **Do not** set `sandbox_behavior` on wallet accounts: it applies ACH test
   account numbers and routing, which is the wrong shape for wallets.
 
@@ -322,9 +359,10 @@ or an inline ledger account.
 
 **`sandbox_behavior` is not valid on `external_accounts[]`.** It exists only on
 **counterparty inline `accounts[]`** (`CounterpartyAccountConfig`). Standalone
-external accounts must use normal `account_details` / `routing_details` (or
-omit them only if the story allows — see warnings in the schema). Do not add
+external accounts must use normal `account_details` / `routing_details`. Do not add
 `sandbox_behavior` to `external_accounts[]` rows.
+
+**For generated configs:** include explicit **`account_details`** and **`routing_details`** on every **`external_accounts[]`** row unless the example or schema you are copying clearly documents omission (e.g. a specialized on-chain shape). Default to populated bank fields — empty or missing detail blocks often produce unusable or warning-heavy configs.
 
 **Inline vs standalone are not interchangeable:** fields allowed on
 counterparty inline accounts (e.g. `sandbox_behavior`, `wallet_account_number_type`)

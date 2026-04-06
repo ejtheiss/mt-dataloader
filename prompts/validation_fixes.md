@@ -37,11 +37,19 @@ engine auto-prefixes the resource type (e.g. ref `acme_corp` becomes
 
 Check the schema for typos or unknown fields. Common causes:
 
-- **Root keys `verify_external_accounts`, `complete_verifications`, or
-  `archive_resources`:** Remove the entire key. These step types belong only
-  under **`funds_flows[].steps`** (and `optional_groups`). `DataLoaderConfig`
-  does not define those top-level arrays — the model rejects them as
-  **`extra_forbidden`**. Do not pluralize step types into root section names.
+- **Lifecycle rows you pasted at the root (`payment_orders`, `verify_external_accounts`,
+  etc.):** Prefer **authoring** money movement and verification as **`funds_flows`**
+  steps — the compiler emits the flat sections. Root arrays exist on the merged
+  schema for compiled/edited JSON; hand-building them is easy to get wrong. If you
+  meant micro-deposit verification, use step types `verify_external_account` /
+  `complete_verification` under **`funds_flows`**, not a guessed root key
+  (`decision_rubrics.md` § Root JSON).
+- **`value_error` mixing wallet + bank sandbox on the same counterparty inline
+  account:** Do **not** set **`sandbox_behavior`** together with
+  **`wallet_account_number_type`** (or explicit stablecoin wallet
+  **`account_details`**). Bank demos use `sandbox_behavior`; stablecoin wallet CPs
+  use `wallet_account_number_type` or explicit `account_details` + network
+  **`account_number_type`** — see **`decision_rubrics.md`** § *Stablecoin wallet accounts*.
 - **`name` on `counterparties[].accounts[]`:** Remove it — the schema uses
   `extra="forbid"` on inline accounts. Use `party_name` or `metadata` for
   labels; the parent counterparty has `name`.
@@ -65,6 +73,13 @@ Check the schema for typos or unknown fields. Common causes:
 - **`extra_forbidden` on `sandbox_behavior` in `external_accounts[]`:** Remove
   it. **`sandbox_behavior`** is only valid on **counterparty inline `accounts[]`**,
   not on standalone **`external_accounts[]`** rows.
+- **`extra_forbidden` on `description` or `timing` inside flat
+  `verify_external_accounts[]`, `complete_verifications[]`, or `archive_resources[]`:**
+  Those keys are **not** on the emitted resource schema. If you **hand-pasted**
+  compiled-style rows, remove them. If you authored **`funds_flows`** steps with
+  `description` / `timing`, a current compiler strips them on emit — if errors
+  persist, upgrade the running **dataloader** build **or** remove `description` /
+  `timing` from those steps (safest default for generated configs).
 
 ### `address_types` / `identifications` / `documents` on legal entities
 

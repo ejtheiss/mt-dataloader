@@ -81,11 +81,17 @@ class LedgerEntryPlacement:
 
 @dataclass(frozen=True)
 class AccountImpact:
-    """One payment account cell (column + in/out + amount)."""
+    """One payment account cell (column + in/out + amount).
+
+    ``fi_role`` labels the ACH-style institution side for demos: **ODFI** (originating
+    depository / initiator FI) vs **RDFI** (receiving depository / beneficiary FI).
+    Only set when the step has a clear two-sided rail (PO, IPD with sender ref, etc.).
+    """
 
     column_ref: str
     direction: str
     amount: int
+    fi_role: str | None = None
 
 
 @dataclass(frozen=True)
@@ -267,7 +273,7 @@ def _resolve_payment_impacts(
     impacts: list[AccountImpact] = []
     payload = step.payload
     rtype = step.resource_type
-    amount = payload.get("amount", 0)
+    amount = int(payload.get("amount") or 0)
 
     if rtype == "payment_order":
         direction = payload.get("direction", "credit")
@@ -276,24 +282,57 @@ def _resolve_payment_impacts(
 
         if direction == "credit":
             if orig_ref in col_refs:
-                impacts.append(AccountImpact(column_ref=orig_ref, direction="out", amount=amount))
+                impacts.append(
+                    AccountImpact(column_ref=orig_ref, direction="out", amount=amount, fi_role="ODFI")
+                )
             if recv_ref and recv_ref in col_refs:
-                impacts.append(AccountImpact(column_ref=recv_ref, direction="in", amount=amount))
+                impacts.append(
+                    AccountImpact(column_ref=recv_ref, direction="in", amount=amount, fi_role="RDFI")
+                )
         else:
             if recv_ref and recv_ref in col_refs:
-                impacts.append(AccountImpact(column_ref=recv_ref, direction="out", amount=amount))
+                impacts.append(
+                    AccountImpact(column_ref=recv_ref, direction="out", amount=amount, fi_role="RDFI")
+                )
             if orig_ref in col_refs:
-                impacts.append(AccountImpact(column_ref=orig_ref, direction="in", amount=amount))
+                impacts.append(
+                    AccountImpact(column_ref=orig_ref, direction="in", amount=amount, fi_role="ODFI")
+                )
 
     elif rtype == "incoming_payment_detail":
         ia_ref = payload.get("internal_account_id", "")
+        orig_ref = payload.get("originating_account_id", "") or ""
+        if orig_ref and orig_ref in col_refs:
+            impacts.append(
+                AccountImpact(column_ref=orig_ref, direction="out", amount=amount, fi_role="ODFI")
+            )
         if ia_ref in col_refs:
-            impacts.append(AccountImpact(column_ref=ia_ref, direction="in", amount=amount))
+            impacts.append(
+                AccountImpact(column_ref=ia_ref, direction="in", amount=amount, fi_role="RDFI")
+            )
 
     elif rtype == "expected_payment":
         ia_ref = payload.get("internal_account_id", "")
-        if ia_ref in col_refs:
-            impacts.append(AccountImpact(column_ref=ia_ref, direction="in", amount=amount))
+        orig_ref = payload.get("originating_account_id", "") or ""
+        ep_dir = payload.get("direction", "credit")
+        if ep_dir == "credit":
+            if orig_ref and orig_ref in col_refs:
+                impacts.append(
+                    AccountImpact(column_ref=orig_ref, direction="out", amount=amount, fi_role="ODFI")
+                )
+            if ia_ref in col_refs:
+                impacts.append(
+                    AccountImpact(column_ref=ia_ref, direction="in", amount=amount, fi_role="RDFI")
+                )
+        else:
+            if ia_ref in col_refs:
+                impacts.append(
+                    AccountImpact(column_ref=ia_ref, direction="out", amount=amount, fi_role="RDFI")
+                )
+            if orig_ref and orig_ref in col_refs:
+                impacts.append(
+                    AccountImpact(column_ref=orig_ref, direction="in", amount=amount, fi_role="ODFI")
+                )
 
     elif rtype in ("return", "reversal"):
         pass

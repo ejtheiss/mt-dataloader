@@ -1450,6 +1450,20 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 }
 .flow-td-debit { border-right: 1px solid var(--border); }
 
+.flow-account-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+.flow-fi-role {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text-muted, #64748b);
+    line-height: 1.1;
+}
+
 .entry-amount {
     font-size: 0.82rem; font-weight: 500; color: var(--text);
     padding: 2px 8px; border: 1px solid var(--border);

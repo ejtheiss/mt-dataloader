@@ -1,11 +1,26 @@
 # Funds Flow Step Field Reference
 
-Every step shares: `step_id`, `type`, `description`, `depends_on`, `timing`, `metadata`.
+Almost every step shares authoring-time fields: `step_id`, `type`, `description`,
+`depends_on`, `timing`, `metadata`. **Not all of those survive onto every compiled
+flat resource:** for `verify_external_account`, `complete_verification`, and
+`archive_resource`, the flat rows **do not** include `description` or `timing`. A
+current emitter **strips** those keys on emit (same pattern as `description` on
+return/reversal/TLT) while keeping them on internal IR for Mermaid.
 
-**Root JSON:** Not every `type` has a matching top-level `DataLoaderConfig` array.
-`verify_external_account`, `complete_verification`, and `archive_resource` are
-**steps only** — never emit `verify_external_accounts[]`, `complete_verifications[]`,
-or `archive_resources[]` at the root (`decision_rubrics.md` § Root JSON).
+**Default for generation:** **omit** `description` and `timing` on verify, complete,
+and archive steps unless you **explicitly** want richer Mermaid labels — that
+avoids relying on a particular compiler build and matches minimal valid payloads.
+If you **do** include `description` and still see `extra_forbidden` on compiled flat
+rows, the running app likely lacks the strip pass; upgrade the emitter or remove
+those fields from the authored steps.
+
+**Authoring vs flat config:** `verify_external_account`, `complete_verification`, and
+`archive_resource` are **authored only** as **`funds_flows[].steps`** (and
+`optional_groups`). The compiler lowers them into top-level **`verify_external_accounts[]`**,
+**`complete_verifications[]`**, and **`archive_resources[]`** on the flat
+`DataLoaderConfig` — same lifecycle pattern as `payment_order` → `payment_orders[]`.
+Do **not** hand-write those root arrays in model-generated JSON unless you are **editing
+compiled output** (`decision_rubrics.md` § Root JSON, *Flat vs authoring*).
 
 ## Raw `incoming_payment_details[]` vs Funds Flow IPD steps
 
@@ -65,6 +80,7 @@ simulation API does not take that field on the saved IPD object the same way).
 - IPD `direction` is always `"credit"`. For ACH collections use a PO with `direction: "debit"`.
 - ACH debit PO: `originating_account_id` = IA receiving funds, `receiving_account_id` = EA being debited.
 - **`sandbox_behavior`** belongs only on **counterparty inline `accounts[]`**, not on **`external_accounts[]`** standalone resources.
+- **Stablecoin wallet counterparties:** inline `accounts[]` use **`wallet_account_number_type`** (sandbox demo address) **or** explicit **`account_details`** with `account_number` + network **`account_number_type`** (`ethereum_address`, `base_address`, `polygon_address`, `arbitrum_one_address`, `solana_address`, `stellar_address`). **No** `routing_details`. **Never** combine **`sandbox_behavior`** with wallet helpers on the same account. Full MT-aligned shape: **`decision_rubrics.md`** § *Stablecoin wallet accounts*.
 
 ## Step types summary
 

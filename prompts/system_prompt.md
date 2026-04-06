@@ -45,7 +45,9 @@ sent to `POST /api/validate-json` without editing.
    `incoming_payment_details`, `expected_payments`, `ledger_transactions`,
    `returns`, `reversals`, or `transition_ledger_transactions`. **Never** add
    root keys `verify_external_accounts`, `complete_verifications`, or
-   `archive_resources` — those operations are **steps only**. Include self-bootstrapping static resources
+   `archive_resources` when authoring — express those as **`funds_flows` steps**;
+   the compiler emits the flat sections (same pipeline as `payment_orders`, not
+   schema-only recognition). Include self-bootstrapping static resources
    (`connections`, `internal_accounts`, counterparties, ledgers, etc.) that
    flows reference.
 
@@ -61,9 +63,10 @@ object easy to copy:
 
 1. **Deliver one root object** -- Top-level keys must match `DataLoaderConfig`
    (see schema). You **author** `funds_flows` plus static/bootstrap sections;
-   lifecycle sections (`payment_orders`, `incoming_payment_details`, etc.) are
+   lifecycle sections (`payment_orders`, `incoming_payment_details`, …,
+   `verify_external_accounts`, `complete_verifications`, `archive_resources`, etc.) are
    normally **omitted** from your JSON and filled by compilation — do not treat
-   hand-written top-level PO/IPD lists as the primary format.
+   hand-written top-level lifecycle lists as the primary format.
 
 2. **Wrapping** -- Put the config in a single ` ```json ` ... ` ``` ` fenced
    block, **or** output raw JSON with **no** characters before `{` or after
@@ -249,12 +252,15 @@ Every money-moving demo —
 including the smallest "hello world" — needs a non-empty **`funds_flows`**
 array with at least one flow and steps (see `psp_minimal.json`).
 
-**No root arrays for verification or archive steps:** `verify_external_account`,
-`complete_verification`, and `archive_resource` are **only** valid as objects
-inside **`funds_flows[].steps`** (and optional groups). **`DataLoaderConfig` has
-no** `verify_external_accounts`, `complete_verifications`, or
-`archive_resources` keys — adding them causes **`extra_forbidden`**. Do not
-pluralize a step type into a top-level section name unless the schema lists it.
+**Verification and archive — authoring vs compile:** `verify_external_account`,
+`complete_verification`, and `archive_resource` are **authored only** inside
+**`funds_flows[].steps`** (and optional groups). The compiler emits matching top-level
+**`verify_external_accounts[]`**, **`complete_verifications[]`**, and
+**`archive_resources[]`** on the flat `DataLoaderConfig` (they are real schema fields
+after compile — same idea as `payment_orders[]`). Do **not** hand-author those root
+arrays in generated JSON; reserve them for **compiled or hand-merged** flat configs.
+Do not invent **other** pluralized step-type root keys that the schema does not define
+— those stay **`extra_forbidden`** (`decision_rubrics.md` § Root JSON).
 
 ### Funds Flow JSON structure
 
@@ -376,12 +382,20 @@ Every step has these **common fields**: `step_id` (required), `type`
 
 **Verification steps:** Use **`external_account_ref`** only (`@actor:...` or `$ref:external_account.<key>`). Not `external_account_id`.
 
+**`description` / `timing` on verify, complete, archive steps:** **Default: omit**
+both unless you want custom Mermaid labels — minimal steps validate everywhere.
+When present, a current emitter **strips** them from flat
+`verify_external_accounts` / `complete_verifications` / `archive_resources` rows
+(resource schemas omit those keys; same idea as `description` on return/reversal/TLT).
+Persistent `extra_forbidden` on those flat rows after authoring with `description`
+usually means an **older build** without that strip pass.
+
 **Step vs raw resource fields:**
 - **Date fields differ:** PO and LT use `effective_date`; IPD uses `as_of_date`; EP uses `date_lower_bound`/`date_upper_bound`. Do NOT use `effective_date` on an IPD step.
 - **Accounts:** PO: `originating_account_id` + `receiving_account_id`. **Raw** `incoming_payment_details[]`: `internal_account_id` only (+ optional `originating_account_number` / `originating_routing_number`); no `originating_account_id`. **IPD steps** in `funds_flows`: may use `originating_account_id` + `internal_account_id` (stripped on emit). IPD steps: no `receiving_account_id`.
 - **Direction:** IPD direction is always `"credit"` (inbound). PO direction can be `"credit"` or `"debit"`.
 - **ACH debit PO (collection):** `direction: "debit"`, `originating_account_id` = IA receiving funds, `receiving_account_id` = counterparty EA being debited.
-- **Inline counterparty `accounts[]` vs standalone `external_accounts[]`:** Different schemas. **`sandbox_behavior`** (and `sandbox_return_code`) are valid only on **inline** counterparty accounts, not on **`external_accounts[]`** rows. Do not copy fields from one shape to the other unless both schemas allow them.
+- **Inline counterparty `accounts[]` vs standalone `external_accounts[]`:** Different schemas. **`sandbox_behavior`** (and `sandbox_return_code`) are valid only on **inline** counterparty **bank** accounts, not on **`external_accounts[]`** rows. **Stablecoin wallet** inline accounts use **`wallet_account_number_type`** or explicit **`account_details`** (network **`account_number_type`**, no ABA routing) — never **`sandbox_behavior`** on the same row. See **`decision_rubrics.md`** § *Stablecoin wallet accounts*. Do not copy fields from one shape to the other unless both schemas allow them.
 
 ### `optional_groups` — lifecycle variants
 
