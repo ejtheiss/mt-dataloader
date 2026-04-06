@@ -56,7 +56,7 @@ simulation API does not take that field on the saved IPD object the same way).
 }
 ```
 
-## Common field mistakes
+## Easy field errors
 
 - IPD uses `as_of_date`, NOT `effective_date`. PO and LT use `effective_date`.
 - IPD uses `internal_account_id`, NOT `receiving_account_id`. PO uses `receiving_account_id`.

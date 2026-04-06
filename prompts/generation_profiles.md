@@ -1,12 +1,8 @@
-# Config scope (for the LLM)
+# Config scope
 
-**What this document is for:** Decide **how large** the config should be and **which
-sections to include**—*before* you write JSON. It does **not** replace
-`decision_rubrics.md` (which MT object to use) or `ordering_rules.md` (DAG /
-`depends_on`). Use those after you know the scope.
-
-**What this document is not:** JSON Schema, field-level rules, or naming—those
-come from `/api/schema`, `naming_conventions.md`, and `system_prompt.md` rules.
+Pick **how large** the config is and **which sections** to include before writing JSON.
+After scope, use `decision_rubrics.md` (which MT object) and `ordering_rules.md` (DAG / `depends_on`).
+Field-level rules: `GET /api/schema`, `naming_conventions.md`, `system_prompt.md`.
 
 ---
 

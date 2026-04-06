@@ -88,8 +88,7 @@ object easy to copy:
 
 ## Config scope (breadth before JSON)
 
-<!-- Paste prompts/generation_profiles.md in full. Default to demo-rich (B) if
-     unspecified. -->
+<!-- Paste `prompts/generation_profiles.md`. Default scope B if unspecified. -->
 
 <PASTE_GENERATION_PROFILE_HERE>
 
@@ -97,8 +96,7 @@ object easy to copy:
 
 ## JSON schema
 
-<!-- Paste the output of GET /api/schema here. The schema is large (~31KB) but
-     is the authoritative list of fields, enums, and required keys. -->
+<!-- Paste `GET /api/schema` response (authoritative fields and enums). -->
 
 <PASTE_SCHEMA_HERE>
 
@@ -130,8 +128,7 @@ object easy to copy:
 
 ## Metadata patterns
 
-<!-- Paste the relevant vertical section from prompts/metadata_patterns.md, or
-     the full file if vertical is unknown. -->
+<!-- Paste `prompts/metadata_patterns.md` (full file or one vertical). -->
 
 <PASTE_METADATA_PATTERNS_HERE>
 
@@ -139,15 +136,13 @@ object easy to copy:
 
 ## Few-shot examples
 
-Paste from repo (trim only if size-constrained):
-
 | File | Use when |
 |------|----------|
 | `examples/funds_flow_demo.json` | **Funds Flows DSL starter.** Deposit → settle → post lifecycle with actors, ledger entries, and an optional return edge case. Shows `optional_groups`, `@actor:` syntax, and `transition_ledger_transaction`. |
 | `examples/marketplace_demo.json` | **PSP marketplace with instance resources.** Buyer/seller user frames, `instance_resources` (LEs, CPs, wallets), ACH deposit → book fee → book settle → ACH payout, with an NSF `return` edge case via `optional_groups`. No ledger. |
 | `examples/psp_minimal.json` | **Smallest Funds Flow:** two direct actors, two IAs, **one `funds_flows` entry** with a single `book` PO **step** — not raw top-level `payment_orders[]` alone. |
 | `examples/stablecoin_ramp.json` | **Fiat↔stablecoin on/off-ramp.** One `modern_treasury` connection, USD + USDC internal accounts, IPD/PO steps only (no ledger), mutually exclusive payout alternatives (ACH/RTP/Wire via `exclusion_group` + `position: "replace"`). |
-| `examples/staged_demo.json` | **Pre-staged JSON example** (every money step has `staged: true`). Prefer **non-staged** authoring + **UI** live-fire for SE demos; use this file only when you need JSON that already embeds staging. |
+| `examples/staged_demo.json` | All money steps use `staged: true` in JSON. Default authoring omits `staged`; use run **UI** for live-fire unless you need this shape. |
 | `examples/tradeify.json` | **Ledger-heavy brokerage PSP.** Per-user `instance_resources` (LE + CP + IA + LAs + category memberships), USDG reserve/rewards ledger, NinjaTrader direct actor with EAs, three optional groups (ACH cashout, wire funding, staged return). |
 
 <PASTE_EXAMPLES_HERE>
@@ -167,9 +162,7 @@ Paste from repo (trim only if size-constrained):
    `connection_id` for **all** IAs on that PSP (USD, CAD, USDC, USDG, book /
    ACH / stablecoin rails as needed). See **`examples/stablecoin_ramp.json`**.
    Avoid extra `connections[]` unless **BYOB** or a real second bank
-   (`decision_rubrics.md`). The reconciler maps to existing org connections when
-   possible. **BYOB only:** `example1` / `example2` per `decision_rubrics.md` —
-   not for generic PSP demos.
+   (`decision_rubrics.md`).    **BYOB only:** `example1` / `example2` per `decision_rubrics.md` — not for generic PSP demos.
 
 2. **`sandbox_behavior` on counterparties** -- If the config includes
    `counterparties` with inline `accounts[]` used for PO demos, set
@@ -189,18 +182,12 @@ Paste from repo (trim only if size-constrained):
 
 6. **Credit POs** -- Require `receiving_account_id` (validator enforces).
 
-7. **Legal entities -- compliance is auto-managed** -- The dataloader **always
-   overwrites** `identifications`, `addresses`, `documents`, and date/country
-   defaults with sandbox-safe mock data. **Never include** these fields in
-   your JSON -- they will be silently replaced. For a **business**: just `ref`,
-   `legal_entity_type`, `business_name` (optional `legal_structure`). For an
-   **individual**: just `ref`, `legal_entity_type`, `first_name`, `last_name`
-   (optional `email`). Add `metadata` for demo context.
-   **Never author `connection_id` on `legal_entities[]` for PSP (`modern_treasury`)**
-   — it is **not** part of the DSL the model should output; the executor injects
-   the `modern_treasury` connection UUID at run time (`decision_rubrics.md`). Treat
-   LE `connection_id` as **BYOB-only:** output it only when a BYOB / doc-specific
-   scenario explicitly requires it on legal-entity create.
+7. **Legal entities** -- Omit `identifications`, `addresses`, `documents` (mocked at run).
+   **Business:** `ref`, `legal_entity_type`, `business_name` (optional `legal_structure`).
+   **Individual:** `ref`, `legal_entity_type`, `first_name`, `last_name` (optional `email`).
+   Optional `metadata`.
+   **Omit `connection_id` on `legal_entities[]` for `modern_treasury` / default PSP** (`decision_rubrics.md`).
+   **Include `connection_id` on LE only for BYOB** when the scenario requires it.
 
 8. **Internal accounts need `legal_entity_id`** -- Every internal account
    **must** include a `legal_entity_id` ref. For per-user wallets, reference
@@ -244,15 +231,12 @@ Paste from repo (trim only if size-constrained):
 
     **Rules (when `staged` appears in JSON):**
     - A **non-staged** resource must **never** depend (via `$ref:` or
-      `depends_on`) on a staged resource or its child refs. The validator
-      rejects this because the staged resource won't exist yet.
+      `depends_on`) on a staged resource or its child refs (validator error).
     - A staged resource **may** depend on non-staged resources (their IDs
       are resolved during the run).
-    - A staged resource must **not** have data-field `$ref:` dependencies
-      on **other** staged resources (the engine cannot resolve IDs that
-      don't exist yet). Use `depends_on` for ordering between staged items.
-    - For walkthrough demos without `staged` in JSON, the presenter stages
-      or fires from the **UI** instead.
+    - A staged resource must **not** use data-field `$ref:` to **other** staged
+      resources. Use `depends_on` between staged steps.
+    - Without `staged` in JSON, use **run UI** for live-fire.
 
 ---
 
@@ -328,12 +312,8 @@ Step payloads use `@actor:frame.slot` syntax:
 
 ### `instance_resources` — per-instance infrastructure templates
 
-`{instance}` and other placeholders (`{first_name}`, `{last_name}`, etc.) are
-expanded via `deep_format_map()` on **all flows**, not just those with
-`instance_resources`. This means actor slot refs like
-`"$ref:ledger_account.customer_{instance}_usd"` work even in flows that don't
-define their own `instance_resources` block (e.g., a second flow that references
-resources created by the first flow's `instance_resources`).
+Placeholders (`{instance}`, `{first_name}`, `{last_name}`, …) expand in **all** flows.
+Actor slot refs may use `{instance}` across flows (e.g. resources created in one flow, referenced in another).
 
 Use `instance_resources` when a flow needs to **create** per-instance
 infrastructure (legal entities, counterparties, internal accounts, ledger
@@ -356,9 +336,8 @@ accounts) rather than just reference them:
 Available placeholders: `{instance}` (zero-padded 4-digit), `{first_name}`,
 `{last_name}`, `{business_name}`, `{industry}`, `{country}`.
 
-Placeholders are resolved from seed profiles at generation time via `deep_format_map()`,
-which runs on all flows. Actor slot refs can use `{instance}` in any flow
-(e.g., `"$ref:internal_account.buyer_{instance}_wallet"`).
+Seed profiles supply placeholder values at generation/compile. Actor slots may use
+`{instance}` in any flow (e.g. `"$ref:internal_account.buyer_{instance}_wallet"`).
 
 ### Step types
 
@@ -395,11 +374,11 @@ Every step has these **common fields**: `step_id` (required), `type`
 | `complete_verification` | **`external_account_ref`** (required), `staged` (default `true`) |
 | `archive_resource` | `resource_type`, **`resource_ref`** (required), `archive_method` (default `delete`) |
 
-**Verification / archive steps — not MT API field names:** Use **`external_account_ref`** in funds-flow JSON (`@actor:frame.slot` or `$ref:external_account.<key>`). Do **not** use `external_account_id` on these steps; the schema rejects it. Handlers resolve the ref to an MT ID before SDK calls.
+**Verification steps:** Use **`external_account_ref`** only (`@actor:...` or `$ref:external_account.<key>`). Not `external_account_id`.
 
-**Critical field differences between step types (common mistakes):**
+**Step vs raw resource fields:**
 - **Date fields differ:** PO and LT use `effective_date`; IPD uses `as_of_date`; EP uses `date_lower_bound`/`date_upper_bound`. Do NOT use `effective_date` on an IPD step.
-- **Account fields differ:** PO uses `originating_account_id` + `receiving_account_id`. **Raw** top-level `incoming_payment_details[]` items use **`internal_account_id` only** (plus optional `originating_account_number` / `originating_routing_number` for some types) — **never** `originating_account_id` on those rows. **Funds Flow** IPD **steps** may use `originating_account_id` + `internal_account_id` (external sender + destination IA); the compiler strips `originating_account_id` when emitting. Do NOT use `receiving_account_id` on an IPD step.
+- **Accounts:** PO: `originating_account_id` + `receiving_account_id`. **Raw** `incoming_payment_details[]`: `internal_account_id` only (+ optional `originating_account_number` / `originating_routing_number`); no `originating_account_id`. **IPD steps** in `funds_flows`: may use `originating_account_id` + `internal_account_id` (stripped on emit). IPD steps: no `receiving_account_id`.
 - **Direction:** IPD direction is always `"credit"` (inbound). PO direction can be `"credit"` or `"debit"`.
 - **ACH debit PO (collection):** `direction: "debit"`, `originating_account_id` = IA receiving funds, `receiving_account_id` = counterparty EA being debited.
 - **Inline counterparty `accounts[]` vs standalone `external_accounts[]`:** Different schemas. **`sandbox_behavior`** (and `sandbox_return_code`) are valid only on **inline** counterparty accounts, not on **`external_accounts[]`** rows. Do not copy fields from one shape to the other unless both schemas allow them.

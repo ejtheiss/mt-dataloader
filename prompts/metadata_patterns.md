@@ -21,10 +21,10 @@ similar) for display text; the **counterparty** row has `name`.
 
 ---
 
-## What the Flow Compiler Provides Automatically
+## Trace metadata (from the flow)
 
-Each step in a `funds_flows` block gets trace metadata injected from the flow's
-`trace_key` and `trace_value_template`:
+Each `funds_flows` step gets trace metadata from the flow's `trace_key` and
+`trace_value_template`:
 
 ```json
 {
@@ -33,9 +33,8 @@ Each step in a `funds_flows` block gets trace metadata injected from the flow's
 }
 ```
 
-This produces metadata like `{"deal_id": "DEAL-marketplace__0042"}` on every
-resource the flow creates. You do **not** need to manually add metadata to
-individual steps for tracing — the compiler handles it.
+Example result: `{"deal_id": "DEAL-marketplace__0042"}` on emitted resources.
+Do not duplicate trace keys on individual steps unless you need extras beyond the template.
 
 ---
 
@@ -80,9 +79,8 @@ template variables that are resolved per-instance during generation.
 }
 ```
 
-Variables are resolved by `deep_format_map` during compilation (runs on all
-flows, not just those with `instance_resources`). Unknown variables produce
-empty strings rather than errors, so typos fail silently.
+Placeholders in descriptions resolve at **compile** on all flows. Unknown
+placeholder names become **empty strings** — verify spelling against seed keys.
 
 ---
 
@@ -93,5 +91,4 @@ empty strings rather than errors, so typos fail silently.
    fields for structural references.
 3. **Keep it minimal** — the SE adds domain-specific keys in the config UI.
    Generated configs should have at most 1-2 metadata keys per resource.
-4. **Don't duplicate trace metadata** — the flow compiler injects `trace_key`
-   values automatically; don't re-add them manually.
+4. **Don't duplicate trace metadata** — `trace_key` / `trace_value_template` on the flow already set trace fields on emitted resources.

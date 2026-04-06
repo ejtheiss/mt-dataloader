@@ -24,7 +24,7 @@ not enabled, or payload/rail mismatch). **Typical dataloader fix:** use **one**
 PSP (USD + USDC can share it — see `examples/stablecoin_ramp.json`). Confirm
 `entity_id` is `modern_treasury` for default PSP demos (not BYOB unless
 intended). For legal-entity create on PSP: **do not** put `connection_id` in
-authored JSON — the executor injects it (`decision_rubrics.md`). BYOB: include
+authored JSON (`decision_rubrics.md`). BYOB: include
 `connection_id` on LE only when your scenario requires it.
 
 ### `ref` / `value_error` — Invalid ref format
@@ -50,15 +50,12 @@ Check the schema for typos or unknown fields. Common causes:
   `ledger_transaction` accept `effective_date`.
 - **`receiving_account_id` on an `incoming_payment_detail` step:** IPD uses
   `internal_account_id`, not `receiving_account_id`.
-- **`originating_account_id` on a raw `incoming_payment_details[]` item:** The
-  resource schema has no such field (only optional `originating_account_number`
-  / `originating_routing_number` for some rails). The loader strips this key if
-  present so validation matches Funds Flow emit behavior. For inbound “from
-  wallet” stories, use `depends_on` ordering and counterparty POs; do not mirror
-  PO account fields onto IPD rows. In **`funds_flows`** IPD **steps**,
-  `originating_account_id` is still valid DSL and is stripped when compiled.
-- **`originating_account_id` on a raw `expected_payments[]` item:** Same as
-  IPD — not in the EP resource model; stripped if present.
+- **`originating_account_id` on a raw `incoming_payment_details[]` item:** Remove
+  it — not in the resource schema (optional `originating_account_number` /
+  `originating_routing_number` only for some rails). **`funds_flows`** IPD
+  **steps** may include `originating_account_id` (DSL only).
+- **`originating_account_id` on a raw `expected_payments[]` item:** Remove — not
+  in the EP resource model.
 - **Wrong field on any `funds_flows` step:** Each step `type` has a strict
   set of allowed fields. See the step field reference table in the prompt.
 - **`extra_forbidden` on `external_account_id` in `verify_external_account` or

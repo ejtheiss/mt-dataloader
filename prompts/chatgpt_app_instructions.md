@@ -14,7 +14,7 @@ Single root object; wrap in ` ```json ``` `. No comments, trailing commas, `unde
 
 ## Funds Flows only (mandatory)
 
-Author **all** money movement in **`funds_flows`** (`steps` + `optional_groups`). Do **not** hand-write top-level `payment_orders`, `incoming_payment_details`, `expected_payments`, `ledger_transactions`, `returns`, `reversals` (compiler emits those). Require non-empty `funds_flows` with ≥1 flow and ≥1 step when money moves.
+Author **all** money movement in **`funds_flows`** (`steps` + `optional_groups`). Do **not** hand-write top-level `payment_orders`, `incoming_payment_details`, `expected_payments`, `ledger_transactions`, `returns`, `reversals`, `transition_ledger_transactions` (compiler emits those). Require non-empty `funds_flows` with ≥1 flow and ≥1 step when money moves.
 
 **Top level allowed:** static/bootstrap only — `connections`, `legal_entities`, `counterparties`, `internal_accounts`, `external_accounts`, ledgers/LAs/categories/VAs as needed, per-flow `instance_resources`, plus **`funds_flows`**. **Never** add `verify_external_accounts`, `complete_verifications`, or `archive_resources` at the root — those step types exist **only** inside `funds_flows[].steps` (`decision_rubrics.md` § Root JSON).
 
@@ -28,16 +28,16 @@ Author **all** money movement in **`funds_flows`** (`steps` + `optional_groups`)
 2. `sandbox_behavior` on every CP inline `accounts[]` used in PO demos.
 3. Amounts in cents (`10000` = $100).
 4. Book PO: `type: book`, `direction: credit`, both IAs. Credit POs need `receiving_account_id`.
-5. **Legal entities (PSP):** never `identifications`/`addresses`/`documents`. Business: `ref`, `legal_entity_type`, `business_name`. Individual: + `first_name`, `last_name`. Optional `metadata`. Use a **clear** `ref` (e.g. `acme_payments`, `psp_operator`, `platform_entity`) — **not** bare `platform` (ambiguous). **Do not** put `connection_id` on `legal_entities[]` for **`modern_treasury` / PSP** — it is **not** part of the authored DSL; the executor injects it at run time. **`connection_id` on LE objects is BYOB-only:** include it only when a BYOB or MT-doc scenario explicitly requires it on legal-entity create (`decision_rubrics.md`).
+5. **Legal entities (PSP):** omit `identifications`/`addresses`/`documents`. Business: `ref`, `legal_entity_type`, `business_name`. Individual: + `first_name`, `last_name`. Optional `metadata`. Use a clear `ref` (e.g. `acme_payments`), not bare `platform`. Omit `connection_id` on `legal_entities[]` for **`modern_treasury`**; add only for **BYOB** when required (`decision_rubrics.md`).
 6. Every IA needs `legal_entity_id`.
 7. EPs: `reconciliation_rule_variables` (`internal_account_id`, `direction`, `amount_lower_bound`, `amount_upper_bound`, `type`).
 8. Metadata values = strings; no `$ref:` inside metadata.
 9. PSP default: omit EPs, VAs, `ledger*` unless asked.
-10. **IPD:** only as `incoming_payment_detail` **steps**; `sandbox_behavior` is for POs. IPD steps: `originating_account_id` + `internal_account_id` per `step_field_reference.md` (compiler strips `originating_account_id` on emit). Compiled IPD fixes: `validation_fixes.md`.
+10. **IPD:** only as `incoming_payment_detail` **steps**; `sandbox_behavior` applies to POs. IPD steps: `originating_account_id` + `internal_account_id` per `step_field_reference.md`. Raw `incoming_payment_details[]` rows: no `originating_account_id`. See `validation_fixes.md`.
 11. EP+IPD: IPD step `depends_on` EP. Same-wallet debits: order with `depends_on`.
 12. No `name` on CP inline accounts — `party_name`.
 13. **Staged:** Omit `staged` on PO/IPD/EP/LT unless the user explicitly wants it in JSON; SE uses the **UI** for live-fire. If `staged` is present: only those types; non-staged must not depend on staged; no data-field `$ref:` between staged items (`ordering_rules.md`).
-14. **Verification steps:** `verify_external_account` and `complete_verification` require **`external_account_ref`** (`@actor:...` or `$ref:external_account...`). Never **`external_account_id`** — that name matches MT APIs but is **rejected** in funds-flow JSON (`step_field_reference.md`). **`archive_resource`** uses `resource_type`, `resource_ref`, optional `archive_method`.
+14. **Verification steps:** `verify_external_account` / `complete_verification` use **`external_account_ref`** only (`@actor:...` or `$ref:external_account...`). Not `external_account_id`. **`archive_resource`:** `resource_type`, `resource_ref`, optional `archive_method` (`step_field_reference.md`).
 15. **`sandbox_behavior`:** counterparty **inline `accounts[]` only** — never on **`external_accounts[]`** (`decision_rubrics.md`).
 
 ## Validation

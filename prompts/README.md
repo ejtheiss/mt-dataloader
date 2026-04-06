@@ -1,32 +1,22 @@
-# LLM prompt kit (`prompts/`)
+# Prompts (`prompts/`)
 
-These files are **not** loaded by the dataloader app. They configure an external
-LLM (ChatGPT custom app, API call, etc.) to generate valid `DataLoaderConfig`
-JSON.
+Reference material for tools that generate **`DataLoaderConfig`** JSON. Not loaded by the app at runtime.
 
 ---
 
-## Two usage modes
+## How to wire them
 
-### A. ChatGPT custom app (recommended)
+### A. ChatGPT custom app
 
-Use `chatgpt_app_instructions.md` as the **Instructions** field. Upload the
-remaining files as **Knowledge files** that the app retrieves on demand:
+**Instructions:** `chatgpt_app_instructions.md`. **Knowledge:** upload the rest for retrieval:
 
 | Instructions field | Knowledge files (upload all) |
 |---|---|
 | `chatgpt_app_instructions.md` | `decision_rubrics.md`, `naming_conventions.md`, `ordering_rules.md`, `metadata_patterns.md`, `generation_profiles.md`, `validation_fixes.md`, JSON schema from `GET /api/schema`, all `examples/*.json` |
 
-The instructions contain behavioral guidance, generation rules, output format,
-Funds Flows DSL step types, and the validation loop. The knowledge files are
-reference material retrieved as needed.
+### B. Single system message (API)
 
-### B. Monolithic system prompt (raw API)
-
-Use `system_prompt.md` as a template: paste each `<PASTE_*_HERE>` placeholder
-with the corresponding file contents + schema + examples. This produces one
-large (~50KB+) system message suitable for direct API calls where you control
-the full context window.
+Replace `<PASTE_*_HERE>` in `system_prompt.md` with the linked files, schema, and examples.
 
 ---
 
@@ -46,8 +36,7 @@ the full context window.
 **Ground truth for shape:** `GET /api/schema` + `POST /api/validate-json` + the
 files under `examples/`.
 
-**Contradictions:** Schema and validator win; then `decision_rubrics`; this
-README is descriptive only.
+**Precedence:** `GET /api/schema` and validators → `decision_rubrics.md` → this README.
 
 ---
 
@@ -59,5 +48,5 @@ README is descriptive only.
 | `marketplace_demo.json` | PSP marketplace: instance_resources, NSF return edge case |
 | `stablecoin_ramp.json` | Fiat↔stablecoin: one `modern_treasury` connection, USD + USDC IAs, exclusion_group payout alternatives |
 | `tradeify.json` | Ledger-heavy brokerage: categories, per-user scaling, USDG |
-| `staged_demo.json` | JSON with `staged: true` on steps (reference); SE demos usually use **UI** staging instead |
+| `staged_demo.json` | Every money step has `staged: true`; default authoring omits `staged` and uses run **UI** |
 | `psp_minimal.json` | Minimal book-transfer-only config |

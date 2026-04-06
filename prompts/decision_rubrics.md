@@ -1,10 +1,8 @@
 # Decision Rubrics: When to Use Each Modern Treasury Resource
 
-This document tells you which MT resource type to use for a given business
-intent. Every resource listed here maps to a top-level section in the
-DataLoaderConfig JSON **after compilation**.
+Which **Modern Treasury resource** to use for each intent, and how it appears in config.
 
-**Authoring rule:** You do **not** hand-write lifecycle resources in those
+**Authoring rule:** Do **not** hand-write lifecycle resources in these
 top-level arrays (`payment_orders`, `incoming_payment_details`,
 `expected_payments`, `ledger_transactions`, `returns`, `reversals`,
 `transition_ledger_transactions`). Express
@@ -156,12 +154,11 @@ Connections cannot be deleted.
 
 When the run uses **org discovery + reconciliation**, the engine **maps** your
 config `connections[].entity_id` to each live connection’s `vendor_id`. If
-nothing matches (common when the org was created outside this config), the
-reconciler **reuses an existing org connection** when it can (e.g. the only
-connection, or the best currency overlap with your internal accounts) so the run
-does **not** try to mint another sandbox connection.
+nothing matches (org created outside this config), the run **reuses** an
+existing org connection when possible instead of creating a duplicate sandbox
+connection.
 
-**Authoring guidance:** Use **one** `connections[]` entry by default
+**Authoring:** Use **one** `connections[]` entry by default
 (`modern_treasury`). Do **not** add connections “to be safe.” Extra connections
 are for **BYOB** or explicit multi-bank demos, not for splitting USD vs USDC on
 the same PSP.
@@ -177,31 +174,22 @@ A legal entity is a person or business. Required for KYC/KYB onboarding.
 the word “platform” in prose and is easy to mis-resolve in large configs
 (`naming_conventions.md`).
 
-### Legal entity `connection_id` — **never in PSP DSL**; **BYOB only** when required
+### Legal entity `connection_id`
 
-For **`modern_treasury` / default PSP** configs, **do not** author
-`connection_id` on `legal_entities[]` — it is **not** part of the Funds
-Flows / static JSON the model should emit (same category as “don’t invent LE
-compliance blobs”). With **one** `modern_treasury` connection row, the dataloader
-**omits** `connection_id` on `POST /legal_entities` (MT infers it). With **more
-than one** connection, the **executor** injects the correct `modern_treasury`
-UUID before create (fiat IA rail preferred).
+- **`modern_treasury` / default PSP:** Omit `connection_id` on `legal_entities[]`
+  in JSON. Create uses inferred or runtime-selected PSP connection.
+- **BYOB (`example1` / `example2`):** Include `connection_id` only when the
+  scenario requires it on legal-entity create; otherwise omit.
 
-**BYOB** (`example1` / `example2`): the executor does **not** inject LE
-`connection_id`. Include it in JSON **only** when your BYOB or MT documentation
-scenario explicitly requires that field on legal-entity create; otherwise omit and
-use MT defaults.
+### Legal entity — omit compliance blobs
 
-### Compliance fields are fully managed by the dataloader
-
-The dataloader **always overwrites** `identifications`, `addresses`, and
-`documents` with sandbox-safe mock data. Any values you provide for these
-fields are **silently replaced** — so **never include them** in the JSON.
+Omit `identifications`, `addresses`, and `documents` from JSON. The run fills
+sandbox-safe mock data for those shapes.
 
 | `legal_entity_type` | Fields you provide | Auto-managed / omit in DSL (do NOT include) |
 |---------------------|--------------------|-------------------------------|
-| `business` | `ref`, `legal_entity_type`, `business_name`, optional `legal_structure`, optional `metadata` | `identifications`, `addresses`, `documents`, `date_formed`, `country_of_incorporation`; **PSP:** never `connection_id` (omitted if sole MT; else executor injects) |
-| `individual` | `ref`, `legal_entity_type`, `first_name`, `last_name`, optional `email`, optional `metadata` | `identifications`, `addresses`, `documents`, `date_of_birth`, `citizenship_country`; **PSP:** never `connection_id` (omitted if sole MT; else executor injects) |
+| `business` | `ref`, `legal_entity_type`, `business_name`, optional `legal_structure`, optional `metadata` | Omit: `identifications`, `addresses`, `documents`, `date_formed`, `country_of_incorporation`. **PSP:** omit `connection_id` on `modern_treasury` unless BYOB requires it |
+| `individual` | `ref`, `legal_entity_type`, `first_name`, `last_name`, optional `email`, optional `metadata` | Omit: `identifications`, `addresses`, `documents`, `date_of_birth`, `citizenship_country`. **PSP:** omit `connection_id` on `modern_treasury` unless BYOB requires it |
 
 ```json
 {
@@ -648,10 +636,8 @@ state (up to 60s). Not all sandbox connections support reversals.
 
 ## Staged Resources (Cross-Cutting)
 
-**Config generation (LLM):** Default to **no** `staged` on PO/IPD/EP/LT. **Sales
-engineers** usually turn on live-fire / staged behavior from the **dataloader
-run UI** without editing JSON. Only embed `staged: true` when the author
-explicitly wants it in the file (e.g. `examples/staged_demo.json`).
+**Default:** Omit `staged` on PO/IPD/EP/LT. Live-fire is controlled from the **run UI**
+unless the config intentionally embeds `staged: true` (e.g. `examples/staged_demo.json`).
 
 Four resource types support `staged: true`: **payment_order**,
 **incoming_payment_detail**, **expected_payment**, and
