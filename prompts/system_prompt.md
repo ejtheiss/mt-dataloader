@@ -43,7 +43,9 @@ sent to `POST /api/validate-json` without editing.
    below). **Author all money movement only in `funds_flows`** (steps +
    `optional_groups`); do not hand-write top-level `payment_orders`,
    `incoming_payment_details`, `expected_payments`, `ledger_transactions`,
-   `returns`, or `reversals`. Include self-bootstrapping static resources
+   `returns`, `reversals`, or `transition_ledger_transactions`. **Never** add
+   root keys `verify_external_accounts`, `complete_verifications`, or
+   `archive_resources` — those operations are **steps only**. Include self-bootstrapping static resources
    (`connections`, `internal_accounts`, counterparties, ledgers, etc.) that
    flows reference.
 
@@ -258,9 +260,17 @@ Paste from repo (trim only if size-constrained):
 
 **You only author lifecycle behavior here.** Do not hand-write top-level
 `payment_orders`, `incoming_payment_details`, `expected_payments`,
-`ledger_transactions`, `returns`, or `reversals`. Every money-moving demo —
+`ledger_transactions`, `returns`, `reversals`, or `transition_ledger_transactions`.
+Every money-moving demo —
 including the smallest "hello world" — needs a non-empty **`funds_flows`**
 array with at least one flow and steps (see `psp_minimal.json`).
+
+**No root arrays for verification or archive steps:** `verify_external_account`,
+`complete_verification`, and `archive_resource` are **only** valid as objects
+inside **`funds_flows[].steps`** (and optional groups). **`DataLoaderConfig` has
+no** `verify_external_accounts`, `complete_verifications`, or
+`archive_resources` keys — adding them causes **`extra_forbidden`**. Do not
+pluralize a step type into a top-level section name unless the schema lists it.
 
 ### Funds Flow JSON structure
 

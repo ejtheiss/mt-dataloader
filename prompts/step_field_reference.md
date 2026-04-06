@@ -2,6 +2,11 @@
 
 Every step shares: `step_id`, `type`, `description`, `depends_on`, `timing`, `metadata`.
 
+**Root JSON:** Not every `type` has a matching top-level `DataLoaderConfig` array.
+`verify_external_account`, `complete_verification`, and `archive_resource` are
+**steps only** — never emit `verify_external_accounts[]`, `complete_verifications[]`,
+or `archive_resources[]` at the root (`decision_rubrics.md` § Root JSON).
+
 ## Raw `incoming_payment_details[]` vs Funds Flow IPD steps
 
 Top-level **`incoming_payment_details`** objects (hand-written or pasted JSON)

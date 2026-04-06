@@ -16,7 +16,7 @@ Single root object; wrap in ` ```json ``` `. No comments, trailing commas, `unde
 
 Author **all** money movement in **`funds_flows`** (`steps` + `optional_groups`). Do **not** hand-write top-level `payment_orders`, `incoming_payment_details`, `expected_payments`, `ledger_transactions`, `returns`, `reversals` (compiler emits those). Require non-empty `funds_flows` with ≥1 flow and ≥1 step when money moves.
 
-**Top level allowed:** static/bootstrap only — `connections`, `legal_entities`, `counterparties`, `internal_accounts`, `external_accounts`, ledgers/LAs/categories/VAs as needed, per-flow `instance_resources`.
+**Top level allowed:** static/bootstrap only — `connections`, `legal_entities`, `counterparties`, `internal_accounts`, `external_accounts`, ledgers/LAs/categories/VAs as needed, per-flow `instance_resources`, plus **`funds_flows`**. **Never** add `verify_external_accounts`, `complete_verifications`, or `archive_resources` at the root — those step types exist **only** inside `funds_flows[].steps` (`decision_rubrics.md` § Root JSON).
 
 **Step `depends_on`:** other **`step_id`** strings (not `$ref:` between steps). Details: `step_field_reference.md`.
 

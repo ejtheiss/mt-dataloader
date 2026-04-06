@@ -37,6 +37,11 @@ engine auto-prefixes the resource type (e.g. ref `acme_corp` becomes
 
 Check the schema for typos or unknown fields. Common causes:
 
+- **Root keys `verify_external_accounts`, `complete_verifications`, or
+  `archive_resources`:** Remove the entire key. These step types belong only
+  under **`funds_flows[].steps`** (and `optional_groups`). `DataLoaderConfig`
+  does not define those top-level arrays — the model rejects them as
+  **`extra_forbidden`**. Do not pluralize step types into root section names.
 - **`name` on `counterparties[].accounts[]`:** Remove it — the schema uses
   `extra="forbid"` on inline accounts. Use `party_name` or `metadata` for
   labels; the parent counterparty has `name`.

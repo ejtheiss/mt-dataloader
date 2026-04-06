@@ -6,9 +6,32 @@ DataLoaderConfig JSON **after compilation**.
 
 **Authoring rule:** You do **not** hand-write lifecycle resources in those
 top-level arrays (`payment_orders`, `incoming_payment_details`,
-`expected_payments`, `ledger_transactions`, `returns`, `reversals`). Express
+`expected_payments`, `ledger_transactions`, `returns`, `reversals`,
+`transition_ledger_transactions`). Express
 them only as **`funds_flows[].steps`** (and `optional_groups`). The compiler
 expands steps into the sections this document names.
+
+### Root JSON: which step types have a top-level array
+
+**The only lifecycle sections on authored / validated `DataLoaderConfig` are
+the ones defined by the schema** (see `GET /api/schema`). **Do not invent root
+keys** from step type names.
+
+| Step `type` | Top-level `DataLoaderConfig` key (if any) |
+|-------------|-------------------------------------------|
+| `payment_order` | `payment_orders` (compiler emit; do not hand-author) |
+| `incoming_payment_detail` | `incoming_payment_details` |
+| `expected_payment` | `expected_payments` |
+| `ledger_transaction` | `ledger_transactions` |
+| `return` | `returns` |
+| `reversal` | `reversals` |
+| `transition_ledger_transaction` | `transition_ledger_transactions` |
+| `verify_external_account` | **None** — only valid inside **`funds_flows[].steps`**. Never add `verify_external_accounts[]` at the root. |
+| `complete_verification` | **None** — only valid inside **`funds_flows[].steps`**. Never add `complete_verifications[]` at the root. |
+| `archive_resource` | **None** — only valid as a **step**. Never add `archive_resources[]` at the root. |
+
+**Do not infer** a root section name by pluralizing a step type. If the key is
+not in the schema, it is **`extra_forbidden`**.
 
 ---
 
