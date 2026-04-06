@@ -23,9 +23,33 @@ simulation API does not take that field on the saved IPD object the same way).
 | `return` | `returnable_id`, `code`, `reason`, `ledger_entries`, `ledger_inline`, `ledger_status` |
 | `reversal` | `payment_order_id`, `reason`, `ledger_entries`, `ledger_inline`, `ledger_status` |
 | `transition_ledger_transaction` | `ledger_transaction_id`, `status` (required) |
-| `verify_external_account` | `external_account_id`, `originating_account_id`, `payment_type` (default `"rtp"`) |
-| `complete_verification` | `external_account_id`, `staged` (default `true`) |
-| `archive_resource` | `target_ref`, `archive_method` (`delete` / `archive` / `request_closure`) |
+| `verify_external_account` | **`external_account_ref`** (required), `originating_account_id`, `payment_type` (default `"rtp"`), `currency`, `priority` |
+| `complete_verification` | **`external_account_ref`** (required), `staged` (default `true`) |
+| `archive_resource` | `resource_type`, **`resource_ref`** (required), `archive_method` (`delete` / `archive` / `request_closure`, default `delete`) |
+
+**Do not** use `external_account_id` on `verify_external_account` or `complete_verification` steps — the loader IR uses **`external_account_ref`** only; extra fields are rejected.
+
+## Canonical examples (verification steps)
+
+```json
+{
+  "step_id": "verify_payee_bank",
+  "type": "verify_external_account",
+  "external_account_ref": "$ref:external_account.payee_payout",
+  "originating_account_id": "@actor:direct_1.payments",
+  "payment_type": "ach"
+}
+```
+
+```json
+{
+  "step_id": "complete_payee_bank_verification",
+  "type": "complete_verification",
+  "depends_on": ["verify_payee_bank"],
+  "external_account_ref": "$ref:external_account.payee_payout",
+  "staged": true
+}
+```
 
 ## Common field mistakes
 
@@ -35,6 +59,7 @@ simulation API does not take that field on the saved IPD object the same way).
   rows (schema forbids it). It is only for **DSL** IPD steps under `funds_flows`.
 - IPD `direction` is always `"credit"`. For ACH collections use a PO with `direction: "debit"`.
 - ACH debit PO: `originating_account_id` = IA receiving funds, `receiving_account_id` = EA being debited.
+- **`sandbox_behavior`** belongs only on **counterparty inline `accounts[]`**, not on **`external_accounts[]`** standalone resources.
 
 ## Step types summary
 

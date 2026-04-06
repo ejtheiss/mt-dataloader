@@ -142,7 +142,7 @@ Paste from repo (trim only if size-constrained):
 | `examples/funds_flow_demo.json` | **Funds Flows DSL starter.** Deposit → settle → post lifecycle with actors, ledger entries, and an optional return edge case. Shows `optional_groups`, `@actor:` syntax, and `transition_ledger_transaction`. |
 | `examples/marketplace_demo.json` | **PSP marketplace with instance resources.** Buyer/seller user frames, `instance_resources` (LEs, CPs, wallets), ACH deposit → book fee → book settle → ACH payout, with an NSF `return` edge case via `optional_groups`. No ledger. |
 | `examples/psp_minimal.json` | **Smallest Funds Flow:** two direct actors, two IAs, **one `funds_flows` entry** with a single `book` PO **step** — not raw top-level `payment_orders[]` alone. |
-| `examples/stablecoin_ramp.json` | **Fiat↔stablecoin on/off-ramp.** One `modern_treasury` connection, USD + USDC internal accounts, ledger accounts for reserves/positions, inline LTs on POs, mutually exclusive payout alternatives (ACH/RTP/Wire via `exclusion_group` + `position: "replace"`). |
+| `examples/stablecoin_ramp.json` | **Fiat↔stablecoin on/off-ramp.** One `modern_treasury` connection, USD + USDC internal accounts, IPD/PO steps only (no ledger), mutually exclusive payout alternatives (ACH/RTP/Wire via `exclusion_group` + `position: "replace"`). |
 | `examples/staged_demo.json` | **Staged demo.** Marketplace with `staged: true` on all money-movement steps. Infrastructure creates normally; staged items get "Fire" buttons. |
 | `examples/tradeify.json` | **Ledger-heavy brokerage PSP.** Per-user `instance_resources` (LE + CP + IA + LAs + category memberships), USDG reserve/rewards ledger, NinjaTrader direct actor with EAs, three optional groups (ACH cashout, wire funding, staged return). |
 
@@ -357,6 +357,9 @@ which runs on all flows. Actor slot refs can use `{instance}` in any flow
 | `return` | Return | IPD return; set `returnable_id` (auto-derived from depended-on IPD if omitted) |
 | `reversal` | Reversal | PO reversal; set `payment_order_id` |
 | `transition_ledger_transaction` | TLT | Changes status of an existing LT; requires `status` (`pending`, `posted`, `archived`). `ledger_transaction_id` auto-derived from the depended-on step's inline LT if omitted. |
+| `verify_external_account` | EA verify | Micro-deposit verification; requires **`external_account_ref`** (not `external_account_id`) |
+| `complete_verification` | EA complete | Confirms verification; requires **`external_account_ref`**; `staged` defaults `true` |
+| `archive_resource` | Cleanup | `resource_type`, `resource_ref`, optional `archive_method` (`delete` / `archive` / `request_closure`) |
 
 ### Step field reference (strict — extra fields are rejected)
 
@@ -374,12 +377,18 @@ Every step has these **common fields**: `step_id` (required), `type`
 | `return` | `returnable_id`, `code`, `reason`, `ledger_entries`, `ledger_inline`, `ledger_status` |
 | `reversal` | `payment_order_id`, `reason`, `ledger_entries`, `ledger_inline`, `ledger_status` |
 | `transition_ledger_transaction` | `ledger_transaction_id`, `status` (required: `pending` / `posted` / `archived`) |
+| `verify_external_account` | **`external_account_ref`** (required), `originating_account_id`, `payment_type` (default `"rtp"`), `currency`, `priority` |
+| `complete_verification` | **`external_account_ref`** (required), `staged` (default `true`) |
+| `archive_resource` | `resource_type`, **`resource_ref`** (required), `archive_method` (default `delete`) |
+
+**Verification / archive steps — not MT API field names:** Use **`external_account_ref`** in funds-flow JSON (`@actor:frame.slot` or `$ref:external_account.<key>`). Do **not** use `external_account_id` on these steps; the schema rejects it. Handlers resolve the ref to an MT ID before SDK calls.
 
 **Critical field differences between step types (common mistakes):**
 - **Date fields differ:** PO and LT use `effective_date`; IPD uses `as_of_date`; EP uses `date_lower_bound`/`date_upper_bound`. Do NOT use `effective_date` on an IPD step.
 - **Account fields differ:** PO uses `originating_account_id` + `receiving_account_id`. **Raw** top-level `incoming_payment_details[]` items use **`internal_account_id` only** (plus optional `originating_account_number` / `originating_routing_number` for some types) — **never** `originating_account_id` on those rows. **Funds Flow** IPD **steps** may use `originating_account_id` + `internal_account_id` (external sender + destination IA); the compiler strips `originating_account_id` when emitting. Do NOT use `receiving_account_id` on an IPD step.
 - **Direction:** IPD direction is always `"credit"` (inbound). PO direction can be `"credit"` or `"debit"`.
 - **ACH debit PO (collection):** `direction: "debit"`, `originating_account_id` = IA receiving funds, `receiving_account_id` = counterparty EA being debited.
+- **Inline counterparty `accounts[]` vs standalone `external_accounts[]`:** Different schemas. **`sandbox_behavior`** (and `sandbox_return_code`) are valid only on **inline** counterparty accounts, not on **`external_accounts[]`** rows. Do not copy fields from one shape to the other unless both schemas allow them.
 
 ### `optional_groups` — lifecycle variants
 

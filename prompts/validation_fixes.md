@@ -56,6 +56,13 @@ Check the schema for typos or unknown fields. Common causes:
   IPD — not in the EP resource model; stripped if present.
 - **Wrong field on any `funds_flows` step:** Each step `type` has a strict
   set of allowed fields. See the step field reference table in the prompt.
+- **`extra_forbidden` on `external_account_id` in `verify_external_account` or
+  `complete_verification` steps:** Use **`external_account_ref`** instead (e.g.
+  `@actor:user_2.bank` or `$ref:external_account.<key>`). The loader IR does not
+  use `external_account_id` on these step payloads.
+- **`extra_forbidden` on `sandbox_behavior` in `external_accounts[]`:** Remove
+  it. **`sandbox_behavior`** is only valid on **counterparty inline `accounts[]`**,
+  not on standalone **`external_accounts[]`** rows.
 
 ### `address_types` / `identifications` / `documents` on legal entities
 

@@ -37,6 +37,8 @@ Author **all** money movement in **`funds_flows`** (`steps` + `optional_groups`)
 11. EP+IPD: IPD step `depends_on` EP. Same-wallet debits: order with `depends_on`.
 12. No `name` on CP inline accounts — `party_name`.
 13. **Staged:** PO/IPD/EP/LT only. Non-staged must not depend on staged; no data-field `$ref:` between staged items.
+14. **Verification steps:** `verify_external_account` and `complete_verification` require **`external_account_ref`** (`@actor:...` or `$ref:external_account...`). Never **`external_account_id`** — that name matches MT APIs but is **rejected** in funds-flow JSON (`step_field_reference.md`). **`archive_resource`** uses `resource_type`, `resource_ref`, optional `archive_method`.
+15. **`sandbox_behavior`:** counterparty **inline `accounts[]` only** — never on **`external_accounts[]`** (`decision_rubrics.md`).
 
 ## Validation
 

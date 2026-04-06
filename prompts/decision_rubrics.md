@@ -225,7 +225,21 @@ inline with the counterparty and auto-registered as child refs:
 
 **Allowed fields** on each `accounts[]` object include: `account_type`,
 `party_name`, `party_type`, `party_address`, `account_details`, `routing_details`,
-`metadata`, plus sandbox-only `sandbox_behavior` and `sandbox_return_code`.
+`metadata`, plus sandbox-only `sandbox_behavior` and `sandbox_return_code`, and
+`wallet_account_number_type` for **stablecoin wallet** counterparties (see below).
+
+### Stablecoin wallet accounts (Modern Treasury)
+
+For an external USDC (or other stablecoin) wallet, MT expects `accounts[].account_details`
+with `account_number` (the on-chain address) and `account_number_type` set to a
+network-specific value (e.g. `ethereum_address`, `base_address`, `polygon_address`,
+`arbitrum_one_address`, `solana_address`, `stellar_address`) — **not** ABA routing.
+
+- Use **`wallet_account_number_type`** on the inline account to auto-fill a demo
+  address and the correct `account_number_type` (no `routing_details`).
+- Or omit that helper and set **`account_details`** explicitly yourself.
+- **Do not** set `sandbox_behavior` on wallet accounts: it applies ACH test
+  account numbers and routing, which is the wrong shape for wallets.
 
 **Not allowed:** `name` on the inline account (schema uses `extra="forbid"`).
 The counterparty itself has `name`; for an account-level label use `party_name`
@@ -247,7 +261,9 @@ are auto-populated — you do not need to specify them. Set
 `sandbox_return_code` alongside `return` (e.g. `"R01"` for NSF).
 
 **When the config includes `counterparties`, set `sandbox_behavior` on every
-inline account used for outbound PO demos.** Without it, the sandbox may use
+inline **bank** account used for outbound ACH/wire/RTP PO demos.** Wallet
+counterparties use `wallet_account_number_type` or explicit `account_details`
+instead. Without bank sandbox flags where needed, the sandbox may use
 unpredictable outcomes. Configs with **no** counterparties (e.g. internal-only
 `book` transfers) do not need this.
 
@@ -292,6 +308,17 @@ already created, or when you need an account with a ledger account attached.
 Most demos use inline `accounts[]` on the counterparty instead. Use
 `external_accounts` only when you specifically need a standalone account
 or an inline ledger account.
+
+**`sandbox_behavior` is not valid on `external_accounts[]`.** It exists only on
+**counterparty inline `accounts[]`** (`CounterpartyAccountConfig`). Standalone
+external accounts must use normal `account_details` / `routing_details` (or
+omit them only if the story allows — see warnings in the schema). Do not add
+`sandbox_behavior` to `external_accounts[]` rows.
+
+**Inline vs standalone are not interchangeable:** fields allowed on
+counterparty inline accounts (e.g. `sandbox_behavior`, `wallet_account_number_type`)
+are **not** automatically valid on **`external_accounts[]`**. Use the schema for
+each shape; provide bank fields explicitly on standalone external accounts.
 
 ---
 
