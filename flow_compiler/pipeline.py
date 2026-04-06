@@ -179,7 +179,7 @@ def pass_render_diagrams(ctx: CompilationContext) -> CompilationContext:
 
 def pass_compute_view_data(ctx: CompilationContext) -> CompilationContext:
     """Pass 8: Compute per-view row/column data from FlowIR + config."""
-    from flow_views import compute_view_data as _compute
+    from .flow_views import compute_view_data as _compute
 
     flows = ctx.expanded_flows
     views = []
@@ -188,7 +188,7 @@ def pass_compute_view_data(ctx: CompilationContext) -> CompilationContext:
         if fc:
             views.append(_compute(ir, fc))
         else:
-            from flow_views import FlowViewData
+            from .flow_views import FlowViewData
 
             views.append(FlowViewData())
     return dataclasses.replace(ctx, view_data=tuple(views))

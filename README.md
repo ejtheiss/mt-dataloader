@@ -282,7 +282,7 @@ See `examples/staged_demo.json` for a working example and `prompts/decision_rubr
 | `examples/funds_flow_demo.json` | **Funds Flows DSL** starter: deposit → settle → post lifecycle with actors, ledger entries, and an optional return edge case. |
 | `examples/marketplace_demo.json` | PSP marketplace: buyer/seller user frames with instance resources (LEs, CPs, wallets), ACH deposit → book fee → book settle → ACH payout, with an NSF return edge case. |
 | `examples/psp_minimal.json` | Smallest useful **book** transfer between two internal accounts. Two direct actors, one step. |
-| `examples/stablecoin_ramp.json` | Fiat↔stablecoin on/off-ramp: one `modern_treasury` connection, USD + USDC internal accounts, ledger accounts for reserves/positions, inline LTs on POs, and mutually exclusive payout alternatives (ACH/RTP/Wire via `exclusion_group` with `position: "replace"`). |
+| `examples/stablecoin_ramp.json` | Fiat↔stablecoin on/off-ramp: one `modern_treasury` connection, USD + USDC internal accounts, IPD/PO steps only (no ledger), and mutually exclusive payout alternatives (ACH/RTP/Wire via `exclusion_group` with `position: "replace"`). |
 | `examples/staged_demo.json` | Marketplace with `staged: true` on all money-movement steps. Infrastructure creates normally; staged items get "Fire" buttons. |
 | `examples/tradeify.json` | **Ledger-heavy brokerage PSP.** Rewards wallet with USDG conversion, chart-of-accounts categories, per-user instance resources (LE + CP + IA + 2 LAs + category memberships), NinjaTrader direct actor with CP + EAs, three optional groups (ACH cashout, wire funding, staged return). |
 
@@ -348,7 +348,7 @@ dataloader/          Application package (02a Phase E)
 helpers.py           Shared rendering: build_preview, extract_display_name, format helpers
 seed_loader.py       Faker hybrid seed engine (standard, industry, pop-culture)
 flow_validator.py    Config-level flow validation
-flow_views.py        Ledger + payments view data computation
+flow_compiler/flow_views.py  Ledger + payments view data computation
 ```
 
 ### Application wiring
@@ -391,7 +391,7 @@ templates/           HTMX + Jinja2 UI
 static/              CSS
 examples/            6 example configs (marketplace, stablecoin, tradeify, staged, psp, funds_flow)
 prompts/             LLM prompt kit (system_prompt, decision_rubrics, ChatGPT instructions)
-seeds/               Seed catalog (4 YAML files + Faker standard)
+flow_compiler/seeds/ Seed catalog (YAML + Faker standard; used by ``seed_loader``)
 
 Makefile             setup, run, tunnel, validate shortcuts
 runs/, logs/         Runtime (gitignored)

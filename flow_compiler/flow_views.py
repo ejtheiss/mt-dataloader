@@ -13,12 +13,13 @@ import dataclasses
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from flow_compiler import FlowIR, FlowIRStep, flatten_actor_refs
-from flow_compiler.display import (
+from .core import flatten_actor_refs
+from .display import (
     build_ref_display_map,
     ref_account_type,
     resolve_actor_display,
 )
+from .ir import FlowIR, FlowIRStep
 
 if TYPE_CHECKING:
     from models import FundsFlowConfig

@@ -1,4 +1,4 @@
-"""Tests for flow_views.py — frozen view types and compute_view_data pass."""
+"""Tests for flow_compiler.flow_views — frozen view types and compute_view_data pass."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import dataclasses
 import pytest
 
 from flow_compiler import FlowIR, FlowIRStep, LedgerGroup
-from flow_views import (
+from flow_compiler.flow_views import (
     FlowViewData,
     LedgerColumnDef,
     LedgerEntryPlacement,
