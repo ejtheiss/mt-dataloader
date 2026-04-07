@@ -118,7 +118,9 @@ def profile_for(dataset: str, subseed: int) -> dict[str, str]:
     return _flat_merge(*_pair(dataset, subseed))
 
 
-def profile_for_split_biz_indiv(biz_dataset: str, indiv_dataset: str, subseed: int) -> dict[str, str]:
+def profile_for_split_biz_indiv(
+    biz_dataset: str, indiv_dataset: str, subseed: int
+) -> dict[str, str]:
     if biz_dataset == indiv_dataset:
         return profile_for(biz_dataset, subseed)
     sb = int.from_bytes(

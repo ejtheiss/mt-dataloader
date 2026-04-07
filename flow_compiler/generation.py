@@ -450,7 +450,9 @@ def _build_instance_profile(
             profile[f"{alias}_business_name"] = literal_name
             continue
 
-        effective_ds = (override.dataset if override and override.dataset else None) or frame.dataset
+        effective_ds = (
+            override.dataset if override and override.dataset else None
+        ) or frame.dataset
         sub = seed_loader.actor_subseed(recipe.seed, pattern.ref, alias, instance)
         if effective_ds:
             actor_profile = seed_loader.profile_for(effective_ds, sub)
@@ -553,9 +555,7 @@ def generate_from_recipe(
         flow_dict, instance_resources = clone_flow(pattern, i, profile)
 
         if instance_resources:
-            expanded = _expand_instance_resources(
-                instance_resources, i, profile, pattern=pattern
-            )
+            expanded = _expand_instance_resources(instance_resources, i, profile, pattern=pattern)
             for section, items in expanded.items():
                 bucket = extra_resources.setdefault(section, [])
                 seen = {it.get("ref") for it in bucket if isinstance(it, dict) and it.get("ref")}

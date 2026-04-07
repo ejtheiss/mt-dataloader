@@ -334,9 +334,9 @@ def _dry_run_value_error_message(exc: ValueError) -> str:
             "\n\n"
             "Hint: `complete_verification` defaults to staged. Downstream steps "
             "(incoming_payment_detail, payment_order, …) that list it in `depends_on` "
-            "cannot sit in the same non-staged batch. Fix: set `\"staged\": false` on "
+            'cannot sit in the same non-staged batch. Fix: set `"staged": false` on '
             "those `complete_verification` steps if verification is done before this load, "
-            "or set `\"staged\": true` on the downstream payment steps as well."
+            'or set `"staged": true` on the downstream payment steps as well.'
         )
     return msg
 
