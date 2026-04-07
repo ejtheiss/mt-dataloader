@@ -215,7 +215,7 @@
           })
             .then(function (r) { return r.json(); })
             .then(function (result) {
-              if (result.status === "ok") {
+              if (result.ok === true) {
                 _dirty = false;
               }
               return result;

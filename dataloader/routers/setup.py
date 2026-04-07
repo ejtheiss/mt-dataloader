@@ -11,7 +11,7 @@ from dataclasses import field as dc_field
 from graphlib import CycleError
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from loguru import logger
 from modern_treasury import (
     APIConnectionError,
@@ -55,6 +55,12 @@ from flow_compiler import AuthoringConfig, compile_to_plan, flatten_actor_refs
 from flow_compiler.flow_validator import validate_flow
 from jsonutil import dumps_pretty, loads_str
 from models import DataLoaderConfig, DisplayPhase
+from models.loader_setup_json import (
+    LoaderSetupEnvelopeV1,
+    LoaderSetupErrorItem,
+    error_items_from_pydantic_validation,
+    parse_request_json_body,
+)
 from org import (
     DiscoveryResult,
     OrgRegistry,
@@ -405,29 +411,87 @@ async def setup_page(
 
 @router.post("/api/config/save")
 async def save_config(request: Request):
-    """Write edited config JSON back to the session and optionally to disk."""
+    """Write edited config JSON back to the session and optionally to disk (JSON API v1 envelope)."""
     try:
         body = await request.json()
     except Exception:
-        return {"status": "error", "detail": "Invalid request body"}
+        return JSONResponse(
+            status_code=422,
+            content=LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="invalid_body",
+                        message="Request body must be JSON with session_token and config_json.",
+                        path=None,
+                    )
+                ],
+            ).json_response_dict(),
+        )
+
+    if not isinstance(body, dict):
+        return JSONResponse(
+            status_code=422,
+            content=LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="invalid_body",
+                        message="Request body must be a JSON object.",
+                        path=None,
+                    )
+                ],
+            ).json_response_dict(),
+        )
 
     session_token = body.get("session_token", "")
     config_json = body.get("config_json", "")
 
     session = sessions.get(session_token)
     if not session:
-        return {"status": "error", "detail": "Session expired"}
+        return JSONResponse(
+            status_code=404,
+            content=LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="session_expired",
+                        message="Session expired or unknown session_token.",
+                        path=None,
+                    )
+                ],
+            ).json_response_dict(),
+        )
 
     try:
         json.loads(config_json)
     except json.JSONDecodeError as exc:
-        return {"status": "error", "detail": f"Invalid JSON: {exc}"}
+        return JSONResponse(
+            status_code=200,
+            content=LoaderSetupEnvelopeV1(
+                ok=False,
+                phase="parse",
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="invalid_body",
+                        message=f"config_json is not valid JSON: {exc}",
+                        path=None,
+                    )
+                ],
+            ).json_response_dict(),
+        )
 
     try:
         config = DataLoaderConfig.model_validate_json(config_json.encode())
     except ValidationError as exc:
-        structured = format_validation_errors(exc)
-        return {"status": "error", "detail": structured[0]["message"] if structured else str(exc)}
+        return JSONResponse(
+            status_code=200,
+            content=LoaderSetupEnvelopeV1(
+                ok=False,
+                phase="parse",
+                errors=error_items_from_pydantic_validation(exc),
+            ).json_response_dict(),
+        )
 
     session.config = config
     session.config_json_text = dumps_pretty(json.loads(config_json))
@@ -435,17 +499,46 @@ async def save_config(request: Request):
 
     await persist_loader_draft(request, session)
 
-    return {"status": "ok", "message": "Config saved to session"}
+    return JSONResponse(
+        status_code=200,
+        content=LoaderSetupEnvelopeV1(
+            ok=True,
+            phase="complete",
+            data={"message": "Config saved to session"},
+        ).json_response_dict(),
+    )
 
 
 @router.post("/api/validate-json")
 async def validate_json(request: Request):
-    """Programmatic JSON validation endpoint for LLM repair loops."""
+    """Programmatic JSON validation endpoint for LLM repair loops (JSON API v1 envelope)."""
+    body = await request.body()
+    if parse_request_json_body(body) is None:
+        return JSONResponse(
+            status_code=422,
+            content=LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="invalid_body",
+                        message="Body must be UTF-8 JSON object (DataLoaderConfig).",
+                        path=None,
+                    )
+                ],
+            ).json_response_dict(),
+        )
+
     try:
-        body = await request.body()
         config = DataLoaderConfig.model_validate_json(body)
     except ValidationError as e:
-        return {"valid": False, "errors": format_validation_errors(e)}
+        return JSONResponse(
+            status_code=200,
+            content=LoaderSetupEnvelopeV1(
+                ok=False,
+                phase="parse",
+                errors=error_items_from_pydantic_validation(e),
+            ).json_response_dict(),
+        )
 
     had_funds_flows = bool(config.funds_flows)
 
@@ -467,42 +560,81 @@ async def validate_json(request: Request):
         )
         config = plan.config
     except (ValueError, KeyError, NotImplementedError) as e:
-        return {
-            "valid": False,
-            "errors": [{"path": "(compiler)", "type": "compile_error", "message": str(e)}],
-        }
+        return JSONResponse(
+            status_code=200,
+            content=LoaderSetupEnvelopeV1(
+                ok=False,
+                phase="compile",
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="compile_error",
+                        message=str(e),
+                        path="(compiler)",
+                    )
+                ],
+            ).json_response_dict(),
+        )
 
     try:
         batches = dry_run(config)
     except CycleError as e:
-        return {
-            "valid": False,
-            "errors": [{"path": "(dag)", "type": "cycle_error", "message": str(e)}],
-        }
+        return JSONResponse(
+            status_code=200,
+            content=LoaderSetupEnvelopeV1(
+                ok=False,
+                phase="dag",
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="cycle_error",
+                        message=str(e),
+                        path="(dag)",
+                    )
+                ],
+            ).json_response_dict(),
+        )
     except KeyError as e:
-        return {
-            "valid": False,
-            "errors": [{"path": "(dag)", "type": "unresolvable_ref", "message": str(e)}],
-        }
+        return JSONResponse(
+            status_code=200,
+            content=LoaderSetupEnvelopeV1(
+                ok=False,
+                phase="dag",
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="unresolvable_ref",
+                        message=str(e),
+                        path="(dag)",
+                    )
+                ],
+            ).json_response_dict(),
+        )
     except ValueError as e:
-        return {
-            "valid": False,
-            "errors": [
-                {
-                    "path": "(dag)",
-                    "type": "staged_dependency_error",
-                    "message": _dry_run_value_error_message(e),
-                }
-            ],
-        }
+        return JSONResponse(
+            status_code=200,
+            content=LoaderSetupEnvelopeV1(
+                ok=False,
+                phase="dag",
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="staged_dependency",
+                        message=_dry_run_value_error_message(e),
+                        path="(dag)",
+                    )
+                ],
+            ).json_response_dict(),
+        )
 
-    return {
-        "valid": True,
-        "resource_count": sum(len(b) for b in batches),
-        "batch_count": len(batches),
-        "has_funds_flows": had_funds_flows,
-        "errors": [],
-    }
+    return JSONResponse(
+        status_code=200,
+        content=LoaderSetupEnvelopeV1(
+            ok=True,
+            phase="complete",
+            data={
+                "resource_count": sum(len(b) for b in batches),
+                "batch_count": len(batches),
+                "has_funds_flows": had_funds_flows,
+            },
+        ).json_response_dict(),
+    )
 
 
 @router.post("/api/validate")

@@ -456,26 +456,39 @@ Each group has a `label` and one or more `steps`. Groups model edge cases
 
 ## Validation loop
 
-`POST /api/validate-json` with **raw JSON body** returns either:
+`POST /api/validate-json` with **raw JSON body** returns **JSON API v1** (`schema_version: 1`):
 
-```json
-{ "valid": true, "resource_count": 17, "batch_count": 5, "errors": [] }
-```
-
-or:
+Success:
 
 ```json
 {
-  "valid": false,
-  "errors": [
-    {"path": "payment_orders[0].receiving_account_id", "type": "missing", "message": "Field required"},
-    {"path": "(dag)", "type": "unresolvable_ref", "message": "..."}
-  ]
+  "schema_version": 1,
+  "ok": true,
+  "phase": "complete",
+  "data": { "resource_count": 17, "batch_count": 5, "has_funds_flows": true },
+  "errors": [],
+  "warnings": [],
+  "diagnostics": []
 }
 ```
 
-For each error: locate `path`, fix using `type` + `message`, return a **full**
-replaced JSON document (same output format rules as above).
+Failure (malformed body → **HTTP 422**; schema / compile / DAG issues → **HTTP 200** with `ok: false`):
+
+```json
+{
+  "schema_version": 1,
+  "ok": false,
+  "phase": "parse",
+  "data": {},
+  "errors": [
+    {"path": "resources", "code": "missing", "message": "Field required"}
+  ],
+  "warnings": [],
+  "diagnostics": []
+}
+```
+
+For each error: locate `path`, fix using **`code`** + `message` (same codes as the old `type` for Pydantic rows), return a **full** replaced JSON document.
 
 Common fixes:
 

@@ -21,10 +21,12 @@ def test_validate_json_staged_dependency_error(staged_conflict_json: bytes):
         r = client.post("/api/validate-json", content=staged_conflict_json)
     assert r.status_code == 200
     data = r.json()
-    assert data["valid"] is False
+    assert data["schema_version"] == 1
+    assert data["ok"] is False
+    assert data["phase"] == "dag"
     assert len(data["errors"]) == 1
     err = data["errors"][0]
     assert err["path"] == "(dag)"
-    assert err["type"] == "staged_dependency_error"
+    assert err["code"] == "staged_dependency"
     assert "staged resource" in err["message"].lower()
     assert "complete_verification" in err["message"].lower()
