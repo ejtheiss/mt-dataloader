@@ -30,6 +30,13 @@ from models.flow_dsl import (
     StepMatch,
 )
 from models.loader_draft import LoaderDraft
+from models.loader_setup_json import (
+    LOADER_SETUP_SCHEMA_VERSION,
+    LoaderSetupEnvelopeV1,
+    LoaderSetupErrorItem,
+    LoaderSetupFlowDiagnosticItem,
+    LoaderSetupWarningItem,
+)
 
 # --- manifest (run JSON on disk) ---
 from models.manifest import FailedEntry, ManifestEntry, RunManifest, StagedEntry
@@ -238,6 +245,12 @@ __all__ = [
     "CurrentAppUser",
     "coerce_app_user_role",
     "LoaderDraft",
+    # Loader setup JSON API v1 (validate-json / config/save)
+    "LOADER_SETUP_SCHEMA_VERSION",
+    "LoaderSetupEnvelopeV1",
+    "LoaderSetupErrorItem",
+    "LoaderSetupWarningItem",
+    "LoaderSetupFlowDiagnosticItem",
     # App settings
     "AppSettings",
 ]

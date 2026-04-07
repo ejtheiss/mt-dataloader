@@ -33,8 +33,8 @@ Replace `<PASTE_*_HERE>` in `system_prompt.md` with the linked files, schema, an
 | **`metadata_patterns.md`** | Metadata keys; **`instance_resources` template variables**; **§ Multi-`user_N` (scaling)** — actor-scoped placeholders vs `{business_name}`. |
 | **`validation_fixes.md`** | Common validation error patterns and fixes (including funds_flows errors). |
 
-**Ground truth for shape:** `GET /api/schema` + `POST /api/validate-json` + the
-files under `examples/`.
+**Ground truth for shape:** `GET /api/schema` + `POST /api/validate-json` (JSON API v1
+envelope: `ok`, `phase`, `errors[].code`) + the files under `examples/`.
 
 **Precedence:** `GET /api/schema` and validators → `decision_rubrics.md` → this README.
 

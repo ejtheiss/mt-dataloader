@@ -1,7 +1,10 @@
 # Validation Fixes: Common Error Patterns
 
 When `POST /api/validate-json` returns errors, use this guide to fix them.
-Each error has a `path`, `type`, and `message`.
+Responses use **JSON API v1** (`schema_version: 1`): top-level `ok`, optional `phase`
+(`parse` | `compile` | `dag` | …), and `errors[]` with `code`, `message`, and optional
+`path`. **Pydantic schema issues** use the same strings as before as **`code`**
+(e.g. `missing`, `extra_forbidden`) — treat like the old `type` field.
 
 ---
 
@@ -101,7 +104,7 @@ reference non-staged ones, or mark the dependent resource as `staged: true`.
 **Common with `complete_verification`:** The **DSL** defaults **`staged: true`**. If
 **PO/IPD** list that step in **`depends_on`**, set **`"staged": false`** on the
 **`complete_verification`** step (happy path) or stage the payment steps too. Setup
-**`/api/validate-json`** may return **`type: staged_dependency_error`** for this case
+**`/api/validate-json`** returns **`code: staged_dependency`** (phase `dag`) for this case
 (see **`04_validation_observability.md`** § Interim shipped).
 
 ### `staged_data_ref`

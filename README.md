@@ -201,7 +201,7 @@ Each compiled flow generates a Mermaid `sequenceDiagram` showing actors, message
 ## JSON config
 
 - **Schema (for LLMs / tools):** `GET /api/schema` -- full `DataLoaderConfig` JSON Schema.
-- **Validate without UI:** `POST /api/validate-json` -- body = raw JSON; returns structured errors for repair loops.
+- **Validate without UI:** `POST /api/validate-json` -- body = raw JSON; returns **JSON API v1** (`schema_version`, `ok`, `phase`, `errors[]` with `code`/`message`/`path`) for repair loops.
 - **Funds flows (`user_N`):** for any participant that should not be the same party on every copy of a flow, put **`instance_resources`** on **that `funds_flows[]` entry**, use **`{instance}`** in `ref` keys and in **`user_N` `entity_ref` / slot `$ref`s**, and use name placeholders per **`prompts/system_prompt.md` → *User actors (mandatory JSON)***. Do not wire variable parties from a single top-level legal entity unless the story explicitly requires one fixed actor.
 
 Resources reference each other with **`$ref:<resource_type>.<ref>`** (e.g. `$ref:internal_account.buyer_maya_wallet`). The `ref` field on each object is a short key; the engine builds the typed name. Child refs include selectors like `$ref:counterparty.vendor_cp.account[0]`.
