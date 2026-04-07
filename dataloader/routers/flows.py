@@ -18,6 +18,7 @@ from dataloader.helpers import (
     format_validation_errors,
     get_flow_view_data,
 )
+from dataloader.loader_validation import parse_loader_config_json_text
 from dataloader.routers.deps import (
     OptionalSessionQueryDep,
     SessionHeaderDep,
@@ -118,17 +119,16 @@ def _get_base_config(session: Any) -> DataLoaderConfig:
     """
     acj = getattr(session, "authoring_config_json", None)
     if acj:
-        try:
-            cfg = DataLoaderConfig.model_validate_json(acj)
-            if cfg.funds_flows:
-                return cfg
-        except ValidationError:
-            pass
+        pr = parse_loader_config_json_text(acj)
+        if pr.error is None and pr.config is not None and pr.config.funds_flows:
+            return pr.config
     source = session.base_config_json or session.config_json_text
-    try:
-        return DataLoaderConfig.model_validate_json(source)
-    except ValidationError:
+    if source is None:
         return session.config.model_copy(deep=True)
+    pr2 = parse_loader_config_json_text(source)
+    if pr2.error is None and pr2.config is not None:
+        return pr2.config
+    return session.config.model_copy(deep=True)
 
 
 def _compose_all_recipes(

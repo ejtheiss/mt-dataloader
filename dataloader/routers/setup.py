@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import secrets
 from collections import Counter
 from dataclasses import asdict, dataclass
 from dataclasses import field as dc_field
-from graphlib import CycleError
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -38,6 +36,15 @@ from dataloader.helpers import (
     error_response,
     format_validation_errors,
 )
+from dataloader.loader_validation import (
+    LoaderCompileFailure,
+    LoaderDryRunFailure,
+    authoring_config_from_bytes,
+    compile_loader_plan,
+    parse_loader_config_bytes,
+    run_headless_validate_json,
+    try_loader_dry_run,
+)
 from dataloader.routers.deps import (
     AsyncSessionDep,
     OptionalSessionQueryDep,
@@ -51,7 +58,7 @@ from dataloader.session.draft_persist import (
     run_access_context_for_request,
 )
 from db.repositories import loader_drafts as drafts_repo
-from flow_compiler import AuthoringConfig, compile_to_plan, flatten_actor_refs
+from flow_compiler import flatten_actor_refs
 from flow_compiler.flow_validator import validate_flow
 from jsonutil import dumps_pretty, loads_str
 from models import DataLoaderConfig, DisplayPhase
@@ -138,30 +145,29 @@ async def _validate_pipeline(
     Returns a ``_PipelineResult`` on success or an error-message string on failure.
     """
     # 1. Parse config
-    try:
-        config = DataLoaderConfig.model_validate_json(raw_json)
-    except ValidationError as e:
-        structured = format_validation_errors(e)
+    parsed = parse_loader_config_bytes(raw_json)
+    if parsed.error is not None:
+        structured = format_validation_errors(parsed.error)
         detail_lines = [f"• {err['path']}: {err['message']}" for err in structured]
-        return "Config Validation Error\n" + ("\n".join(detail_lines) or str(e))
+        return "Config Validation Error\n" + ("\n".join(detail_lines) or str(parsed.error))
 
+    if parsed.config is None:
+        return "Config Validation Error\nInvalid configuration."
+    config = parsed.config
     authoring_config_json = config.model_dump_json(indent=2, exclude_none=True)
 
     # 2. Compile
-    try:
-        authoring = AuthoringConfig(
-            config=config.model_copy(deep=True),
-            json_text=raw_json.decode(),
-            source_hash=hashlib.sha256(raw_json).hexdigest(),
-        )
-        plan = compile_to_plan(authoring)
-        config = plan.config
-        flow_irs = list(plan.flow_irs)
-        expanded_flows = list(plan.expanded_flows)
-        mermaid_diagrams = list(plan.mermaid_diagrams) if plan.mermaid_diagrams else None
-        view_data_cache = list(plan.view_data) if plan.view_data else None
-    except (ValueError, KeyError, NotImplementedError) as e:
-        return f"Compiler Error\n{e}"
+    authoring = authoring_config_from_bytes(config, raw_json)
+    compiled = compile_loader_plan(authoring)
+    if isinstance(compiled, LoaderCompileFailure):
+        return compiled.pipeline_message
+
+    plan = compiled
+    config = plan.config
+    flow_irs = list(plan.flow_irs)
+    expanded_flows = list(plan.expanded_flows)
+    mermaid_diagrams = list(plan.mermaid_diagrams) if plan.mermaid_diagrams else None
+    view_data_cache = list(plan.view_data) if plan.view_data else None
 
     flow_diag_dicts: list[dict] = []
     if len(flow_irs) != len(expanded_flows):
@@ -249,14 +255,10 @@ async def _validate_pipeline(
         )
 
     # 5. DAG dry-run
-    try:
-        batches = dry_run(config, known_refs, skip_refs=skip_refs)
-    except CycleError as e:
-        return f"Cycle Error\nCircular dependency: {e}"
-    except KeyError as e:
-        return f"Reference Error\n{e}"
-    except ValueError as e:
-        return f"Can't build execution plan\n{_dry_run_value_error_message(e)}"
+    dry = try_loader_dry_run(config, known_refs, skip_refs=skip_refs)
+    if isinstance(dry, LoaderDryRunFailure):
+        return dry.pipeline_message
+    batches = dry.batches
 
     # 6. Build preview
     resource_map = {typed_ref_for(r): r for r in all_resources(config)}
@@ -330,21 +332,6 @@ def _pipeline_result_to_session(
 def _pipeline_error_response(message: str):
     title, _, detail = message.partition("\n")
     return error_response(title, detail)
-
-
-def _dry_run_value_error_message(exc: ValueError) -> str:
-    """Turn dry_run ValueError into a user-facing detail (may be multi-line)."""
-    msg = str(exc)
-    if "staged resource" in msg.lower():
-        msg += (
-            "\n\n"
-            "Hint: `complete_verification` defaults to staged. Downstream steps "
-            "(incoming_payment_detail, payment_order, …) that list it in `depends_on` "
-            'cannot sit in the same non-staged batch. Fix: set `"staged": false` on '
-            "those `complete_verification` steps if verification is done before this load, "
-            'or set `"staged": true` on the downstream payment steps as well.'
-        )
-    return msg
 
 
 def _render_preview_or_redirect(
@@ -528,111 +515,14 @@ async def validate_json(request: Request):
             ).json_response_dict(),
         )
 
-    try:
-        config = DataLoaderConfig.model_validate_json(body)
-    except ValidationError as e:
-        return JSONResponse(
-            status_code=200,
-            content=LoaderSetupEnvelopeV1(
-                ok=False,
-                phase="parse",
-                errors=error_items_from_pydantic_validation(e),
-            ).json_response_dict(),
-        )
-
-    had_funds_flows = bool(config.funds_flows)
-
-    try:
-        from flow_compiler import (
-            pass_compile_to_ir,
-            pass_emit_resources,
-            pass_expand_instances,
-        )
-
-        authoring = AuthoringConfig(
-            config=config.model_copy(deep=True),
-            json_text=body.decode(),
-            source_hash=hashlib.sha256(body).hexdigest(),
-        )
-        plan = compile_to_plan(
-            authoring,
-            pipeline=(pass_expand_instances, pass_compile_to_ir, pass_emit_resources),
-        )
-        config = plan.config
-    except (ValueError, KeyError, NotImplementedError) as e:
-        return JSONResponse(
-            status_code=200,
-            content=LoaderSetupEnvelopeV1(
-                ok=False,
-                phase="compile",
-                errors=[
-                    LoaderSetupErrorItem(
-                        code="compile_error",
-                        message=str(e),
-                        path="(compiler)",
-                    )
-                ],
-            ).json_response_dict(),
-        )
-
-    try:
-        batches = dry_run(config)
-    except CycleError as e:
-        return JSONResponse(
-            status_code=200,
-            content=LoaderSetupEnvelopeV1(
-                ok=False,
-                phase="dag",
-                errors=[
-                    LoaderSetupErrorItem(
-                        code="cycle_error",
-                        message=str(e),
-                        path="(dag)",
-                    )
-                ],
-            ).json_response_dict(),
-        )
-    except KeyError as e:
-        return JSONResponse(
-            status_code=200,
-            content=LoaderSetupEnvelopeV1(
-                ok=False,
-                phase="dag",
-                errors=[
-                    LoaderSetupErrorItem(
-                        code="unresolvable_ref",
-                        message=str(e),
-                        path="(dag)",
-                    )
-                ],
-            ).json_response_dict(),
-        )
-    except ValueError as e:
-        return JSONResponse(
-            status_code=200,
-            content=LoaderSetupEnvelopeV1(
-                ok=False,
-                phase="dag",
-                errors=[
-                    LoaderSetupErrorItem(
-                        code="staged_dependency",
-                        message=_dry_run_value_error_message(e),
-                        path="(dag)",
-                    )
-                ],
-            ).json_response_dict(),
-        )
-
+    outcome = run_headless_validate_json(body)
     return JSONResponse(
         status_code=200,
         content=LoaderSetupEnvelopeV1(
-            ok=True,
-            phase="complete",
-            data={
-                "resource_count": sum(len(b) for b in batches),
-                "batch_count": len(batches),
-                "has_funds_flows": had_funds_flows,
-            },
+            ok=outcome.ok,
+            phase=outcome.phase,
+            errors=outcome.errors,
+            data=outcome.data,
         ).json_response_dict(),
     )
 
