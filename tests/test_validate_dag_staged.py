@@ -7,7 +7,6 @@ from starlette.testclient import TestClient
 
 from dataloader.main import app
 
-
 _FIXTURE = Path(__file__).resolve().parent / "fixtures" / "staged_verification_conflict.json"
 
 
