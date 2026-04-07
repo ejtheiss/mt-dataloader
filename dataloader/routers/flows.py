@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
 import flow_compiler.seed_loader as seed_loader
 from dataloader.engine import all_resources, dry_run, typed_ref_for
@@ -18,7 +18,12 @@ from dataloader.helpers import (
     format_validation_errors,
     get_flow_view_data,
 )
-from dataloader.loader_validation import parse_loader_config_json_text
+from dataloader.loader_validation import (
+    parse_loader_config_json_text,
+    require_pydantic_obj,
+    try_parse_pydantic_json_bytes,
+    try_parse_pydantic_obj,
+)
 from dataloader.routers.deps import (
     OptionalSessionQueryDep,
     SessionHeaderDep,
@@ -153,7 +158,7 @@ def _compose_all_recipes(
     combined_edge_map: dict[str, list[int]] = {}
 
     for _flow_ref, recipe_dict in recipes.items():
-        recipe = GenerationRecipeV1.model_validate(recipe_dict)
+        recipe = require_pydantic_obj(GenerationRecipeV1, recipe_dict)
         merged = _merge_infra_with_flows(running_config, base)
         gen = generate_from_recipe(recipe, base_config=merged)
         running_config = gen.config
@@ -187,7 +192,7 @@ def _merge_infra_with_flows(
         return running
     data = running.model_dump(exclude_none=True)
     data["funds_flows"] = [f.model_dump(exclude_none=True) for f in original.funds_flows]
-    return DataLoaderConfig.model_validate(data)
+    return require_pydantic_obj(DataLoaderConfig, data)
 
 
 async def _parse_recipe(
@@ -201,12 +206,11 @@ async def _parse_recipe(
             content={"error": "Session not found. Please validate a config first."},
             status_code=401,
         )
-    try:
-        body = await request.body()
-        recipe = GenerationRecipeV1.model_validate_json(body)
-    except ValidationError as e:
+    body = await request.body()
+    recipe, err = try_parse_pydantic_json_bytes(GenerationRecipeV1, body)
+    if err is not None:
         return JSONResponse(
-            content={"error": "Invalid recipe", "detail": format_validation_errors(e)},
+            content={"error": "Invalid recipe", "detail": format_validation_errors(err)},
             status_code=422,
         )
     return token, session, recipe
@@ -855,10 +859,15 @@ async def flow_actor_config_save(
 
     try:
         body = await request.json()
-        parsed = ActorConfigSaveBody.model_validate(body)
-    except ValidationError as e:
+    except Exception:
         return JSONResponse(
-            content={"error": "Invalid body", "detail": format_validation_errors(e)},
+            content={"error": "Invalid body", "detail": "Request body must be JSON."},
+            status_code=422,
+        )
+    parsed, err = try_parse_pydantic_obj(ActorConfigSaveBody, body)
+    if err is not None:
+        return JSONResponse(
+            content={"error": "Invalid body", "detail": format_validation_errors(err)},
             status_code=422,
         )
 
@@ -882,11 +891,13 @@ async def flow_actor_config_save(
     else:
         actor_overrides.pop(frame, None)
     recipe_dict["actor_overrides"] = actor_overrides
-    try:
-        GenerationRecipeV1.model_validate(recipe_dict)
-    except ValidationError as e:
+    _, err = try_parse_pydantic_obj(GenerationRecipeV1, recipe_dict)
+    if err is not None:
         return JSONResponse(
-            content={"error": "Invalid recipe after merge", "detail": format_validation_errors(e)},
+            content={
+                "error": "Invalid recipe after merge",
+                "detail": format_validation_errors(err),
+            },
             status_code=422,
         )
     hdr_sess.generation_recipes[flow_ref] = recipe_dict

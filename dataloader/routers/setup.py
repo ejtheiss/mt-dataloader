@@ -3,24 +3,12 @@
 from __future__ import annotations
 
 import json
-import secrets
-from collections import Counter
-from dataclasses import asdict, dataclass
-from dataclasses import field as dc_field
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from loguru import logger
-from modern_treasury import (
-    APIConnectionError,
-    APITimeoutError,
-    AsyncModernTreasury,
-    AuthenticationError,
-)
 from pydantic import ValidationError
 
 from dataloader.engine import (
-    RefRegistry,
     all_resources,
     config_hash,
     dry_run,
@@ -30,20 +18,15 @@ from dataloader.helpers import (
     UPDATABLE_RESOURCE_TYPES,
     build_available_connections,
     build_discovered_by_type,
-    build_discovered_id_lookup,
     build_flow_grouped_preview,
     build_preview,
     error_response,
-    format_validation_errors,
 )
 from dataloader.loader_validation import (
-    LoaderCompileFailure,
-    LoaderDryRunFailure,
-    authoring_config_from_bytes,
-    compile_loader_plan,
-    parse_loader_config_bytes,
+    LoaderValidationFailure,
+    apply_loader_validation_success_to_session,
     run_headless_validate_json,
-    try_loader_dry_run,
+    run_loader_validation_pipeline,
 )
 from dataloader.routers.deps import (
     AsyncSessionDep,
@@ -58,8 +41,6 @@ from dataloader.session.draft_persist import (
     run_access_context_for_request,
 )
 from db.repositories import loader_drafts as drafts_repo
-from flow_compiler import flatten_actor_refs
-from flow_compiler.flow_validator import validate_flow
 from jsonutil import dumps_pretty, loads_str
 from models import DataLoaderConfig, DisplayPhase
 from models.loader_setup_json import (
@@ -68,265 +49,13 @@ from models.loader_setup_json import (
     error_items_from_pydantic_validation,
     parse_request_json_body,
 )
-from org import (
-    DiscoveryResult,
-    OrgRegistry,
-    discover_org,
-    reconcile_config,
-    sync_connection_entities_from_reconciliation,
-)
+from org import reconcile_config, sync_connection_entities_from_reconciliation
 
 router = APIRouter(tags=["setup"])
 
 
-# ---------------------------------------------------------------------------
-# Shared validation pipeline
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class _PipelineResult:
-    """Intermediate result from the shared validate/revalidate pipeline."""
-
-    config: DataLoaderConfig
-    config_json_text: str
-    #: JSON of parsed config before ``compile_to_plan`` clears ``funds_flows`` (emit pass).
-    authoring_config_json: str
-    flow_irs: list
-    expanded_flows: list
-    mermaid_diagrams: list | None
-    view_data_cache: list | None
-    discovery: DiscoveryResult | None
-    org_registry: OrgRegistry | None
-    reconciliation: object | None
-    registry: RefRegistry
-    skip_refs: set = dc_field(default_factory=set)
-    update_refs: dict = dc_field(default_factory=dict)
-    batches: list = dc_field(default_factory=list)
-    preview_items: list = dc_field(default_factory=list)
-    #: Serialized ``FlowDiagnostic`` dicts from ``validate_flow`` (advisory).
-    flow_diagnostics: list = dc_field(default_factory=list)
-
-
-def _edited_resource_typed_refs(
-    prior: DataLoaderConfig | None,
-    config: DataLoaderConfig,
-) -> set[str]:
-    """Refs whose serialized resource payload changed (same ref, different body).
-
-    Used on revalidate so reconciliation does not keep skipping resources the user
-    edited in JSON (e.g. connection ``entity_id``).
-    """
-    if prior is None:
-        return set()
-    old_map = {typed_ref_for(r): r for r in all_resources(prior)}
-    changed: set[str] = set()
-    for r in all_resources(config):
-        ref = typed_ref_for(r)
-        old = old_map.get(ref)
-        if old is None:
-            continue
-        if old.model_dump_json(exclude_none=True) != r.model_dump_json(exclude_none=True):
-            changed.add(ref)
-    return changed
-
-
-async def _validate_pipeline(
-    raw_json: bytes,
-    api_key: str,
-    org_id: str,
-    *,
-    reconcile_overrides: dict | None = None,
-    manual_mappings: dict | None = None,
-    prior_config: DataLoaderConfig | None = None,
-) -> _PipelineResult | str:
-    """Run the full validate pipeline: parse → compile → discover → reconcile → DAG.
-
-    Returns a ``_PipelineResult`` on success or an error-message string on failure.
-    """
-    # 1. Parse config
-    parsed = parse_loader_config_bytes(raw_json)
-    if parsed.error is not None:
-        structured = format_validation_errors(parsed.error)
-        detail_lines = [f"• {err['path']}: {err['message']}" for err in structured]
-        return "Config Validation Error\n" + ("\n".join(detail_lines) or str(parsed.error))
-
-    if parsed.config is None:
-        return "Config Validation Error\nInvalid configuration."
-    config = parsed.config
-    authoring_config_json = config.model_dump_json(indent=2, exclude_none=True)
-
-    # 2. Compile
-    authoring = authoring_config_from_bytes(config, raw_json)
-    compiled = compile_loader_plan(authoring)
-    if isinstance(compiled, LoaderCompileFailure):
-        return compiled.pipeline_message
-
-    plan = compiled
-    config = plan.config
-    flow_irs = list(plan.flow_irs)
-    expanded_flows = list(plan.expanded_flows)
-    mermaid_diagrams = list(plan.mermaid_diagrams) if plan.mermaid_diagrams else None
-    view_data_cache = list(plan.view_data) if plan.view_data else None
-
-    flow_diag_dicts: list[dict] = []
-    if len(flow_irs) != len(expanded_flows):
-        logger.warning(
-            "flow_irs / expanded_flows length mismatch: {} vs {}",
-            len(flow_irs),
-            len(expanded_flows),
-        )
-    for ir, fc in zip(flow_irs, expanded_flows):
-        for d in validate_flow(ir, actor_refs=flatten_actor_refs(fc.actors)):
-            flow_diag_dicts.append(asdict(d))
-    if flow_diag_dicts:
-        by_rule = Counter(d["rule_id"] for d in flow_diag_dicts)
-        logger.debug(
-            "Flow advisory diagnostics: {} finding(s) by_rule={}",
-            len(flow_diag_dicts),
-            dict(by_rule),
-        )
-
-    # 3. Discover org
-    discovery: DiscoveryResult | None = None
-    org_registry: OrgRegistry | None = None
-    async with AsyncModernTreasury(api_key=api_key, organization_id=org_id) as client:
-        try:
-            await client.ping()
-        except AuthenticationError:
-            return "Authentication Error\nInvalid API key or org ID"
-        try:
-            discovery = await discover_org(client, config=config)
-            org_registry = OrgRegistry.from_discovery(discovery)
-        except (APIConnectionError, APITimeoutError) as exc:
-            logger.warning("Discovery failed: {}", str(exc))
-
-    # 4. Registry + reconciliation
-    registry = RefRegistry()
-    known_refs: set[str] = set()
-    if org_registry is not None:
-        known_refs = org_registry.seed_engine_registry(registry)
-
-    reconciliation = None
-    skip_refs: set[str] = set()
-    if discovery is not None:
-        reconciliation = reconcile_config(config, discovery)
-
-        registered_refs: set[str] = set()
-        overrides = reconcile_overrides or {}
-        mappings = manual_mappings or {}
-        force_new_refs = _edited_resource_typed_refs(prior_config, config)
-
-        for m in reconciliation.matches:
-            if m.config_ref in overrides:
-                val = overrides[m.config_ref]
-                if isinstance(val, dict):
-                    m.use_existing = val.get("use_existing", True)
-                    if "discovered_id" in val:
-                        m.discovered_id = val["discovered_id"]
-                else:
-                    m.use_existing = bool(val)
-            if m.config_ref in force_new_refs:
-                m.use_existing = False
-            if m.use_existing and m.config_ref not in registered_refs:
-                registry.register_or_update(m.config_ref, m.discovered_id)
-                skip_refs.add(m.config_ref)
-                registered_refs.add(m.config_ref)
-                for ck, cid in m.child_refs.items():
-                    registry.register_or_update(f"{m.config_ref}.{ck}", cid)
-
-        if mappings:
-            disc_by_id = build_discovered_id_lookup(discovery)
-            for config_ref, disc_id in mappings.items():
-                if not disc_id or config_ref in registered_refs:
-                    continue
-                if disc_by_id.get(disc_id):
-                    registry.register_or_update(config_ref, disc_id)
-                    skip_refs.add(config_ref)
-                    registered_refs.add(config_ref)
-                    if config_ref in reconciliation.unmatched_config:
-                        reconciliation.unmatched_config.remove(config_ref)
-
-        sync_connection_entities_from_reconciliation(
-            config,
-            discovery,
-            reconciliation,
-            mappings,
-        )
-
-    # 5. DAG dry-run
-    dry = try_loader_dry_run(config, known_refs, skip_refs=skip_refs)
-    if isinstance(dry, LoaderDryRunFailure):
-        return dry.pipeline_message
-    batches = dry.batches
-
-    # 6. Build preview
-    resource_map = {typed_ref_for(r): r for r in all_resources(config)}
-    preview_items = build_preview(
-        batches,
-        resource_map,
-        skip_refs=skip_refs,
-        reconciliation=reconciliation,
-    )
-
-    config_json_text = config.model_dump_json(indent=2, exclude_none=True)
-
-    return _PipelineResult(
-        config=config,
-        config_json_text=config_json_text,
-        authoring_config_json=authoring_config_json,
-        flow_irs=flow_irs,
-        expanded_flows=expanded_flows,
-        mermaid_diagrams=mermaid_diagrams,
-        view_data_cache=view_data_cache,
-        discovery=discovery,
-        org_registry=org_registry,
-        reconciliation=reconciliation,
-        registry=registry,
-        skip_refs=skip_refs,
-        batches=batches,
-        preview_items=preview_items,
-        flow_diagnostics=flow_diag_dicts,
-    )
-
-
-def _pipeline_result_to_session(
-    result: _PipelineResult,
-    api_key: str,
-    org_id: str,
-    *,
-    org_label: str | None = None,
-    working_config_json: str | None = None,
-    generation_recipes: dict | None = None,
-) -> SessionState:
-    """Build a SessionState from a pipeline result."""
-    token = secrets.token_urlsafe(32)
-    return SessionState(
-        session_token=token,
-        api_key=api_key,
-        org_id=org_id,
-        config=result.config,
-        config_json_text=result.config_json_text,
-        registry=result.registry,
-        batches=result.batches,
-        preview_items=result.preview_items,
-        org_registry=result.org_registry,
-        discovery=result.discovery,
-        reconciliation=result.reconciliation,
-        skip_refs=result.skip_refs,
-        flow_ir=result.flow_irs,
-        expanded_flows=result.expanded_flows,
-        pattern_flow_ir=result.flow_irs,
-        pattern_expanded_flows=result.expanded_flows,
-        base_config_json=result.config_json_text,
-        authoring_config_json=result.authoring_config_json,
-        mermaid_diagrams=result.mermaid_diagrams,
-        view_data_cache=result.view_data_cache,
-        working_config_json=working_config_json or result.config_json_text,
-        generation_recipes=generation_recipes or {},
-        org_label=org_label,
-        flow_diagnostics=result.flow_diagnostics or None,
-    )
+# Full validate pipeline: ``run_loader_validation_pipeline`` → ``apply_loader_validation_success_to_session``
+# in ``dataloader.loader_validation`` (Wave D: validate without Request/DB; router applies + persists).
 
 
 def _pipeline_error_response(message: str):
@@ -547,12 +276,12 @@ async def validate(
     else:
         return error_response("Missing Config", "Upload a JSON file or paste JSON directly.")
 
-    result = await _validate_pipeline(raw_json, api_key, org_id)
-    if isinstance(result, str):
-        return _pipeline_error_response(result)
+    outcome = await run_loader_validation_pipeline(raw_json, api_key, org_id)
+    if isinstance(outcome, LoaderValidationFailure):
+        return _pipeline_error_response(outcome.message)
 
     ol = org_name.strip() or None
-    session = _pipeline_result_to_session(result, api_key, org_id, org_label=ol)
+    session = apply_loader_validation_success_to_session(outcome, api_key, org_id, org_label=ol)
     sessions[session.session_token] = session
     await persist_loader_draft(request, session)
     return _render_preview_or_redirect(request, session, templates)
@@ -584,7 +313,7 @@ async def revalidate(
         except json.JSONDecodeError:
             pass
 
-    result = await _validate_pipeline(
+    outcome = await run_loader_validation_pipeline(
         raw_json,
         old_session.api_key,
         old_session.org_id,
@@ -592,11 +321,11 @@ async def revalidate(
         manual_mappings=manual_maps,
         prior_config=old_session.config,
     )
-    if isinstance(result, str):
-        return _pipeline_error_response(result)
+    if isinstance(outcome, LoaderValidationFailure):
+        return _pipeline_error_response(outcome.message)
 
-    session = _pipeline_result_to_session(
-        result,
+    session = apply_loader_validation_success_to_session(
+        outcome,
         old_session.api_key,
         old_session.org_id,
         org_label=getattr(old_session, "org_label", None),
@@ -632,13 +361,13 @@ async def restore_draft(
         return error_response("No saved draft", "Validate a config first to create one.")
 
     raw_json = draft.config_json_text.encode()
-    result = await _validate_pipeline(raw_json, api_key, org_id)
-    if isinstance(result, str):
-        return _pipeline_error_response(result)
+    outcome = await run_loader_validation_pipeline(raw_json, api_key, org_id)
+    if isinstance(outcome, LoaderValidationFailure):
+        return _pipeline_error_response(outcome.message)
 
     ol = org_name.strip() or draft.org_label or None
-    session = _pipeline_result_to_session(
-        result,
+    session = apply_loader_validation_success_to_session(
+        outcome,
         api_key,
         org_id,
         org_label=ol,

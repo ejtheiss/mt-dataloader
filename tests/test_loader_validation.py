@@ -3,11 +3,16 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from dataloader.loader_validation import (
     parse_loader_config_json_text,
+    require_pydantic_obj,
     run_headless_validate_json,
+    try_parse_pydantic_json_bytes,
+    try_parse_pydantic_obj,
 )
+from models import DataLoaderConfig, GenerationRecipeV1
 
 _MINIMAL = Path(__file__).resolve().parent.parent / "examples" / "psp_minimal.json"
 
@@ -42,3 +47,20 @@ def test_parse_loader_config_json_text_roundtrip(psp_minimal_bytes: bytes):
     assert pr.error is None
     assert pr.config is not None
     assert pr.config.connections  # minimal fixture has connections
+
+
+def test_try_parse_pydantic_json_bytes_invalid():
+    recipe, err = try_parse_pydantic_json_bytes(GenerationRecipeV1, b"not json")
+    assert recipe is None
+    assert err is not None
+
+
+def test_require_pydantic_obj_raises():
+    with pytest.raises(ValidationError):
+        require_pydantic_obj(DataLoaderConfig, {"connections": "bad"})
+
+
+def test_try_parse_pydantic_obj_ok():
+    cfg, err = try_parse_pydantic_obj(DataLoaderConfig, {})
+    assert err is None
+    assert cfg is not None

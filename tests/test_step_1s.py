@@ -984,7 +984,7 @@ class TestBuildPreviewSetupOrder:
 
 class TestEditedResourceTypedRefs:
     def test_detects_connection_payload_change(self):
-        from dataloader.routers.setup import _edited_resource_typed_refs
+        from dataloader.loader_validation import edited_resource_typed_refs
 
         raw = {
             "connections": [
@@ -998,11 +998,11 @@ class TestEditedResourceTypedRefs:
         prior = DataLoaderConfig.model_validate(raw)
         new_cfg = prior.model_copy(deep=True)
         new_cfg.connections[0].entity_id = "example2"
-        refs = _edited_resource_typed_refs(prior, new_cfg)
+        refs = edited_resource_typed_refs(prior, new_cfg)
         assert "connection.c1" in refs
 
     def test_prior_none_returns_empty(self):
-        from dataloader.routers.setup import _edited_resource_typed_refs
+        from dataloader.loader_validation import edited_resource_typed_refs
 
         raw = {
             "connections": [
@@ -1011,7 +1011,7 @@ class TestEditedResourceTypedRefs:
             "funds_flows": [],
         }
         cfg = DataLoaderConfig.model_validate(raw)
-        assert _edited_resource_typed_refs(None, cfg) == set()
+        assert edited_resource_typed_refs(None, cfg) == set()
 
 
 # ---------------------------------------------------------------------------
