@@ -8,7 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from models.flow_dsl import FundsFlowConfig
 from models.resources import (
+    ArchiveResourceConfig,
     CategoryMembershipConfig,
+    CompleteVerificationConfig,
     ConnectionConfig,
     CounterpartyConfig,
     ExpectedPaymentConfig,
@@ -25,6 +27,7 @@ from models.resources import (
     ReturnConfig,
     ReversalConfig,
     TransitionLedgerTransactionConfig,
+    VerifyExternalAccountConfig,
     VirtualAccountConfig,
 )
 
@@ -116,6 +119,12 @@ class DataLoaderConfig(BaseModel):
     category_memberships: list[CategoryMembershipConfig] = []
     nested_categories: list[NestedCategoryConfig] = []
     transition_ledger_transactions: list[TransitionLedgerTransactionConfig] = []
+
+    # Lifecycle rows emitted by the compiler from funds_flows steps (may also
+    # appear in hand-merged / pre-compiled JSON).
+    verify_external_accounts: list[VerifyExternalAccountConfig] = []
+    complete_verifications: list[CompleteVerificationConfig] = []
+    archive_resources: list[ArchiveResourceConfig] = []
 
     # Display / branding
     customer_name: str = Field(

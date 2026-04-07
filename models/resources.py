@@ -17,6 +17,7 @@ from models.sandbox import (
     SANDBOX_RETURN_PREFIX,
     SANDBOX_ROUTING_NUMBER,
     SANDBOX_SUCCESS_ACCOUNT,
+    SANDBOX_WALLET_DEMO_ADDRESSES,
 )
 from models.shared import (
     AccountDetailConfig,
@@ -29,6 +30,7 @@ from models.shared import (
     RefStr,
     ReversalReason,
     RoutingDetailConfig,
+    WalletAccountNumberType,
     _BaseResourceConfig,
 )
 
@@ -472,7 +474,7 @@ class CounterpartyAccountConfig(MetadataMixin, BaseModel):
     no ``counterparty_id`` (implicit), distinct TypedDict for account/routing
     details.
 
-    Sandbox behavior (optional):
+    **Bank / ACH sandbox (optional):**
         Set ``sandbox_behavior`` to auto-generate the magic account number
         that the MT sandbox uses to simulate payment outcomes.
 
@@ -487,6 +489,14 @@ class CounterpartyAccountConfig(MetadataMixin, BaseModel):
         overwritten.  Both fields are excluded from ``model_dump()``
         so they never reach the MT API.
 
+    **Stablecoin wallet counterparties:**
+        Use ``wallet_account_number_type`` (mutually exclusive with
+        ``sandbox_behavior``) to emit MT's wallet shape: a single
+        ``account_details`` entry with ``account_number`` and
+        ``account_number_type`` (e.g. ``ethereum_address``). No ABA
+        ``routing_details``. For a custom on-chain address, omit both
+        helpers and set ``account_details`` explicitly.
+
     See https://docs.moderntreasury.com/payments/docs/test-counterparties
     """
 
@@ -500,6 +510,14 @@ class CounterpartyAccountConfig(MetadataMixin, BaseModel):
         None,
         exclude=True,
     )
+    wallet_account_number_type: WalletAccountNumberType | None = Field(
+        None,
+        exclude=True,
+        description=(
+            "Stablecoin external wallet: fills account_details with a demo address "
+            "and the given MT account_number_type. Incompatible with sandbox_behavior."
+        ),
+    )
 
     account_type: str | None = None
     party_name: str | None = None
@@ -510,6 +528,22 @@ class CounterpartyAccountConfig(MetadataMixin, BaseModel):
 
     @model_validator(mode="after")
     def _apply_sandbox_behavior(self) -> CounterpartyAccountConfig:
+        if self.wallet_account_number_type is not None and self.sandbox_behavior is not None:
+            raise ValueError(
+                "Counterparty inline account: choose sandbox_behavior (ACH/bank test "
+                "accounts) or wallet_account_number_type (stablecoin wallet) — not both."
+            )
+        if self.wallet_account_number_type is not None:
+            demo = SANDBOX_WALLET_DEMO_ADDRESSES[self.wallet_account_number_type]
+            self.account_details = [
+                AccountDetailConfig(
+                    account_number=demo,
+                    account_number_type=self.wallet_account_number_type,
+                )
+            ]
+            self.routing_details = []
+            return self
+
         if self.sandbox_behavior is None:
             return self
 
@@ -887,6 +921,45 @@ class TransitionLedgerTransactionConfig(MetadataMixin, _BaseResourceConfig):
 
     ledger_transaction_id: RefStr
     status: Literal["posted", "archived"]
+
+
+class VerifyExternalAccountConfig(MetadataMixin, _BaseResourceConfig):
+    """Micro-deposit verification initiation — emitted from ``funds_flows`` steps."""
+
+    display_phase: ClassVar[int] = DisplayPhase.LIFECYCLE
+    resource_type: ClassVar[str] = "verify_external_account"
+
+    external_account_ref: RefStr
+    originating_account_id: RefStr
+    type: str = "rtp"
+    currency: str | None = None
+    priority: Literal["high", "normal"] | None = None
+
+
+class CompleteVerificationConfig(MetadataMixin, _BaseResourceConfig):
+    """Complete micro-deposit verification — emitted from ``funds_flows`` steps."""
+
+    display_phase: ClassVar[int] = DisplayPhase.LIFECYCLE
+    resource_type: ClassVar[str] = "complete_verification"
+
+    external_account_ref: RefStr
+    staged: bool = False
+
+
+class ArchiveResourceConfig(MetadataMixin, _BaseResourceConfig):
+    """Archive or delete another resource — emitted from ``funds_flows`` steps."""
+
+    display_phase: ClassVar[int] = DisplayPhase.MUTATIONS
+    resource_type: ClassVar[str] = "archive_resource"
+
+    object_resource_type: str = Field(
+        ...,
+        validation_alias="resource_type",
+        serialization_alias="resource_type",
+        description="Resource type of the row being archived (e.g. incoming_payment_detail).",
+    )
+    resource_ref: RefStr
+    archive_method: Literal["delete", "archive", "request_closure"] = "delete"
 
 
 # ---------------------------------------------------------------------------

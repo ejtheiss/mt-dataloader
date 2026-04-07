@@ -6,12 +6,12 @@ help: ## Show this help
 
 setup: ## Create venv and install dependencies
 	python3 -m venv .venv
-	.venv/bin/pip install --upgrade pip
-	.venv/bin/pip install -r requirements.txt
+	.venv/bin/python -m pip install --upgrade pip
+	.venv/bin/python -m pip install -r requirements.txt
 	@echo "\n  Activate with:  source .venv/bin/activate"
 
 run: ## Start the dataloader (auto-reload)
-	.venv/bin/uvicorn dataloader.main:app --reload --host 127.0.0.1 --port 8000
+	.venv/bin/python -m uvicorn dataloader.main:app --reload --host 127.0.0.1 --port 8000
 
 test: ## Run pytest (same as CI)
 	.venv/bin/python -m pytest tests/ -q

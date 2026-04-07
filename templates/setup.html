@@ -71,6 +71,37 @@
         </div>
     </form>
 
+    {% if has_saved_draft %}
+    <div class="resume-draft-block" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <p class="setup-creds-hint">
+            A <strong>saved draft</strong> is on disk for the default account. Use the same organization in the sidebar, then resume — your API key stays in the browser only (not in the database).
+        </p>
+        <form id="draft-restore-form"
+              hx-post="/api/draft/restore"
+              hx-target="#content"
+              hx-swap="innerHTML"
+              hx-indicator="#restore-spinner"
+              enctype="multipart/form-data">
+            <input type="hidden" name="api_key" id="restore_api_key" value="">
+            <input type="hidden" name="org_id" id="restore_org_id" value="">
+            <input type="hidden" name="org_name" id="restore_org_name" value="">
+            <button type="submit" class="btn btn-secondary">
+                <span class="btn-text">Resume saved draft</span>
+                <span id="restore-spinner" class="htmx-indicator spinner"></span>
+            </button>
+        </form>
+        <p style="margin-top: 0.75rem;">
+            <button type="button"
+                    class="btn btn-link"
+                    style="color: var(--status-error, #c00); padding: 0;"
+                    hx-post="/api/draft/discard"
+                    hx-confirm="Discard the saved loader draft on disk? Completed runs and manifests are not deleted.">
+                Discard saved draft
+            </button>
+        </p>
+    </div>
+    {% endif %}
+
 <script>
 (function() {
     window.switchSetupTab = function(panelId) {
@@ -156,6 +187,22 @@
             }
         }
     });
+
+    var restoreForm = document.getElementById("draft-restore-form");
+    if (restoreForm) {
+        restoreForm.addEventListener("htmx:configRequest", function(evt) {
+            var k = sessionStorage.getItem("mt_api_key");
+            var o = sessionStorage.getItem("mt_org_id");
+            var n = sessionStorage.getItem("mt_org_name") || "";
+            document.getElementById("restore_api_key").value = k || "";
+            document.getElementById("restore_org_id").value = o || "";
+            document.getElementById("restore_org_name").value = n || "";
+            if (!k || !o) {
+                evt.preventDefault();
+                alert("Add an organization in the sidebar (top of the left navigation) first.");
+            }
+        });
+    }
 })();
 </script>
 {% endblock %}

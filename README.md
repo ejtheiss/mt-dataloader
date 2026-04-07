@@ -168,7 +168,7 @@ The `funds_flows` section in a config defines multi-step payment lifecycles decl
 
 **Key concepts:**
 
-- **Actor frames** define participants: `user` frames get faker-seeded identities (per-actor entity type, dataset, name template); `direct` frames take a literal `customer_name`. Each frame has named `slots` mapping to account/resource refs.
+- **Actor frames** define participants: **`user`** frames point at **per-instance** legal entities via **`instance_resources` on that `funds_flows[]` object** (`{instance}` in refs; `{first_name}`, `{last_name}`, `{business_name}` in template fields). **`direct`** frames use a literal **`customer_name`** and **static top-level** refs in **`slots`**. Authoring for tools: **`prompts/system_prompt.md` → *User actors (mandatory JSON)*** — do not pin variable parties with a single top-level LE ref.
 - **`@actor:alias.slot`** in step fields resolves to the actor's slot ref at compile time
 - **Trace metadata** (`trace_key` / `trace_value_template`) stamps every resource for grouping in MT's UI
 - **`optional_groups`** model lifecycle variants (returns, reversals, alternative payout methods) with discrete counts controlling how many instances get each edge case
@@ -182,10 +182,10 @@ The **scenario builder** on the Fund Flows page scales one pattern to N instance
 - **GenerationRecipeV1** controls: `instances`, `seed` (deterministic RNG), `seed_dataset`, `edge_case_count` (per-group discrete counts), `amount_variance_pct`, `staged_count`, `staged_selection`, `payment_mix`, `actor_overrides`
 - **Per-actor identity**: each actor frame can be configured independently — entity type (business/individual), seed dataset, or a literal customer name. Cascading dataset dropdowns hide industry verticals for individuals.
 - **Seed datasets** (10 available): pure Faker ("standard"), 6 industry verticals (tech, government, payroll, manufacturing, property_management, construction), and 3 pop-culture (harry_potter, superheroes, seinfeld). Selectable per actor from the scenario builder UI.
-- **`instance_resources`** on `FundsFlowConfig` defines per-instance infrastructure templates (LEs, CPs, IAs, LAs, category memberships) that are cloned with `{first_name}`, `{last_name}`, `{business_name}`, `{instance}` substitution from seed profiles
+- **`instance_resources`** on each `FundsFlowConfig` defines per-copy infrastructure templates (LEs, CPs, IAs, LAs, category memberships) expanded with `{first_name}`, `{last_name}`, `{business_name}`, `{instance}`, etc. — **required JSON shape for variable `user` actors** (same placeholder set as in prompts)
 - **Edge cases** activate `optional_groups` by discrete count — each group gets an exact number of instances, with mutually exclusive groups (via `exclusion_group`) distributing counts by weight
 - **Staged selection** stages instances from: `"happy_path"` (no edge cases), `"all"`, or a specific edge case label
-- Display names (faker-resolved MT object names) are shown as primary labels in preview and execution views; refs are available on hover
+- Display names (resolved from materialized template / profile values) are shown as primary labels in preview and execution views; refs are available on hover
 
 ### Fund Flows UI
 
@@ -202,12 +202,13 @@ Each compiled flow generates a Mermaid `sequenceDiagram` showing actors, message
 
 - **Schema (for LLMs / tools):** `GET /api/schema` -- full `DataLoaderConfig` JSON Schema.
 - **Validate without UI:** `POST /api/validate-json` -- body = raw JSON; returns structured errors for repair loops.
+- **Funds flows (`user_N`):** for any participant that should not be the same party on every copy of a flow, put **`instance_resources`** on **that `funds_flows[]` entry**, use **`{instance}`** in `ref` keys and in **`user_N` `entity_ref` / slot `$ref`s**, and use name placeholders per **`prompts/system_prompt.md` → *User actors (mandatory JSON)***. Do not wire variable parties from a single top-level legal entity unless the story explicitly requires one fixed actor.
 
 Resources reference each other with **`$ref:<resource_type>.<ref>`** (e.g. `$ref:internal_account.buyer_maya_wallet`). The `ref` field on each object is a short key; the engine builds the typed name. Child refs include selectors like `$ref:counterparty.vendor_cp.account[0]`.
 
 **Legal entities (sandbox):** For demos, you only need `ref`, `legal_entity_type`, and name fields in JSON. The app **replaces** identifications, addresses, documents, and related compliance fields with deterministic mock data before calling MT, so sandbox KYC/KYB stays predictable.
 
-**Connections (sandbox):** Use **`entity_id: "example1"`** or **`"example2"`** on `connections` when the flow includes **ACH or wire** payment orders on newly created internal accounts. The **`modern_treasury`** entity is effectively **book-only** for new IAs in sandbox; ACH POs will 422. See `prompts/decision_rubrics.md` (Connections).
+**Connections (sandbox):** **`entity_id: "modern_treasury"`** is the default **PSP sandbox** connection. It supports **ACH**, **wire**, **RTP**, **book**, **USD**, and **stablecoins** (e.g. **USDC**, **USDG**, **PYUSD**, **USDT**—confirm the exact set in current MT sandbox docs). Use **one** `connections[]` row and reference it from internal accounts via **`$ref:connection.<ref>`**; currency and payment rail come from the **internal account** and **payment / IPD** fields, not from extra PSP connections. Reserve **`example1`** and **`example2`** for **BYOB** (bring-your-own-bank) simulation stories (Gringotts / Iron Bank–style behaviors per MT docs)—**not** because the PSP sandbox lacks ACH or wire. See `prompts/decision_rubrics.md` (Connections).
 
 After creating a legal entity, the engine **polls** until MT reports `active` (or timeout) before continuing, so dependent internal accounts are less likely to race pending compliance.
 
@@ -282,7 +283,7 @@ See `examples/staged_demo.json` for a working example and `prompts/decision_rubr
 | `examples/funds_flow_demo.json` | **Funds Flows DSL** starter: deposit → settle → post lifecycle with actors, ledger entries, and an optional return edge case. |
 | `examples/marketplace_demo.json` | PSP marketplace: buyer/seller user frames with instance resources (LEs, CPs, wallets), ACH deposit → book fee → book settle → ACH payout, with an NSF return edge case. |
 | `examples/psp_minimal.json` | Smallest useful **book** transfer between two internal accounts. Two direct actors, one step. |
-| `examples/stablecoin_ramp.json` | Fiat↔stablecoin on/off-ramp: one `modern_treasury` connection, USD + USDC internal accounts, ledger accounts for reserves/positions, inline LTs on POs, and mutually exclusive payout alternatives (ACH/RTP/Wire via `exclusion_group` with `position: "replace"`). |
+| `examples/stablecoin_ramp.json` | Fiat↔stablecoin on/off-ramp: one `modern_treasury` connection, USD + USDC internal accounts, IPD/PO steps only (no ledger), and mutually exclusive payout alternatives (ACH/RTP/Wire via `exclusion_group` with `position: "replace"`). |
 | `examples/staged_demo.json` | Marketplace with `staged: true` on all money-movement steps. Infrastructure creates normally; staged items get "Fire" buttons. |
 | `examples/tradeify.json` | **Ledger-heavy brokerage PSP.** Rewards wallet with USDG conversion, chart-of-accounts categories, per-user instance resources (LE + CP + IA + 2 LAs + category memberships), NinjaTrader direct actor with CP + EAs, three optional groups (ACH cashout, wire funding, staged return). |
 
@@ -307,7 +308,7 @@ for p in sorted(Path('examples').glob('*.json')):
 
 1. **Validate** -- Credentials check, org discovery + reconciliation, parse JSON, compile funds flows (if present), build DAG, dry run.
 2. **Fund Flows** (if `funds_flows` present) -- Flow cards with actor badges, Mermaid diagrams, scenario builder for generation (per-actor identity, edge case counts, staging), metadata editor, JSON editor.
-3. **Preview** -- Resources grouped by flow. Display names (faker-resolved) as primary labels, refs on hover. Edge case badges, metadata, cleanup hints. Filter/sort/search/export.
+3. **Preview** -- Resources grouped by flow. Display names (resolved labels) as primary labels, refs on hover. Edge case badges, metadata, cleanup hints. Filter/sort/search/export.
 4. **Execute** -- Topological order, SSE updates, idempotency keys on creates. Duplicate category memberships handled gracefully. Staged resources resolved but held back.
 5. **Run detail** -- Config viewer, resource list, staged "Fire" buttons, live + historical webhooks (four tabs).
 6. **Runs** -- Manifests, cleanup (delete/archive what the API allows).
@@ -329,10 +330,17 @@ for p in sorted(Path('examples').glob('*.json')):
 
 ```
 main.py              ASGI shim → re-exports dataloader.main.app (uvicorn dataloader.main:app preferred)
-dataloader/          Application package (02a Phase E)
+dataloader/          Application package (02a Phase E — see maintainer plan 00 / 02a)
   main.py            FastAPI app, lifespan, router includes, static/templates paths
+  _version.py        App version (sidebar / GET /api/version)
+  helpers.py         Shared rendering: build_preview, extract_display_name, format helpers
+  tunnel.py          Ngrok tunnel manager used by /listen
+  sse_helpers.py     SSE stream helpers
+  ngrok_cloud.py     Optional ngrok Cloud API (remote agents)
+  mt_doc_links.py    MT dashboard deep links
+  mt_webhook_endpoints.py  Webhook endpoint registration helpers
   routers/           FastAPI route modules (import: dataloader.routers)
-    setup.py         /api/validate, /api/revalidate
+    setup.py         /api/validate, /api/revalidate, draft restore/discard
     flows.py         /flows, /flows/view, /api/flows/generate, /api/flows/metadata
     execute.py       /api/execute, SSE stream
     cleanup.py       /api/cleanup
@@ -340,15 +348,16 @@ dataloader/          Application package (02a Phase E)
     connection.py    /api/connections
     tunnel.py        /listen tunnel UI
     deps.py          FastAPI Depends helpers
-  webhooks/          Webhook package (routes.py: receiver, run detail, staged fire, listener)
+  webhooks/          Webhook package (routes.py + correlation helpers)
   staged_fire.py     FIREABLE_TYPES shared by webhooks + engine dry-run (must match _FIRE_DISPATCH)
   engine/            DAG executor (submodules: refs, dag, runner, run_meta)
   handlers/          MT SDK handlers (submodules: constants, operations, dispatch)
-  session/           In-memory SessionState + process-local session store (import: dataloader.session)
-helpers.py           Shared rendering: build_preview, extract_display_name, format helpers
-seed_loader.py       Faker hybrid seed engine (standard, industry, pop-culture)
-flow_validator.py    Config-level flow validation
-flow_views.py        Ledger + payments view data computation
+  session/           SessionState + in-memory sessions; draft_persist (Plan 0 Wave D)
+flow_compiler/       Funds Flow DSL compiler (no imports from dataloader — plan 00)
+  flow_validator.py  Config-level flow validation
+  seed_loader.py     Faker hybrid seed engine (standard, industry, pop-culture)
+  seeds/             Seed catalogs (YAML)
+  flow_views.py      Ledger + payments view data for Fund Flows UI
 ```
 
 ### Application wiring
@@ -358,12 +367,13 @@ flow_views.py        Ledger + payments view data computation
 - **Factory + lifespan:** `dataloader/main.py` — settings, logging, static, templates, router includes, tunnel manager.
 - **HTTP:** `dataloader/routers/`; **webhooks:** `dataloader/webhooks/`.
 - **DAG + SDK:** `dataloader/engine/`, `dataloader/handlers/`; **staged fire allowlist:** `dataloader/staged_fire.py` (`FIREABLE_TYPES`).
-- **Loader session:** `dataloader/session/` — `SessionState` and the in-memory `sessions` map (single-worker; see maintainer **Plan 0** for durable session design).
+- **Loader session:** `dataloader/session/` — `SessionState` and the in-memory `sessions` map (**cache**). **Plan 0 Wave D:** SQLite `loader_drafts` (see `db/repositories/loader_drafts.py`, `models/loader_draft.py`, `dataloader/session/draft_persist.py`) is the continuity store; execute does not delete the draft row. Single-worker; see maintainer **Plan 0** for follow-ups.
 - **Injection:** `dataloader/routers/deps.py` — settings, templates, tunnel, session lookup helpers.
 - **Import boundaries:** run `lint-imports` (config: `pyproject.toml` → `[tool.importlinter]`). `flow_compiler` and `models` must not import `dataloader`. **`org`** is forbidden from `dataloader.routers`, `webhooks`, `handlers`, `session`, `main` — in practice **`org` imports `dataloader.engine` only** (matches contracts).
 
 ```
-db/                  SQLAlchemy ORM + Alembic (`tables`, `database`, `repositories/`) — no imports from `dataloader`
+db/                  SQLAlchemy ORM + Alembic (`tables`, `database`, `repositories/*`) — no imports from `dataloader`
+                     (e.g. `runs`, `webhooks`, `loader_drafts`)
 models/              Pydantic config schemas
   config.py          DataLoaderConfig (root schema)
   resources.py       MT resource models (Layers 0-6)
@@ -376,10 +386,13 @@ models/              Pydantic config schemas
 flow_compiler/       Funds Flow DSL compiler
   core.py            compile_to_plan(), compile_flows(), emit_dataloader_config()
   generation.py      Generation pipeline: recipe → N instances, edge case pre-selection
+  flow_validator.py  Config-level flow validation (advisory diagnostics)
+  seed_loader.py     Dataset profiles + YAML seeds under seeds/
   mermaid.py         Mermaid sequenceDiagram rendering
   pipeline.py        Compilation pipeline passes
   ir.py              FlowIR intermediate representation
   diagnostics.py     Compilation diagnostics and warnings
+  flow_views.py      View rows/columns for T-account / payments UI
 
 org/                 Org discovery + reconciliation
   discovery.py       Query MT org for existing resources
@@ -391,11 +404,11 @@ templates/           HTMX + Jinja2 UI
 static/              CSS
 examples/            6 example configs (marketplace, stablecoin, tradeify, staged, psp, funds_flow)
 prompts/             LLM prompt kit (system_prompt, decision_rubrics, ChatGPT instructions)
-seeds/               Seed catalog (4 YAML files + Faker standard)
+flow_compiler/seeds/ Seed catalog (YAML + Faker standard; used by flow_compiler.seed_loader)
 
 Makefile             setup, run, tunnel, validate shortcuts
 runs/, logs/         Runtime (gitignored)
-tests/               Pytest suite (677 tests)
+tests/               Pytest suite (718 tests)
 ```
 
 A local **`plan/`** directory (roadmaps, design notes) is **gitignored** and is not part of the published repository.
@@ -406,7 +419,7 @@ A local **`plan/`** directory (roadmaps, design notes) is **gitignored** and is 
 
 ```bash
 source .venv/bin/activate
-python -m pytest tests/ -q           # all 677 tests
+python -m pytest tests/ -q           # full suite (718 tests)
 python -m pytest tests/ -x -q        # stop on first failure
 ```
 

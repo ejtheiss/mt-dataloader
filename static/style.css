@@ -655,6 +655,14 @@ body {
 }
 .error-alert h3 { margin: 0; color: var(--status-error); font-size: 0.85rem; }
 .error-alert p { margin: 0; }
+.error-alert__detail {
+    margin: 0;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text);
+}
 
 /* --- Preflight failure --- */
 .preflight-failure { padding: 20px; }
@@ -1450,6 +1458,20 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 }
 .flow-td-debit { border-right: 1px solid var(--border); }
 
+.flow-account-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+.flow-fi-role {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text-muted, #64748b);
+    line-height: 1.1;
+}
+
 .entry-amount {
     font-size: 0.82rem; font-weight: 500; color: var(--text);
     padding: 2px 8px; border: 1px solid var(--border);
@@ -1521,6 +1543,23 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
     border-left: 2px solid var(--border);
 }
 .flow-section-children > .accordion { margin-top: 10px; margin-bottom: 0; }
+
+/* After “Apply to Config”: collapsed accordion + success affordance */
+.scenario-builder--just-applied {
+    border-left: 3px solid var(--mt-green-500);
+    padding-left: 10px;
+    margin-left: -4px;
+    border-radius: var(--radius);
+}
+.scenario-builder--just-applied > .accordion-toggle {
+    background: var(--mt-green-50);
+}
+.chip.scenario-builder-applied-chip {
+    margin-left: 8px;
+    background: var(--mt-green-100);
+    color: var(--mt-green-700);
+    font-weight: 600;
+}
 
 .actor-list {
     display: flex; flex-direction: column; gap: 4px;
@@ -1680,10 +1719,6 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
     border-radius: var(--radius);
 }
 .preview-actor-row.actor-instance { background: color-mix(in srgb, var(--primary) 6%, transparent); }
-.preview-actor-resolved {
-    color: var(--text-muted); font-size: 0.78rem;
-    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
 .preview-resource-section { border-bottom: 1px solid var(--border); }
 .preview-resource-section:last-child { border-bottom: none; }
 

@@ -10,8 +10,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dataloader.session import SessionState, sessions
-from models import AppSettings
-from tunnel import TunnelManager
+from dataloader.tunnel import TunnelManager
+from models import AppSettings, CurrentAppUser, coerce_app_user_role
 
 
 def get_settings(request: Request) -> AppSettings:
@@ -69,3 +69,13 @@ async def get_db_session(request: Request) -> AsyncGenerator[AsyncSession, None]
 
 
 AsyncSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+
+
+def get_current_app_user(request: Request) -> CurrentAppUser:
+    """Plan 0 stub: single operator from app state until real auth."""
+    uid = int(getattr(request.app.state, "default_user_id", 1))
+    role = coerce_app_user_role(getattr(request.app.state, "default_user_role", None))
+    return CurrentAppUser(id=uid, role=role)
+
+
+CurrentAppUserDep = Annotated[CurrentAppUser, Depends(get_current_app_user)]

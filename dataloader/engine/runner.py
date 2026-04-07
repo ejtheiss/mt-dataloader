@@ -21,14 +21,8 @@ from models.shared import ErrorStrategy
 
 from .dag import build_dag, inject_legal_entity_psp_connection_id
 from .refs import RefRegistry, resolve_refs
+from .resource_display import extract_display_name as _extract_display_name
 from .run_meta import _now_iso, config_hash
-
-
-def _extract_display_name(resource: _BaseResourceConfig) -> str:
-    """Lazy wrapper to avoid circular import with helpers."""
-    from helpers import extract_display_name
-
-    return extract_display_name(resource)
 
 
 class ExecutionPhaseError(Exception):

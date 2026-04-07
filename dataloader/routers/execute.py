@@ -12,16 +12,21 @@ from modern_treasury import AsyncModernTreasury
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from dataloader.engine import execute, generate_run_id
-from dataloader.engine.run_meta import config_hash
+from dataloader.engine.run_meta import config_hash, resolve_manifest_path
 from dataloader.handlers import build_handler_dispatch, build_update_dispatch
+from dataloader.helpers import error_html, error_response
 from dataloader.routers.deps import SessionFormDep, SettingsDep, TemplatesDep
 from dataloader.session import sessions
+from dataloader.session.draft_persist import (
+    loader_draft_from_session,
+    run_access_context_for_request,
+)
+from dataloader.sse_helpers import make_emit_sse, sse_error_response
 from dataloader.webhooks import index_resource, register_run_org
 from db.repositories import correlation as correlation_repo
+from db.repositories import loader_drafts as loader_drafts_repo
 from db.repositories import runs as runs_repo
-from helpers import error_html, error_response
 from models import DisplayPhase, RunManifest
-from sse_helpers import make_emit_sse, sse_error_response
 
 router = APIRouter(tags=["execute"])
 
@@ -31,9 +36,9 @@ async def _persist_manifest_status_to_db(
     runs_dir: str,
     run_id: str,
 ) -> None:
-    """Mirror terminal manifest status into ``runs`` (best-effort)."""
-    path = Path(runs_dir) / f"{run_id}.json"
-    if not path.exists():
+    """Mirror terminal manifest status and list counts into ``runs`` (best-effort)."""
+    path = resolve_manifest_path(Path(runs_dir), run_id)
+    if path is None:
         return
     try:
         manifest = RunManifest.load(path)
@@ -47,6 +52,14 @@ async def _persist_manifest_status_to_db(
                 run_id=manifest.run_id,
                 status=manifest.status,
                 completed_at=manifest.completed_at,
+                resources_created_count=len(manifest.resources_created),
+                resources_staged_count=len(manifest.resources_staged)
+                if manifest.resources_staged
+                else 0,
+                resources_failed_count=len(manifest.resources_failed)
+                if manifest.resources_failed
+                else 0,
+                manifest_json=manifest.model_dump_json(),
             )
             await s.commit()
     except Exception as exc:
@@ -104,19 +117,19 @@ async def execute_stream(
 
         disconnected = False
         session_factory = getattr(request.app.state, "async_session_factory", None)
-        default_uid = getattr(request.app.state, "default_user_id", None)
 
         async def run_engine():
             nonlocal disconnected
             started_at = datetime.now(timezone.utc).isoformat()
+            access_ctx = run_access_context_for_request(request)
             cfg_h = config_hash(session.config)
-            if session_factory is not None and default_uid is not None:
+            if session_factory is not None:
                 try:
                     async with session_factory() as s:
                         await runs_repo.ensure_run(
                             s,
                             run_id=run_id,
-                            user_id=default_uid,
+                            user_id=access_ctx.user_id,
                             mt_org_id=session.org_id or None,
                             mt_org_label=session.org_label or None,
                             config_hash=cfg_h,
@@ -192,6 +205,26 @@ async def execute_stream(
                         await _persist_manifest_status_to_db(
                             session_factory, settings.runs_dir, run_id
                         )
+                    if session_factory is not None:
+                        try:
+                            draft = loader_draft_from_session(session)
+                            ts_done = datetime.now(timezone.utc).isoformat()
+                            async with session_factory() as db:
+                                await loader_drafts_repo.upsert_loader_draft(
+                                    db,
+                                    user_id=access_ctx.user_id,
+                                    ctx=access_ctx,
+                                    draft=draft,
+                                    updated_at=ts_done,
+                                    last_run_id=run_id,
+                                    last_run_at=started_at,
+                                )
+                                await db.commit()
+                        except Exception as exc:
+                            logger.bind(run_id=run_id).warning(
+                                "loader draft upsert after execute failed (non-fatal): {}",
+                                exc,
+                            )
                     await queue.put(ServerSentEvent(data="", event="close"))
                     await queue.put(None)
 

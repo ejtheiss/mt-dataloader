@@ -596,6 +596,16 @@ def emit_dataloader_config(
                 resource_dict.pop("originating_account_id", None)
             if resource_type in ("return", "reversal", "transition_ledger_transaction"):
                 resource_dict.pop("description", None)
+            if resource_type in (
+                "verify_external_account",
+                "complete_verification",
+                "archive_resource",
+            ):
+                # DSL authoring fields — not on VerifyExternalAccountConfig /
+                # CompleteVerificationConfig / ArchiveResourceConfig; keep them on
+                # FlowIR payload for Mermaid labels only.
+                resource_dict.pop("description", None)
+                resource_dict.pop("timing", None)
             if step.depends_on:
                 resource_dict["depends_on"] = step.depends_on
 

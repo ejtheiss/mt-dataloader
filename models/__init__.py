@@ -10,6 +10,7 @@ continues to work unchanged after the monolith → package decomposition.
 # --- shared types & constants ---
 # --- top-level config ---
 from models.config import DataLoaderConfig
+from models.current_user import AppUserRole, CurrentAppUser, coerce_app_user_role
 
 # --- flow DSL + generation ---
 from models.flow_dsl import (
@@ -28,14 +29,17 @@ from models.flow_dsl import (
     PaymentsViewConfig,
     StepMatch,
 )
+from models.loader_draft import LoaderDraft
 
 # --- manifest (run JSON on disk) ---
 from models.manifest import FailedEntry, ManifestEntry, RunManifest, StagedEntry
 
 # --- resource configs (Layers 0–6) ---
 from models.resources import (
+    ArchiveResourceConfig,
     BalanceMonitorAlertCondition,
     CategoryMembershipConfig,
+    CompleteVerificationConfig,
     ConnectionConfig,
     CounterpartyAccountConfig,
     CounterpartyConfig,
@@ -60,8 +64,10 @@ from models.resources import (
     ReversalConfig,
     TransactionConfig,
     TransitionLedgerTransactionConfig,
+    VerifyExternalAccountConfig,
     VirtualAccountConfig,
 )
+from models.run_list import RunListRow
 
 # --- runtime types ---
 from models.runtime import HandlerResult
@@ -85,6 +91,7 @@ from models.shared import (
     PaymentDirection,
     RefStr,
     RoutingDetailConfig,
+    WalletAccountNumberType,
     _BaseResourceConfig,
 )
 
@@ -135,6 +142,7 @@ __all__ = [
     "AddressConfig",
     "AccountDetailConfig",
     "RoutingDetailConfig",
+    "WalletAccountNumberType",
     "InlineLedgerAccountConfig",
     # Layer 1 — foundation
     "LegalEntityConfig",
@@ -164,6 +172,9 @@ __all__ = [
     "CategoryMembershipConfig",
     "NestedCategoryConfig",
     "TransitionLedgerTransactionConfig",
+    "VerifyExternalAccountConfig",
+    "CompleteVerificationConfig",
+    "ArchiveResourceConfig",
     # New resource types (feature audit)
     "LedgerAccountSettlementConfig",
     "BalanceMonitorAlertCondition",
@@ -221,6 +232,12 @@ __all__ = [
     "FailedEntry",
     "StagedEntry",
     "RunManifest",
+    "RunListRow",
+    # App user stub (Plan 0 roles)
+    "AppUserRole",
+    "CurrentAppUser",
+    "coerce_app_user_role",
+    "LoaderDraft",
     # App settings
     "AppSettings",
 ]

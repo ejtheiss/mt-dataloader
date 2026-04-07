@@ -80,13 +80,13 @@
                     <span class="badge badge--{{ 'success' if m.status == 'completed' else 'critical' if m.status == 'failed' else 'cool' if m.status == 'running' else 'default' }}">{{ m.status }}</span>
                 </div>
                 <div role="cell" class="ui-table-cell">
-                    {{ m.resources_created|length }}
+                    {{ m.resource_count }}
                 </div>
                 <div role="cell" class="ui-table-cell">
-                    {% if m.resources_staged %}{{ m.resources_staged|length }}{% else %}&mdash;{% endif %}
+                    {% if m.staged_count %}{{ m.staged_count }}{% else %}&mdash;{% endif %}
                 </div>
                 <div role="cell" class="ui-table-cell">
-                    {% if m.resources_failed %}<span style="color: var(--mt-red-500);">{{ m.resources_failed|length }}</span>{% else %}&mdash;{% endif %}
+                    {% if m.failed_count %}<span style="color: var(--mt-red-500);">{{ m.failed_count }}</span>{% else %}&mdash;{% endif %}
                 </div>
                 <div role="cell" class="ui-table-cell text-right" style="width: 160px; min-width: 160px; flex: none;">
                     <a href="/runs/{{ m.run_id }}" class="btn btn-sm btn-outline" onclick="event.stopPropagation()">Details</a>

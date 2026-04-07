@@ -36,5 +36,10 @@ def test_alembic_upgrade_creates_users_and_runs_tables(
         }
         assert "runs" in names
         assert "resource_correlation" in names
+        run_cols = {r[1] for r in con.execute("PRAGMA table_info(runs)")}
+        assert "resources_created_count" in run_cols
+        assert "resources_staged_count" in run_cols
+        assert "resources_failed_count" in run_cols
+        assert "manifest_json" in run_cols
     finally:
         con.close()

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from enum import IntEnum
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import (
     AfterValidator,
@@ -186,11 +186,28 @@ class AddressConfig(BaseModel):
     country: str = "US"
 
 
+# Modern Treasury counterparty wallet account_details.account_number_type (per network).
+WalletAccountNumberType: TypeAlias = Literal[
+    "ethereum_address",
+    "base_address",
+    "polygon_address",
+    "arbitrum_one_address",
+    "solana_address",
+    "stellar_address",
+]
+
+
 class AccountDetailConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     account_number: str
-    account_number_type: str | None = None
+    account_number_type: str | None = Field(
+        default=None,
+        description=(
+            "Bank numbers often omit this (MT infers). For stablecoin wallets, set to a "
+            "network-specific type (e.g. ethereum_address, base_address, solana_address)."
+        ),
+    )
 
 
 class RoutingDetailConfig(BaseModel):

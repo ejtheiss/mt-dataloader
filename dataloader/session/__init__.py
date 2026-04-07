@@ -3,11 +3,11 @@
 Houses ``SessionState``, the in-memory session store, and the
 ``get_session`` helper (not yet wired as a FastAPI ``Depends`` everywhere).
 
-**Process-local / single-worker assumption:** ``sessions`` is an in-memory
-``dict``. It does not survive restarts and is not visible to other workers.
-Multi-worker or durable continuity belongs in **Plan 0** (``plan_0_database_foundation.md``,
-Wave D — ``dataloader_sessions``). Do not add Redis or a second session store here
-until that plan drives the design.
+**Process-local cache:** ``sessions`` is an in-memory ``dict`` (tokens are not
+shared across workers). **Wave D:** durable continuity lives in SQLite
+(``loader_drafts``); this module remains the **hot cache**. After restart, use
+**Resume saved draft** on Setup (re-runs validate with stored config JSON; API
+key comes from the sidebar, not the DB). Do not add Redis as a second store.
 """
 
 from __future__ import annotations
@@ -27,7 +27,24 @@ SESSION_TTL_SECONDS = 600
 
 @dataclass
 class SessionState:
-    """Cached state between validate and execute."""
+    """Cached state between validate and execute.
+
+    **Authoring vs executable config**
+
+    - ``authoring_config_json``: last validated JSON **before** the emit pass strips
+      ``funds_flows`` and flattens flow steps into resource sections. Use this to
+      re-run generation / find flow patterns (see ``_get_base_config`` in flows router).
+    - ``config`` / ``config_json_text``: the **current executable** ``DataLoaderConfig``
+      — same object the DAG, preview, and execute paths use. After **Apply scenario**,
+      both are the merged generated load (Faker-filled resources, empty ``funds_flows``).
+    - ``base_config_json``: snapshot from first successful validate in the session
+      (historically the emitted text at that moment); generation prefers
+      ``authoring_config_json`` when it still contains ``funds_flows``.
+    - ``working_config_json``: Monaco / flows-page editor buffer; kept equal to
+      ``config_json_text`` whenever the server updates ``session.config``. Edits only
+      affect the live load after **Re-validate** (or another server merge); until then
+      the buffer can diverge if the client edits without submitting.
+    """
 
     session_token: str
     api_key: str

@@ -1,12 +1,8 @@
-# Config scope (for the LLM)
+# Config scope
 
-**What this document is for:** Decide **how large** the config should be and **which
-sections to include**—*before* you write JSON. It does **not** replace
-`decision_rubrics.md` (which MT object to use) or `ordering_rules.md` (DAG /
-`depends_on`). Use those after you know the scope.
-
-**What this document is not:** JSON Schema, field-level rules, or naming—those
-come from `/api/schema`, `naming_conventions.md`, and `system_prompt.md` rules.
+Pick **how large** the config is and **which sections** to include before writing JSON.
+After scope, use `decision_rubrics.md` (which MT object) and `ordering_rules.md` (DAG / `depends_on`).
+Field-level rules: `GET /api/schema`, `naming_conventions.md`, `system_prompt.md`.
 
 ---
 
@@ -56,8 +52,11 @@ onboarded parties, wallets, settlement, fees, maybe sandbox ACH / returns.
 **Structural template:** `examples/marketplace_demo.json`  
 **Typical sections:** connections (`ref:` e.g. `platform_bank`, **`entity_id:
 "modern_treasury"`**, PSP-style nickname such as `"Modern Treasury PSP"`),
-`instance_resources` (LEs, CPs, IAs), and **`funds_flows`** with steps for
-deposit / settle / fee / payout (and optional IPD steps for simulated inbound).
+**`funds_flows`** whose **`user_N` actors** use **`instance_resources`** on that
+flow (LEs, CPs, IAs, EAs as needed) per **`system_prompt.md` → *User actors
+(mandatory JSON)*** — not a second optional style; then steps for deposit / settle /
+fee / payout (and optional IPD). **Platform** infra stays at top level; **party**
+infra for `user` frames is **always** templated under `instance_resources`.
 Express **all** POs and IPDs as **steps**, not as hand-written top-level arrays.
 **Do not** use `example1` / `example2` here unless the user asked for **BYOB**
 (see `decision_rubrics.md`). **PSP legal entities:** never emit `connection_id`
@@ -90,7 +89,7 @@ line with `decision_rubrics.md`.
 | "Smallest", "one transfer", "minimal PSP" | A | `psp_minimal.json` |
 | "Marketplace", "buyer/seller", "wallets", "settle", "fee" | B | `marketplace_demo.json` |
 | "Lifecycle", "deposit-to-settle", "flow pattern" | B | `funds_flow_demo.json` |
-| "Live demo", "staged", "fire one-by-one", "click-through" | B + staged | `staged_demo.json` |
+| "Live demo", "fire one-by-one", "click-through" | B | `marketplace_demo.json` or `funds_flow_demo.json` — **do not** ask about `staged`; SE uses **run UI** for live-fire. `staged_demo.json` only if the user wants JSON with `staged: true` baked in. |
 | "Stablecoin", "on-ramp", "off-ramp", "USDC", "USDG" | C | `stablecoin_ramp.json` (one `modern_treasury` connection; USD + USDC IAs on same `connection_id`) |
 | "Brokerage", "rewards", "chart of accounts" | C | `tradeify.json` |
 | "Reconciliation", "expected payment", "match inbound" | C | B + EP/IPD per rubrics |
@@ -111,7 +110,7 @@ Start at **B** unless the user chose **A** or **C**.
 | LEs + CPs + sandbox_behavior | Yes | — |
 | Book settle / fee / ACH payout | Yes | — |
 | IPD (sandbox inbound simulation) | If the story needs it | — |
-| `staged` on PO/IPD/EP/LT | If presenter wants live-fire demo | — |
+| `staged` on PO/IPD/EP/LT | **No** (default) — SE enables live-fire in **UI** | Only if user explicitly asks for `staged: true` in JSON |
 | `expected_payments` | No | Yes |
 | `virtual_accounts` | No | Yes |
 | Ledgers / categories / ledger TXNs | No | Yes |
@@ -130,7 +129,7 @@ absent; the compiler fills them from **`funds_flows[].steps`** and
 | Always via `funds_flows` | Never hand-author at top level |
 |--------------------------|--------------------------------|
 | Every PO, IPD, EP, LT, return, reversal step | Parallel copies in `payment_orders[]` / `incoming_payment_details[]` / … |
-| Scaling (`instance_resources`, recipes) | "Minimal" configs with only raw arrays |
+| `user` actors + `instance_resources` (mandatory shape) | Top-level-only party LE/CP wired to `user_N` without `{instance}` |
 | `optional_groups` (NSF, alt payout, returns) | |
 
 The compiler generates concrete resources from step definitions — your job is

@@ -24,7 +24,7 @@ not enabled, or payload/rail mismatch). **Typical dataloader fix:** use **one**
 PSP (USD + USDC can share it — see `examples/stablecoin_ramp.json`). Confirm
 `entity_id` is `modern_treasury` for default PSP demos (not BYOB unless
 intended). For legal-entity create on PSP: **do not** put `connection_id` in
-authored JSON — the executor injects it (`decision_rubrics.md`). BYOB: include
+authored JSON (`decision_rubrics.md`). BYOB: include
 `connection_id` on LE only when your scenario requires it.
 
 ### `ref` / `value_error` — Invalid ref format
@@ -37,6 +37,19 @@ engine auto-prefixes the resource type (e.g. ref `acme_corp` becomes
 
 Check the schema for typos or unknown fields. Common causes:
 
+- **Lifecycle rows you pasted at the root (`payment_orders`, `verify_external_accounts`,
+  etc.):** Prefer **authoring** money movement and verification as **`funds_flows`**
+  steps — the compiler emits the flat sections. Root arrays exist on the merged
+  schema for compiled/edited JSON; hand-building them is easy to get wrong. If you
+  meant micro-deposit verification, use step types `verify_external_account` /
+  `complete_verification` under **`funds_flows`**, not a guessed root key
+  (`decision_rubrics.md` § Root JSON).
+- **`value_error` mixing wallet + bank sandbox on the same counterparty inline
+  account:** Do **not** set **`sandbox_behavior`** together with
+  **`wallet_account_number_type`** (or explicit stablecoin wallet
+  **`account_details`**). Bank demos use `sandbox_behavior`; stablecoin wallet CPs
+  use `wallet_account_number_type` or explicit `account_details` + network
+  **`account_number_type`** — see **`decision_rubrics.md`** § *Stablecoin wallet accounts*.
 - **`name` on `counterparties[].accounts[]`:** Remove it — the schema uses
   `extra="forbid"` on inline accounts. Use `party_name` or `metadata` for
   labels; the parent counterparty has `name`.
@@ -45,17 +58,28 @@ Check the schema for typos or unknown fields. Common causes:
   `ledger_transaction` accept `effective_date`.
 - **`receiving_account_id` on an `incoming_payment_detail` step:** IPD uses
   `internal_account_id`, not `receiving_account_id`.
-- **`originating_account_id` on a raw `incoming_payment_details[]` item:** The
-  resource schema has no such field (only optional `originating_account_number`
-  / `originating_routing_number` for some rails). The loader strips this key if
-  present so validation matches Funds Flow emit behavior. For inbound “from
-  wallet” stories, use `depends_on` ordering and counterparty POs; do not mirror
-  PO account fields onto IPD rows. In **`funds_flows`** IPD **steps**,
-  `originating_account_id` is still valid DSL and is stripped when compiled.
-- **`originating_account_id` on a raw `expected_payments[]` item:** Same as
-  IPD — not in the EP resource model; stripped if present.
+- **`originating_account_id` on a raw `incoming_payment_details[]` item:** Remove
+  it — not in the resource schema (optional `originating_account_number` /
+  `originating_routing_number` only for some rails). **`funds_flows`** IPD
+  **steps** may include `originating_account_id` (DSL only).
+- **`originating_account_id` on a raw `expected_payments[]` item:** Remove — not
+  in the EP resource model.
 - **Wrong field on any `funds_flows` step:** Each step `type` has a strict
   set of allowed fields. See the step field reference table in the prompt.
+- **`extra_forbidden` on `external_account_id` in `verify_external_account` or
+  `complete_verification` steps:** Use **`external_account_ref`** instead (e.g.
+  `@actor:user_2.bank` or `$ref:external_account.<key>`). The loader IR does not
+  use `external_account_id` on these step payloads.
+- **`extra_forbidden` on `sandbox_behavior` in `external_accounts[]`:** Remove
+  it. **`sandbox_behavior`** is only valid on **counterparty inline `accounts[]`**,
+  not on standalone **`external_accounts[]`** rows.
+- **`extra_forbidden` on `description` or `timing` inside flat
+  `verify_external_accounts[]`, `complete_verifications[]`, or `archive_resources[]`:**
+  Those keys are **not** on the emitted resource schema. If you **hand-pasted**
+  compiled-style rows, remove them. If you authored **`funds_flows`** steps with
+  `description` / `timing`, a current compiler strips them on emit — if errors
+  persist, upgrade the running **dataloader** build **or** remove `description` /
+  `timing` from those steps (safest default for generated configs).
 
 ### `address_types` / `identifications` / `documents` on legal entities
 
@@ -73,6 +97,12 @@ Metadata values must be strings. Use `"250000"` not `250000`.
 A non-staged resource depends (via `$ref:` or `depends_on`) on a staged
 resource or its child ref. Fix: restructure so non-staged resources only
 reference non-staged ones, or mark the dependent resource as `staged: true`.
+
+**Common with `complete_verification`:** The **DSL** defaults **`staged: true`**. If
+**PO/IPD** list that step in **`depends_on`**, set **`"staged": false`** on the
+**`complete_verification`** step (happy path) or stage the payment steps too. Setup
+**`/api/validate-json`** may return **`type: staged_dependency_error`** for this case
+(see **`04_validation_observability.md`** § Interim shipped).
 
 ### `staged_data_ref`
 

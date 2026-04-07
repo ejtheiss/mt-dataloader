@@ -10,14 +10,21 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field, ValidationError
 
-import seed_loader
+import flow_compiler.seed_loader as seed_loader
 from dataloader.engine import all_resources, dry_run, typed_ref_for
+from dataloader.helpers import (
+    build_preview,
+    fmt_amt,
+    format_validation_errors,
+    get_flow_view_data,
+)
 from dataloader.routers.deps import (
     OptionalSessionQueryDep,
     SessionHeaderDep,
     TemplatesDep,
 )
 from dataloader.session import sessions
+from dataloader.session.draft_persist import persist_loader_draft
 from flow_compiler import (
     GenerationResult,
     compile_diagnostics,
@@ -25,13 +32,7 @@ from flow_compiler import (
     flow_account_deltas,
     generate_from_recipe,
 )
-from flow_views import compute_view_data
-from helpers import (
-    build_preview,
-    fmt_amt,
-    format_validation_errors,
-    get_flow_view_data,
-)
+from flow_compiler.flow_views import compute_view_data
 from jsonutil import dumps_pretty, loads_str
 from models import (
     SOURCE_BADGE,
@@ -56,6 +57,31 @@ _GEN_SECTIONS = (
 
 def _count_resources(config: DataLoaderConfig) -> dict[str, int]:
     return {s: len(getattr(config, s, None) or []) for s in _GEN_SECTIONS}
+
+
+def _recipe_flow_ref(emitted_flow_ref: str) -> str:
+    """Map ``pattern__0042`` → ``pattern`` for ``generation_recipes`` / API keys."""
+    parts = emitted_flow_ref.rsplit("__", 1)
+    if len(parts) == 2 and parts[1].isdigit():
+        return parts[0]
+    return emitted_flow_ref
+
+
+def _display_flow_session_sources(session: Any) -> tuple[list, list]:
+    """IR + expanded flows for Fund Flows UI.
+
+    After scenario apply, ``session.flow_ir`` holds generated instances (Faker, etc.)
+    while ``pattern_*`` stays the single pattern compile from validate. Prefer generated
+    whenever the user has recipes and a non-empty ``flow_ir``.
+    """
+    pattern_ir = session.pattern_flow_ir or []
+    pattern_exp = session.pattern_expanded_flows or []
+    flow_ir = session.flow_ir or []
+    expanded = session.expanded_flows or []
+    recipes = getattr(session, "generation_recipes", None) or {}
+    if recipes and flow_ir:
+        return flow_ir, expanded
+    return (pattern_ir or flow_ir), (pattern_exp or expanded)
 
 
 def _step_variance_ui_fields(step_id: str, recipe: dict[str, Any] | None) -> dict[str, Any]:
@@ -239,7 +265,8 @@ def _default_recipe_dict(flow_ref: str) -> dict[str, Any]:
     }
 
 
-def _recompose_and_persist_session(
+async def _recompose_and_persist_session(
+    request: Request,
     session: Any,
 ) -> JSONResponse | GenerationResult:
     """Run ``_compose_all_recipes`` and mirror results onto ``session``.
@@ -296,6 +323,7 @@ def _recompose_and_persist_session(
         reconciliation=session.reconciliation,
         update_refs=session.update_refs,
     )
+    await persist_loader_draft(request, session)
     return gen
 
 
@@ -318,12 +346,11 @@ async def flows_page(
 
     session_token = sess.session_token
 
-    diagnostics = None
-    if sess.flow_ir:
-        diagnostics = compile_diagnostics(sess.flow_ir)
+    display_flow_ir, display_expanded = _display_flow_session_sources(sess)
 
-    display_flow_ir = sess.pattern_flow_ir or sess.flow_ir or []
-    display_expanded = sess.pattern_expanded_flows or sess.expanded_flows or []
+    diagnostics = None
+    if display_flow_ir:
+        diagnostics = compile_diagnostics(display_flow_ir)
 
     flow_summaries = []
     if display_flow_ir:
@@ -332,9 +359,10 @@ async def flows_page(
             amount_steps: list[dict] = []
             actors_list: list[dict] = []
             actor_frames: list[dict] = []
+            recipe_key = _recipe_flow_ref(ir.flow_ref)
             recipe_for_flow: dict[str, Any] | None = None
-            if sess.generation_recipes and ir.flow_ref in sess.generation_recipes:
-                recipe_for_flow = sess.generation_recipes[ir.flow_ref]
+            if sess.generation_recipes and recipe_key in sess.generation_recipes:
+                recipe_for_flow = sess.generation_recipes[recipe_key]
 
             if i < len(display_expanded):
                 fc = display_expanded[i]
@@ -401,6 +429,7 @@ async def flows_page(
                 {
                     "index": i,
                     "flow_ref": ir.flow_ref,
+                    "recipe_flow_ref": recipe_key,
                     "pattern_type": ir.pattern_type,
                     "trace_key": ir.trace_key,
                     "trace_value": ir.trace_value,
@@ -521,8 +550,7 @@ async def flow_drawer(
         return HTMLResponse("<p>Session expired</p>", status_code=404)
 
     session_token = sess.session_token
-    display_flow_ir = sess.pattern_flow_ir or sess.flow_ir or []
-    display_expanded = sess.pattern_expanded_flows or sess.expanded_flows or []
+    display_flow_ir, display_expanded = _display_flow_session_sources(sess)
 
     if flow_idx < 0 or flow_idx >= len(display_flow_ir):
         return HTMLResponse("<p>Flow not found</p>", status_code=404)
@@ -684,6 +712,8 @@ async def update_flow_metadata(
     updated_json = dumps_pretty(config_dict)
     hdr_sess.working_config_json = updated_json
 
+    await persist_loader_draft(request, hdr_sess)
+
     return {"status": "ok", "flow_idx": flow_idx}
 
 
@@ -701,6 +731,8 @@ async def generate_preview(request: Request):
     batches = dry_run(gen.config, known, skip_refs=session.skip_refs)
     api_calls = sum(len(b) for b in batches)
     needs_confirmation = api_calls > 10000
+
+    await persist_loader_draft(request, session)
 
     return {
         "counts_by_type": counts,
@@ -725,7 +757,7 @@ async def recipe_to_working_config(request: Request):
 
     session.generation_recipes[recipe.flow_ref] = recipe.model_dump()
 
-    composed = _recompose_and_persist_session(session)
+    composed = await _recompose_and_persist_session(request, session)
     if isinstance(composed, JSONResponse):
         return composed
 
@@ -757,7 +789,7 @@ async def flow_actor_config_drawer(
     if not frame:
         return HTMLResponse("<p>Missing frame parameter.</p>", status_code=400)
 
-    display_expanded = sess.pattern_expanded_flows or sess.expanded_flows or []
+    display_expanded = _display_flow_session_sources(sess)[1]
     if flow_idx < 0 or flow_idx >= len(display_expanded):
         return HTMLResponse("<p>Invalid flow index.</p>", status_code=400)
 
@@ -766,11 +798,11 @@ async def flow_actor_config_drawer(
         return HTMLResponse("<p>Unknown actor frame.</p>", status_code=404)
 
     actor_model = fc.actors[frame]
-    display_ir = sess.pattern_flow_ir or sess.flow_ir or []
+    display_ir = _display_flow_session_sources(sess)[0]
     if flow_idx < len(display_ir):
-        flow_ref = display_ir[flow_idx].flow_ref
+        flow_ref = _recipe_flow_ref(display_ir[flow_idx].flow_ref)
     else:
-        flow_ref = fc.ref.rsplit("__", 1)[0] if "__" in fc.ref else fc.ref
+        flow_ref = _recipe_flow_ref(fc.ref)
     recipe_raw = sess.generation_recipes.get(flow_ref)
     ov_raw: dict[str, Any] = {}
     if recipe_raw:
@@ -810,16 +842,16 @@ async def flow_actor_config_save(
             status_code=401,
         )
 
-    display_expanded = hdr_sess.pattern_expanded_flows or hdr_sess.expanded_flows or []
+    display_expanded = _display_flow_session_sources(hdr_sess)[1]
     if flow_idx < 0 or flow_idx >= len(display_expanded):
         return JSONResponse(content={"error": "Invalid flow index"}, status_code=400)
 
     fc = display_expanded[flow_idx]
-    display_ir = hdr_sess.pattern_flow_ir or hdr_sess.flow_ir or []
+    display_ir = _display_flow_session_sources(hdr_sess)[0]
     if flow_idx < len(display_ir):
-        flow_ref = display_ir[flow_idx].flow_ref
+        flow_ref = _recipe_flow_ref(display_ir[flow_idx].flow_ref)
     else:
-        flow_ref = fc.ref.rsplit("__", 1)[0] if "__" in fc.ref else fc.ref
+        flow_ref = _recipe_flow_ref(fc.ref)
 
     try:
         body = await request.json()
@@ -859,7 +891,7 @@ async def flow_actor_config_save(
         )
     hdr_sess.generation_recipes[flow_ref] = recipe_dict
 
-    composed = _recompose_and_persist_session(hdr_sess)
+    composed = await _recompose_and_persist_session(request, hdr_sess)
     if isinstance(composed, JSONResponse):
         return composed
 
@@ -892,6 +924,8 @@ async def generate_execute(request: Request):
     known = set(session.org_registry.refs.keys()) if session.org_registry else None
     batches = dry_run(gen.config, known, skip_refs=session.skip_refs)
     session.batches = batches
+
+    await persist_loader_draft(request, session)
 
     return {
         "status": "ok",

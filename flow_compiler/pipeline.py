@@ -113,7 +113,9 @@ def pass_expand_instances(ctx: CompilationContext) -> CompilationContext:
     for flow in config.funds_flows:
         mapping = {"instance": "0000", "ref": flow.ref, **default_profile}
         if flow.instance_resources:
-            expanded_ir = _expand_instance_resources(flow.instance_resources, 0, default_profile)
+            expanded_ir = _expand_instance_resources(
+                flow.instance_resources, 0, default_profile, pattern=flow
+            )
             for section, items in expanded_ir.items():
                 extra_resources.append((section, items))
         flow_dict = flow.model_dump()
@@ -179,7 +181,7 @@ def pass_render_diagrams(ctx: CompilationContext) -> CompilationContext:
 
 def pass_compute_view_data(ctx: CompilationContext) -> CompilationContext:
     """Pass 8: Compute per-view row/column data from FlowIR + config."""
-    from flow_views import compute_view_data as _compute
+    from .flow_views import compute_view_data as _compute
 
     flows = ctx.expanded_flows
     views = []
@@ -188,7 +190,7 @@ def pass_compute_view_data(ctx: CompilationContext) -> CompilationContext:
         if fc:
             views.append(_compute(ir, fc))
         else:
-            from flow_views import FlowViewData
+            from .flow_views import FlowViewData
 
             views.append(FlowViewData())
     return dataclasses.replace(ctx, view_data=tuple(views))

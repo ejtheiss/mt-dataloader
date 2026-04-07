@@ -9,13 +9,14 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from dataloader.engine.run_meta import list_manifest_ids, resolve_manifest_path
-from dataloader.webhooks.routes import (
+from dataloader.webhooks.correlation_state import (
+    correlate_inbound_payload,
     correlation_index_size,
-    recorrelate_unmatched_webhooks,
     replace_runtime_correlation_state,
 )
 from db.repositories import correlation as correlation_repo
 from db.repositories import runs as runs_repo
+from db.repositories import webhooks as webhooks_repo
 from models import RunManifest
 
 
@@ -56,6 +57,14 @@ async def backfill_missing_runs_from_disk(
             config_hash=manifest.config_hash or None,
             started_at=manifest.started_at,
             completed_at=manifest.completed_at,
+            resources_created_count=len(manifest.resources_created),
+            resources_staged_count=len(manifest.resources_staged)
+            if manifest.resources_staged
+            else 0,
+            resources_failed_count=len(manifest.resources_failed)
+            if manifest.resources_failed
+            else 0,
+            manifest_json=manifest.model_dump_json(),
         )
         stats["runs_backfilled"] += 1
 
@@ -92,7 +101,7 @@ async def bootstrap_webhook_correlation(
     *,
     default_user_id: int,
 ) -> dict[str, Any]:
-    """Plan 0 startup: backfill missing runs, hydrate correlation from DB, fix unmatched JSONL."""
+    """Plan 0 startup: backfill missing runs, hydrate correlation from DB, fix unmatched rows."""
     async with session_factory() as session:
         stats = await backfill_missing_runs_from_disk(
             session,
@@ -111,10 +120,19 @@ async def bootstrap_webhook_correlation(
     async with session_factory() as session:
         await load_runtime_correlation_from_db(session)
 
-    recovered = recorrelate_unmatched_webhooks(runs_dir)
+    async with session_factory() as session:
+        recovered = await webhooks_repo.recorrelate_unmatched_webhook_events(
+            session,
+            correlate_inbound_payload,
+        )
+        await session.commit()
     if recovered:
-        logger.info("Re-correlated {} previously unmatched webhook(s)", recovered)
+        logger.info("Re-correlated {} previously unmatched webhook row(s)", recovered)
 
     n = correlation_index_size()
     logger.info("Webhook correlation index ready ({} resource IDs)", n)
-    return {**stats, "index_ids": n, "unmatched_recovered": recovered}
+    return {
+        **stats,
+        "index_ids": n,
+        "unmatched_recovered": recovered,
+    }

@@ -1,9 +1,10 @@
 {% set fs = flow_summaries[flow_idx] %}
+{% set recipe_key = fs.recipe_flow_ref | default(fs.flow_ref) %}
 <details class="accordion" id="scenario-builder-{{ flow_idx }}">
     <summary class="accordion-toggle">
-        <span class="accordion-toggle-title">Flow config: {{ fs.flow_ref }}</span>
-        {% if generation_recipes and fs.flow_ref in generation_recipes %}
-        <span class="chip">{{ generation_recipes[fs.flow_ref].get('instances', '?') }} instances</span>
+        <span class="accordion-toggle-title">Flow config: {{ recipe_key }}</span>
+        {% if generation_recipes and recipe_key in generation_recipes %}
+        <span class="chip">{{ generation_recipes[recipe_key].get('instances', '?') }} instances</span>
         {% endif %}
     </summary>
     <div class="accordion-body">
@@ -201,10 +202,10 @@
   var elId = 'scenario-builder-{{ flow_idx }}';
   var cfg = {{ {
     "idx": flow_idx,
-    "flowRef": fs.flow_ref,
+    "flowRef": recipe_key,
     "sessionToken": session_token,
     "stagingOptions": _staging_opts,
-    "savedRecipe": generation_recipes.get(fs.flow_ref) if generation_recipes else None
+    "savedRecipe": generation_recipes.get(recipe_key) if generation_recipes else None
   } | tojson }};
   function bootScenarioBuilder() {
     var el = document.getElementById(elId);

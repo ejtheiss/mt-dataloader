@@ -4,14 +4,11 @@ The dataloader builds a directed acyclic graph (DAG) from the config and
 executes resources in topological order. Within each batch, resources with
 no dependencies between them run concurrently.
 
-**LLM authoring:** Define ordering first in **`funds_flows`** using
-`depends_on: ["step_id"]` between steps. The JSON snippets below that show
-top-level resources with `$ref:incoming_payment_detail...` illustrate the
-**compiled** shape after expansion — your primary job is step-level `depends_on`,
-not hand-written parallel PO rows.
+**Authoring:** Set order in **`funds_flows`** with `depends_on: ["step_id"]` between steps.
+Snippets below that show top-level `$ref:incoming_payment_detail...` are **compiled**
+output — author **steps** and `depends_on`, not hand-written parallel lifecycle rows.
 
-You almost never need to think about ordering — the engine handles it. This
-document explains the rare cases where you do.
+Default: the engine orders from `$ref:` edges. This doc covers edge cases.
 
 ---
 
@@ -127,9 +124,22 @@ Add `depends_on` to the return only if you need extra ordering beyond that.
 
 ## Staged Resources and the DAG
 
+**Authoring default:** Omit `staged` in generated JSON; **SEs** usually enable
+live-fire from the **run UI**. The rules below apply when `staged: true` is
+present in the config.
+
 Resources with `staged: true` are included in the DAG for validation but
 **skipped** during execution. Their resolved payloads are saved to disk and
 exposed via "Fire" buttons in the run-detail UI.
+
+**Lifecycle vs UI-fireable `staged`:** Only **PO, IPD, EP, LT** are **UI-fireable**
+staged types (`dataloader/staged_fire.py`). **`verify_external_account`**,
+**`complete_verification`**, and **`archive_resource`** are **not** — but
+**`complete_verification`** can still be marked **`staged: true`** (Pydantic DSL
+default). Rule **(1)** below still applies: a **non-staged** PO/IPD must **not**
+**`depends_on`** a **staged** `complete_verification`. For generated JSON, prefer
+**`"staged": false`** on **`complete_verification`** when money steps depend on it in
+the same load (**`system_prompt.md`**, **`step_field_reference.md`**).
 
 **Key ordering constraints:**
 
