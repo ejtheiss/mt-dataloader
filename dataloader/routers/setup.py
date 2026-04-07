@@ -249,6 +249,8 @@ async def _validate_pipeline(
         return f"Cycle Error\nCircular dependency: {e}"
     except KeyError as e:
         return f"Reference Error\n{e}"
+    except ValueError as e:
+        return f"Can't build execution plan\n{_dry_run_value_error_message(e)}"
 
     # 6. Build preview
     resource_map = {typed_ref_for(r): r for r in all_resources(config)}
@@ -322,6 +324,21 @@ def _pipeline_result_to_session(
 def _pipeline_error_response(message: str):
     title, _, detail = message.partition("\n")
     return error_response(title, detail)
+
+
+def _dry_run_value_error_message(exc: ValueError) -> str:
+    """Turn dry_run ValueError into a user-facing detail (may be multi-line)."""
+    msg = str(exc)
+    if "staged resource" in msg.lower():
+        msg += (
+            "\n\n"
+            "Hint: `complete_verification` defaults to staged. Downstream steps "
+            "(incoming_payment_detail, payment_order, …) that list it in `depends_on` "
+            "cannot sit in the same non-staged batch. Fix: set `\"staged\": false` on "
+            "those `complete_verification` steps if verification is done before this load, "
+            "or set `\"staged\": true` on the downstream payment steps as well."
+        )
+    return msg
 
 
 def _render_preview_or_redirect(
@@ -466,6 +483,17 @@ async def validate_json(request: Request):
         return {
             "valid": False,
             "errors": [{"path": "(dag)", "type": "unresolvable_ref", "message": str(e)}],
+        }
+    except ValueError as e:
+        return {
+            "valid": False,
+            "errors": [
+                {
+                    "path": "(dag)",
+                    "type": "staged_dependency_error",
+                    "message": _dry_run_value_error_message(e),
+                }
+            ],
         }
 
     return {

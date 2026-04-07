@@ -168,7 +168,7 @@ The `funds_flows` section in a config defines multi-step payment lifecycles decl
 
 **Key concepts:**
 
-- **Actor frames** define participants: `user` frames get faker-seeded identities (per-actor entity type, dataset, name template); `direct` frames take a literal `customer_name`. Each frame has named `slots` mapping to account/resource refs.
+- **Actor frames** define participants: **`user`** frames point at **per-instance** legal entities via **`instance_resources` on that `funds_flows[]` object** (`{instance}` in refs; `{first_name}`, `{last_name}`, `{business_name}` in template fields). **`direct`** frames use a literal **`customer_name`** and **static top-level** refs in **`slots`**. Authoring for tools: **`prompts/system_prompt.md` → *User actors (mandatory JSON)*** — do not pin variable parties with a single top-level LE ref.
 - **`@actor:alias.slot`** in step fields resolves to the actor's slot ref at compile time
 - **Trace metadata** (`trace_key` / `trace_value_template`) stamps every resource for grouping in MT's UI
 - **`optional_groups`** model lifecycle variants (returns, reversals, alternative payout methods) with discrete counts controlling how many instances get each edge case
@@ -182,10 +182,10 @@ The **scenario builder** on the Fund Flows page scales one pattern to N instance
 - **GenerationRecipeV1** controls: `instances`, `seed` (deterministic RNG), `seed_dataset`, `edge_case_count` (per-group discrete counts), `amount_variance_pct`, `staged_count`, `staged_selection`, `payment_mix`, `actor_overrides`
 - **Per-actor identity**: each actor frame can be configured independently — entity type (business/individual), seed dataset, or a literal customer name. Cascading dataset dropdowns hide industry verticals for individuals.
 - **Seed datasets** (10 available): pure Faker ("standard"), 6 industry verticals (tech, government, payroll, manufacturing, property_management, construction), and 3 pop-culture (harry_potter, superheroes, seinfeld). Selectable per actor from the scenario builder UI.
-- **`instance_resources`** on `FundsFlowConfig` defines per-instance infrastructure templates (LEs, CPs, IAs, LAs, category memberships) that are cloned with `{first_name}`, `{last_name}`, `{business_name}`, `{instance}` substitution from seed profiles
+- **`instance_resources`** on each `FundsFlowConfig` defines per-copy infrastructure templates (LEs, CPs, IAs, LAs, category memberships) expanded with `{first_name}`, `{last_name}`, `{business_name}`, `{instance}`, etc. — **required JSON shape for variable `user` actors** (same placeholder set as in prompts)
 - **Edge cases** activate `optional_groups` by discrete count — each group gets an exact number of instances, with mutually exclusive groups (via `exclusion_group`) distributing counts by weight
 - **Staged selection** stages instances from: `"happy_path"` (no edge cases), `"all"`, or a specific edge case label
-- Display names (faker-resolved MT object names) are shown as primary labels in preview and execution views; refs are available on hover
+- Display names (resolved from materialized template / profile values) are shown as primary labels in preview and execution views; refs are available on hover
 
 ### Fund Flows UI
 
@@ -202,12 +202,13 @@ Each compiled flow generates a Mermaid `sequenceDiagram` showing actors, message
 
 - **Schema (for LLMs / tools):** `GET /api/schema` -- full `DataLoaderConfig` JSON Schema.
 - **Validate without UI:** `POST /api/validate-json` -- body = raw JSON; returns structured errors for repair loops.
+- **Funds flows (`user_N`):** for any participant that should not be the same party on every copy of a flow, put **`instance_resources`** on **that `funds_flows[]` entry**, use **`{instance}`** in `ref` keys and in **`user_N` `entity_ref` / slot `$ref`s**, and use name placeholders per **`prompts/system_prompt.md` → *User actors (mandatory JSON)***. Do not wire variable parties from a single top-level legal entity unless the story explicitly requires one fixed actor.
 
 Resources reference each other with **`$ref:<resource_type>.<ref>`** (e.g. `$ref:internal_account.buyer_maya_wallet`). The `ref` field on each object is a short key; the engine builds the typed name. Child refs include selectors like `$ref:counterparty.vendor_cp.account[0]`.
 
 **Legal entities (sandbox):** For demos, you only need `ref`, `legal_entity_type`, and name fields in JSON. The app **replaces** identifications, addresses, documents, and related compliance fields with deterministic mock data before calling MT, so sandbox KYC/KYB stays predictable.
 
-**Connections (sandbox):** Use **`entity_id: "example1"`** or **`"example2"`** on `connections` when the flow includes **ACH or wire** payment orders on newly created internal accounts. The **`modern_treasury`** entity is effectively **book-only** for new IAs in sandbox; ACH POs will 422. See `prompts/decision_rubrics.md` (Connections).
+**Connections (sandbox):** **`entity_id: "modern_treasury"`** is the default **PSP sandbox** connection. It supports **ACH**, **wire**, **RTP**, **book**, **USD**, and **stablecoins** (e.g. **USDC**, **USDG**, **PYUSD**, **USDT**—confirm the exact set in current MT sandbox docs). Use **one** `connections[]` row and reference it from internal accounts via **`$ref:connection.<ref>`**; currency and payment rail come from the **internal account** and **payment / IPD** fields, not from extra PSP connections. Reserve **`example1`** and **`example2`** for **BYOB** (bring-your-own-bank) simulation stories (Gringotts / Iron Bank–style behaviors per MT docs)—**not** because the PSP sandbox lacks ACH or wire. See `prompts/decision_rubrics.md` (Connections).
 
 After creating a legal entity, the engine **polls** until MT reports `active` (or timeout) before continuing, so dependent internal accounts are less likely to race pending compliance.
 
@@ -307,7 +308,7 @@ for p in sorted(Path('examples').glob('*.json')):
 
 1. **Validate** -- Credentials check, org discovery + reconciliation, parse JSON, compile funds flows (if present), build DAG, dry run.
 2. **Fund Flows** (if `funds_flows` present) -- Flow cards with actor badges, Mermaid diagrams, scenario builder for generation (per-actor identity, edge case counts, staging), metadata editor, JSON editor.
-3. **Preview** -- Resources grouped by flow. Display names (faker-resolved) as primary labels, refs on hover. Edge case badges, metadata, cleanup hints. Filter/sort/search/export.
+3. **Preview** -- Resources grouped by flow. Display names (resolved labels) as primary labels, refs on hover. Edge case badges, metadata, cleanup hints. Filter/sort/search/export.
 4. **Execute** -- Topological order, SSE updates, idempotency keys on creates. Duplicate category memberships handled gracefully. Staged resources resolved but held back.
 5. **Run detail** -- Config viewer, resource list, staged "Fire" buttons, live + historical webhooks (four tabs).
 6. **Runs** -- Manifests, cleanup (delete/archive what the API allows).

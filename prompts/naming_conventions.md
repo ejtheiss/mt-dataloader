@@ -16,6 +16,10 @@ than long, overly-descriptive ones.
 4. **Follow the SE's language** — use names from the SE's spec, slide deck, or
    domain. Don't invent elaborate naming schemes.
 
+### Instance-scoped refs (`_{instance}`)
+
+Under **`funds_flows[].instance_resources`**, `ref` keys should include **`{instance}`** so scaled copies do not collide (e.g. `payor_{instance}`, `general_contractor_{instance}`). That is **naming of keys**, separate from **display placeholders**: synthetic display names for **multiple `user_N`** must use **actor-scoped** template variables per **`metadata_patterns.md`**, not duplicated `{business_name}`.
+
 ---
 
 ## Per-Type Patterns

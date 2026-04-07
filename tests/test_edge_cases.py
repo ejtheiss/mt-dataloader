@@ -734,3 +734,212 @@ class TestViewDataOGTagging:
         assert len(og_rows) >= 1
         assert og_rows[0].optional_group == "Return"
         assert all(r.optional_group is None for r in main_rows)
+
+
+# ===========================================================================
+# Preview: resolve_resource_display for standalone external accounts
+# ===========================================================================
+
+
+class TestResolveResourceDisplay:
+    def test_external_account_uses_party_name_not_ref_slug(self):
+        from dataloader.helpers import resolve_resource_display
+
+        cfg = DataLoaderConfig.model_validate(
+            {
+                "external_accounts": [
+                    {
+                        "ref": "general_contractor_ready_bank_0000",
+                        "counterparty_id": "$ref:counterparty.gc",
+                        "party_name": "Northwind Builders LLC",
+                        "account_details": [{"account_number": "200000101"}],
+                        "routing_details": [
+                            {
+                                "routing_number": "021000021",
+                                "routing_number_type": "aba",
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+        out = resolve_resource_display(
+            "$ref:external_account.general_contractor_ready_bank_0000", cfg
+        )
+        assert out == "Northwind Builders LLC"
+
+    def test_external_account_falls_back_to_counterparty_name(self):
+        from dataloader.helpers import resolve_resource_display
+
+        cfg = DataLoaderConfig.model_validate(
+            {
+                "counterparties": [
+                    {
+                        "ref": "gc",
+                        "name": "GC Vendor Collective",
+                        "legal_entity_id": "$ref:legal_entity.le1",
+                    }
+                ],
+                "legal_entities": [
+                    {
+                        "ref": "le1",
+                        "legal_entity_type": "business",
+                        "business_name": "LE Holdco",
+                    }
+                ],
+                "external_accounts": [
+                    {
+                        "ref": "general_contractor_ready_bank_0002",
+                        "counterparty_id": "$ref:counterparty.gc",
+                        "party_name": None,
+                        "account_details": [{"account_number": "200000101"}],
+                        "routing_details": [
+                            {
+                                "routing_number": "021000021",
+                                "routing_number_type": "aba",
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+        out = resolve_resource_display(
+            "$ref:external_account.general_contractor_ready_bank_0002", cfg
+        )
+        assert out == "GC Vendor Collective"
+
+    def test_external_account_title_case_when_no_party_or_cp_name(self):
+        from dataloader.helpers import resolve_resource_display
+
+        cfg = DataLoaderConfig.model_validate(
+            {
+                "counterparties": [
+                    {
+                        "ref": "gc",
+                        "name": "",
+                        "legal_entity_id": "$ref:legal_entity.le1",
+                    }
+                ],
+                "legal_entities": [
+                    {
+                        "ref": "le1",
+                        "legal_entity_type": "business",
+                        "business_name": "LE Holdco",
+                    }
+                ],
+                "external_accounts": [
+                    {
+                        "ref": "general_contractor_ready_bank_0002",
+                        "counterparty_id": "$ref:counterparty.gc",
+                        "party_name": None,
+                        "account_details": [{"account_number": "200000101"}],
+                        "routing_details": [
+                            {
+                                "routing_number": "021000021",
+                                "routing_number_type": "aba",
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+        out = resolve_resource_display(
+            "$ref:external_account.general_contractor_ready_bank_0002", cfg
+        )
+        assert out == "General Contractor Ready Bank 0002"
+
+
+def test_build_flow_grouped_preview_actors_are_alias_type_ref_only():
+    """Actor rows in grouped preview: no separate name column (use flow/infra tables)."""
+    from dataloader.engine import all_resources, dry_run, typed_ref_for
+    from dataloader.helpers import build_flow_grouped_preview, build_preview
+    from dataloader.session import SessionState
+
+    cfg = DataLoaderConfig.model_validate(
+        {
+            "external_accounts": [
+                {
+                    "ref": "ea_slot",
+                    "counterparty_id": "$ref:counterparty.gc",
+                    "party_name": "Party On EA",
+                    "account_details": [{"account_number": "1"}],
+                    "routing_details": [
+                        {"routing_number": "021000021", "routing_number_type": "aba"}
+                    ],
+                }
+            ],
+            "counterparties": [
+                {
+                    "ref": "gc",
+                    "name": "GC Co",
+                    "legal_entity_id": "$ref:legal_entity.le1",
+                }
+            ],
+            "legal_entities": [
+                {
+                    "ref": "le1",
+                    "legal_entity_type": "business",
+                    "business_name": "LE",
+                }
+            ],
+        }
+    )
+    batches = dry_run(cfg, None, skip_refs=set())
+    rm = {typed_ref_for(r): r for r in all_resources(cfg)}
+    items = build_preview(batches, rm, skip_refs=set())
+
+    class _IR:
+        flow_ref = "flow__0000"
+        pattern_type = "x"
+        trace_key = "construction_payment_id"
+        trace_value = "c1"
+        instance_id = "0000"
+        steps = []
+
+    fc = FundsFlowConfig.model_validate(
+        {
+            "ref": "flow__0000",
+            "pattern_type": "x",
+            "trace_key": "construction_payment_id",
+            "trace_value_template": "v",
+            "actors": {
+                "user_1": {
+                    "alias": "u1",
+                    "slots": {
+                        "bank": "$ref:external_account.ea_slot",
+                    },
+                }
+            },
+            "steps": [
+                {
+                    "step_id": "s1",
+                    "type": "payment_order",
+                    "payment_type": "ach",
+                    "direction": "credit",
+                    "amount": 1,
+                    "originating_account_id": "$ref:internal_account.x",
+                    "receiving_account_id": "$ref:external_account.ea_slot",
+                }
+            ],
+        }
+    )
+    sess = SessionState(
+        session_token="t",
+        api_key="k",
+        org_id="o",
+        config=cfg,
+        config_json_text="{}",
+        registry=None,
+        batches=batches,
+        preview_items=items,
+        flow_ir=[_IR()],
+        expanded_flows=[fc],
+    )
+    groups = build_flow_grouped_preview(sess)
+    for g in groups:
+        for a in g.get("actors") or []:
+            assert set(a.keys()) == {"alias", "ref", "resource_type", "is_instance"}
+            assert "display_label" not in a
+            assert "resolved_name" not in a
+            assert "typed_ref" not in a
+            assert (a.get("ref") or "").startswith("$ref:")

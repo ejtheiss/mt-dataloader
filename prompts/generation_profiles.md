@@ -52,8 +52,11 @@ onboarded parties, wallets, settlement, fees, maybe sandbox ACH / returns.
 **Structural template:** `examples/marketplace_demo.json`  
 **Typical sections:** connections (`ref:` e.g. `platform_bank`, **`entity_id:
 "modern_treasury"`**, PSP-style nickname such as `"Modern Treasury PSP"`),
-`instance_resources` (LEs, CPs, IAs), and **`funds_flows`** with steps for
-deposit / settle / fee / payout (and optional IPD steps for simulated inbound).
+**`funds_flows`** whose **`user_N` actors** use **`instance_resources`** on that
+flow (LEs, CPs, IAs, EAs as needed) per **`system_prompt.md` → *User actors
+(mandatory JSON)*** — not a second optional style; then steps for deposit / settle /
+fee / payout (and optional IPD). **Platform** infra stays at top level; **party**
+infra for `user` frames is **always** templated under `instance_resources`.
 Express **all** POs and IPDs as **steps**, not as hand-written top-level arrays.
 **Do not** use `example1` / `example2` here unless the user asked for **BYOB**
 (see `decision_rubrics.md`). **PSP legal entities:** never emit `connection_id`
@@ -126,7 +129,7 @@ absent; the compiler fills them from **`funds_flows[].steps`** and
 | Always via `funds_flows` | Never hand-author at top level |
 |--------------------------|--------------------------------|
 | Every PO, IPD, EP, LT, return, reversal step | Parallel copies in `payment_orders[]` / `incoming_payment_details[]` / … |
-| Scaling (`instance_resources`, recipes) | "Minimal" configs with only raw arrays |
+| `user` actors + `instance_resources` (mandatory shape) | Top-level-only party LE/CP wired to `user_N` without `{instance}` |
 | `optional_groups` (NSF, alt payout, returns) | |
 
 The compiler generates concrete resources from step definitions — your job is

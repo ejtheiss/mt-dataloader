@@ -596,16 +596,22 @@
         }
         if (out) {
           out.innerHTML =
-            '<div class="alert alert--success"><p>Applied. Reloading\u2026</p></div>';
+            '<div class="alert alert--success"><p>Applied. Updating Fund Flows\u2026</p></div>';
         }
         if (typeof showToast === 'function') {
-          showToast({ status: 'success', message: 'Scale applied — reloading', duration: 2500 });
+          showToast({
+            status: 'success',
+            message: 'Generated ' + recipe.instances + ' instances',
+            duration: 3200,
+          });
         }
         window.location.href =
           '/flows?session_token=' +
           encodeURIComponent(sessionToken) +
-          '&open_scale=' +
-          idx;
+          '&scale_applied=' +
+          idx +
+          '&scale_instances=' +
+          encodeURIComponent(String(recipe.instances));
       } catch (netErr) {
         showApplyMessage(
           '<div class="alert alert--critical"><p>Network error: ' +

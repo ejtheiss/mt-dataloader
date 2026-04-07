@@ -42,6 +42,10 @@
 
 <details class="json-editor-panel">
     <summary>View / Edit JSON Config</summary>
+    <p class="text-muted small mb-2">
+        This buffer is the <strong>executable</strong> load (same as <code>session.config</code> after validate / apply).
+        Flow <em>patterns</em> live in <code>authoring_config_json</code> until you re-validate; use <strong>Re-validate</strong> to apply edits here.
+    </p>
     <form id="revalidate-form"
           hx-post="/api/revalidate"
           hx-target="#content"
@@ -95,16 +99,39 @@
 
 (function() {
     var params = new URLSearchParams(window.location.search);
-    var openScale = params.get('open_scale');
-    if (openScale !== null) {
-        var el = document.getElementById('scenario-builder-' + openScale);
+    var appliedIdx = params.get('scale_applied');
+    var appliedN = params.get('scale_instances');
+    if (appliedIdx !== null) {
+        var el = document.getElementById('scenario-builder-' + appliedIdx);
         if (el) {
-            el.open = true;
+            el.open = false;
+            el.classList.add('scenario-builder--just-applied');
+            var title = el.querySelector('.accordion-toggle-title');
+            if (title && appliedN) {
+                var badge = document.createElement('span');
+                badge.className = 'chip scenario-builder-applied-chip';
+                badge.setAttribute('aria-label', appliedN + ' instances generated');
+                badge.textContent = appliedN + ' instances generated';
+                title.appendChild(badge);
+            }
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-        params.delete('open_scale');
-        var clean = window.location.pathname + '?' + params.toString();
+        params.delete('scale_applied');
+        params.delete('scale_instances');
+        var clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
         history.replaceState(null, '', clean);
+        return;
+    }
+    var openScale = params.get('open_scale');
+    if (openScale !== null) {
+        var el2 = document.getElementById('scenario-builder-' + openScale);
+        if (el2) {
+            el2.open = true;
+            el2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        params.delete('open_scale');
+        var clean2 = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        history.replaceState(null, '', clean2);
     }
 })();
 </script>

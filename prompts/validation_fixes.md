@@ -98,6 +98,12 @@ A non-staged resource depends (via `$ref:` or `depends_on`) on a staged
 resource or its child ref. Fix: restructure so non-staged resources only
 reference non-staged ones, or mark the dependent resource as `staged: true`.
 
+**Common with `complete_verification`:** The **DSL** defaults **`staged: true`**. If
+**PO/IPD** list that step in **`depends_on`**, set **`"staged": false`** on the
+**`complete_verification`** step (happy path) or stage the payment steps too. Setup
+**`/api/validate-json`** may return **`type: staged_dependency_error`** for this case
+(see **`04_validation_observability.md`** § Interim shipped).
+
 ### `staged_data_ref`
 
 A staged resource has a data-field `$ref:` pointing at another staged

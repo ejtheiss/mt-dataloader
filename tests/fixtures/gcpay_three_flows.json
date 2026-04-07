@@ -1,0 +1,180 @@
+{
+  "connections": [
+    {
+      "ref": "mt_psp",
+      "entity_id": "modern_treasury",
+      "nickname": "Modern Treasury PSP"
+    }
+  ],
+  "legal_entities": [
+    {
+      "ref": "gcpay_platform",
+      "legal_entity_type": "business",
+      "business_name": "GCPay Platform",
+      "metadata": {
+        "platform_role": "platform_operator"
+      }
+    }
+  ],
+  "internal_accounts": [
+    {
+      "ref": "platform_payments",
+      "connection_id": "$ref:connection.mt_psp",
+      "name": "GCPay Payments",
+      "party_name": "GCPay Platform",
+      "currency": "USD",
+      "legal_entity_id": "$ref:legal_entity.gcpay_platform",
+      "metadata": {
+        "account_role": "payments_hub"
+      }
+    }
+  ],
+  "funds_flows": [
+    {
+      "ref": "migrated_payee_ready_ach",
+      "pattern_type": "fund_and_payout",
+      "trace_key": "construction_payment_id",
+      "trace_value_template": "construction-{ref}-{instance}",
+      "instance_resources": {
+        "legal_entities": [
+          {
+            "ref": "general_contractor_ready_{instance}",
+            "legal_entity_type": "business",
+            "business_name": "{user_1_business_name}",
+            "metadata": {
+              "party_role": "payor",
+              "migration_status": "migrated_from_gc_pay",
+              "historical_txn_count_band": "high"
+            }
+          },
+          {
+            "ref": "subcontractor_ready_{instance}",
+            "legal_entity_type": "business",
+            "business_name": "{user_2_business_name}",
+            "metadata": {
+              "party_role": "payee",
+              "migration_status": "migrated_with_bank_data",
+              "historical_txn_count_band": "high"
+            }
+          }
+        ],
+        "counterparties": [
+          {
+            "ref": "general_contractor_ready_{instance}",
+            "name": "{user_1_business_name}",
+            "legal_entity_id": "$ref:legal_entity.general_contractor_ready_{instance}",
+            "metadata": {
+              "party_role": "payor",
+              "source_system": "gc_pay"
+            }
+          },
+          {
+            "ref": "subcontractor_ready_{instance}",
+            "name": "{user_2_business_name}",
+            "legal_entity_id": "$ref:legal_entity.subcontractor_ready_{instance}",
+            "metadata": {
+              "party_role": "payee",
+              "migration_path": "avid_fastpay_shared_bank_data"
+            }
+          }
+        ],
+        "external_accounts": [
+          {
+            "ref": "general_contractor_ready_bank_{instance}",
+            "counterparty_id": "$ref:counterparty.general_contractor_ready_{instance}",
+            "account_type": "checking",
+            "party_name": "{user_1_business_name}",
+            "party_type": "business",
+            "account_details": [
+              {
+                "account_number": "200000101"
+              }
+            ],
+            "routing_details": [
+              {
+                "routing_number": "021000021",
+                "routing_number_type": "aba"
+              }
+            ],
+            "metadata": {
+              "account_label": "legacy_payor_funding_account"
+            }
+          },
+          {
+            "ref": "subcontractor_ready_payout_{instance}",
+            "counterparty_id": "$ref:counterparty.subcontractor_ready_{instance}",
+            "account_type": "checking",
+            "party_name": "{user_2_business_name}",
+            "party_type": "business",
+            "account_details": [
+              {
+                "account_number": "200000102"
+              }
+            ],
+            "routing_details": [
+              {
+                "routing_number": "021000021",
+                "routing_number_type": "aba"
+              }
+            ],
+            "metadata": {
+              "account_label": "migrated_verified_payout_account"
+            }
+          }
+        ]
+      },
+      "actors": {
+        "user_1": {
+          "alias": "Payor",
+          "frame_type": "user",
+          "entity_ref": "$ref:legal_entity.general_contractor_ready_{instance}",
+          "slots": {
+            "bank": "$ref:external_account.general_contractor_ready_bank_{instance}"
+          }
+        },
+        "user_2": {
+          "alias": "Payee",
+          "frame_type": "user",
+          "entity_ref": "$ref:legal_entity.subcontractor_ready_{instance}",
+          "slots": {
+            "bank": "$ref:external_account.subcontractor_ready_payout_{instance}"
+          }
+        },
+        "direct_1": {
+          "alias": "Platform",
+          "frame_type": "direct",
+          "customer_name": "GCPay Platform",
+          "slots": {
+            "payments": "$ref:internal_account.platform_payments"
+          }
+        }
+      },
+      "steps": [
+        {
+          "step_id": "payor_funds_platform",
+          "type": "incoming_payment_detail",
+          "description": "ACH funding from migrated general contractor to platform payments account",
+          "payment_type": "ach",
+          "amount": 2500000,
+          "originating_account_id": "@actor:user_1.bank",
+          "internal_account_id": "@actor:direct_1.payments",
+          "direction": "credit",
+          "currency": "USD"
+        },
+        {
+          "step_id": "payout_migrated_payee",
+          "type": "payment_order",
+          "description": "ACH payout to migrated subcontractor with transferred bank details",
+          "depends_on": ["payor_funds_platform"],
+          "payment_type": "ach",
+          "direction": "credit",
+          "amount": 2450000,
+          "originating_account_id": "@actor:direct_1.payments",
+          "receiving_account_id": "@actor:user_2.bank",
+          "currency": "USD",
+          "statement_descriptor": "GC PAYOUT"
+        }
+      ]
+    }
+  ]
+}

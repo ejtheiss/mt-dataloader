@@ -22,7 +22,7 @@ _NAME_ATTRS: dict[str, tuple[str, ...]] = {
 
 
 def extract_display_name(resource: Any) -> str:
-    """Pull a human-meaningful label from a resource config."""
+    """Primary human-facing name fields on the config — same values used in MT payloads/UI."""
     rt = getattr(resource, "resource_type", "")
     attrs = _NAME_ATTRS.get(rt)
     if attrs:

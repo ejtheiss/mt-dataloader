@@ -132,6 +132,15 @@ Resources with `staged: true` are included in the DAG for validation but
 **skipped** during execution. Their resolved payloads are saved to disk and
 exposed via "Fire" buttons in the run-detail UI.
 
+**Lifecycle vs UI-fireable `staged`:** Only **PO, IPD, EP, LT** are **UI-fireable**
+staged types (`dataloader/staged_fire.py`). **`verify_external_account`**,
+**`complete_verification`**, and **`archive_resource`** are **not** — but
+**`complete_verification`** can still be marked **`staged: true`** (Pydantic DSL
+default). Rule **(1)** below still applies: a **non-staged** PO/IPD must **not**
+**`depends_on`** a **staged** `complete_verification`. For generated JSON, prefer
+**`"staged": false`** on **`complete_verification`** when money steps depend on it in
+the same load (**`system_prompt.md`**, **`step_field_reference.md`**).
+
 **Key ordering constraints:**
 
 1. **Non-staged → staged dependency is forbidden.** If resource A is not

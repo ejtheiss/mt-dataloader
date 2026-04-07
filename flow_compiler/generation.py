@@ -57,19 +57,51 @@ def deep_format_map(obj: Any, mapping: dict[str, str]) -> Any:
     return obj
 
 
+def _bind_bare_business_name(tpl: dict, row: dict[str, str], pattern: FundsFlowConfig) -> None:
+    """Bare ``{business_name}`` in a row: bind to the user LE whose entity_ref stem matches ``ref``."""
+    keys = ("business_name", "name", "party_name")
+    if not any(
+        isinstance(tpl.get(k), str) and "{business_name}" in tpl[k] and "{user_" not in tpl[k]
+        for k in keys
+    ):
+        return
+    ref = tpl.get("ref")
+    if not isinstance(ref, str) or not ref:
+        return
+    stem = ref.split("{", 1)[0].rstrip("_")
+    if not stem:
+        return
+    for alias, frame in pattern.actors.items():
+        if frame.frame_type != "user":
+            continue
+        er = frame.entity_ref or ""
+        if "legal_entity." not in er:
+            continue
+        tail = er.split("legal_entity.", 1)[1].split("{", 1)[0].rstrip("_")
+        if tail == stem:
+            bn = row.get(f"{alias}_business_name") or row.get(f"{alias}_name")
+            if bn:
+                row["business_name"] = bn
+            return
+
+
 def _expand_instance_resources(
     instance_resources: dict[str, list[dict]],
     instance: int,
     profile: dict[str, str],
+    pattern: FundsFlowConfig | None = None,
 ) -> dict[str, list[dict]]:
     """Clone instance_resources templates with profile substitution."""
-    mapping = {"instance": f"{instance:04d}", **profile}
+    base_mapping = {"instance": f"{instance:04d}", **profile}
     result: dict[str, list[dict]] = {}
     for section, templates in instance_resources.items():
         section_items: list[dict] = []
         for tpl in templates:
             cloned = copy.deepcopy(tpl)
-            cloned = deep_format_map(cloned, mapping)
+            row = dict(base_mapping)
+            if pattern is not None:
+                _bind_bare_business_name(cloned, row, pattern)
+            cloned = deep_format_map(cloned, row)
             section_items.append(cloned)
         result[section] = section_items
     return result
@@ -394,59 +426,44 @@ def _apply_payment_mix(flow_dict: dict, mix: PaymentMixConfig) -> dict:
     return flow_dict
 
 
-def _build_actor_profile_caches(
+def _build_instance_profile(
     pattern: FundsFlowConfig,
     recipe: GenerationRecipeV1,
-) -> dict[str, tuple[list[dict], list[dict]]]:
-    """Pre-generate seed profiles for actors with non-global datasets."""
-    caches: dict[str, tuple[list[dict], list[dict]]] = {}
-    for alias, frame in pattern.actors.items():
-        override = recipe.actor_overrides.get(alias)
-        effective_ds = (
-            override.dataset if override and override.dataset else None
-        ) or frame.dataset
-        if effective_ds:
-            biz, indiv = seed_loader.generate_profiles(
-                effective_ds,
-                recipe.instances,
-                recipe.seed,
-            )
-            caches[alias] = (biz, indiv)
-    return caches
-
-
-def _enrich_profile_with_actors(
-    profile: dict[str, str],
-    pattern: FundsFlowConfig,
-    recipe: GenerationRecipeV1,
-    actor_caches: dict[str, tuple[list[dict], list[dict]]],
-    global_biz: list[dict],
-    global_indiv: list[dict],
     instance: int,
 ) -> dict[str, str]:
-    """Add per-actor name keys ({alias}_name, {alias}_business_name, ...) to the profile."""
+    """Per-instance profile: actor-prefixed keys plus legacy top-level name fields."""
+    biz_ds = recipe.business_dataset or recipe.seed_dataset
+    indiv_ds = recipe.individual_dataset or recipe.seed_dataset
+    if not pattern.actors:
+        sub = seed_loader.actor_subseed(recipe.seed, pattern.ref, "_", instance)
+        return seed_loader.profile_for_split_biz_indiv(biz_ds, indiv_ds, sub)
+
+    profile: dict[str, str] = {}
     safe = defaultdict(str)
+
     for alias, frame in pattern.actors.items():
         override = recipe.actor_overrides.get(alias)
         recipe_cn = override.customer_name if override and override.customer_name else None
         literal_name = recipe_cn or frame.customer_name
         if literal_name:
             profile[f"{alias}_name"] = literal_name
+            profile[f"{alias}_business_name"] = literal_name
             continue
 
-        if alias in actor_caches:
-            a_biz, a_indiv = actor_caches[alias]
-            actor_profile = seed_loader.pick_profile(a_biz, a_indiv, instance)
+        effective_ds = (override.dataset if override and override.dataset else None) or frame.dataset
+        sub = seed_loader.actor_subseed(recipe.seed, pattern.ref, alias, instance)
+        if effective_ds:
+            actor_profile = seed_loader.profile_for(effective_ds, sub)
         else:
-            actor_profile = seed_loader.pick_profile(global_biz, global_indiv, instance)
+            actor_profile = seed_loader.profile_for_split_biz_indiv(biz_ds, indiv_ds, sub)
 
         name_tpl = (
             override.name_template if override and override.name_template else None
         ) or frame.name_template
-
         entity_type = override.entity_type if override and override.entity_type else None
 
         if name_tpl:
+            safe.clear()
             safe.update(actor_profile)
             try:
                 rendered = name_tpl.format_map(safe)
@@ -462,6 +479,15 @@ def _enrich_profile_with_actors(
         profile[f"{alias}_name"] = rendered
         for k, v in actor_profile.items():
             profile[f"{alias}_{k}"] = v
+
+    for alias in pattern.actors:
+        if f"{alias}_business_name" in profile:
+            profile.setdefault("business_name", profile[f"{alias}_business_name"])
+            profile.setdefault("first_name", profile.get(f"{alias}_first_name", ""))
+            profile.setdefault("last_name", profile.get(f"{alias}_last_name", ""))
+            profile.setdefault("industry", profile.get(f"{alias}_industry", ""))
+            profile.setdefault("country", profile.get(f"{alias}_country", "US"))
+            break
 
     return profile
 
@@ -484,21 +510,6 @@ def generate_from_recipe(
         raise ValueError(
             f"flow_ref '{recipe.flow_ref}' not found in loaded config. Available: {available}"
         )
-
-    biz_ds = recipe.business_dataset or recipe.seed_dataset
-    indiv_ds = recipe.individual_dataset or recipe.seed_dataset
-    biz_profiles, _ = seed_loader.generate_profiles(
-        biz_ds,
-        recipe.instances,
-        recipe.seed,
-    )
-    _, indiv_profiles = seed_loader.generate_profiles(
-        indiv_ds,
-        recipe.instances,
-        recipe.seed,
-    )
-
-    actor_caches = _build_actor_profile_caches(pattern, recipe)
 
     edge_overrides = (
         {k: v.model_dump() for k, v in recipe.edge_case_overrides.items()}
@@ -538,20 +549,13 @@ def generate_from_recipe(
     flows: list[FundsFlowConfig] = []
     for i in range(recipe.instances):
         rng = random.Random(recipe.seed + i)
-        profile = seed_loader.pick_profile(biz_profiles, indiv_profiles, i)
-        profile = _enrich_profile_with_actors(
-            profile,
-            pattern,
-            recipe,
-            actor_caches,
-            biz_profiles,
-            indiv_profiles,
-            i,
-        )
+        profile = _build_instance_profile(pattern, recipe, i)
         flow_dict, instance_resources = clone_flow(pattern, i, profile)
 
         if instance_resources:
-            expanded = _expand_instance_resources(instance_resources, i, profile)
+            expanded = _expand_instance_resources(
+                instance_resources, i, profile, pattern=pattern
+            )
             for section, items in expanded.items():
                 bucket = extra_resources.setdefault(section, [])
                 seen = {it.get("ref") for it in bucket if isinstance(it, dict) and it.get("ref")}

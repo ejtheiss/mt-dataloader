@@ -147,10 +147,9 @@
             <div class="preview-section-label">Actors</div>
             <div class="preview-actors-grid">
                 {% for actor in group.actors %}
-                <div class="preview-actor-row {% if actor.is_instance %}actor-instance{% endif %}">
+                <div class="preview-actor-row {% if actor.is_instance %}actor-instance{% endif %}" {% if actor.ref %}title="{{ actor.ref }}"{% endif %}>
                     <code class="actor-alias">{{ actor.alias }}</code>
                     <span class="ledgerable-pill ledgerable-{{ actor.resource_type }}">{{ actor.resource_type }}</span>
-                    <span class="preview-actor-resolved">{{ actor.resolved_name }}</span>
                 </div>
                 {% endfor %}
             </div>

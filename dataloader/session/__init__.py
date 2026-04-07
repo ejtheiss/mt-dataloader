@@ -27,7 +27,24 @@ SESSION_TTL_SECONDS = 600
 
 @dataclass
 class SessionState:
-    """Cached state between validate and execute."""
+    """Cached state between validate and execute.
+
+    **Authoring vs executable config**
+
+    - ``authoring_config_json``: last validated JSON **before** the emit pass strips
+      ``funds_flows`` and flattens flow steps into resource sections. Use this to
+      re-run generation / find flow patterns (see ``_get_base_config`` in flows router).
+    - ``config`` / ``config_json_text``: the **current executable** ``DataLoaderConfig``
+      — same object the DAG, preview, and execute paths use. After **Apply scenario**,
+      both are the merged generated load (Faker-filled resources, empty ``funds_flows``).
+    - ``base_config_json``: snapshot from first successful validate in the session
+      (historically the emitted text at that moment); generation prefers
+      ``authoring_config_json`` when it still contains ``funds_flows``.
+    - ``working_config_json``: Monaco / flows-page editor buffer; kept equal to
+      ``config_json_text`` whenever the server updates ``session.config``. Edits only
+      affect the live load after **Re-validate** (or another server merge); until then
+      the buffer can diverge if the client edits without submitting.
+    """
 
     session_token: str
     api_key: str

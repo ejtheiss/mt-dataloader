@@ -113,7 +113,9 @@ def pass_expand_instances(ctx: CompilationContext) -> CompilationContext:
     for flow in config.funds_flows:
         mapping = {"instance": "0000", "ref": flow.ref, **default_profile}
         if flow.instance_resources:
-            expanded_ir = _expand_instance_resources(flow.instance_resources, 0, default_profile)
+            expanded_ir = _expand_instance_resources(
+                flow.instance_resources, 0, default_profile, pattern=flow
+            )
             for section, items in expanded_ir.items():
                 extra_resources.append((section, items))
         flow_dict = flow.model_dump()
