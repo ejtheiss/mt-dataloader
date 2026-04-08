@@ -1,5 +1,6 @@
 """JSON API v1 envelope for validate-json, config/save, revalidate-json (plan 04)."""
 
+import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -264,3 +265,93 @@ def test_revalidate_json_v1_failure_includes_diagnostics(mock_pipe):
         assert data["diagnostics"][0]["severity"] == "info"
     finally:
         sessions.pop(token, None)
+
+
+def test_patch_json_v1_unknown_session_404():
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/config/patch-json",
+            json={"session_token": "no-such-session", "shallow_merge": {}},
+        )
+    assert r.status_code == 404
+    data = r.json()
+    assert data["schema_version"] == 1
+    assert data["ok"] is False
+    assert data["errors"][0]["code"] == "session_expired"
+
+
+def test_patch_json_v1_extra_fields_422():
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/config/patch-json",
+            json={
+                "session_token": "x",
+                "shallow_merge": {},
+                "unknown_field": 1,
+            },
+        )
+    assert r.status_code == 422
+    data = r.json()
+    assert data["ok"] is False
+    assert data["errors"]
+
+
+@patch("dataloader.routers.setup.persist_loader_draft", new_callable=AsyncMock)
+@patch("dataloader.routers.setup.run_loader_validation_pipeline", new_callable=AsyncMock)
+def test_patch_json_v1_merges_before_pipeline(mock_pipe, _mock_persist):
+    token = "patch-json-merge-token"
+    new_tok: str | None = None
+    cfg = DataLoaderConfig.model_validate({"customer_name": "before"})
+    sessions[token] = SessionState(
+        session_token=token,
+        api_key="k",
+        org_id="o",
+        config=cfg,
+        config_json_text='{"customer_name": "before"}',
+        registry=RefRegistry(),
+        batches=[[]],
+        working_config_json='{"customer_name": "before"}',
+    )
+    out_cfg = DataLoaderConfig.model_validate({"customer_name": "after"})
+
+    async def capture_pipe(raw_json: bytes, *_a, **_kw):
+        obj = json.loads(raw_json.decode())
+        assert obj.get("customer_name") == "after"
+        assert obj.get("connections") == []
+        return LoaderValidationSuccess(
+            config=out_cfg,
+            config_json_text='{"customer_name": "after"}',
+            authoring_config_json="{}",
+            flow_irs=[],
+            expanded_flows=[],
+            mermaid_diagrams=None,
+            view_data_cache=None,
+            discovery=None,
+            org_registry=None,
+            reconciliation=None,
+            registry=RefRegistry(),
+            skip_refs=set(),
+            batches=[[]],
+            preview_items=[],
+            flow_diagnostics=[],
+        )
+
+    mock_pipe.side_effect = capture_pipe
+    try:
+        with TestClient(app) as client:
+            r = client.post(
+                "/api/config/patch-json",
+                json={
+                    "session_token": token,
+                    "shallow_merge": {"customer_name": "after", "connections": []},
+                },
+            )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["ok"] is True
+        new_tok = data["data"]["session_token"]
+        assert mock_pipe.await_count == 1
+    finally:
+        sessions.pop(token, None)
+        if new_tok:
+            sessions.pop(new_tok, None)

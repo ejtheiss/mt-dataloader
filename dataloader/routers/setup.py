@@ -48,7 +48,12 @@ from dataloader.session.draft_persist import (
 )
 from db.repositories import loader_drafts as drafts_repo
 from jsonutil import dumps_pretty, loads_str
-from models import DataLoaderConfig, DisplayPhase, RevalidateJsonRequestV1
+from models import (
+    ApplyConfigPatchJsonRequestV1,
+    DataLoaderConfig,
+    DisplayPhase,
+    RevalidateJsonRequestV1,
+)
 from models.loader_setup_json import (
     LoaderSetupEnvelopeV1,
     LoaderSetupErrorItem,
@@ -79,6 +84,19 @@ def _reconcile_pairs_from_optional_dict(raw: dict | None) -> tuple[dict, dict]:
     mm = raw.get("manual_mappings")
     manual_maps = dict(mm) if isinstance(mm, dict) else {}
     return overrides, manual_maps
+
+
+def _session_working_config_dict(session: SessionState) -> dict:
+    """Executable config as a plain dict for Plan 05 shallow merge (patch-json)."""
+    text = (session.working_config_json or session.config_json_text or "").strip()
+    if text:
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return dict(parsed)
+        except json.JSONDecodeError:
+            pass
+    return session.config.model_dump(mode="json", exclude_none=True)
 
 
 # Full validate pipeline: ``run_loader_validation_pipeline`` → ``apply_loader_validation_success_to_session``
@@ -422,6 +440,113 @@ async def revalidate_json(request: Request) -> LoaderSetupEnvelopeV1 | JSONRespo
         org_label=getattr(old_session, "org_label", None),
         generation_recipes=old_session.generation_recipes,
         working_config_json=old_session.working_config_json,
+    )
+    sessions[session.session_token] = session
+    del sessions[prev_token]
+    await persist_loader_draft(request, session)
+
+    return loader_validation_success_to_v1_envelope(
+        outcome,
+        extra_data={"session_token": session.session_token},
+    )
+
+
+@router.post(
+    "/api/config/patch-json",
+    response_model=LoaderSetupEnvelopeV1,
+    response_model_exclude_none=True,
+    responses={
+        404: {"model": LoaderSetupEnvelopeV1},
+        422: {"model": LoaderSetupEnvelopeV1},
+    },
+)
+async def patch_json_config(request: Request) -> LoaderSetupEnvelopeV1 | JSONResponse:
+    """Shallow-merge top-level keys into the session executable config, then revalidate (Plan 05).
+
+    Same pipeline and § v1 envelope as ``POST /api/revalidate-json``; use when agents or UI
+    submit partial top-level updates instead of a full ``config_json`` string.
+    """
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="invalid_body",
+                        message="Request body must be JSON.",
+                        path=None,
+                    )
+                ],
+            ),
+            status_code=422,
+        )
+    if not isinstance(payload, dict):
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="invalid_body",
+                        message="Request body must be a JSON object.",
+                        path=None,
+                    )
+                ],
+            ),
+            status_code=422,
+        )
+    try:
+        body = ApplyConfigPatchJsonRequestV1.model_validate(payload)
+    except ValidationError as exc:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=error_items_from_pydantic_validation(exc),
+            ),
+            status_code=422,
+        )
+
+    old_session = sessions.get(body.session_token)
+    if not old_session:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="session_expired",
+                        message="Session expired or unknown session_token.",
+                        path=None,
+                    )
+                ],
+            ),
+            status_code=404,
+        )
+
+    base = _session_working_config_dict(old_session)
+    merged = {**base, **body.shallow_merge}
+    raw_json = dumps_pretty(merged).encode("utf-8")
+    prev_token = old_session.session_token
+    overrides, manual_maps = _reconcile_pairs_from_optional_dict(body.reconcile_overrides)
+
+    outcome = await run_loader_validation_pipeline(
+        raw_json,
+        old_session.api_key,
+        old_session.org_id,
+        reconcile_overrides=overrides,
+        manual_mappings=manual_maps,
+        prior_config=old_session.config,
+    )
+    if isinstance(outcome, LoaderValidationFailure):
+        return loader_validation_failure_to_envelope(outcome)
+
+    session = apply_loader_validation_success_to_session(
+        outcome,
+        old_session.api_key,
+        old_session.org_id,
+        org_label=getattr(old_session, "org_label", None),
+        generation_recipes=old_session.generation_recipes,
+        working_config_json=None,
     )
     sessions[session.session_token] = session
     del sessions[prev_token]

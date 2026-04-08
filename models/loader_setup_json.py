@@ -1,4 +1,4 @@
-"""Loader setup JSON API contract (v1) — validate-json, config/save, revalidate-json.
+"""Loader setup JSON API contract (v1) — validate-json, config/save, revalidate-json, patch-json.
 
 Normative spec: ``plan/…/04_validation_observability.md`` § Loader setup — JSON API contract (v1).
 """
@@ -46,6 +46,29 @@ class RevalidateJsonRequestV1(BaseModel):
     reconcile_overrides: dict[str, Any] | None = Field(
         default=None,
         description="Optional ``{overrides, manual_mappings}`` or flat overrides map (HTMX-compatible).",
+    )
+
+
+class ApplyConfigPatchJsonRequestV1(BaseModel):
+    """JSON body for ``POST /api/config/patch-json`` (Plan 05 — shallow merge + full revalidate).
+
+    Top-level keys in ``shallow_merge`` replace the same keys in the session's current
+    executable config (``working_config_json``, else ``config_json_text``, else ``config``).
+    The merged object is then run through ``run_loader_validation_pipeline`` (same as
+    ``revalidate-json``). For deep field edits, include a full top-level section value
+    (e.g. replace entire ``connections`` list).
+    """
+
+    model_config = {"extra": "forbid"}
+
+    session_token: str = Field(..., min_length=1)
+    shallow_merge: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Top-level object merged into current config dict (patch keys win).",
+    )
+    reconcile_overrides: dict[str, Any] | None = Field(
+        default=None,
+        description="Same semantics as ``POST /api/revalidate-json``.",
     )
 
 

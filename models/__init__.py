@@ -32,6 +32,7 @@ from models.flow_dsl import (
 from models.loader_draft import LoaderDraft
 from models.loader_setup_json import (
     LOADER_SETUP_SCHEMA_VERSION,
+    ApplyConfigPatchJsonRequestV1,
     LoaderSetupEnvelopeV1,
     LoaderSetupErrorItem,
     LoaderSetupFlowDiagnosticItem,
@@ -253,6 +254,7 @@ __all__ = [
     "LoaderSetupWarningItem",
     "LoaderSetupFlowDiagnosticItem",
     "RevalidateJsonRequestV1",
+    "ApplyConfigPatchJsonRequestV1",
     # App settings
     "AppSettings",
 ]
