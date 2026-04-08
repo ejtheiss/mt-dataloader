@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-from flow_compiler import GenerationResult
 from starlette.testclient import TestClient
 
 from dataloader.main import app
 from dataloader.session import sessions
+from flow_compiler import GenerationResult
 from tests.test_flow_actor_config import _actor_flow_session
 
 

@@ -22,6 +22,7 @@ from dataloader.helpers import (
     build_preview,
     error_response,
 )
+from dataloader.json_pointer import apply_json_pointer_set
 from dataloader.loader_validation import (
     LoaderValidationFailure,
     apply_loader_validation_success_to_session,
@@ -40,7 +41,6 @@ from dataloader.routers.deps import (
     SessionFormDep,
     TemplatesDep,
 )
-from dataloader.json_pointer import apply_json_pointer_set
 from dataloader.session import SessionState, prune_expired_sessions, sessions
 from dataloader.session.draft_persist import (
     merge_loader_draft_into_session,
