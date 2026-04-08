@@ -8,11 +8,12 @@ and shared Pydantic parse helpers for ``flows.py``. Plan 04 — Wave D + Phase 2
 from __future__ import annotations
 
 import hashlib
+import json
 import secrets
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from graphlib import CycleError
-from typing import Any, TypeVar, cast
+from typing import Any, Literal, TypeVar
 
 from loguru import logger
 from modern_treasury import (
@@ -40,7 +41,9 @@ from flow_compiler.pipeline import (
 )
 from models import DataLoaderConfig
 from models.loader_setup_json import (
+    LoaderSetupEnvelopeV1,
     LoaderSetupErrorItem,
+    LoaderSetupFlowDiagnosticItem,
     LoaderSetupPhase,
     error_items_from_pydantic_validation,
 )
@@ -60,19 +63,67 @@ HEADLESS_VALIDATE_JSON_PIPELINE: tuple[Pass, ...] = (
 )
 
 
+BodyInvalidKind = Literal["utf8", "json", "not_object"]
+
+
 @dataclass(frozen=True)
 class ParseLoaderOutcome:
-    """Result of parsing raw bytes as ``DataLoaderConfig`` JSON."""
+    """Result of parsing raw bytes as ``DataLoaderConfig`` JSON (single ``json.loads`` + validate)."""
 
     config: DataLoaderConfig | None = None
     error: ValidationError | None = None
+    body_invalid: BodyInvalidKind | None = None
+
+
+def invalid_body_kind_message(kind: BodyInvalidKind) -> str:
+    if kind == "utf8":
+        return "Body must be valid UTF-8."
+    if kind == "json":
+        return "Body must be valid JSON."
+    return "Body must be a JSON object (DataLoaderConfig root)."
 
 
 def parse_loader_config_bytes(raw_json: bytes) -> ParseLoaderOutcome:
     try:
-        return ParseLoaderOutcome(config=DataLoaderConfig.model_validate_json(raw_json))
+        text = raw_json.decode("utf-8")
+    except UnicodeDecodeError:
+        return ParseLoaderOutcome(body_invalid="utf8")
+    try:
+        obj = json.loads(text)
+    except json.JSONDecodeError:
+        return ParseLoaderOutcome(body_invalid="json")
+    if not isinstance(obj, dict):
+        return ParseLoaderOutcome(body_invalid="not_object")
+    try:
+        return ParseLoaderOutcome(config=DataLoaderConfig.model_validate(obj))
     except ValidationError as e:
         return ParseLoaderOutcome(error=e)
+
+
+def collect_flow_diagnostic_dicts(flow_irs: list, expanded_flows: list) -> list[dict]:
+    """Advisory ``validate_flow`` rows (``dataclasses.asdict(FlowDiagnostic)``)."""
+    dicts: list[dict] = []
+    if len(flow_irs) != len(expanded_flows):
+        logger.warning(
+            "flow_irs / expanded_flows length mismatch: {} vs {}",
+            len(flow_irs),
+            len(expanded_flows),
+        )
+    for ir, fc in zip(flow_irs, expanded_flows):
+        for d in validate_flow(ir, actor_refs=flatten_actor_refs(fc.actors)):
+            dicts.append(asdict(d))
+    if dicts:
+        by_rule = Counter(d["rule_id"] for d in dicts)
+        logger.debug(
+            "Flow advisory diagnostics: {} finding(s) by_rule={}",
+            len(dicts),
+            dict(by_rule),
+        )
+    return dicts
+
+
+def flow_diagnostic_dicts_to_items(dicts: list[dict]) -> list[LoaderSetupFlowDiagnosticItem]:
+    return [LoaderSetupFlowDiagnosticItem.model_validate(d) for d in dicts]
 
 
 def parse_loader_config_json_text(text: str) -> ParseLoaderOutcome:
@@ -219,35 +270,28 @@ def try_loader_dry_run(
 
 @dataclass(frozen=True)
 class HeadlessValidateJsonOutcome:
-    """Outcome for ``POST /api/validate-json`` body (after UTF-8 JSON object pre-check)."""
+    """Outcome for ``POST /api/validate-json`` (after wire-format pre-check for 422)."""
 
     ok: bool
     phase: LoaderSetupPhase | None
     errors: list[LoaderSetupErrorItem]
     data: dict
+    diagnostics: tuple[LoaderSetupFlowDiagnosticItem, ...] = ()
 
 
-def authoring_config_from_bytes(config: DataLoaderConfig, raw_json: bytes) -> AuthoringConfig:
-    return AuthoringConfig(
-        config=config.model_copy(deep=True),
-        json_text=raw_json.decode(),
-        source_hash=hashlib.sha256(raw_json).hexdigest(),
+def headless_outcome_to_envelope(outcome: HeadlessValidateJsonOutcome) -> LoaderSetupEnvelopeV1:
+    return LoaderSetupEnvelopeV1(
+        ok=outcome.ok,
+        phase=outcome.phase,
+        errors=list(outcome.errors),
+        diagnostics=list(outcome.diagnostics),
+        data=outcome.data,
     )
 
 
-def run_headless_validate_json(raw_json: bytes) -> HeadlessValidateJsonOutcome:
-    """Parse → headless compile pipeline → ``dry_run(config)``; map failures to v1 ErrorItems."""
-    parsed = parse_loader_config_bytes(raw_json)
-    if parsed.error is not None:
-        return HeadlessValidateJsonOutcome(
-            ok=False,
-            phase="parse",
-            errors=error_items_from_pydantic_validation(parsed.error),
-            data={},
-        )
-    config = cast(DataLoaderConfig, parsed.config)
+def run_headless_validate_after_parse(config: DataLoaderConfig, raw_json: bytes) -> HeadlessValidateJsonOutcome:
+    """Headless pipeline when ``DataLoaderConfig`` is already parsed (single wire parse at router)."""
     had_funds_flows = bool(config.funds_flows)
-
     authoring = authoring_config_from_bytes(config, raw_json)
     compiled = compile_loader_plan(authoring, pipeline=HEADLESS_VALIDATE_JSON_PIPELINE)
     if isinstance(compiled, LoaderCompileFailure):
@@ -258,7 +302,13 @@ def run_headless_validate_json(raw_json: bytes) -> HeadlessValidateJsonOutcome:
             data={},
         )
 
-    config = compiled.config
+    plan = compiled
+    config = plan.config
+    flow_irs = list(plan.flow_irs)
+    expanded_flows = list(plan.expanded_flows)
+    diag_dicts = collect_flow_diagnostic_dicts(flow_irs, expanded_flows)
+    diag_items = tuple(flow_diagnostic_dicts_to_items(diag_dicts))
+
     dry = try_loader_dry_run(config)
     if isinstance(dry, LoaderDryRunFailure):
         return HeadlessValidateJsonOutcome(
@@ -266,6 +316,7 @@ def run_headless_validate_json(raw_json: bytes) -> HeadlessValidateJsonOutcome:
             phase="dag",
             errors=list(dry.errors),
             data={},
+            diagnostics=diag_items,
         )
 
     batches = dry.batches
@@ -278,7 +329,55 @@ def run_headless_validate_json(raw_json: bytes) -> HeadlessValidateJsonOutcome:
             "batch_count": len(batches),
             "has_funds_flows": had_funds_flows,
         },
+        diagnostics=diag_items,
     )
+
+
+def authoring_config_from_bytes(config: DataLoaderConfig, raw_json: bytes) -> AuthoringConfig:
+    return AuthoringConfig(
+        config=config.model_copy(deep=True),
+        json_text=raw_json.decode(),
+        source_hash=hashlib.sha256(raw_json).hexdigest(),
+    )
+
+
+def run_headless_validate_json(raw_json: bytes) -> HeadlessValidateJsonOutcome:
+    """Parse → compile (headless pipeline) → ``validate_flow`` diagnostics → ``dry_run``."""
+    parsed = parse_loader_config_bytes(raw_json)
+    if parsed.body_invalid is not None:
+        return HeadlessValidateJsonOutcome(
+            ok=False,
+            phase=None,
+            errors=[
+                LoaderSetupErrorItem(
+                    code="invalid_body",
+                    message=invalid_body_kind_message(parsed.body_invalid),
+                    path=None,
+                )
+            ],
+            data={},
+        )
+    if parsed.error is not None:
+        return HeadlessValidateJsonOutcome(
+            ok=False,
+            phase="parse",
+            errors=error_items_from_pydantic_validation(parsed.error),
+            data={},
+        )
+    if parsed.config is None:
+        return HeadlessValidateJsonOutcome(
+            ok=False,
+            phase="parse",
+            errors=[
+                LoaderSetupErrorItem(
+                    code="validation_error",
+                    message="Invalid configuration.",
+                    path=None,
+                )
+            ],
+            data={},
+        )
+    return run_headless_validate_after_parse(parsed.config, raw_json)
 
 
 # ---------------------------------------------------------------------------
@@ -288,9 +387,17 @@ def run_headless_validate_json(raw_json: bytes) -> HeadlessValidateJsonOutcome:
 
 @dataclass(frozen=True)
 class LoaderValidationFailure:
-    """Structured failure from ``run_loader_validation_pipeline`` (HTML title\\nbody in ``message``)."""
+    """Failure from ``run_loader_validation_pipeline``.
+
+    ``v1_*`` fields are the canonical failure model (§ v1 JSON + HTMX); ``message`` remains a
+    human-oriented summary string for logs and backward compatibility.
+    """
 
     message: str
+    v1_phase: LoaderSetupPhase | None = None
+    v1_errors: tuple[LoaderSetupErrorItem, ...] = ()
+    #: Advisory ``validate_flow`` rows (same dict shape as ``collect_flow_diagnostic_dicts``); empty if compile did not run.
+    v1_flow_diagnostic_dicts: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass
@@ -344,22 +451,48 @@ async def run_loader_validation_pipeline(
 ) -> LoaderValidationSuccess | LoaderValidationFailure:
     """Parse → compile → discover → reconcile → DAG → preview (no session or HTTP)."""
     parsed = parse_loader_config_bytes(raw_json)
+    if parsed.body_invalid is not None:
+        msg = invalid_body_kind_message(parsed.body_invalid)
+        return LoaderValidationFailure(
+            message=f"Config Validation Error\n{msg}",
+            v1_phase="parse",
+            v1_errors=(
+                LoaderSetupErrorItem(code="invalid_body", message=msg, path=None),
+            ),
+        )
     if parsed.error is not None:
         structured = format_validation_errors(parsed.error)
         detail_lines = [f"• {err['path']}: {err['message']}" for err in structured]
+        items = tuple(error_items_from_pydantic_validation(parsed.error))
         return LoaderValidationFailure(
             message="Config Validation Error\n" + ("\n".join(detail_lines) or str(parsed.error)),
+            v1_phase="parse",
+            v1_errors=items,
         )
 
     if parsed.config is None:
-        return LoaderValidationFailure(message="Config Validation Error\nInvalid configuration.")
+        return LoaderValidationFailure(
+            message="Config Validation Error\nInvalid configuration.",
+            v1_phase="parse",
+            v1_errors=(
+                LoaderSetupErrorItem(
+                    code="validation_error",
+                    message="Invalid configuration.",
+                    path=None,
+                ),
+            ),
+        )
     config = parsed.config
     authoring_config_json = config.model_dump_json(indent=2, exclude_none=True)
 
     authoring = authoring_config_from_bytes(config, raw_json)
     compiled = compile_loader_plan(authoring)
     if isinstance(compiled, LoaderCompileFailure):
-        return LoaderValidationFailure(message=compiled.pipeline_message)
+        return LoaderValidationFailure(
+            message=compiled.pipeline_message,
+            v1_phase="compile",
+            v1_errors=tuple(compiled.errors),
+        )
 
     plan = compiled
     config = plan.config
@@ -368,23 +501,7 @@ async def run_loader_validation_pipeline(
     mermaid_diagrams = list(plan.mermaid_diagrams) if plan.mermaid_diagrams else None
     view_data_cache = list(plan.view_data) if plan.view_data else None
 
-    flow_diag_dicts: list[dict] = []
-    if len(flow_irs) != len(expanded_flows):
-        logger.warning(
-            "flow_irs / expanded_flows length mismatch: {} vs {}",
-            len(flow_irs),
-            len(expanded_flows),
-        )
-    for ir, fc in zip(flow_irs, expanded_flows):
-        for d in validate_flow(ir, actor_refs=flatten_actor_refs(fc.actors)):
-            flow_diag_dicts.append(asdict(d))
-    if flow_diag_dicts:
-        by_rule = Counter(d["rule_id"] for d in flow_diag_dicts)
-        logger.debug(
-            "Flow advisory diagnostics: {} finding(s) by_rule={}",
-            len(flow_diag_dicts),
-            dict(by_rule),
-        )
+    flow_diag_dicts = collect_flow_diagnostic_dicts(flow_irs, expanded_flows)
 
     discovery: DiscoveryResult | None = None
     org_registry: OrgRegistry | None = None
@@ -393,7 +510,16 @@ async def run_loader_validation_pipeline(
             await client.ping()
         except AuthenticationError:
             return LoaderValidationFailure(
-                message="Authentication Error\nInvalid API key or org ID"
+                message="Authentication Error\nInvalid API key or org ID",
+                v1_phase="discover",
+                v1_errors=(
+                    LoaderSetupErrorItem(
+                        code="auth_error",
+                        message="Invalid API key or org ID",
+                        path=None,
+                    ),
+                ),
+                v1_flow_diagnostic_dicts=tuple(flow_diag_dicts),
             )
         try:
             discovery = await discover_org(client, config=config)
@@ -455,7 +581,12 @@ async def run_loader_validation_pipeline(
 
     dry = try_loader_dry_run(config, known_refs, skip_refs=skip_refs)
     if isinstance(dry, LoaderDryRunFailure):
-        return LoaderValidationFailure(message=dry.pipeline_message)
+        return LoaderValidationFailure(
+            message=dry.pipeline_message,
+            v1_phase="dag",
+            v1_errors=tuple(dry.errors),
+            v1_flow_diagnostic_dicts=tuple(flow_diag_dicts),
+        )
     batches = dry.batches
 
     resource_map = {typed_ref_for(r): r for r in all_resources(config)}
@@ -523,4 +654,86 @@ def apply_loader_validation_success_to_session(
         generation_recipes=generation_recipes or {},
         org_label=org_label,
         flow_diagnostics=result.flow_diagnostics or None,
+    )
+
+
+def loader_validation_failure_htmx_parts(failure: LoaderValidationFailure) -> tuple[str, str]:
+    """Map failure to ``(title, detail)`` for ``partials/error_alert.html`` (HTMX).
+
+    Uses the same logical content as § v1: ``v1_errors`` + ``v1_flow_diagnostic_dicts`` + ``v1_phase``.
+    Falls back to splitting ``message`` on ``\\n`` only when ``v1_errors`` is empty.
+    """
+    errors = list(failure.v1_errors)
+    if not errors:
+        title, _, detail = failure.message.partition("\n")
+        title = title.strip() or "Validation failed"
+        detail = (detail.strip() or failure.message.strip() or title).strip()
+        return title, detail
+
+    first = errors[0]
+    title = (first.message.strip() or first.code or "Validation failed").strip()
+    lines: list[str] = []
+    if failure.v1_phase:
+        lines.append(f"Phase: {failure.v1_phase}")
+    if first.path:
+        lines.append(f"Primary error path: {first.path}")
+    for e in errors[1:]:
+        chunk = e.message.strip()
+        if e.path:
+            chunk += f" (path: {e.path})"
+        if e.code and e.code not in chunk:
+            chunk = f"{e.code}: {chunk}"
+        lines.append(chunk)
+    for d in failure.v1_flow_diagnostic_dicts:
+        rid = d.get("rule_id", "")
+        sev = d.get("severity", "")
+        msg = d.get("message", "")
+        step = d.get("step_id")
+        tail = f" (step {step})" if step else ""
+        lines.append(f"[{sev}] {rid}{tail}: {msg}")
+    detail = "\n".join(lines) if lines else ""
+    return title, detail
+
+
+def loader_validation_failure_to_envelope(failure: LoaderValidationFailure) -> LoaderSetupEnvelopeV1:
+    """§ v1 envelope for JSON clients (validate-json, revalidate-json, config/save)."""
+    errors = list(failure.v1_errors)
+    if not errors:
+        errors = [
+            LoaderSetupErrorItem(
+                code="pipeline_error",
+                message=failure.message.replace("\n", " ").strip(),
+                path=None,
+            )
+        ]
+    diagnostics = [
+        LoaderSetupFlowDiagnosticItem.model_validate(d) for d in failure.v1_flow_diagnostic_dicts
+    ]
+    return LoaderSetupEnvelopeV1(
+        ok=False,
+        phase=failure.v1_phase,
+        errors=errors,
+        diagnostics=diagnostics,
+        data={},
+    )
+
+
+def loader_validation_success_to_v1_envelope(
+    result: LoaderValidationSuccess,
+    *,
+    extra_data: dict[str, Any] | None = None,
+) -> LoaderSetupEnvelopeV1:
+    diagnostics = [LoaderSetupFlowDiagnosticItem.model_validate(d) for d in result.flow_diagnostics]
+    data: dict[str, Any] = {
+        "resource_count": sum(len(b) for b in result.batches),
+        "batch_count": len(result.batches),
+        "has_funds_flows": bool(result.flow_irs),
+    }
+    if extra_data:
+        data.update(extra_data)
+    return LoaderSetupEnvelopeV1(
+        ok=True,
+        phase="complete",
+        diagnostics=diagnostics,
+        data=data,
     )

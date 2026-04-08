@@ -36,6 +36,7 @@ from models.loader_setup_json import (
     LoaderSetupErrorItem,
     LoaderSetupFlowDiagnosticItem,
     LoaderSetupWarningItem,
+    RevalidateJsonRequestV1,
 )
 
 # --- manifest (run JSON on disk) ---
@@ -251,6 +252,7 @@ __all__ = [
     "LoaderSetupErrorItem",
     "LoaderSetupWarningItem",
     "LoaderSetupFlowDiagnosticItem",
+    "RevalidateJsonRequestV1",
     # App settings
     "AppSettings",
 ]

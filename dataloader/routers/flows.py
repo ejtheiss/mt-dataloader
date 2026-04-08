@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 import flow_compiler.seed_loader as seed_loader
 from dataloader.engine import all_resources, dry_run, typed_ref_for
@@ -267,6 +267,63 @@ def _default_recipe_dict(flow_ref: str) -> dict[str, Any]:
         "amount_variance_min_pct": 0.0,
         "amount_variance_max_pct": 0.0,
     }
+
+
+def _merge_recipe_dict(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Shallow + targeted deep merge for ``GenerationRecipeV1``-shaped dicts (plan 05 recipe-patch).
+
+    Dict-valued keys ``actor_overrides``, ``step_variance``, ``edge_case_overrides`` merge; ``timing``
+    merges and ``timing.step_offsets`` merges; other keys are replaced by ``patch``.
+    """
+    out = dict(base)
+    for key, val in patch.items():
+        if val is None:
+            continue
+        if key == "actor_overrides" and isinstance(val, dict):
+            merged = dict(out.get("actor_overrides") or {})
+            for ak, av in val.items():
+                if isinstance(av, dict) and isinstance(merged.get(ak), dict):
+                    merged[ak] = {**merged[ak], **av}
+                else:
+                    merged[ak] = av
+            out["actor_overrides"] = merged
+        elif key == "step_variance" and isinstance(val, dict):
+            merged = dict(out.get("step_variance") or {})
+            merged.update(val)
+            out["step_variance"] = merged
+        elif key == "edge_case_overrides" and isinstance(val, dict):
+            merged = dict(out.get("edge_case_overrides") or {})
+            merged.update(val)
+            out["edge_case_overrides"] = merged
+        elif key == "timing" and isinstance(val, dict):
+            cur = dict(out.get("timing") or {})
+            for tk, tv in val.items():
+                if tk == "step_offsets" and isinstance(tv, dict):
+                    so = dict(cur.get("step_offsets") or {})
+                    so.update(tv)
+                    cur["step_offsets"] = so
+                else:
+                    cur[tk] = tv
+            out["timing"] = cur
+        else:
+            out[key] = val
+    fr = base.get("flow_ref") or patch.get("flow_ref") or out.get("flow_ref")
+    if fr:
+        out["flow_ref"] = fr
+    return out
+
+
+class ScenarioSnapshotRequest(BaseModel):
+    """Optional body for ``POST /api/flows/scenario-snapshot``."""
+
+    flow_ref: str | None = None
+
+
+class RecipePatchBody(BaseModel):
+    """Merge ``patch`` into the stored recipe for ``flow_ref``, validate, recompose (plan 05)."""
+
+    flow_ref: str = Field(..., min_length=1)
+    patch: dict[str, Any] = Field(default_factory=dict)
 
 
 async def _recompose_and_persist_session(
@@ -772,6 +829,96 @@ async def recipe_to_working_config(request: Request):
         "mermaid_count": len(composed.diagrams),
         "edge_case_map": composed.edge_case_map,
         "recipe_count": recipe_count,
+    }
+
+
+@router.post("/api/flows/scenario-snapshot")
+async def scenario_snapshot(request: Request):
+    """Return server-side ``generation_recipes`` (plan 05 — client sync / hydration).
+
+    Body: optional JSON ``{\"flow_ref\": \"...\"}``. When ``flow_ref`` is set, returns that
+    recipe plus ``default_recipe`` for new authoring; otherwise returns all recipes.
+    """
+    token = request.headers.get("x-session-token", "")
+    session = sessions.get(token)
+    if not session:
+        return JSONResponse(
+            content={"error": "Session not found. Please validate a config first."},
+            status_code=401,
+        )
+    raw = await request.body()
+    if not raw.strip():
+        req = ScenarioSnapshotRequest()
+    else:
+        try:
+            req = ScenarioSnapshotRequest.model_validate_json(raw)
+        except ValidationError as exc:
+            return JSONResponse(
+                content={"error": "Invalid body", "detail": format_validation_errors(exc)},
+                status_code=422,
+            )
+    recipes = session.generation_recipes
+    if req.flow_ref:
+        stored = recipes.get(req.flow_ref)
+        return {
+            "flow_ref": req.flow_ref,
+            "recipe": stored,
+            "has_recipe": stored is not None,
+            "default_recipe": _default_recipe_dict(req.flow_ref),
+        }
+    return {
+        "recipes": dict(recipes),
+        "flow_refs": list(recipes.keys()),
+    }
+
+
+@router.post("/api/flows/recipe-patch")
+async def recipe_patch(request: Request):
+    """Merge a partial recipe dict into the stored recipe, validate, recompose (plan 05).
+
+    Prefer small ``patch`` payloads from tools/agents; full replaces can still use
+    ``POST /api/flows/recipe-to-working-config``.
+    """
+    token = request.headers.get("x-session-token", "")
+    session = sessions.get(token)
+    if not session:
+        return JSONResponse(
+            content={"error": "Session not found. Please validate a config first."},
+            status_code=401,
+        )
+    raw = await request.body()
+    try:
+        body = RecipePatchBody.model_validate_json(raw)
+    except ValidationError as exc:
+        return JSONResponse(
+            content={"error": "Invalid body", "detail": format_validation_errors(exc)},
+            status_code=422,
+        )
+    base = session.generation_recipes.get(body.flow_ref) or _default_recipe_dict(body.flow_ref)
+    if base.get("flow_ref") != body.flow_ref:
+        base = {**base, "flow_ref": body.flow_ref}
+    merged = _merge_recipe_dict(base, body.patch)
+    try:
+        recipe = GenerationRecipeV1.model_validate(merged)
+    except ValidationError as exc:
+        return JSONResponse(
+            content={"error": "Invalid merged recipe", "detail": format_validation_errors(exc)},
+            status_code=422,
+        )
+    session.generation_recipes[recipe.flow_ref] = recipe.model_dump()
+
+    composed = await _recompose_and_persist_session(request, session)
+    if isinstance(composed, JSONResponse):
+        return composed
+
+    recipe_count = len(session.generation_recipes)
+    return {
+        "status": "ok",
+        "total_resources": sum(_count_resources(composed.config).values()),
+        "mermaid_count": len(composed.diagrams),
+        "edge_case_map": composed.edge_case_map,
+        "recipe_count": recipe_count,
+        "recipe": recipe.model_dump(),
     }
 
 

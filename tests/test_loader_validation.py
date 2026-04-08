@@ -6,6 +6,9 @@ import pytest
 from pydantic import ValidationError
 
 from dataloader.loader_validation import (
+    LoaderValidationFailure,
+    loader_validation_failure_htmx_parts,
+    loader_validation_failure_to_envelope,
     parse_loader_config_json_text,
     require_pydantic_obj,
     run_headless_validate_json,
@@ -13,6 +16,7 @@ from dataloader.loader_validation import (
     try_parse_pydantic_obj,
 )
 from models import DataLoaderConfig, GenerationRecipeV1
+from models.loader_setup_json import LoaderSetupErrorItem
 
 _MINIMAL = Path(__file__).resolve().parent.parent / "examples" / "psp_minimal.json"
 
@@ -64,3 +68,48 @@ def test_try_parse_pydantic_obj_ok():
     cfg, err = try_parse_pydantic_obj(DataLoaderConfig, {})
     assert err is None
     assert cfg is not None
+
+
+def test_loader_validation_failure_to_envelope_includes_flow_diagnostics():
+    diag = {
+        "rule_id": "test_rule",
+        "severity": "warning",
+        "step_id": "s1",
+        "account_id": None,
+        "message": "advisory",
+    }
+    failure = LoaderValidationFailure(
+        message="DAG\noops",
+        v1_phase="dag",
+        v1_errors=(
+            LoaderSetupErrorItem(code="cycle_error", message="bad", path="(dag)"),
+        ),
+        v1_flow_diagnostic_dicts=(diag,),
+    )
+    env = loader_validation_failure_to_envelope(failure)
+    assert env.ok is False
+    assert env.phase == "dag"
+    assert len(env.diagnostics) == 1
+    assert env.diagnostics[0].rule_id == "test_rule"
+    assert env.diagnostics[0].severity == "warning"
+
+
+def test_loader_validation_failure_htmx_parts_uses_v1_errors():
+    failure = LoaderValidationFailure(
+        message="ignored for title when v1_errors set",
+        v1_phase="parse",
+        v1_errors=(
+            LoaderSetupErrorItem(code="missing", message="field required", path="connections"),
+        ),
+    )
+    title, detail = loader_validation_failure_htmx_parts(failure)
+    assert "field required" in title
+    assert "Phase: parse" in detail
+    assert "Primary error path: connections" in detail
+
+
+def test_loader_validation_failure_htmx_parts_fallback_message():
+    failure = LoaderValidationFailure(message="Title line\nDetail line")
+    title, detail = loader_validation_failure_htmx_parts(failure)
+    assert title == "Title line"
+    assert detail == "Detail line"

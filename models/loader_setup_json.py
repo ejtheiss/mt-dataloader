@@ -1,4 +1,4 @@
-"""Loader setup JSON API contract (v1) — ``POST /api/validate-json``, ``POST /api/config/save``.
+"""Loader setup JSON API contract (v1) — validate-json, config/save, revalidate-json.
 
 Normative spec: ``plan/…/04_validation_observability.md`` § Loader setup — JSON API contract (v1).
 """
@@ -36,6 +36,17 @@ class LoaderSetupFlowDiagnosticItem(BaseModel):
     step_id: str | None
     account_id: str | None
     message: str
+
+
+class RevalidateJsonRequestV1(BaseModel):
+    """JSON body for ``POST /api/revalidate-json`` (session + config string + optional reconciliation)."""
+
+    session_token: str = Field(..., min_length=1)
+    config_json: str = Field(..., description="Stringified JSON of a DataLoaderConfig")
+    reconcile_overrides: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional ``{overrides, manual_mappings}`` or flat overrides map (HTMX-compatible).",
+    )
 
 
 class LoaderSetupEnvelopeV1(BaseModel):
