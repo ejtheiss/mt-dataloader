@@ -237,9 +237,7 @@ def test_revalidate_json_v1_failure_includes_diagnostics(mock_pipe):
     mock_pipe.return_value = LoaderValidationFailure(
         message="Can't build execution plan\nx",
         v1_phase="dag",
-        v1_errors=(
-            LoaderSetupErrorItem(code="staged_dependency", message="hint", path="(dag)"),
-        ),
+        v1_errors=(LoaderSetupErrorItem(code="staged_dependency", message="hint", path="(dag)"),),
         v1_flow_diagnostic_dicts=(
             {
                 "rule_id": "flow_rule_x",

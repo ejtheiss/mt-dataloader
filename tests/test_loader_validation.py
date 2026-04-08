@@ -81,9 +81,7 @@ def test_loader_validation_failure_to_envelope_includes_flow_diagnostics():
     failure = LoaderValidationFailure(
         message="DAG\noops",
         v1_phase="dag",
-        v1_errors=(
-            LoaderSetupErrorItem(code="cycle_error", message="bad", path="(dag)"),
-        ),
+        v1_errors=(LoaderSetupErrorItem(code="cycle_error", message="bad", path="(dag)"),),
         v1_flow_diagnostic_dicts=(diag,),
     )
     env = loader_validation_failure_to_envelope(failure)

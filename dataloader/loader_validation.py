@@ -288,7 +288,9 @@ def headless_outcome_to_envelope(outcome: HeadlessValidateJsonOutcome) -> Loader
     )
 
 
-def run_headless_validate_after_parse(config: DataLoaderConfig, raw_json: bytes) -> HeadlessValidateJsonOutcome:
+def run_headless_validate_after_parse(
+    config: DataLoaderConfig, raw_json: bytes
+) -> HeadlessValidateJsonOutcome:
     """Headless pipeline when ``DataLoaderConfig`` is already parsed (single wire parse at router)."""
     had_funds_flows = bool(config.funds_flows)
     authoring = AuthoringConfig.from_json(raw_json)
@@ -447,9 +449,7 @@ async def run_loader_validation_pipeline(
         return LoaderValidationFailure(
             message=f"Config Validation Error\n{msg}",
             v1_phase="parse",
-            v1_errors=(
-                LoaderSetupErrorItem(code="invalid_body", message=msg, path=None),
-            ),
+            v1_errors=(LoaderSetupErrorItem(code="invalid_body", message=msg, path=None),),
         )
     if parsed.error is not None:
         structured = format_validation_errors(parsed.error)
@@ -686,7 +686,9 @@ def loader_validation_failure_htmx_parts(failure: LoaderValidationFailure) -> tu
     return title, detail
 
 
-def loader_validation_failure_to_envelope(failure: LoaderValidationFailure) -> LoaderSetupEnvelopeV1:
+def loader_validation_failure_to_envelope(
+    failure: LoaderValidationFailure,
+) -> LoaderSetupEnvelopeV1:
     """§ v1 envelope for JSON clients (validate-json, revalidate-json, config/save)."""
     errors = list(failure.v1_errors)
     if not errors:
