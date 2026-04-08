@@ -285,7 +285,14 @@ class InlineLedgerEntryConfig(MetadataMixin, BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    amount: int = Field(..., gt=0)
+    amount: int = Field(
+        ...,
+        gt=0,
+        description=(
+            "Minor units of the entry's ledger account currency. For USD and USDC, use the "
+            "same cent-style convention as USD (100 = 1.00), not on-chain 10^-6 token units."
+        ),
+    )
     direction: Literal["credit", "debit"]
     ledger_account_id: RefStr
 
