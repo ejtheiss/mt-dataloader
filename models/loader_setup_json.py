@@ -49,14 +49,27 @@ class RevalidateJsonRequestV1(BaseModel):
     )
 
 
+class JsonPointerSetV1(BaseModel):
+    """Single RFC 6901 ``set``-style assignment applied after ``shallow_merge``."""
+
+    model_config = {"extra": "forbid"}
+
+    path: str = Field(
+        ...,
+        min_length=1,
+        pattern=r"/.*",
+        description="JSON Pointer; must start with ``/`` (document root is not addressable here).",
+    )
+    value: Any = None
+
+
 class ApplyConfigPatchJsonRequestV1(BaseModel):
     """JSON body for ``POST /api/config/patch-json`` (Plan 05 — shallow merge + full revalidate).
 
     Top-level keys in ``shallow_merge`` replace the same keys in the session's current
     executable config (``working_config_json``, else ``config_json_text``, else ``config``).
-    The merged object is then run through ``run_loader_validation_pipeline`` (same as
-    ``revalidate-json``). For deep field edits, include a full top-level section value
-    (e.g. replace entire ``connections`` list).
+    Then each ``pointer_sets`` entry assigns ``value`` at ``path`` (RFC 6901). The result is
+    run through ``run_loader_validation_pipeline`` (same as ``revalidate-json``).
     """
 
     model_config = {"extra": "forbid"}
@@ -65,6 +78,10 @@ class ApplyConfigPatchJsonRequestV1(BaseModel):
     shallow_merge: dict[str, Any] = Field(
         default_factory=dict,
         description="Top-level object merged into current config dict (patch keys win).",
+    )
+    pointer_sets: list[JsonPointerSetV1] = Field(
+        default_factory=list,
+        description="Ordered list of JSON Pointer assignments after shallow merge.",
     )
     reconcile_overrides: dict[str, Any] | None = Field(
         default=None,

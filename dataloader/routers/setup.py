@@ -40,6 +40,7 @@ from dataloader.routers.deps import (
     SessionFormDep,
     TemplatesDep,
 )
+from dataloader.json_pointer import apply_json_pointer_set
 from dataloader.session import SessionState, prune_expired_sessions, sessions
 from dataloader.session.draft_persist import (
     merge_loader_draft_into_session,
@@ -525,6 +526,23 @@ async def patch_json_config(request: Request) -> LoaderSetupEnvelopeV1 | JSONRes
 
     base = _session_working_config_dict(old_session)
     merged = {**base, **body.shallow_merge}
+    for i, op in enumerate(body.pointer_sets):
+        try:
+            apply_json_pointer_set(merged, op.path, op.value)
+        except (ValueError, KeyError, TypeError) as exc:
+            return _loader_setup_json_response(
+                LoaderSetupEnvelopeV1(
+                    ok=False,
+                    errors=[
+                        LoaderSetupErrorItem(
+                            code="pointer_set_failed",
+                            message=f"{op.path}: {exc}",
+                            path=f"pointer_sets[{i}]",
+                        )
+                    ],
+                ),
+                status_code=422,
+            )
     raw_json = dumps_pretty(merged).encode("utf-8")
     prev_token = old_session.session_token
     overrides, manual_maps = _reconcile_pairs_from_optional_dict(body.reconcile_overrides)

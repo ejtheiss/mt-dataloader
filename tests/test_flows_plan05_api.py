@@ -68,7 +68,7 @@ def test_recipe_patch_merge_seed():
     )
     try:
         with patch(
-            "dataloader.routers.flows._recompose_and_persist_session",
+            "dataloader.routers.flows.recompose_and_persist_session",
             AsyncMock(return_value=gen),
         ):
             client = TestClient(app)

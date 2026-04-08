@@ -7,7 +7,6 @@ and shared Pydantic parse helpers for ``flows.py``. Plan 04 — Wave D + Phase 2
 
 from __future__ import annotations
 
-import hashlib
 import json
 import secrets
 from collections import Counter
@@ -292,7 +291,7 @@ def headless_outcome_to_envelope(outcome: HeadlessValidateJsonOutcome) -> Loader
 def run_headless_validate_after_parse(config: DataLoaderConfig, raw_json: bytes) -> HeadlessValidateJsonOutcome:
     """Headless pipeline when ``DataLoaderConfig`` is already parsed (single wire parse at router)."""
     had_funds_flows = bool(config.funds_flows)
-    authoring = authoring_config_from_bytes(config, raw_json)
+    authoring = AuthoringConfig.from_json(raw_json)
     compiled = compile_loader_plan(authoring, pipeline=HEADLESS_VALIDATE_JSON_PIPELINE)
     if isinstance(compiled, LoaderCompileFailure):
         return HeadlessValidateJsonOutcome(
@@ -330,14 +329,6 @@ def run_headless_validate_after_parse(config: DataLoaderConfig, raw_json: bytes)
             "has_funds_flows": had_funds_flows,
         },
         diagnostics=diag_items,
-    )
-
-
-def authoring_config_from_bytes(config: DataLoaderConfig, raw_json: bytes) -> AuthoringConfig:
-    return AuthoringConfig(
-        config=config.model_copy(deep=True),
-        json_text=raw_json.decode(),
-        source_hash=hashlib.sha256(raw_json).hexdigest(),
     )
 
 
@@ -485,7 +476,7 @@ async def run_loader_validation_pipeline(
     config = parsed.config
     authoring_config_json = config.model_dump_json(indent=2, exclude_none=True)
 
-    authoring = authoring_config_from_bytes(config, raw_json)
+    authoring = AuthoringConfig.from_json(raw_json)
     compiled = compile_loader_plan(authoring)
     if isinstance(compiled, LoaderCompileFailure):
         return LoaderValidationFailure(

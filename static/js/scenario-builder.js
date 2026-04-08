@@ -573,10 +573,10 @@
         return;
       }
       try {
-        var resp = await fetch('/api/flows/recipe-to-working-config', {
+        var resp = await fetch('/api/flows/recipe-patch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken },
-          body: JSON.stringify(recipe),
+          body: JSON.stringify({ flow_ref: recipe.flow_ref, patch: recipe }),
         });
         var data;
         try {

@@ -33,6 +33,7 @@ from models.loader_draft import LoaderDraft
 from models.loader_setup_json import (
     LOADER_SETUP_SCHEMA_VERSION,
     ApplyConfigPatchJsonRequestV1,
+    JsonPointerSetV1,
     LoaderSetupEnvelopeV1,
     LoaderSetupErrorItem,
     LoaderSetupFlowDiagnosticItem,
@@ -255,6 +256,7 @@ __all__ = [
     "LoaderSetupFlowDiagnosticItem",
     "RevalidateJsonRequestV1",
     "ApplyConfigPatchJsonRequestV1",
+    "JsonPointerSetV1",
     # App settings
     "AppSettings",
 ]
