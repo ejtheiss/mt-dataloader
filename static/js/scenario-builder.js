@@ -12,6 +12,11 @@
  *     stagingOptions:   [{value:"happy_path", label:"Happy path"}, ...],
  *     savedRecipe:      {...} | null
  *   });
+ *
+ * Plan 05: After template hydrate, fetches POST /api/flows/scenario-snapshot for this
+ * flow_ref; when the server has a stored recipe, it overwrites the form (authority).
+ * Redirects use ?flow=&panel=config (&generated= after apply). Legacy ?open_scale= /
+ * ?scale_applied= still supported in flows.html.
  */
 (function () {
   'use strict';
@@ -140,8 +145,9 @@
       window.location.href =
         '/flows?session_token=' +
         encodeURIComponent(token) +
-        '&open_scale=' +
-        flowIdx;
+        '&flow=' +
+        encodeURIComponent(String(flowIdx)) +
+        '&panel=config';
     } catch (netErr) {
       if (out) {
         out.innerHTML =
@@ -608,9 +614,10 @@
         window.location.href =
           '/flows?session_token=' +
           encodeURIComponent(sessionToken) +
-          '&scale_applied=' +
-          idx +
-          '&scale_instances=' +
+          '&flow=' +
+          encodeURIComponent(String(idx)) +
+          '&panel=config' +
+          '&generated=' +
           encodeURIComponent(String(recipe.instances));
       } catch (netErr) {
         showApplyMessage(
@@ -674,34 +681,35 @@
       }
     });
 
-    // ----- Restore saved recipe -----
+    // ----- Restore recipe into form (template + server snapshot) -----
 
-    if (savedRecipe) {
-      field('instances').value = savedRecipe.instances || 10;
-      field('seed').value = savedRecipe.seed || 424242;
-      if (savedRecipe.amount_variance_min_pct != null && field('variance-min'))
-        field('variance-min').value = savedRecipe.amount_variance_min_pct;
-      if (savedRecipe.amount_variance_max_pct != null && field('variance-max'))
-        field('variance-max').value = savedRecipe.amount_variance_max_pct;
+    function applySavedRecipeToForm(recipe) {
+      if (!recipe) return;
+      field('instances').value = recipe.instances || 10;
+      field('seed').value = recipe.seed || 424242;
+      if (recipe.amount_variance_min_pct != null && field('variance-min'))
+        field('variance-min').value = recipe.amount_variance_min_pct;
+      if (recipe.amount_variance_max_pct != null && field('variance-max'))
+        field('variance-max').value = recipe.amount_variance_max_pct;
 
-      if (savedRecipe.staging_rules && savedRecipe.staging_rules.length > 0) {
-        resetStagingRules(savedRecipe.staging_rules);
-      } else if (savedRecipe.staged_count > 0) {
-        resetStagingRules([{ count: savedRecipe.staged_count, selection: savedRecipe.staged_selection || 'happy_path' }]);
+      if (recipe.staging_rules && recipe.staging_rules.length > 0) {
+        resetStagingRules(recipe.staging_rules);
+      } else if (recipe.staged_count > 0) {
+        resetStagingRules([{ count: recipe.staged_count, selection: recipe.staged_selection || 'happy_path' }]);
       }
 
-      if (savedRecipe.edge_case_overrides) {
-        for (var label in savedRecipe.edge_case_overrides) {
+      if (recipe.edge_case_overrides) {
+        for (var label in recipe.edge_case_overrides) {
           var inp = q('.edge-case-count-input[data-label="' + label + '"]');
-          if (inp) inp.value = savedRecipe.edge_case_overrides[label].count || 0;
+          if (inp) inp.value = recipe.edge_case_overrides[label].count || 0;
         }
       }
 
-      if (savedRecipe.step_variance) {
-        for (var sid in savedRecipe.step_variance) {
+      if (recipe.step_variance) {
+        for (var sid in recipe.step_variance) {
           var row = q('.amount-step-item[data-step-id="' + sid + '"]');
           if (!row) continue;
-          var sv = savedRecipe.step_variance[sid];
+          var sv = recipe.step_variance[sid];
           if (!sv || (Object.keys(sv).length === 0)) {
             row.setAttribute('data-variance-mode', 'locked');
           } else {
@@ -716,8 +724,28 @@
         }
       }
 
-      if (savedRecipe.timing) {
-        var t = savedRecipe.timing;
+      if (recipe.actor_overrides) {
+        qAll('.field-row[data-frame]').forEach(function (row) {
+          var frame = row.getAttribute('data-frame');
+          var ov = recipe.actor_overrides[frame];
+          if (!ov) return;
+          var frameType = row.getAttribute('data-frame-type');
+          if (frameType === 'direct') {
+            var cnInput = row.querySelector('.actor-customer-name');
+            if (cnInput && ov.customer_name) cnInput.value = ov.customer_name;
+          } else {
+            var etSelect = row.querySelector('.actor-entity-type');
+            var dsSelect = row.querySelector('.actor-dataset-select');
+            var nt = row.querySelector('.actor-name-template');
+            if (etSelect && ov.entity_type) etSelect.value = ov.entity_type;
+            if (dsSelect && ov.dataset) dsSelect.value = ov.dataset;
+            if (nt && ov.name_template) nt.value = ov.name_template;
+          }
+        });
+      }
+
+      if (recipe.timing) {
+        var t = recipe.timing;
         if (field('timing-spread')) field('timing-spread').value = t.instance_spread_days || 0;
         if (t.start_date) {
           var t0Input = q('.timing-date-input');
@@ -747,11 +775,35 @@
       updateAmountRanges();
     }
 
+    if (savedRecipe) {
+      applySavedRecipeToForm(savedRecipe);
+    }
+
     qAll('.amount-step-item').forEach(syncVarianceLockIcon);
 
     qAll('.actor-entity-type').forEach(function (sel) {
       runActorDatasetCascade(container, sel);
     });
+
+    // Plan 05: prefer server-stored recipe over template when session has one (async, non-blocking).
+    void fetch('/api/flows/scenario-snapshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken },
+      body: JSON.stringify({ flow_ref: flowRef }),
+    })
+      .then(function (resp) {
+        if (!resp.ok) return null;
+        return resp.json();
+      })
+      .then(function (data) {
+        if (!data || !data.has_recipe || !data.recipe) return;
+        applySavedRecipeToForm(data.recipe);
+        qAll('.amount-step-item').forEach(syncVarianceLockIcon);
+        qAll('.actor-entity-type').forEach(function (sel) {
+          runActorDatasetCascade(container, sel);
+        });
+      })
+      .catch(function () { /* offline / stale session — keep template state */ });
   }
 
   window.initScenarioBuilder = initScenarioBuilder;
