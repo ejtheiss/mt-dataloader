@@ -4,6 +4,28 @@ This document is the **in-repo** source for how **actor keys, human labels, prev
 
 **It is not a cycle or backlog ledger.** Sequencing, PR grouping, and initiative ownership stay in maintainer-local **`plan/`** (gitignored). If text here conflicts with a locked product decision, **§0.5 wins** until code matches.
 
+## Implementation status (repository scan)
+
+**Most of §0.5 and NW-1…NW-9 are still target behavior, not finished work.** Spot-check with `rg` on the paths below when this section drifts.
+
+| Item | Status | Where to look |
+|------|--------|----------------|
+| **NW-1** — gate Preview until Apply | **Not done** | `templates/flows.html` always links to `/preview`; `dataloader/routers/setup.py` `preview_page` only requires a session. |
+| **NW-2** — block Execute if preview stale | **Not done** | `dataloader/routers/execute.py` uses `config_hash` for DB run rows, not to compare against last `build_preview`. |
+| **NW-3** — `resolve_mt_display_label` | **Not done** | Symbol absent; `dataloader/preview_labels.py` still falls back to `flow_compiler.actor_display_name`. |
+| **NW-4** — grouped preview actor strip = MT names | **Not done** | `build_flow_grouped_preview` still sets `"alias"` from `flatten_actor_refs` keys (wiring), not from `preview_items` / `mt_display_name`. |
+| **NW-5** — Mermaid uses shared labels | **Not done** | `flow_compiler/mermaid.py`: `_build_ref_display_map`, `_resolve_actor_display`, `actor_display_name` still drive participants. |
+| **NW-6** — fund-flow columns | **Not done** | `flow_compiler/flow_views.py` still imports `build_ref_display_map` / `resolve_actor_display`. |
+| **NW-7** — case card participants | **Treat as open** | Needs a focused template/router pass to confirm. |
+| **NW-8** — one expansion world | **Not done** | `flow_compiler/pipeline.py` `pass_expand_instances` still uses hardcoded `default_profile` demo strings. |
+| **NW-9** — remove parallel display helpers | **Not done** | `flow_compiler/display.py`, `flow_compiler/__init__.py` exports, and many tests still use the ref-display map API. |
+
+**Already aligned (partial):** `build_preview`, `extract_display_name`, and `templates/partials/preview_resource_row.html` implement the **per-row** preview labeling story (§5a). `resolve_resource_display` walks config and uses `extract_display_name` before slug fallback — but Mermaid, fund-flow views, and grouped **actors** still use the **parallel** alias+slot pipeline.
+
+### `plan/3.31.26 plans-data loader/` (gitignored)
+
+Tracked code only **mentions** that path for **conventions** (e.g. `.github/workflows/ci.yml`, `pyproject.toml` comments). **NW backlog and “Plan 17” ordering are not in the public repo**; they live in maintainer-local plans under that folder (e.g. unified names / fund-flows initiatives). This file describes **architecture + code reality**; **which cycle ships which NW item** stays in `plan/`.
+
 ---
 
 ## 0) Vocabulary (do not conflate)
