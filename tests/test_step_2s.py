@@ -10,6 +10,8 @@ existing examples.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from flow_compiler import (
@@ -562,6 +564,27 @@ class TestEmitDataloaderConfig:
         emitted, _ = self._compile_default()
         reloaded = DataLoaderConfig.model_validate(emitted.model_dump(exclude_none=True))
         assert len(reloaded.incoming_payment_details) == len(emitted.incoming_payment_details)
+
+
+class TestCrossCurrencyBookAutoLedger:
+    """USD↔USDC (and other IA cross-currency) book POs get explicit inline LTs."""
+
+    def test_stablecoin_ramp_book_pos_have_balanced_inline_ledger(self):
+        raw = json.loads((EXAMPLES_DIR / "stablecoin_ramp.json").read_text())
+        config = DataLoaderConfig.model_validate(raw)
+        irs = compile_flows(config.funds_flows, config)
+        emitted = emit_dataloader_config(irs, config)
+        books = [po for po in emitted.payment_orders if po.type == "book"]
+        assert len(books) == 2
+        for po in books:
+            assert po.ledger_transaction is not None
+            lt = po.ledger_transaction
+            assert len(lt.ledger_entries) == 2
+            dr = sum(e.amount for e in lt.ledger_entries if e.direction == "debit")
+            cr = sum(e.amount for e in lt.ledger_entries if e.direction == "credit")
+            assert dr == cr == po.amount
+            for e in lt.ledger_entries:
+                assert e.ledger_account_id.endswith(".ledger_account")
 
 
 # =========================================================================

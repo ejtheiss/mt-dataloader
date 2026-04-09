@@ -8,19 +8,23 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 import flow_compiler.seed_loader as seed_loader
-from dataloader.engine import all_resources, dry_run, typed_ref_for
+from dataloader.engine import dry_run
+from dataloader.flows_mutation import (
+    compose_all_recipes,
+    default_recipe_dict,
+    get_base_config_for_generation,
+    merge_recipe_dict,
+    recompose_and_persist_session,
+)
 from dataloader.helpers import (
-    build_preview,
     fmt_amt,
     format_validation_errors,
     get_flow_view_data,
 )
 from dataloader.loader_validation import (
-    parse_loader_config_json_text,
-    require_pydantic_obj,
     try_parse_pydantic_json_bytes,
     try_parse_pydantic_obj,
 )
@@ -38,7 +42,6 @@ from flow_compiler import (
     flow_account_deltas,
     generate_from_recipe,
 )
-from flow_compiler.flow_views import compute_view_data
 from jsonutil import dumps_pretty, loads_str
 from models import (
     SOURCE_BADGE,
@@ -116,85 +119,6 @@ def _step_variance_ui_fields(step_id: str, recipe: dict[str, Any] | None) -> dic
     return base
 
 
-def _get_base_config(session: Any) -> DataLoaderConfig:
-    """Config with ``funds_flows`` intact for recipe ``flow_ref`` pattern lookup.
-
-    After validate, ``base_config_json`` / ``config_json_text`` are the emitted
-    (flattened) config with empty ``funds_flows``; prefer ``authoring_config_json``.
-    """
-    acj = getattr(session, "authoring_config_json", None)
-    if acj:
-        pr = parse_loader_config_json_text(acj)
-        if pr.error is None and pr.config is not None and pr.config.funds_flows:
-            return pr.config
-    source = session.base_config_json or session.config_json_text
-    if source is None:
-        return session.config.model_copy(deep=True)
-    pr2 = parse_loader_config_json_text(source)
-    if pr2.error is None and pr2.config is not None:
-        return pr2.config
-    return session.config.model_copy(deep=True)
-
-
-def _compose_all_recipes(
-    base: DataLoaderConfig,
-    recipes: dict[str, dict],
-) -> GenerationResult:
-    """Generate from every stored recipe sequentially.
-
-    Each recipe is applied to the running config so that shared
-    infrastructure is emitted once and all flow instances accumulate.
-    Returns a merged ``GenerationResult`` with combined outputs.
-
-    The original ``base`` config keeps its ``funds_flows`` intact so
-    that every recipe can look up its pattern flow.  Only the
-    *infrastructure* sections (legal_entities, counterparties, etc.)
-    accumulate across recipes.
-    """
-    running_config = base
-    all_flow_irs: list = []
-    all_expanded_flows: list = []
-    all_diagrams: list[str] = []
-    combined_edge_map: dict[str, list[int]] = {}
-
-    for _flow_ref, recipe_dict in recipes.items():
-        recipe = require_pydantic_obj(GenerationRecipeV1, recipe_dict)
-        merged = _merge_infra_with_flows(running_config, base)
-        gen = generate_from_recipe(recipe, base_config=merged)
-        running_config = gen.config
-        all_flow_irs.extend(gen.flow_irs)
-        all_expanded_flows.extend(gen.expanded_flows)
-        all_diagrams.extend(gen.diagrams)
-        for label, indices in gen.edge_case_map.items():
-            combined_edge_map.setdefault(label, []).extend(indices)
-
-    return GenerationResult(
-        config=running_config,
-        diagrams=all_diagrams,
-        edge_case_map=combined_edge_map,
-        flow_irs=all_flow_irs,
-        expanded_flows=all_expanded_flows,
-    )
-
-
-def _merge_infra_with_flows(
-    running: DataLoaderConfig,
-    original: DataLoaderConfig,
-) -> DataLoaderConfig:
-    """Merge accumulated infrastructure from ``running`` with the
-    original ``funds_flows`` so subsequent recipes can find their
-    flow patterns.
-
-    After the first recipe, ``running.funds_flows`` is empty because
-    ``emit_dataloader_config`` clears it.  We restore from ``original``.
-    """
-    if running.funds_flows:
-        return running
-    data = running.model_dump(exclude_none=True)
-    data["funds_flows"] = [f.model_dump(exclude_none=True) for f in original.funds_flows]
-    return require_pydantic_obj(DataLoaderConfig, data)
-
-
 async def _parse_recipe(
     request: Request,
 ) -> tuple[str, Any, GenerationRecipeV1] | JSONResponse:
@@ -225,7 +149,7 @@ async def _parse_and_compile_recipe(
         return result
     token, session, recipe = result
 
-    base = _get_base_config(session)
+    base = get_base_config_for_generation(session)
     try:
         gen_result = generate_from_recipe(recipe, base_config=base)
     except (ValueError, KeyError) as e:
@@ -255,80 +179,17 @@ async def _parse_and_compile_recipe(
     return token, session, recipe, gen_result
 
 
-def _default_recipe_dict(flow_ref: str) -> dict[str, Any]:
-    """Minimal recipe matching scenario-builder defaults when none exists yet."""
-    return {
-        "version": "v1",
-        "flow_ref": flow_ref,
-        "instances": 10,
-        "seed": 424242,
-        "seed_dataset": "standard",
-        "edge_case_count": 0,
-        "amount_variance_min_pct": 0.0,
-        "amount_variance_max_pct": 0.0,
-    }
+class ScenarioSnapshotRequest(BaseModel):
+    """Optional body for ``POST /api/flows/scenario-snapshot``."""
+
+    flow_ref: str | None = None
 
 
-async def _recompose_and_persist_session(
-    request: Request,
-    session: Any,
-) -> JSONResponse | GenerationResult:
-    """Run ``_compose_all_recipes`` and mirror results onto ``session``.
+class RecipePatchBody(BaseModel):
+    """Merge ``patch`` into the stored recipe for ``flow_ref``, validate, recompose (plan 05)."""
 
-    Returns ``JSONResponse`` on generation failure; otherwise the
-    ``GenerationResult`` that was applied.
-    """
-    base = _get_base_config(session)
-    try:
-        gen = _compose_all_recipes(base, session.generation_recipes)
-    except (ValueError, KeyError) as e:
-        return JSONResponse(
-            content={"error": "Generation failed", "detail": str(e)},
-            status_code=400,
-        )
-
-    if session.discovery is not None:
-        reconciliation = reconcile_config(gen.config, session.discovery)
-        skip_refs: set[str] = set()
-        for m in reconciliation.matches:
-            if m.use_existing:
-                session.registry.register_or_update(m.config_ref, m.discovered_id)
-                skip_refs.add(m.config_ref)
-                for ck, cid in m.child_refs.items():
-                    session.registry.register_or_update(f"{m.config_ref}.{ck}", cid)
-        session.reconciliation = reconciliation
-        session.skip_refs = skip_refs
-        sync_connection_entities_from_reconciliation(
-            gen.config,
-            session.discovery,
-            reconciliation,
-            {},
-        )
-
-    session.config = gen.config
-    config_json_text = gen.config.model_dump_json(indent=2, exclude_none=True)
-    session.config_json_text = config_json_text
-    session.working_config_json = config_json_text
-    session.mermaid_diagrams = gen.diagrams
-    session.flow_ir = gen.flow_irs
-    session.expanded_flows = gen.expanded_flows
-    session.view_data_cache = [
-        compute_view_data(ir, fc) for ir, fc in zip(gen.flow_irs, gen.expanded_flows)
-    ]
-
-    known = set(session.org_registry.refs.keys()) if session.org_registry else None
-    batches = dry_run(gen.config, known, skip_refs=session.skip_refs)
-    session.batches = batches
-    resource_map = {typed_ref_for(r): r for r in all_resources(gen.config)}
-    session.preview_items = build_preview(
-        batches,
-        resource_map,
-        skip_refs=session.skip_refs,
-        reconciliation=session.reconciliation,
-        update_refs=session.update_refs,
-    )
-    await persist_loader_draft(request, session)
-    return gen
+    flow_ref: str = Field(..., min_length=1)
+    patch: dict[str, Any] = Field(default_factory=dict)
 
 
 class ActorConfigSaveBody(BaseModel):
@@ -668,7 +529,7 @@ async def flow_payments_view_partial(
     )
 
 
-@router.post("/api/flows/{flow_idx}/metadata")
+@router.post("/api/flows/{flow_idx}/metadata", tags=["agent"])
 async def update_flow_metadata(
     request: Request,
     flow_idx: int,
@@ -721,7 +582,7 @@ async def update_flow_metadata(
     return {"status": "ok", "flow_idx": flow_idx}
 
 
-@router.post("/api/flows/generate-preview")
+@router.post("/api/flows/generate-preview", tags=["agent"])
 async def generate_preview(request: Request):
     """Return compile stats + Mermaid diagrams without executing."""
     result = await _parse_and_compile_recipe(request)
@@ -751,9 +612,12 @@ async def generate_preview(request: Request):
     }
 
 
-@router.post("/api/flows/recipe-to-working-config")
+@router.post("/api/flows/recipe-to-working-config", tags=["agent"])
 async def recipe_to_working_config(request: Request):
-    """Store a recipe for one flow, then compose all stored recipes."""
+    """Store a full recipe body for one flow, then compose all stored recipes.
+
+    Prefer ``POST /api/flows/recipe-patch`` for UI/agents that merge into an existing recipe.
+    """
     result = await _parse_recipe(request)
     if isinstance(result, JSONResponse):
         return result
@@ -761,7 +625,7 @@ async def recipe_to_working_config(request: Request):
 
     session.generation_recipes[recipe.flow_ref] = recipe.model_dump()
 
-    composed = await _recompose_and_persist_session(request, session)
+    composed = await recompose_and_persist_session(request, session)
     if isinstance(composed, JSONResponse):
         return composed
 
@@ -772,6 +636,97 @@ async def recipe_to_working_config(request: Request):
         "mermaid_count": len(composed.diagrams),
         "edge_case_map": composed.edge_case_map,
         "recipe_count": recipe_count,
+    }
+
+
+@router.post("/api/flows/scenario-snapshot", tags=["agent"])
+async def scenario_snapshot(request: Request):
+    """Return server-side ``generation_recipes`` (plan 05 — client sync / hydration).
+
+    Body: optional JSON ``{\"flow_ref\": \"...\"}``. When ``flow_ref`` is set, returns that
+    recipe plus ``default_recipe`` for new authoring; otherwise returns all recipes.
+    """
+    token = request.headers.get("x-session-token", "")
+    session = sessions.get(token)
+    if not session:
+        return JSONResponse(
+            content={"error": "Session not found. Please validate a config first."},
+            status_code=401,
+        )
+    raw = await request.body()
+    if not raw.strip():
+        req = ScenarioSnapshotRequest()
+    else:
+        try:
+            req = ScenarioSnapshotRequest.model_validate_json(raw)
+        except ValidationError as exc:
+            return JSONResponse(
+                content={"error": "Invalid body", "detail": format_validation_errors(exc)},
+                status_code=422,
+            )
+    recipes = session.generation_recipes
+    if req.flow_ref:
+        stored = recipes.get(req.flow_ref)
+        return {
+            "flow_ref": req.flow_ref,
+            "recipe": stored,
+            "has_recipe": stored is not None,
+            "default_recipe": default_recipe_dict(req.flow_ref),
+        }
+    return {
+        "recipes": dict(recipes),
+        "flow_refs": list(recipes.keys()),
+    }
+
+
+@router.post("/api/flows/recipe-patch", tags=["agent"])
+async def recipe_patch(request: Request):
+    """Merge a partial (or full) recipe dict into the stored recipe, validate, recompose (plan 05).
+
+    Scenario builder **Apply** sends ``{ flow_ref, patch: <full buildRecipe()> }``. Small patches
+    suit tools/agents; a complete recipe body with no merge can use
+    ``POST /api/flows/recipe-to-working-config``.
+    """
+    token = request.headers.get("x-session-token", "")
+    session = sessions.get(token)
+    if not session:
+        return JSONResponse(
+            content={"error": "Session not found. Please validate a config first."},
+            status_code=401,
+        )
+    raw = await request.body()
+    try:
+        body = RecipePatchBody.model_validate_json(raw)
+    except ValidationError as exc:
+        return JSONResponse(
+            content={"error": "Invalid body", "detail": format_validation_errors(exc)},
+            status_code=422,
+        )
+    base = session.generation_recipes.get(body.flow_ref) or default_recipe_dict(body.flow_ref)
+    if base.get("flow_ref") != body.flow_ref:
+        base = {**base, "flow_ref": body.flow_ref}
+    merged = merge_recipe_dict(base, body.patch)
+    try:
+        recipe = GenerationRecipeV1.model_validate(merged)
+    except ValidationError as exc:
+        return JSONResponse(
+            content={"error": "Invalid merged recipe", "detail": format_validation_errors(exc)},
+            status_code=422,
+        )
+    session.generation_recipes[recipe.flow_ref] = recipe.model_dump()
+
+    composed = await recompose_and_persist_session(request, session)
+    if isinstance(composed, JSONResponse):
+        return composed
+
+    recipe_count = len(session.generation_recipes)
+    return {
+        "status": "ok",
+        "total_resources": sum(_count_resources(composed.config).values()),
+        "mermaid_count": len(composed.diagrams),
+        "edge_case_map": composed.edge_case_map,
+        "recipe_count": recipe_count,
+        "recipe": recipe.model_dump(),
     }
 
 
@@ -876,7 +831,7 @@ async def flow_actor_config_save(
         return JSONResponse(content={"error": "Unknown actor frame"}, status_code=404)
 
     if flow_ref not in hdr_sess.generation_recipes:
-        hdr_sess.generation_recipes[flow_ref] = _default_recipe_dict(flow_ref)
+        hdr_sess.generation_recipes[flow_ref] = default_recipe_dict(flow_ref)
 
     recipe_dict = dict(hdr_sess.generation_recipes[flow_ref])
     actor_overrides = dict(recipe_dict.get("actor_overrides") or {})
@@ -902,14 +857,14 @@ async def flow_actor_config_save(
         )
     hdr_sess.generation_recipes[flow_ref] = recipe_dict
 
-    composed = await _recompose_and_persist_session(request, hdr_sess)
+    composed = await recompose_and_persist_session(request, hdr_sess)
     if isinstance(composed, JSONResponse):
         return composed
 
     return {"status": "ok", "flow_ref": flow_ref, "frame": frame}
 
 
-@router.post("/api/flows/generate-execute")
+@router.post("/api/flows/generate-execute", tags=["agent"])
 async def generate_execute(request: Request):
     """Compile recipe and feed directly into the execution pipeline."""
     result = await _parse_recipe(request)
@@ -919,9 +874,9 @@ async def generate_execute(request: Request):
 
     session.generation_recipes[recipe.flow_ref] = recipe.model_dump()
 
-    base = _get_base_config(session)
+    base = get_base_config_for_generation(session)
     try:
-        gen = _compose_all_recipes(base, session.generation_recipes)
+        gen = compose_all_recipes(base, session.generation_recipes)
     except (ValueError, KeyError) as e:
         return JSONResponse(
             content={"error": "Generation failed", "detail": str(e)},

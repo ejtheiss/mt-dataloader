@@ -32,10 +32,13 @@ from models.flow_dsl import (
 from models.loader_draft import LoaderDraft
 from models.loader_setup_json import (
     LOADER_SETUP_SCHEMA_VERSION,
+    ApplyConfigPatchJsonRequestV1,
+    JsonPointerSetV1,
     LoaderSetupEnvelopeV1,
     LoaderSetupErrorItem,
     LoaderSetupFlowDiagnosticItem,
     LoaderSetupWarningItem,
+    RevalidateJsonRequestV1,
 )
 
 # --- manifest (run JSON on disk) ---
@@ -251,6 +254,9 @@ __all__ = [
     "LoaderSetupErrorItem",
     "LoaderSetupWarningItem",
     "LoaderSetupFlowDiagnosticItem",
+    "RevalidateJsonRequestV1",
+    "ApplyConfigPatchJsonRequestV1",
+    "JsonPointerSetV1",
     # App settings
     "AppSettings",
 ]

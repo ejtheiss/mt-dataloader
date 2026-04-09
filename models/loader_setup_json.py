@@ -1,4 +1,4 @@
-"""Loader setup JSON API contract (v1) — ``POST /api/validate-json``, ``POST /api/config/save``.
+"""Loader setup JSON API contract (v1) — validate-json, config/save, revalidate-json, patch-json.
 
 Normative spec: ``plan/…/04_validation_observability.md`` § Loader setup — JSON API contract (v1).
 """
@@ -36,6 +36,57 @@ class LoaderSetupFlowDiagnosticItem(BaseModel):
     step_id: str | None
     account_id: str | None
     message: str
+
+
+class RevalidateJsonRequestV1(BaseModel):
+    """JSON body for ``POST /api/revalidate-json`` (session + config string + optional reconciliation)."""
+
+    session_token: str = Field(..., min_length=1)
+    config_json: str = Field(..., description="Stringified JSON of a DataLoaderConfig")
+    reconcile_overrides: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional ``{overrides, manual_mappings}`` or flat overrides map (HTMX-compatible).",
+    )
+
+
+class JsonPointerSetV1(BaseModel):
+    """Single RFC 6901 ``set``-style assignment applied after ``shallow_merge``."""
+
+    model_config = {"extra": "forbid"}
+
+    path: str = Field(
+        ...,
+        min_length=1,
+        pattern=r"/.*",
+        description="JSON Pointer; must start with ``/`` (document root is not addressable here).",
+    )
+    value: Any = None
+
+
+class ApplyConfigPatchJsonRequestV1(BaseModel):
+    """JSON body for ``POST /api/config/patch-json`` (Plan 05 — shallow merge + full revalidate).
+
+    Top-level keys in ``shallow_merge`` replace the same keys in the session's current
+    executable config (``working_config_json``, else ``config_json_text``, else ``config``).
+    Then each ``pointer_sets`` entry assigns ``value`` at ``path`` (RFC 6901). The result is
+    run through ``run_loader_validation_pipeline`` (same as ``revalidate-json``).
+    """
+
+    model_config = {"extra": "forbid"}
+
+    session_token: str = Field(..., min_length=1)
+    shallow_merge: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Top-level object merged into current config dict (patch keys win).",
+    )
+    pointer_sets: list[JsonPointerSetV1] = Field(
+        default_factory=list,
+        description="Ordered list of JSON Pointer assignments after shallow merge.",
+    )
+    reconcile_overrides: dict[str, Any] | None = Field(
+        default=None,
+        description="Same semantics as ``POST /api/revalidate-json``.",
+    )
 
 
 class LoaderSetupEnvelopeV1(BaseModel):

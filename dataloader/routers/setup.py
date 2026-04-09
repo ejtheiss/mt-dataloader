@@ -22,10 +22,17 @@ from dataloader.helpers import (
     build_preview,
     error_response,
 )
+from dataloader.json_pointer import apply_json_pointer_set
 from dataloader.loader_validation import (
     LoaderValidationFailure,
     apply_loader_validation_success_to_session,
-    run_headless_validate_json,
+    headless_outcome_to_envelope,
+    invalid_body_kind_message,
+    loader_validation_failure_htmx_parts,
+    loader_validation_failure_to_envelope,
+    loader_validation_success_to_v1_envelope,
+    parse_loader_config_bytes,
+    run_headless_validate_after_parse,
     run_loader_validation_pipeline,
 )
 from dataloader.routers.deps import (
@@ -42,24 +49,64 @@ from dataloader.session.draft_persist import (
 )
 from db.repositories import loader_drafts as drafts_repo
 from jsonutil import dumps_pretty, loads_str
-from models import DataLoaderConfig, DisplayPhase
+from models import (
+    ApplyConfigPatchJsonRequestV1,
+    DataLoaderConfig,
+    DisplayPhase,
+    RevalidateJsonRequestV1,
+)
 from models.loader_setup_json import (
     LoaderSetupEnvelopeV1,
     LoaderSetupErrorItem,
     error_items_from_pydantic_validation,
-    parse_request_json_body,
 )
 from org import reconcile_config, sync_connection_entities_from_reconciliation
 
 router = APIRouter(tags=["setup"])
 
 
+def _loader_setup_json_response(
+    envelope: LoaderSetupEnvelopeV1,
+    status_code: int = 200,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content=envelope.model_dump(mode="json", exclude_none=True),
+    )
+
+
+def _reconcile_pairs_from_optional_dict(raw: dict | None) -> tuple[dict, dict]:
+    """Match HTMX ``reconcile_overrides`` JSON semantics (flat or nested)."""
+    if not raw or not isinstance(raw, dict):
+        return {}, {}
+    overrides = raw.get("overrides", raw)
+    if not isinstance(overrides, dict):
+        overrides = {}
+    mm = raw.get("manual_mappings")
+    manual_maps = dict(mm) if isinstance(mm, dict) else {}
+    return overrides, manual_maps
+
+
+def _session_working_config_dict(session: SessionState) -> dict:
+    """Executable config as a plain dict for Plan 05 shallow merge (patch-json)."""
+    text = (session.working_config_json or session.config_json_text or "").strip()
+    if text:
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return dict(parsed)
+        except json.JSONDecodeError:
+            pass
+    return session.config.model_dump(mode="json", exclude_none=True)
+
+
 # Full validate pipeline: ``run_loader_validation_pipeline`` → ``apply_loader_validation_success_to_session``
 # in ``dataloader.loader_validation`` (Wave D: validate without Request/DB; router applies + persists).
 
 
-def _pipeline_error_response(message: str):
-    title, _, detail = message.partition("\n")
+def _pipeline_error_response(outcome: LoaderValidationFailure) -> HTMLResponse:
+    """HTMX errors from the same typed model as § v1 JSON (plan 05)."""
+    title, detail = loader_validation_failure_htmx_parts(outcome)
     return error_response(title, detail)
 
 
@@ -125,15 +172,23 @@ async def setup_page(
     )
 
 
-@router.post("/api/config/save")
-async def save_config(request: Request):
+@router.post(
+    "/api/config/save",
+    tags=["agent"],
+    response_model=LoaderSetupEnvelopeV1,
+    response_model_exclude_none=True,
+    responses={
+        404: {"model": LoaderSetupEnvelopeV1},
+        422: {"model": LoaderSetupEnvelopeV1},
+    },
+)
+async def save_config(request: Request) -> LoaderSetupEnvelopeV1 | JSONResponse:
     """Write edited config JSON back to the session and optionally to disk (JSON API v1 envelope)."""
     try:
         body = await request.json()
-    except Exception:
-        return JSONResponse(
-            status_code=422,
-            content=LoaderSetupEnvelopeV1(
+    except json.JSONDecodeError:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
                 ok=False,
                 errors=[
                     LoaderSetupErrorItem(
@@ -142,13 +197,13 @@ async def save_config(request: Request):
                         path=None,
                     )
                 ],
-            ).json_response_dict(),
+            ),
+            status_code=422,
         )
 
     if not isinstance(body, dict):
-        return JSONResponse(
-            status_code=422,
-            content=LoaderSetupEnvelopeV1(
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
                 ok=False,
                 errors=[
                     LoaderSetupErrorItem(
@@ -157,7 +212,8 @@ async def save_config(request: Request):
                         path=None,
                     )
                 ],
-            ).json_response_dict(),
+            ),
+            status_code=422,
         )
 
     session_token = body.get("session_token", "")
@@ -165,9 +221,8 @@ async def save_config(request: Request):
 
     session = sessions.get(session_token)
     if not session:
-        return JSONResponse(
-            status_code=404,
-            content=LoaderSetupEnvelopeV1(
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
                 ok=False,
                 errors=[
                     LoaderSetupErrorItem(
@@ -176,83 +231,352 @@ async def save_config(request: Request):
                         path=None,
                     )
                 ],
-            ).json_response_dict(),
+            ),
+            status_code=404,
         )
 
-    try:
-        json.loads(config_json)
-    except json.JSONDecodeError as exc:
-        return JSONResponse(
-            status_code=200,
-            content=LoaderSetupEnvelopeV1(
+    if not isinstance(config_json, str):
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
                 ok=False,
                 phase="parse",
                 errors=[
                     LoaderSetupErrorItem(
                         code="invalid_body",
-                        message=f"config_json is not valid JSON: {exc}",
+                        message="config_json must be a string of JSON.",
                         path=None,
                     )
                 ],
-            ).json_response_dict(),
+            ),
+            status_code=422,
         )
 
-    try:
-        config = DataLoaderConfig.model_validate_json(config_json.encode())
-    except ValidationError as exc:
-        return JSONResponse(
-            status_code=200,
-            content=LoaderSetupEnvelopeV1(
+    pr = parse_loader_config_bytes(config_json.encode("utf-8"))
+    if pr.body_invalid is not None:
+        msg = invalid_body_kind_message(pr.body_invalid)
+        if pr.body_invalid == "json":
+            msg = f"config_json is not valid JSON: {msg}"
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
                 ok=False,
                 phase="parse",
-                errors=error_items_from_pydantic_validation(exc),
-            ).json_response_dict(),
+                errors=[LoaderSetupErrorItem(code="invalid_body", message=msg, path=None)],
+            ),
+            status_code=422,
+        )
+    if pr.error is not None:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                phase="parse",
+                errors=error_items_from_pydantic_validation(pr.error),
+            ),
+            status_code=422,
+        )
+    if pr.config is None:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                phase="parse",
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="validation_error",
+                        message="Invalid configuration.",
+                        path=None,
+                    )
+                ],
+            ),
+            status_code=422,
         )
 
+    config = pr.config
     session.config = config
     session.config_json_text = dumps_pretty(json.loads(config_json))
     session.working_config_json = session.config_json_text
 
     await persist_loader_draft(request, session)
 
-    return JSONResponse(
-        status_code=200,
-        content=LoaderSetupEnvelopeV1(
-            ok=True,
-            phase="complete",
-            data={"message": "Config saved to session"},
-        ).json_response_dict(),
+    return LoaderSetupEnvelopeV1(
+        ok=True,
+        phase="complete",
+        data={"message": "Config saved to session"},
     )
 
 
-@router.post("/api/validate-json")
-async def validate_json(request: Request):
+@router.post(
+    "/api/validate-json",
+    tags=["agent"],
+    response_model=LoaderSetupEnvelopeV1,
+    response_model_exclude_none=True,
+    responses={422: {"model": LoaderSetupEnvelopeV1}},
+)
+async def validate_json(request: Request) -> LoaderSetupEnvelopeV1 | JSONResponse:
     """Programmatic JSON validation endpoint for LLM repair loops (JSON API v1 envelope)."""
     body = await request.body()
-    if parse_request_json_body(body) is None:
-        return JSONResponse(
-            status_code=422,
-            content=LoaderSetupEnvelopeV1(
+    parsed = parse_loader_config_bytes(body)
+    if parsed.body_invalid is not None:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
                 ok=False,
                 errors=[
                     LoaderSetupErrorItem(
                         code="invalid_body",
-                        message="Body must be UTF-8 JSON object (DataLoaderConfig).",
+                        message=invalid_body_kind_message(parsed.body_invalid),
                         path=None,
                     )
                 ],
-            ).json_response_dict(),
+            ),
+            status_code=422,
+        )
+    if parsed.error is not None:
+        return LoaderSetupEnvelopeV1(
+            ok=False,
+            phase="parse",
+            errors=error_items_from_pydantic_validation(parsed.error),
+            data={},
+        )
+    if parsed.config is None:
+        return LoaderSetupEnvelopeV1(
+            ok=False,
+            phase="parse",
+            errors=[
+                LoaderSetupErrorItem(
+                    code="validation_error",
+                    message="Invalid configuration.",
+                    path=None,
+                )
+            ],
+            data={},
         )
 
-    outcome = run_headless_validate_json(body)
-    return JSONResponse(
-        status_code=200,
-        content=LoaderSetupEnvelopeV1(
-            ok=outcome.ok,
-            phase=outcome.phase,
-            errors=outcome.errors,
-            data=outcome.data,
-        ).json_response_dict(),
+    outcome = run_headless_validate_after_parse(parsed.config, body)
+    return headless_outcome_to_envelope(outcome)
+
+
+@router.post(
+    "/api/revalidate-json",
+    tags=["agent"],
+    response_model=LoaderSetupEnvelopeV1,
+    response_model_exclude_none=True,
+    responses={
+        404: {"model": LoaderSetupEnvelopeV1},
+        422: {"model": LoaderSetupEnvelopeV1},
+    },
+)
+async def revalidate_json(request: Request) -> LoaderSetupEnvelopeV1 | JSONResponse:
+    """Re-validate config JSON using credentials from an existing session (§ v1 envelope)."""
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="invalid_body",
+                        message="Request body must be JSON.",
+                        path=None,
+                    )
+                ],
+            ),
+            status_code=422,
+        )
+    if not isinstance(payload, dict):
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="invalid_body",
+                        message="Request body must be a JSON object.",
+                        path=None,
+                    )
+                ],
+            ),
+            status_code=422,
+        )
+    try:
+        body = RevalidateJsonRequestV1.model_validate(payload)
+    except ValidationError as exc:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=error_items_from_pydantic_validation(exc),
+            ),
+            status_code=422,
+        )
+
+    old_session = sessions.get(body.session_token)
+    if not old_session:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="session_expired",
+                        message="Session expired or unknown session_token.",
+                        path=None,
+                    )
+                ],
+            ),
+            status_code=404,
+        )
+
+    raw_json = body.config_json.strip().encode()
+    prev_token = old_session.session_token
+    overrides, manual_maps = _reconcile_pairs_from_optional_dict(body.reconcile_overrides)
+
+    outcome = await run_loader_validation_pipeline(
+        raw_json,
+        old_session.api_key,
+        old_session.org_id,
+        reconcile_overrides=overrides,
+        manual_mappings=manual_maps,
+        prior_config=old_session.config,
+    )
+    if isinstance(outcome, LoaderValidationFailure):
+        return loader_validation_failure_to_envelope(outcome)
+
+    session = apply_loader_validation_success_to_session(
+        outcome,
+        old_session.api_key,
+        old_session.org_id,
+        org_label=getattr(old_session, "org_label", None),
+        generation_recipes=old_session.generation_recipes,
+        working_config_json=old_session.working_config_json,
+    )
+    sessions[session.session_token] = session
+    del sessions[prev_token]
+    await persist_loader_draft(request, session)
+
+    return loader_validation_success_to_v1_envelope(
+        outcome,
+        extra_data={"session_token": session.session_token},
+    )
+
+
+@router.post(
+    "/api/config/patch-json",
+    tags=["agent"],
+    response_model=LoaderSetupEnvelopeV1,
+    response_model_exclude_none=True,
+    responses={
+        404: {"model": LoaderSetupEnvelopeV1},
+        422: {"model": LoaderSetupEnvelopeV1},
+    },
+)
+async def patch_json_config(request: Request) -> LoaderSetupEnvelopeV1 | JSONResponse:
+    """Shallow-merge top-level keys into the session executable config, then revalidate (Plan 05).
+
+    Same pipeline and § v1 envelope as ``POST /api/revalidate-json``; use when agents or UI
+    submit partial top-level updates instead of a full ``config_json`` string.
+    """
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="invalid_body",
+                        message="Request body must be JSON.",
+                        path=None,
+                    )
+                ],
+            ),
+            status_code=422,
+        )
+    if not isinstance(payload, dict):
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="invalid_body",
+                        message="Request body must be a JSON object.",
+                        path=None,
+                    )
+                ],
+            ),
+            status_code=422,
+        )
+    try:
+        body = ApplyConfigPatchJsonRequestV1.model_validate(payload)
+    except ValidationError as exc:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=error_items_from_pydantic_validation(exc),
+            ),
+            status_code=422,
+        )
+
+    old_session = sessions.get(body.session_token)
+    if not old_session:
+        return _loader_setup_json_response(
+            LoaderSetupEnvelopeV1(
+                ok=False,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="session_expired",
+                        message="Session expired or unknown session_token.",
+                        path=None,
+                    )
+                ],
+            ),
+            status_code=404,
+        )
+
+    base = _session_working_config_dict(old_session)
+    merged = {**base, **body.shallow_merge}
+    for i, op in enumerate(body.pointer_sets):
+        try:
+            apply_json_pointer_set(merged, op.path, op.value)
+        except (ValueError, KeyError, TypeError) as exc:
+            return _loader_setup_json_response(
+                LoaderSetupEnvelopeV1(
+                    ok=False,
+                    errors=[
+                        LoaderSetupErrorItem(
+                            code="pointer_set_failed",
+                            message=f"{op.path}: {exc}",
+                            path=f"pointer_sets[{i}]",
+                        )
+                    ],
+                ),
+                status_code=422,
+            )
+    raw_json = dumps_pretty(merged).encode("utf-8")
+    prev_token = old_session.session_token
+    overrides, manual_maps = _reconcile_pairs_from_optional_dict(body.reconcile_overrides)
+
+    outcome = await run_loader_validation_pipeline(
+        raw_json,
+        old_session.api_key,
+        old_session.org_id,
+        reconcile_overrides=overrides,
+        manual_mappings=manual_maps,
+        prior_config=old_session.config,
+    )
+    if isinstance(outcome, LoaderValidationFailure):
+        return loader_validation_failure_to_envelope(outcome)
+
+    session = apply_loader_validation_success_to_session(
+        outcome,
+        old_session.api_key,
+        old_session.org_id,
+        org_label=getattr(old_session, "org_label", None),
+        generation_recipes=old_session.generation_recipes,
+        working_config_json=None,
+    )
+    sessions[session.session_token] = session
+    del sessions[prev_token]
+    await persist_loader_draft(request, session)
+
+    return loader_validation_success_to_v1_envelope(
+        outcome,
+        extra_data={"session_token": session.session_token},
     )
 
 
@@ -278,7 +602,7 @@ async def validate(
 
     outcome = await run_loader_validation_pipeline(raw_json, api_key, org_id)
     if isinstance(outcome, LoaderValidationFailure):
-        return _pipeline_error_response(outcome.message)
+        return _pipeline_error_response(outcome)
 
     ol = org_name.strip() or None
     session = apply_loader_validation_success_to_session(outcome, api_key, org_id, org_label=ol)
@@ -322,7 +646,7 @@ async def revalidate(
         prior_config=old_session.config,
     )
     if isinstance(outcome, LoaderValidationFailure):
-        return _pipeline_error_response(outcome.message)
+        return _pipeline_error_response(outcome)
 
     session = apply_loader_validation_success_to_session(
         outcome,
@@ -363,7 +687,7 @@ async def restore_draft(
     raw_json = draft.config_json_text.encode()
     outcome = await run_loader_validation_pipeline(raw_json, api_key, org_id)
     if isinstance(outcome, LoaderValidationFailure):
-        return _pipeline_error_response(outcome.message)
+        return _pipeline_error_response(outcome)
 
     ol = org_name.strip() or draft.org_label or None
     session = apply_loader_validation_success_to_session(

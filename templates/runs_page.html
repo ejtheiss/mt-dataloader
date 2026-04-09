@@ -36,9 +36,15 @@
      hx-target="#runs-list"
      hx-swap="innerHTML"
      hx-indicator="#runs-spinner">
+    {% block runs_list %}
+    {% if manifests is defined %}
+    {% include "partials/runs_list_body.html" %}
+    {% else %}
     <div id="runs-spinner" class="htmx-indicator" style="text-align: center; padding: 24px;">
         <div class="spinner" style="margin: 0 auto;"></div>
     </div>
+    {% endif %}
+    {% endblock %}
 </div>
 <script>
 document.addEventListener("DOMContentLoaded", function() {

@@ -8,7 +8,7 @@ from models.manifest import RunManifest
 
 
 class RunListRow(BaseModel):
-    """Fields required by ``templates/runs.html`` (resource/staged/failed counts)."""
+    """Fields required by ``templates/partials/runs_list_body.html`` (resource/staged/failed counts)."""
 
     model_config = ConfigDict(extra="ignore")
 

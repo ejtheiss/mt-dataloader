@@ -106,7 +106,5 @@
     </div>
 </div>
 {% else %}
-    {% set empty_title = "No runs found" %}
-    {% set empty_description = "Execute a config to create a run." %}
-    {% include "partials/empty_state.html" %}
+    {{ render_partial('partials/empty_state.html', empty_title="No runs found", empty_description="Execute a config to create a run.") }}
 {% endif %}

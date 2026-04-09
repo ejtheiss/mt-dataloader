@@ -238,7 +238,7 @@ def _render_webhook_html(entry: WebhookEntry, templates: Any) -> str:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/webhooks/mt")
+@router.post("/webhooks/mt", tags=["agent"])
 async def receive_webhook(
     request: Request,
     settings: SettingsDep,
