@@ -33,7 +33,7 @@ This doc fixes scope: **what each name means upstream**, **how MT actually wires
 
 | Artifact | What it actually is |
 |----------|---------------------|
-| **`static/css/tokens.css`** | MINT-aligned CSS variables (curated). **`scripts/regen-tokens.js`** writes **`static/css/tokens.regen-preview.css`** for diffing against Mint; merge into `tokens.css` only after schema alignment (`docs/UI_GAPS_REMAINING.md`). |
+| **`static/css/tokens.css`** | MINT-aligned CSS variables (curated). **`scripts/regen-tokens.js`** writes **`static/css/tokens.regen-preview.css`** for diffing against Mint; merge into `tokens.css` only after you verify naming and template/CSS consumers ([`RESOURCES.md`](RESOURCES.md)). |
 | **`static/css/*.css`** (component layer) | Traced-from-React / app CSS. Shipped files include: `buttons`, `case-card`, `chip`, `drawer`, `filter-bar`, `forms`, `index-table`, `json-view`, `kv-table`, `layout`, `page-chrome`, `pagination`, `pill`, `status-indicator`, `tabs`, `toast`, `toggle-switch`, `tokens` — plus optional **`tokens.regen-preview.css`** (local regen; often gitignored). |
 | **`static/mt-patterns.css`** | Card, modal, accordion, etc., from **Platform** sources; loaded alongside `static/css/*`. First-class MINT port. |
 | **`templates/partials/*.html`** | Jinja mirroring MINT components (e.g. `index_table.html` ← `TableUI.tsx`). **Not** from the Turbogrid gem. |
@@ -57,4 +57,4 @@ This doc fixes scope: **what each name means upstream**, **how MT actually wires
 
 See also: [`PORTING-KIT.md`](PORTING-KIT.md), [`.cursor/rules/mint-mt-ui.mdc`](../.cursor/rules/mint-mt-ui.mdc).
 
-**Migration plan:** [`plan/mint_turbogrid_reduction_plan.md`](../plan/mint_turbogrid_reduction_plan.md) when tracked (unwrap `<main>` = Flow parity; optional delete ~781 LoC if no scoped grid needs Turbogrid).
+**Layout refactor:** Removing `class="turbogrid"` from `<main>` (scoped grid only, like Flow) is normal product work—treat it like any other template/CSS change, with tests and visual check.

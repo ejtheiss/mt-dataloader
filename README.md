@@ -417,13 +417,15 @@ A local **`plan/`** directory (roadmaps, design notes) is **gitignored** and is 
 
 ## Development
 
+See **[`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)** for venv setup, tests, and running the app.
+
 ```bash
 source .venv/bin/activate
-python -m pytest tests/ -q           # full suite (718 tests)
-python -m pytest tests/ -x -q        # stop on first failure
+python -m pytest tests/ -q           # full suite
+python -m pytest tests/ -x -q      # stop on first failure
 ```
 
-**MINT / MT UI assets:** [`docs/PORTING-KIT.md`](docs/PORTING-KIT.md), [`docs/UI_GAPS_REMAINING.md`](docs/UI_GAPS_REMAINING.md) — icons, case card partial, token regen preview, open follow-ups.
+**MINT / MT UI layout:** [`docs/PORTING-KIT.md`](docs/PORTING-KIT.md), [`docs/DESIGN_SYSTEM_AUTHORITY.md`](docs/DESIGN_SYSTEM_AUTHORITY.md), [`docs/RESOURCES.md`](docs/RESOURCES.md) (optional token regen).
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Design authority:** MINT (tokens + Platform-traced CSS + Jinja partials). Turbogrid in `static/turbogrid/` is vendored Flow-admin CSS only — see [`DESIGN_SYSTEM_AUTHORITY.md`](DESIGN_SYSTEM_AUTHORITY.md).
 
-Runtime assets live under **`static/`** and **`templates/`**. Optional MT/Mint **reference** packs may exist only on disk under a local **`plan/resources/`** tree (this repo gitignores `plan/`).
+Runtime assets live under **`static/`** and **`templates/`**. Optional Mint **Tailwind** sources for token regen are resolved by **`scripts/regen-tokens.js`** (see that file and [`RESOURCES.md`](RESOURCES.md)); they are not required to run the app.
 
 ## Directory Map
 
@@ -96,10 +96,6 @@ Writes **`static/css/tokens.regen-preview.css`** (not `tokens.css`). The preview
 {% set size = 18 %}
 {% include "partials/icon.html" %}
 ```
-
-## Open gaps after the icon / case-card pass
-
-See [`UI_GAPS_REMAINING.md`](UI_GAPS_REMAINING.md) (token pipeline, icon sweep, CDN, flagship IA, CI).
 
 ## Adding New Components
 
