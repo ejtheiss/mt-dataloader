@@ -174,6 +174,7 @@ async def setup_page(
 
 @router.post(
     "/api/config/save",
+    tags=["agent"],
     response_model=LoaderSetupEnvelopeV1,
     response_model_exclude_none=True,
     responses={
@@ -304,6 +305,7 @@ async def save_config(request: Request) -> LoaderSetupEnvelopeV1 | JSONResponse:
 
 @router.post(
     "/api/validate-json",
+    tags=["agent"],
     response_model=LoaderSetupEnvelopeV1,
     response_model_exclude_none=True,
     responses={422: {"model": LoaderSetupEnvelopeV1}},
@@ -353,6 +355,7 @@ async def validate_json(request: Request) -> LoaderSetupEnvelopeV1 | JSONRespons
 
 @router.post(
     "/api/revalidate-json",
+    tags=["agent"],
     response_model=LoaderSetupEnvelopeV1,
     response_model_exclude_none=True,
     responses={
@@ -454,6 +457,7 @@ async def revalidate_json(request: Request) -> LoaderSetupEnvelopeV1 | JSONRespo
 
 @router.post(
     "/api/config/patch-json",
+    tags=["agent"],
     response_model=LoaderSetupEnvelopeV1,
     response_model_exclude_none=True,
     responses={

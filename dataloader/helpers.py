@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from jinja2_fragments.fastapi import Jinja2Blocks
 from pydantic import ValidationError
 
 from dataloader import preview_labels as _preview_labels
@@ -56,17 +56,17 @@ def _preview_row_sort_key(item: dict[str, Any]) -> tuple:
 # Templates reference — set by main.py at import time
 # ---------------------------------------------------------------------------
 
-_templates: Jinja2Templates | None = None
+_templates: Jinja2Blocks | None = None
 
 
-def set_templates(t: Jinja2Templates) -> None:
+def set_templates(t: Jinja2Blocks) -> None:
     """Called once from the app factory to inject the shared templates instance."""
     global _templates
     _templates = t
 
 
-def get_templates() -> Jinja2Templates:
-    """Return the shared Jinja2Templates instance."""
+def get_templates() -> Jinja2Blocks:
+    """Return the shared Jinja2Blocks instance."""
     assert _templates is not None, "helpers.set_templates() was never called"
     return _templates
 

@@ -14,15 +14,18 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import FastAPI
+import jinja_partials
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from jinja2_fragments.fastapi import Jinja2Blocks
 from loguru import logger
 from sqlalchemy import select
 
 from dataloader._version import __version__
 from dataloader.db_backfill import bootstrap_webhook_correlation
 from dataloader.helpers import set_templates
+from dataloader.openapi_agent import build_agent_openapi_schema
 from dataloader.mt_doc_links import MT_DOCS
 from dataloader.routers.cleanup import router as cleanup_router
 from dataloader.routers.connection import router as connection_router
@@ -50,7 +53,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 # Template engine
 # ---------------------------------------------------------------------------
 
-templates = Jinja2Templates(directory=str(_REPO_ROOT / "templates"))
+templates = Jinja2Blocks(directory=str(_REPO_ROOT / "templates"))
 
 templates.env.globals["mt_docs"] = MT_DOCS
 
@@ -192,10 +195,23 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="MT Dataloader", version=__version__, lifespan=lifespan)
 
+jinja_partials.register_fastapi_extensions(app, templates)
+
 
 @app.get("/api/version", include_in_schema=False)
 async def get_version():
     return {"version": __version__}
+
+
+@app.get("/openapi-agent.json", include_in_schema=False)
+async def openapi_agent_json(request: Request):
+    """Subset OpenAPI for agents — only operations tagged ``agent`` (Plan 06)."""
+    app_instance = request.app
+    cached = getattr(app_instance.state, "agent_openapi_schema", None)
+    if cached is None:
+        cached = build_agent_openapi_schema(app_instance)
+        app_instance.state.agent_openapi_schema = cached
+    return JSONResponse(cached)
 
 
 static_dir = _REPO_ROOT / "static"

@@ -6,7 +6,7 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import Depends, Form, Header, Query, Request
-from fastapi.templating import Jinja2Templates
+from jinja2_fragments.fastapi import Jinja2Blocks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dataloader.session import SessionState, sessions
@@ -18,7 +18,7 @@ def get_settings(request: Request) -> AppSettings:
     return request.app.state.settings
 
 
-def get_templates(request: Request) -> Jinja2Templates:
+def get_templates(request: Request) -> Jinja2Blocks:
     return request.app.state.templates
 
 
@@ -27,7 +27,7 @@ def get_tunnel(request: Request) -> TunnelManager:
 
 
 SettingsDep = Annotated[AppSettings, Depends(get_settings)]
-TemplatesDep = Annotated[Jinja2Templates, Depends(get_templates)]
+TemplatesDep = Annotated[Jinja2Blocks, Depends(get_templates)]
 TunnelDep = Annotated[TunnelManager, Depends(get_tunnel)]
 
 

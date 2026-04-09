@@ -8,8 +8,8 @@ from fastapi import APIRouter, HTTPException, Request
 from loguru import logger
 
 from dataloader.engine import manifest_json_run_id
-from dataloader.handlers import DELETABILITY
 from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep
+from dataloader.view_models import runs_list_fragment_context
 from dataloader.run_access import load_run_manifest_for_reader, user_to_ctx
 from db.repositories import runs as runs_repo
 from models import RunListRow, RunManifest
@@ -85,14 +85,9 @@ async def list_runs(
 
     return templates.TemplateResponse(
         request,
-        "runs.html",
-        {
-            "manifests": rows,
-            "deletability": DELETABILITY,
-            "sort_key": sort or "",
-            "sort_dir": dir,
-            "active_status": status or "",
-        },
+        "runs_page.html",
+        runs_list_fragment_context(rows=rows, sort=sort, dir=dir, status=status),
+        block_name="runs_list",
     )
 
 

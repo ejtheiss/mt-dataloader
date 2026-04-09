@@ -529,7 +529,7 @@ async def flow_payments_view_partial(
     )
 
 
-@router.post("/api/flows/{flow_idx}/metadata")
+@router.post("/api/flows/{flow_idx}/metadata", tags=["agent"])
 async def update_flow_metadata(
     request: Request,
     flow_idx: int,
@@ -582,7 +582,7 @@ async def update_flow_metadata(
     return {"status": "ok", "flow_idx": flow_idx}
 
 
-@router.post("/api/flows/generate-preview")
+@router.post("/api/flows/generate-preview", tags=["agent"])
 async def generate_preview(request: Request):
     """Return compile stats + Mermaid diagrams without executing."""
     result = await _parse_and_compile_recipe(request)
@@ -612,7 +612,7 @@ async def generate_preview(request: Request):
     }
 
 
-@router.post("/api/flows/recipe-to-working-config")
+@router.post("/api/flows/recipe-to-working-config", tags=["agent"])
 async def recipe_to_working_config(request: Request):
     """Store a full recipe body for one flow, then compose all stored recipes.
 
@@ -639,7 +639,7 @@ async def recipe_to_working_config(request: Request):
     }
 
 
-@router.post("/api/flows/scenario-snapshot")
+@router.post("/api/flows/scenario-snapshot", tags=["agent"])
 async def scenario_snapshot(request: Request):
     """Return server-side ``generation_recipes`` (plan 05 — client sync / hydration).
 
@@ -679,7 +679,7 @@ async def scenario_snapshot(request: Request):
     }
 
 
-@router.post("/api/flows/recipe-patch")
+@router.post("/api/flows/recipe-patch", tags=["agent"])
 async def recipe_patch(request: Request):
     """Merge a partial (or full) recipe dict into the stored recipe, validate, recompose (plan 05).
 
@@ -864,7 +864,7 @@ async def flow_actor_config_save(
     return {"status": "ok", "flow_ref": flow_ref, "frame": frame}
 
 
-@router.post("/api/flows/generate-execute")
+@router.post("/api/flows/generate-execute", tags=["agent"])
 async def generate_execute(request: Request):
     """Compile recipe and feed directly into the execution pipeline."""
     result = await _parse_recipe(request)
