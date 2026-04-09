@@ -25,8 +25,8 @@ from sqlalchemy import select
 from dataloader._version import __version__
 from dataloader.db_backfill import bootstrap_webhook_correlation
 from dataloader.helpers import set_templates
-from dataloader.openapi_agent import build_agent_openapi_schema
 from dataloader.mt_doc_links import MT_DOCS
+from dataloader.openapi_agent import build_agent_openapi_schema
 from dataloader.routers.cleanup import router as cleanup_router
 from dataloader.routers.connection import router as connection_router
 from dataloader.routers.execute import router as execute_router
