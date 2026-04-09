@@ -425,7 +425,7 @@ python -m pytest tests/ -q           # full suite
 python -m pytest tests/ -x -q      # stop on first failure
 ```
 
-**MINT / MT UI layout:** [`docs/PORTING-KIT.md`](docs/PORTING-KIT.md), [`docs/DESIGN_SYSTEM_AUTHORITY.md`](docs/DESIGN_SYSTEM_AUTHORITY.md), [`docs/RESOURCES.md`](docs/RESOURCES.md) (optional token regen).
+**MINT / MT UI layout:** [`docs/PORTING-KIT.md`](docs/PORTING-KIT.md), [`docs/DESIGN_SYSTEM_AUTHORITY.md`](docs/DESIGN_SYSTEM_AUTHORITY.md), [`docs/RESOURCES.md`](docs/RESOURCES.md) (optional token regen). **Naming / preview / display pipelines:** [`docs/ARCHITECTURE_NAMING_AND_DISPLAY.md`](docs/ARCHITECTURE_NAMING_AND_DISPLAY.md).
 
 ---
 

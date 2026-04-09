@@ -29,4 +29,8 @@ python -m uvicorn dataloader.main:app --host 127.0.0.1 --port 8000
 - **[`PORTING-KIT.md`](PORTING-KIT.md)** — Where static templates, CSS, and icons live; how they map to upstream MT patterns.
 - **[`RESOURCES.md`](RESOURCES.md)** — Optional inputs for token regeneration (`scripts/regen-tokens.js`).
 
-Roadmaps, initiative specs, and cycle backlogs are **not** kept under `docs/`; maintainers track those separately (e.g. a local **gitignored** tree or another repo).
+## Naming, preview rows, and display strings
+
+- **[`ARCHITECTURE_NAMING_AND_DISPLAY.md`](ARCHITECTURE_NAMING_AND_DISPLAY.md)** — Vocabulary, locked display rules (`preview_items` vs MT-shaped `config`), file map, NW-* work IDs, and **deletion register** for duplicate naming helpers. Use this when changing `build_preview`, Mermaid labels, fund-flow columns, or grouped preview actors.
+
+Roadmaps, **cycle** ledgers, and **which PR ships which NW item** are **not** in `docs/`; maintainers track those in a local **gitignored** `plan/` tree (or equivalent).
