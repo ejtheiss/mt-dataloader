@@ -9,7 +9,25 @@
 - **Phase 3 sample:** `render_partial` for the runs empty state (`partials/runs_list_body.html`).
 - **Phase 4 seed:** `dataloader/view_models/runs_list.py` — `runs_list_fragment_context` for the list route.
 
-**Still optional later:** wide `render_partial` rollout, `error_html` → `request.app.state.templates` / `TemplatesDep`, `docs/sse_contracts.md`, auth-gated agent OpenAPI.
+## Deferred backlog (not in the initial Plan 06 PR)
+
+Schedule these in the **local** `plan/…/02_backlog_priority.md` / `01_cycle_ledger.md` — **not** in this repo. Use the table below so items land with the plan that already owns the surface area.
+
+| Deferred item | Primary plan to attach | When / trigger |
+|---------------|------------------------|----------------|
+| **Wide `render_partial` rollout** | **06** (Phase 3) | Small PRs alongside template edits; no dedicated cycle jump. |
+| **`error_html` / retire `helpers._templates`** | **06** (hygiene §4 in full `06_jinja_bff.md`) | One focused PR after merge; still Plan 06 cleanup. |
+| **`docs/sse_contracts.md`** (event names, HTML vs JSON per stream) | **16** (ordering) + **14** (generate/SSE) | When you ship or materially change generate/NL SSE — same workstream as those plans, **not** a generic Jinja task. |
+| **Auth-gate `GET /openapi-agent.json`** | **06** (agent contract) + **0** (auth posture) | When the app is anonymously reachable on the public internet **or** when Plan 0 adds cookie/session auth you want mirrored for tooling. |
+
+### Cycle 1 vs Cycle 2 (how to decide)
+
+**This repository does not define cycles** — only maintainer-local ledgers do. Default is: **keep the first three rows in whatever cycle is already doing Plan 06 UI work** (same cycle as the PR you just opened), because they are **template/BFF hygiene**, not NL or generate.
+
+**Move an item to Cycle 2 only if** your local Cycle 2 backlog **already** tracks the sibling plan and that plan is the real driver:
+
+- Prefer **Cycle 2** for **`sse_contracts.md`** *only when* Cycle 2 is where **Plan 14 / NL / generate streaming** already lives (same themes). If those ships in the current cycle, document SSE there in the **same** cycle.
+- Do **not** move **`render_partial`**, **`error_html` cleanup**, or **OpenAPI auth** to Cycle 2 **just** to defer them — they fit **Plan 06 / Plan 0** better than a distant cycle unless Cycle 2 is explicitly “auth + public API hardening.”
 
 ## Decisions (locked)
 
