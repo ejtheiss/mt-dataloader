@@ -46,6 +46,7 @@ def _run_list_order_parts(sort: str | None, sort_dir: str) -> tuple[ColumnElemen
 
     def ob(col: Any) -> ColumnElement[Any]:
         return col.desc() if descending else col.asc()
+
     if sort == "run_id":
         return (ob(Run.run_id), ob(Run.started_at))
     if sort == "status":
