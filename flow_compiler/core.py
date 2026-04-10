@@ -131,7 +131,7 @@ def expand_trace_value(
     try:
         return template.format_map(defaultdict(str, mapping))
     except (ValueError, KeyError) as e:
-        raise ValueError(f"Bad placeholder in trace_value_template '{template}': {e}") from e
+        raise ValueError(f"Bad placeholder in trace metadata template '{template}': {e}") from e
 
 
 def _auto_derive_lifecycle_refs(
@@ -531,8 +531,16 @@ def compile_flows(
         else:
             _validate_ref_segment(flow.ref)
             instance_id = "0000"
-        trace_value = expand_trace_value(flow.trace_value_template, flow.ref, 0)
-        trace_meta = {flow.trace_key: trace_value, **flow.trace_metadata}
+        try:
+            primary_tpl = flow.trace_metadata[flow.trace_key]
+        except KeyError as e:
+            raise ValueError(
+                f"Flow {flow.ref!r}: trace_metadata must include key {flow.trace_key!r} "
+                f"(primary trace template)"
+            ) from e
+        trace_value = expand_trace_value(primary_tpl, flow.ref, int(instance_id))
+        extras = {k: v for k, v in flow.trace_metadata.items() if k != flow.trace_key}
+        trace_meta = {flow.trace_key: trace_value, **extras}
 
         og_step_ids: dict[str, str] = {}
         for og in flow.optional_groups:

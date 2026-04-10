@@ -1786,6 +1786,10 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 .metadata-panel > summary:hover {
     background: var(--bg);
 }
+.metadata-panel > summary .info-icon {
+    font-weight: 400;
+    margin-left: 6px;
+}
 .metadata-panel-body {
     padding: 16px; border-top: 1px solid var(--border);
 }

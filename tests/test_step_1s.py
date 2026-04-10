@@ -303,7 +303,7 @@ class TestFundsFlowConfig:
             FundsFlowConfig(
                 ref="bad",
                 pattern_type="test",
-                trace_value_template="{ref}-{bad_key}",
+                trace_metadata={"deal_id": "{ref}-{bad_key}"},
                 steps=[_ipd()],
             )
 
@@ -325,7 +325,7 @@ class TestFundsFlowConfig:
             pattern_type="test",
             steps=[_ipd()],
         )
-        assert flow.trace_value_template == "{ref}-{instance}"
+        assert flow.trace_metadata["deal_id"] == "{ref}-{instance}"
         assert flow.trace_key == "deal_id"
 
     def test_actors_and_metadata(self):
@@ -347,7 +347,7 @@ class TestFundsFlowConfig:
         assert frame.alias == "Platform"
         assert frame.frame_type == "direct"
         assert frame.slots["ops"].ref == "$ref:internal_account.ops"
-        assert flow.trace_metadata == {"env": "demo"}
+        assert flow.trace_metadata == {"env": "demo", "deal_id": "{ref}-{instance}"}
 
     def test_scale_config(self):
         flow = FundsFlowConfig(

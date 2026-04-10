@@ -38,6 +38,9 @@ class FailedEntry(BaseModel):
     typed_ref: str
     error: str
     failed_at: str
+    error_type: str | None = None
+    http_status: int | None = None
+    error_cause: str | None = None
 
 
 class StagedEntry(BaseModel):
@@ -70,9 +73,24 @@ class RunManifest(BaseModel):
     def record(self, entry: ManifestEntry) -> None:
         self.resources_created.append(entry)
 
-    def record_failure(self, typed_ref: str, error: str) -> None:
+    def record_failure(
+        self,
+        typed_ref: str,
+        error: str,
+        *,
+        error_type: str | None = None,
+        http_status: int | None = None,
+        error_cause: str | None = None,
+    ) -> None:
         self.resources_failed.append(
-            FailedEntry(typed_ref=typed_ref, error=error, failed_at=_now_iso())
+            FailedEntry(
+                typed_ref=typed_ref,
+                error=error,
+                failed_at=_now_iso(),
+                error_type=error_type,
+                http_status=http_status,
+                error_cause=error_cause,
+            )
         )
 
     def record_staged(self, typed_ref: str, resource_type: str) -> None:

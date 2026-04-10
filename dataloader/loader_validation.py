@@ -21,7 +21,6 @@ from modern_treasury import (
     AsyncModernTreasury,
     AuthenticationError,
 )
-from opentelemetry.trace import Status, StatusCode
 from pydantic import BaseModel, ValidationError
 
 from dataloader.engine import RefRegistry, all_resources, dry_run, typed_ref_for
@@ -30,7 +29,12 @@ from dataloader.helpers import (
     build_preview,
     format_validation_errors,
 )
-from dataloader.observability.loader_validation_trace import loader_span, loader_validation_tracer
+from dataloader.observability.loader_validation_trace import (
+    Status,
+    StatusCode,
+    loader_span,
+    loader_validation_tracer,
+)
 from dataloader.session import SessionState
 from flow_compiler import AuthoringConfig, ExecutionPlan, compile_to_plan, flatten_actor_refs
 from flow_compiler.flow_validator import validate_flow

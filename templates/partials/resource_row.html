@@ -25,7 +25,12 @@
         <code title="{{ ref }}">{{ ref_name }}</code>
         {% endif %}
         {% if status == "created" and id %}
-        <code class="created-id" title="{{ id }}" style="margin-left: 8px; font-size: 0.8em; opacity: 0.7;">{{ id[:12] }}&hellip;</code>
+          {% set app_url = mt_app_url(resource_type, id) %}
+          {% if app_url %}
+          <a href="{{ app_url }}" target="_blank" rel="noopener noreferrer" class="created-id doc-link" title="{{ id }}" style="margin-left: 8px; font-size: 0.8em; opacity: 0.7;">{{ id[:12] }}&hellip;</a>
+          {% else %}
+          <code class="created-id" title="{{ id }}" style="margin-left: 8px; font-size: 0.8em; opacity: 0.7;">{{ id[:12] }}&hellip;</code>
+          {% endif %}
         {% endif %}
         {% if child_refs %}
         <span class="child-refs">
@@ -73,6 +78,12 @@
         </span>
         {% if error %}
         <span class="error-detail">{{ error }}</span>
+        {% endif %}
+        {% if error_cause %}
+        <details class="error-cause-details" style="margin-top: 4px;">
+          <summary style="cursor: pointer; font-size: 0.85rem;">Caused by</summary>
+          <span class="error-detail" style="display: block; margin-top: 4px;">{{ error_cause }}</span>
+        </details>
         {% endif %}
         {% endif %}
     </div>

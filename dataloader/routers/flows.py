@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 import flow_compiler.seed_loader as seed_loader
 from dataloader.engine import dry_run
+from dataloader.flow_trace_metadata import forbidden_trace_keys, step_only_metadata
 from dataloader.flows_mutation import (
     compose_all_recipes,
     default_recipe_dict,
@@ -357,13 +358,15 @@ async def flows_view_page(
 
     default_view = view_data.available_views[0] if view_data.available_views else "ledger"
 
-    trace_metadata = dict(flow_ir.trace_metadata) if flow_ir.trace_metadata else {}
-    trace_value_template = flow_config.trace_value_template if flow_config else flow_ir.trace_value
+    flow_trace_keys = dict(flow_ir.trace_metadata) if flow_ir.trace_metadata else {}
+    tk = flow_config.trace_key if flow_config else flow_ir.trace_key
+    trace_cfg_md = dict(flow_config.trace_metadata) if flow_config else {}
+    primary_trace_template = trace_cfg_md.get(tk, "{ref}-{instance}")
+    trace_metadata_extra = {k: v for k, v in trace_cfg_md.items() if k != tk}
 
     per_step_metadata: list[dict] = []
     for step in flow_ir.steps:
-        step_meta = dict(step.trace_metadata) if step.trace_metadata else {}
-        step_meta = {k: v for k, v in step_meta.items() if not k.startswith("_flow_")}
+        step_meta = step_only_metadata(flow_trace_keys, step.payload)
         per_step_metadata.append(
             {
                 "step_id": step.step_id,
@@ -393,8 +396,8 @@ async def flows_view_page(
                 else flow_ir.trace_key
             ),
             "metadata_value": flow_ir.trace_value,
-            "trace_value_template": trace_value_template,
-            "trace_metadata": trace_metadata,
+            "primary_trace_template": primary_trace_template,
+            "trace_metadata_extra": trace_metadata_extra,
             "per_step_metadata": per_step_metadata,
             "actor_aliases": actor_aliases,
             "fmt_amt": fmt_amt,
@@ -535,7 +538,7 @@ async def update_flow_metadata(
     flow_idx: int,
     hdr_sess: SessionHeaderDep,
 ):
-    """Update trace_key, trace_value_template, trace_metadata, and per-step metadata."""
+    """Update trace_key, trace_metadata (incl. primary template at trace_key), per-step metadata."""
     if not hdr_sess:
         return JSONResponse(
             content={"error": "Session not found"},
@@ -544,8 +547,8 @@ async def update_flow_metadata(
 
     body = await request.json()
     trace_key = body.get("trace_key")
-    trace_value_template = body.get("trace_value_template")
     trace_metadata = body.get("trace_metadata")
+    legacy_trace_tpl = body.get("trace_value_template")
     step_metadata = body.get("step_metadata")
 
     try:
@@ -560,10 +563,26 @@ async def update_flow_metadata(
     flow = flows[flow_idx]
     if trace_key is not None:
         flow["trace_key"] = trace_key
-    if trace_value_template is not None:
-        flow["trace_value_template"] = trace_value_template
     if trace_metadata is not None:
         flow["trace_metadata"] = trace_metadata
+    if legacy_trace_tpl is not None:
+        eff_tk0 = trace_key if trace_key is not None else flow.get("trace_key", "deal_id")
+        tm0 = dict(flow.get("trace_metadata") or {})
+        if eff_tk0 not in tm0 or not str(tm0.get(eff_tk0, "")).strip():
+            tm0[eff_tk0] = legacy_trace_tpl
+            flow["trace_metadata"] = tm0
+
+    eff_tk = trace_key if trace_key is not None else flow.get("trace_key")
+    eff_tm: dict[str, str] | None
+    if trace_metadata is not None:
+        eff_tm = dict(trace_metadata)
+    else:
+        raw_tm = flow.get("trace_metadata")
+        eff_tm = dict(raw_tm) if isinstance(raw_tm, dict) else {}
+    forbidden = forbidden_trace_keys(
+        eff_tk if isinstance(eff_tk, str) else None,
+        eff_tm,
+    )
 
     if step_metadata:
         all_steps = list(flow.get("steps", []))
@@ -572,7 +591,14 @@ async def update_flow_metadata(
         step_by_id = {s.get("step_id"): s for s in all_steps}
         for step_id, meta in step_metadata.items():
             if step_id in step_by_id:
-                step_by_id[step_id]["metadata"] = meta
+                cleaned = {
+                    k: v
+                    for k, v in meta.items()
+                    if k not in forbidden and not str(k).startswith("_flow_")
+                }
+                existing = step_by_id[step_id].get("metadata") or {}
+                internal = {k: v for k, v in existing.items() if str(k).startswith("_flow_")}
+                step_by_id[step_id]["metadata"] = {**internal, **cleaned}
 
     updated_json = dumps_pretty(config_dict)
     hdr_sess.working_config_json = updated_json

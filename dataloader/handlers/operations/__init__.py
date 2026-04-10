@@ -372,8 +372,10 @@ async def create_virtual_account(
     )
 
 
-async def list_resources(client: AsyncModernTreasury, resource_type: str, **filters):
-    return await _list_resources(_mt(client), resource_type, **filters)
+async def list_resources(
+    client: AsyncModernTreasury, resource_type: str, *, limit: int = 100, **filters
+):
+    return await _list_resources(_mt(client), resource_type, limit=limit, **filters)
 
 
 async def read_resource(client: AsyncModernTreasury, resource_type: str, resource_id: str):

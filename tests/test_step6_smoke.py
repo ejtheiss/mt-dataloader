@@ -99,8 +99,10 @@ class TestMetadataEndpoint:
                     "ref": "test_flow",
                     "pattern_type": "psp",
                     "trace_key": "deal_id",
-                    "trace_value_template": "{ref}-{instance}",
-                    "trace_metadata": {"env": "sandbox"},
+                    "trace_metadata": {
+                        "deal_id": "{ref}-{instance}",
+                        "env": "sandbox",
+                    },
                     "steps": [
                         {
                             "step_id": "lt1",
@@ -139,8 +141,11 @@ class TestMetadataEndpoint:
                 "/api/flows/0/metadata",
                 json={
                     "trace_key": "invoice_id",
-                    "trace_value_template": "INV-{instance}",
-                    "trace_metadata": {"env": "production", "region": "us-east"},
+                    "trace_metadata": {
+                        "invoice_id": "INV-{instance}",
+                        "env": "production",
+                        "region": "us-east",
+                    },
                 },
                 headers={"X-Session-Token": token},
             )
@@ -150,7 +155,7 @@ class TestMetadataEndpoint:
             updated = json.loads(sessions[token].working_config_json)
             flow = updated["funds_flows"][0]
             assert flow["trace_key"] == "invoice_id"
-            assert flow["trace_value_template"] == "INV-{instance}"
+            assert flow["trace_metadata"]["invoice_id"] == "INV-{instance}"
             assert flow["trace_metadata"]["region"] == "us-east"
         finally:
             sessions.pop(token, None)

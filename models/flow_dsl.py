@@ -274,8 +274,13 @@ class FundsFlowConfig(BaseModel):
     ref: str
     pattern_type: str
     trace_key: str = "deal_id"
-    trace_value_template: str = "{ref}-{instance}"
-    trace_metadata: dict[str, str] = Field(default_factory=dict)
+    trace_metadata: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "String templates expanded per instance; merged onto every step's MT metadata. "
+            "The entry at trace_key is the primary correlation id template (formerly trace_value_template)."
+        ),
+    )
     actors: dict[str, ActorFrame] = Field(default_factory=dict)
     steps: list[FundsFlowStep] = Field(..., min_length=1)
     optional_groups: list[OptionalGroupConfig] = Field(default_factory=list)
@@ -291,6 +296,22 @@ class FundsFlowConfig(BaseModel):
         ),
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_trace_value_template(cls, data: Any) -> Any:
+        """Accept legacy ``trace_value_template`` by folding it into ``trace_metadata[trace_key]``."""
+        if not isinstance(data, dict):
+            return data
+        tk = data.get("trace_key", "deal_id")
+        tm = dict(data.get("trace_metadata") or {})
+        legacy = data.pop("trace_value_template", None)
+        if legacy is not None and (tk not in tm or not str(tm.get(tk, "")).strip()):
+            tm[tk] = legacy
+        if tk not in tm or not str(tm.get(tk, "")).strip():
+            tm[tk] = "{ref}-{instance}"
+        data["trace_metadata"] = tm
+        return data
+
     @model_validator(mode="after")
     def _validate_flow(self) -> FundsFlowConfig:
         all_steps: list[_StepBase] = list(self.steps)
@@ -302,20 +323,17 @@ class FundsFlowConfig(BaseModel):
         if dupes:
             raise ValueError(f"Duplicate step_id(s): {dupes}")
 
+        tpl = self.trace_metadata[self.trace_key]
         try:
-            fields = {
-                fname
-                for _, fname, _, _ in _TRACE_FORMATTER.parse(self.trace_value_template)
-                if fname is not None
-            }
+            fields = {fname for _, fname, _, _ in _TRACE_FORMATTER.parse(tpl) if fname is not None}
         except (ValueError, KeyError) as e:
             raise ValueError(
-                f"Invalid trace_value_template '{self.trace_value_template}': {e}"
+                f"Invalid trace template at trace_metadata['{self.trace_key}']: {e}"
             ) from e
         bad = fields - _ALLOWED_TRACE_PLACEHOLDERS
         if bad:
             raise ValueError(
-                f"trace_value_template contains unknown placeholders: {bad}. "
+                f"trace_metadata['{self.trace_key}'] contains unknown placeholders: {bad}. "
                 f"Allowed: {sorted(_ALLOWED_TRACE_PLACEHOLDERS)}"
             )
 

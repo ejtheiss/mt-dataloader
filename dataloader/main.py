@@ -25,6 +25,7 @@ from sqlalchemy import select
 from dataloader._version import __version__
 from dataloader.db_backfill import bootstrap_webhook_correlation
 from dataloader.helpers import set_templates
+from dataloader.mt_app_links import mt_app_resource_url
 from dataloader.mt_doc_links import MT_DOCS
 from dataloader.observability import configure_loader_otel_from_env
 from dataloader.openapi_agent import build_agent_openapi_schema
@@ -57,6 +58,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 templates = Jinja2Blocks(directory=str(_REPO_ROOT / "templates"))
 
 templates.env.globals["mt_docs"] = MT_DOCS
+templates.env.globals["mt_app_url"] = mt_app_resource_url
 
 _css_path = _REPO_ROOT / "static" / "style.css"
 

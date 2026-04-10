@@ -47,7 +47,11 @@
                 <div class="key-value-table">
                     <div class="key-value-table-row">
                         <div class="row-label">Run ID</div>
-                        <div class="row-value"><code>{{ run_id }}</code></div>
+                        <div class="row-value" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <code>{{ run_id }}</code>
+                            <button type="button" class="btn btn-sm btn-outline" title="Copy run id"
+                                    onclick="navigator.clipboard.writeText({{ run_id | tojson }}); this.textContent='Copied'; var b=this; setTimeout(function(){ b.textContent='Copy id'; }, 1500);">Copy id</button>
+                        </div>
                     </div>
                     <div class="key-value-table-row">
                         <div class="row-label">Status</div>
@@ -133,7 +137,13 @@
                     </div>
                     <div role="cell" class="ui-table-cell truncate">{{ e.typed_ref }}</div>
                     <div role="cell" class="ui-table-cell truncate" style="width: 140px; flex: none; font-family: ui-monospace, SFMono-Regular, monospace;">
+                        {% set app_url = mt_app_url(e.resource_type, e.created_id) %}
+                        {% if app_url %}
+                        <a href="{{ app_url }}" target="_blank" rel="noopener noreferrer" class="doc-link" title="{{ e.created_id }}"
+                           onclick="event.stopPropagation();">{{ e.created_id[:12] }}&hellip;</a>
+                        {% else %}
                         <code title="{{ e.created_id }}">{{ e.created_id[:12] }}&hellip;</code>
+                        {% endif %}
                     </div>
                     <div role="cell" class="ui-table-cell text-right" style="width: 80px; flex: none;">
                         {{ e.created_at.split("T")[1][:8] if "T" in e.created_at else e.created_at }}
@@ -153,7 +163,16 @@
     {% for f in manifest.resources_failed %}
     <div class="failed-entry">
         <code>{{ f.typed_ref }}</code>
+        {% if f.error_type or f.http_status %}
+        <span class="text-muted" style="font-size: 0.85rem;">{{ f.error_type or "Error" }}{% if f.http_status %} · HTTP {{ f.http_status }}{% endif %}</span>
+        {% endif %}
         <span class="error-detail">{{ f.error }}</span>
+        {% if f.error_cause %}
+        <details style="margin-top: 6px;">
+            <summary style="cursor: pointer; font-size: 0.9rem;">Caused by</summary>
+            <pre style="margin: 6px 0 0; white-space: pre-wrap; font-size: 0.8rem;">{{ f.error_cause }}</pre>
+        </details>
+        {% endif %}
     </div>
     {% endfor %}
     {% endif %}
