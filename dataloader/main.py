@@ -26,6 +26,7 @@ from dataloader._version import __version__
 from dataloader.db_backfill import bootstrap_webhook_correlation
 from dataloader.helpers import set_templates
 from dataloader.mt_doc_links import MT_DOCS
+from dataloader.observability import configure_loader_otel_from_env
 from dataloader.openapi_agent import build_agent_openapi_schema
 from dataloader.routers.cleanup import router as cleanup_router
 from dataloader.routers.connection import router as connection_router
@@ -109,6 +110,7 @@ async def lifespan(app: FastAPI):
     settings = AppSettings()
     app.state.settings = settings
     _configure_logging(settings)
+    configure_loader_otel_from_env()
 
     data_path = Path(settings.data_dir).expanduser().resolve()
     data_path.mkdir(parents=True, exist_ok=True)

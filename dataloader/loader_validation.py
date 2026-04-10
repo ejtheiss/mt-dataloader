@@ -21,6 +21,7 @@ from modern_treasury import (
     AsyncModernTreasury,
     AuthenticationError,
 )
+from opentelemetry.trace import Status, StatusCode
 from pydantic import BaseModel, ValidationError
 
 from dataloader.engine import RefRegistry, all_resources, dry_run, typed_ref_for
@@ -29,6 +30,7 @@ from dataloader.helpers import (
     build_preview,
     format_validation_errors,
 )
+from dataloader.observability.loader_validation_trace import loader_span, loader_validation_tracer
 from dataloader.session import SessionState
 from flow_compiler import AuthoringConfig, ExecutionPlan, compile_to_plan, flatten_actor_refs
 from flow_compiler.flow_validator import validate_flow
@@ -292,85 +294,104 @@ def run_headless_validate_after_parse(
     config: DataLoaderConfig, raw_json: bytes
 ) -> HeadlessValidateJsonOutcome:
     """Headless pipeline when ``DataLoaderConfig`` is already parsed (single wire parse at router)."""
-    had_funds_flows = bool(config.funds_flows)
-    authoring = AuthoringConfig.from_json(raw_json)
-    compiled = compile_loader_plan(authoring, pipeline=HEADLESS_VALIDATE_JSON_PIPELINE)
-    if isinstance(compiled, LoaderCompileFailure):
-        return HeadlessValidateJsonOutcome(
-            ok=False,
-            phase="compile",
-            errors=list(compiled.errors),
-            data={},
-        )
+    tracer = loader_validation_tracer()
+    with tracer.start_as_current_span("loader_validation.headless.after_parse") as root:
+        had_funds_flows = bool(config.funds_flows)
+        with loader_span("loader_validation.headless.compile"):
+            authoring = AuthoringConfig.from_json(raw_json)
+            compiled = compile_loader_plan(authoring, pipeline=HEADLESS_VALIDATE_JSON_PIPELINE)
+        if isinstance(compiled, LoaderCompileFailure):
+            root.set_attribute("loader.validation.failed_phase", "compile")
+            root.set_status(Status(StatusCode.ERROR, "compile"))
+            return HeadlessValidateJsonOutcome(
+                ok=False,
+                phase="compile",
+                errors=list(compiled.errors),
+                data={},
+            )
 
-    plan = compiled
-    config = plan.config
-    flow_irs = list(plan.flow_irs)
-    expanded_flows = list(plan.expanded_flows)
-    diag_dicts = collect_flow_diagnostic_dicts(flow_irs, expanded_flows)
-    diag_items = tuple(flow_diagnostic_dicts_to_items(diag_dicts))
+        plan = compiled
+        config = plan.config
+        flow_irs = list(plan.flow_irs)
+        expanded_flows = list(plan.expanded_flows)
+        diag_dicts = collect_flow_diagnostic_dicts(flow_irs, expanded_flows)
+        diag_items = tuple(flow_diagnostic_dicts_to_items(diag_dicts))
 
-    dry = try_loader_dry_run(config)
-    if isinstance(dry, LoaderDryRunFailure):
+        with loader_span("loader_validation.headless.dag"):
+            dry = try_loader_dry_run(config)
+        if isinstance(dry, LoaderDryRunFailure):
+            root.set_attribute("loader.validation.failed_phase", "dag")
+            root.set_status(Status(StatusCode.ERROR, "dag"))
+            return HeadlessValidateJsonOutcome(
+                ok=False,
+                phase="dag",
+                errors=list(dry.errors),
+                data={},
+                diagnostics=diag_items,
+            )
+
+        batches = dry.batches
+        root.set_attribute("loader.validation.ok", True)
+        root.set_status(Status(StatusCode.OK))
         return HeadlessValidateJsonOutcome(
-            ok=False,
-            phase="dag",
-            errors=list(dry.errors),
-            data={},
+            ok=True,
+            phase="complete",
+            errors=[],
+            data={
+                "resource_count": sum(len(b) for b in batches),
+                "batch_count": len(batches),
+                "has_funds_flows": had_funds_flows,
+            },
             diagnostics=diag_items,
         )
-
-    batches = dry.batches
-    return HeadlessValidateJsonOutcome(
-        ok=True,
-        phase="complete",
-        errors=[],
-        data={
-            "resource_count": sum(len(b) for b in batches),
-            "batch_count": len(batches),
-            "has_funds_flows": had_funds_flows,
-        },
-        diagnostics=diag_items,
-    )
 
 
 def run_headless_validate_json(raw_json: bytes) -> HeadlessValidateJsonOutcome:
     """Parse → compile (headless pipeline) → ``validate_flow`` diagnostics → ``dry_run``."""
-    parsed = parse_loader_config_bytes(raw_json)
-    if parsed.body_invalid is not None:
-        return HeadlessValidateJsonOutcome(
-            ok=False,
-            phase=None,
-            errors=[
-                LoaderSetupErrorItem(
-                    code="invalid_body",
-                    message=invalid_body_kind_message(parsed.body_invalid),
-                    path=None,
-                )
-            ],
-            data={},
-        )
-    if parsed.error is not None:
-        return HeadlessValidateJsonOutcome(
-            ok=False,
-            phase="parse",
-            errors=error_items_from_pydantic_validation(parsed.error),
-            data={},
-        )
-    if parsed.config is None:
-        return HeadlessValidateJsonOutcome(
-            ok=False,
-            phase="parse",
-            errors=[
-                LoaderSetupErrorItem(
-                    code="validation_error",
-                    message="Invalid configuration.",
-                    path=None,
-                )
-            ],
-            data={},
-        )
-    return run_headless_validate_after_parse(parsed.config, raw_json)
+    tracer = loader_validation_tracer()
+    with tracer.start_as_current_span("loader_validation.headless.json") as root:
+        with loader_span("loader_validation.headless.parse"):
+            parsed = parse_loader_config_bytes(raw_json)
+        if parsed.body_invalid is not None:
+            root.set_attribute("loader.validation.failed_phase", "parse")
+            root.set_status(Status(StatusCode.ERROR, "parse"))
+            return HeadlessValidateJsonOutcome(
+                ok=False,
+                phase=None,
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="invalid_body",
+                        message=invalid_body_kind_message(parsed.body_invalid),
+                        path=None,
+                    )
+                ],
+                data={},
+            )
+        if parsed.error is not None:
+            root.set_attribute("loader.validation.failed_phase", "parse")
+            root.set_status(Status(StatusCode.ERROR, "parse"))
+            return HeadlessValidateJsonOutcome(
+                ok=False,
+                phase="parse",
+                errors=error_items_from_pydantic_validation(parsed.error),
+                data={},
+            )
+        if parsed.config is None:
+            root.set_attribute("loader.validation.failed_phase", "parse")
+            root.set_status(Status(StatusCode.ERROR, "parse"))
+            return HeadlessValidateJsonOutcome(
+                ok=False,
+                phase="parse",
+                errors=[
+                    LoaderSetupErrorItem(
+                        code="validation_error",
+                        message="Invalid configuration.",
+                        path=None,
+                    )
+                ],
+                data={},
+            )
+        return run_headless_validate_after_parse(parsed.config, raw_json)
 
 
 # ---------------------------------------------------------------------------
@@ -443,170 +464,196 @@ async def run_loader_validation_pipeline(
     prior_config: DataLoaderConfig | None = None,
 ) -> LoaderValidationSuccess | LoaderValidationFailure:
     """Parse → compile → discover → reconcile → DAG → preview (no session or HTTP)."""
-    parsed = parse_loader_config_bytes(raw_json)
-    if parsed.body_invalid is not None:
-        msg = invalid_body_kind_message(parsed.body_invalid)
-        return LoaderValidationFailure(
-            message=f"Config Validation Error\n{msg}",
-            v1_phase="parse",
-            v1_errors=(LoaderSetupErrorItem(code="invalid_body", message=msg, path=None),),
-        )
-    if parsed.error is not None:
-        structured = format_validation_errors(parsed.error)
-        detail_lines = [f"• {err['path']}: {err['message']}" for err in structured]
-        items = tuple(error_items_from_pydantic_validation(parsed.error))
-        return LoaderValidationFailure(
-            message="Config Validation Error\n" + ("\n".join(detail_lines) or str(parsed.error)),
-            v1_phase="parse",
-            v1_errors=items,
-        )
-
-    if parsed.config is None:
-        return LoaderValidationFailure(
-            message="Config Validation Error\nInvalid configuration.",
-            v1_phase="parse",
-            v1_errors=(
-                LoaderSetupErrorItem(
-                    code="validation_error",
-                    message="Invalid configuration.",
-                    path=None,
-                ),
-            ),
-        )
-    config = parsed.config
-    authoring_config_json = config.model_dump_json(indent=2, exclude_none=True)
-
-    authoring = AuthoringConfig.from_json(raw_json)
-    compiled = compile_loader_plan(authoring)
-    if isinstance(compiled, LoaderCompileFailure):
-        return LoaderValidationFailure(
-            message=compiled.pipeline_message,
-            v1_phase="compile",
-            v1_errors=tuple(compiled.errors),
-        )
-
-    plan = compiled
-    config = plan.config
-    flow_irs = list(plan.flow_irs)
-    expanded_flows = list(plan.expanded_flows)
-    mermaid_diagrams = list(plan.mermaid_diagrams) if plan.mermaid_diagrams else None
-    view_data_cache = list(plan.view_data) if plan.view_data else None
-
-    flow_diag_dicts = collect_flow_diagnostic_dicts(flow_irs, expanded_flows)
-
-    discovery: DiscoveryResult | None = None
-    org_registry: OrgRegistry | None = None
-    async with AsyncModernTreasury(api_key=api_key, organization_id=org_id) as client:
-        try:
-            await client.ping()
-        except AuthenticationError:
+    tracer = loader_validation_tracer()
+    with tracer.start_as_current_span(
+        "loader_validation.pipeline",
+        attributes={"loader.org.id": org_id},
+    ) as root:
+        with loader_span("loader_validation.parse"):
+            parsed = parse_loader_config_bytes(raw_json)
+        if parsed.body_invalid is not None:
+            msg = invalid_body_kind_message(parsed.body_invalid)
+            root.set_attribute("loader.validation.failed_phase", "parse")
+            root.set_status(Status(StatusCode.ERROR, "parse"))
             return LoaderValidationFailure(
-                message="Authentication Error\nInvalid API key or org ID",
-                v1_phase="discover",
+                message=f"Config Validation Error\n{msg}",
+                v1_phase="parse",
+                v1_errors=(LoaderSetupErrorItem(code="invalid_body", message=msg, path=None),),
+            )
+        if parsed.error is not None:
+            structured = format_validation_errors(parsed.error)
+            detail_lines = [f"• {err['path']}: {err['message']}" for err in structured]
+            items = tuple(error_items_from_pydantic_validation(parsed.error))
+            root.set_attribute("loader.validation.failed_phase", "parse")
+            root.set_status(Status(StatusCode.ERROR, "parse"))
+            return LoaderValidationFailure(
+                message="Config Validation Error\n"
+                + ("\n".join(detail_lines) or str(parsed.error)),
+                v1_phase="parse",
+                v1_errors=items,
+            )
+
+        if parsed.config is None:
+            root.set_attribute("loader.validation.failed_phase", "parse")
+            root.set_status(Status(StatusCode.ERROR, "parse"))
+            return LoaderValidationFailure(
+                message="Config Validation Error\nInvalid configuration.",
+                v1_phase="parse",
                 v1_errors=(
                     LoaderSetupErrorItem(
-                        code="auth_error",
-                        message="Invalid API key or org ID",
+                        code="validation_error",
+                        message="Invalid configuration.",
                         path=None,
                     ),
                 ),
+            )
+        config = parsed.config
+        authoring_config_json = config.model_dump_json(indent=2, exclude_none=True)
+
+        with loader_span("loader_validation.compile"):
+            authoring = AuthoringConfig.from_json(raw_json)
+            compiled = compile_loader_plan(authoring)
+        if isinstance(compiled, LoaderCompileFailure):
+            root.set_attribute("loader.validation.failed_phase", "compile")
+            root.set_status(Status(StatusCode.ERROR, "compile"))
+            return LoaderValidationFailure(
+                message=compiled.pipeline_message,
+                v1_phase="compile",
+                v1_errors=tuple(compiled.errors),
+            )
+
+        plan = compiled
+        config = plan.config
+        flow_irs = list(plan.flow_irs)
+        expanded_flows = list(plan.expanded_flows)
+        mermaid_diagrams = list(plan.mermaid_diagrams) if plan.mermaid_diagrams else None
+        view_data_cache = list(plan.view_data) if plan.view_data else None
+
+        flow_diag_dicts = collect_flow_diagnostic_dicts(flow_irs, expanded_flows)
+
+        discovery: DiscoveryResult | None = None
+        org_registry: OrgRegistry | None = None
+        with loader_span("loader_validation.discover"):
+            async with AsyncModernTreasury(api_key=api_key, organization_id=org_id) as client:
+                try:
+                    await client.ping()
+                except AuthenticationError:
+                    root.set_attribute("loader.validation.failed_phase", "discover")
+                    root.set_status(Status(StatusCode.ERROR, "discover"))
+                    return LoaderValidationFailure(
+                        message="Authentication Error\nInvalid API key or org ID",
+                        v1_phase="discover",
+                        v1_errors=(
+                            LoaderSetupErrorItem(
+                                code="auth_error",
+                                message="Invalid API key or org ID",
+                                path=None,
+                            ),
+                        ),
+                        v1_flow_diagnostic_dicts=tuple(flow_diag_dicts),
+                    )
+                try:
+                    discovery = await discover_org(client, config=config)
+                    org_registry = OrgRegistry.from_discovery(discovery)
+                except (APIConnectionError, APITimeoutError) as exc:
+                    logger.warning("Discovery failed: {}", str(exc))
+
+        with loader_span("loader_validation.reconcile"):
+            registry = RefRegistry()
+            known_refs: set[str] = set()
+            if org_registry is not None:
+                known_refs = org_registry.seed_engine_registry(registry)
+
+            reconciliation = None
+            skip_refs: set[str] = set()
+            if discovery is not None:
+                reconciliation = reconcile_config(config, discovery)
+
+                registered_refs: set[str] = set()
+                overrides = reconcile_overrides or {}
+                mappings = manual_mappings or {}
+                force_new_refs = edited_resource_typed_refs(prior_config, config)
+
+                for m in reconciliation.matches:
+                    if m.config_ref in overrides:
+                        val = overrides[m.config_ref]
+                        if isinstance(val, dict):
+                            m.use_existing = val.get("use_existing", True)
+                            if "discovered_id" in val:
+                                m.discovered_id = val["discovered_id"]
+                        else:
+                            m.use_existing = bool(val)
+                    if m.config_ref in force_new_refs:
+                        m.use_existing = False
+                    if m.use_existing and m.config_ref not in registered_refs:
+                        registry.register_or_update(m.config_ref, m.discovered_id)
+                        skip_refs.add(m.config_ref)
+                        registered_refs.add(m.config_ref)
+                        for ck, cid in m.child_refs.items():
+                            registry.register_or_update(f"{m.config_ref}.{ck}", cid)
+
+                if mappings:
+                    disc_by_id = build_discovered_id_lookup(discovery)
+                    for config_ref, disc_id in mappings.items():
+                        if not disc_id or config_ref in registered_refs:
+                            continue
+                        if disc_by_id.get(disc_id):
+                            registry.register_or_update(config_ref, disc_id)
+                            skip_refs.add(config_ref)
+                            registered_refs.add(config_ref)
+                            if config_ref in reconciliation.unmatched_config:
+                                reconciliation.unmatched_config.remove(config_ref)
+
+                sync_connection_entities_from_reconciliation(
+                    config,
+                    discovery,
+                    reconciliation,
+                    mappings,
+                )
+
+        with loader_span("loader_validation.dag"):
+            dry = try_loader_dry_run(config, known_refs, skip_refs=skip_refs)
+        if isinstance(dry, LoaderDryRunFailure):
+            root.set_attribute("loader.validation.failed_phase", "dag")
+            root.set_status(Status(StatusCode.ERROR, "dag"))
+            return LoaderValidationFailure(
+                message=dry.pipeline_message,
+                v1_phase="dag",
+                v1_errors=tuple(dry.errors),
                 v1_flow_diagnostic_dicts=tuple(flow_diag_dicts),
             )
-        try:
-            discovery = await discover_org(client, config=config)
-            org_registry = OrgRegistry.from_discovery(discovery)
-        except (APIConnectionError, APITimeoutError) as exc:
-            logger.warning("Discovery failed: {}", str(exc))
+        batches = dry.batches
 
-    registry = RefRegistry()
-    known_refs: set[str] = set()
-    if org_registry is not None:
-        known_refs = org_registry.seed_engine_registry(registry)
+        with loader_span("loader_validation.preview"):
+            resource_map = {typed_ref_for(r): r for r in all_resources(config)}
+            preview_items = build_preview(
+                batches,
+                resource_map,
+                skip_refs=skip_refs,
+                reconciliation=reconciliation,
+            )
 
-    reconciliation = None
-    skip_refs: set[str] = set()
-    if discovery is not None:
-        reconciliation = reconcile_config(config, discovery)
+            config_json_text = config.model_dump_json(indent=2, exclude_none=True)
 
-        registered_refs: set[str] = set()
-        overrides = reconcile_overrides or {}
-        mappings = manual_mappings or {}
-        force_new_refs = edited_resource_typed_refs(prior_config, config)
-
-        for m in reconciliation.matches:
-            if m.config_ref in overrides:
-                val = overrides[m.config_ref]
-                if isinstance(val, dict):
-                    m.use_existing = val.get("use_existing", True)
-                    if "discovered_id" in val:
-                        m.discovered_id = val["discovered_id"]
-                else:
-                    m.use_existing = bool(val)
-            if m.config_ref in force_new_refs:
-                m.use_existing = False
-            if m.use_existing and m.config_ref not in registered_refs:
-                registry.register_or_update(m.config_ref, m.discovered_id)
-                skip_refs.add(m.config_ref)
-                registered_refs.add(m.config_ref)
-                for ck, cid in m.child_refs.items():
-                    registry.register_or_update(f"{m.config_ref}.{ck}", cid)
-
-        if mappings:
-            disc_by_id = build_discovered_id_lookup(discovery)
-            for config_ref, disc_id in mappings.items():
-                if not disc_id or config_ref in registered_refs:
-                    continue
-                if disc_by_id.get(disc_id):
-                    registry.register_or_update(config_ref, disc_id)
-                    skip_refs.add(config_ref)
-                    registered_refs.add(config_ref)
-                    if config_ref in reconciliation.unmatched_config:
-                        reconciliation.unmatched_config.remove(config_ref)
-
-        sync_connection_entities_from_reconciliation(
-            config,
-            discovery,
-            reconciliation,
-            mappings,
+        root.set_attribute("loader.validation.ok", True)
+        root.set_status(Status(StatusCode.OK))
+        return LoaderValidationSuccess(
+            config=config,
+            config_json_text=config_json_text,
+            authoring_config_json=authoring_config_json,
+            flow_irs=flow_irs,
+            expanded_flows=expanded_flows,
+            mermaid_diagrams=mermaid_diagrams,
+            view_data_cache=view_data_cache,
+            discovery=discovery,
+            org_registry=org_registry,
+            reconciliation=reconciliation,
+            registry=registry,
+            skip_refs=skip_refs,
+            batches=batches,
+            preview_items=preview_items,
+            flow_diagnostics=flow_diag_dicts,
         )
-
-    dry = try_loader_dry_run(config, known_refs, skip_refs=skip_refs)
-    if isinstance(dry, LoaderDryRunFailure):
-        return LoaderValidationFailure(
-            message=dry.pipeline_message,
-            v1_phase="dag",
-            v1_errors=tuple(dry.errors),
-            v1_flow_diagnostic_dicts=tuple(flow_diag_dicts),
-        )
-    batches = dry.batches
-
-    resource_map = {typed_ref_for(r): r for r in all_resources(config)}
-    preview_items = build_preview(
-        batches,
-        resource_map,
-        skip_refs=skip_refs,
-        reconciliation=reconciliation,
-    )
-
-    config_json_text = config.model_dump_json(indent=2, exclude_none=True)
-
-    return LoaderValidationSuccess(
-        config=config,
-        config_json_text=config_json_text,
-        authoring_config_json=authoring_config_json,
-        flow_irs=flow_irs,
-        expanded_flows=expanded_flows,
-        mermaid_diagrams=mermaid_diagrams,
-        view_data_cache=view_data_cache,
-        discovery=discovery,
-        org_registry=org_registry,
-        reconciliation=reconciliation,
-        registry=registry,
-        skip_refs=skip_refs,
-        batches=batches,
-        preview_items=preview_items,
-        flow_diagnostics=flow_diag_dicts,
-    )
 
 
 def apply_loader_validation_success_to_session(

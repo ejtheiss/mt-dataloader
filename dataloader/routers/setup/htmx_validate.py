@@ -2,24 +2,21 @@
 
 from __future__ import annotations
 
-import json
-
 from fastapi import APIRouter, File, Form, Request, UploadFile
 
 from dataloader.helpers import error_response
-from dataloader.loader_validation import (
-    LoaderValidationFailure,
-    apply_loader_validation_success_to_session,
-    run_loader_validation_pipeline,
-)
+from dataloader.loader_validation import LoaderValidationFailure, run_loader_validation_pipeline
 from dataloader.routers.deps import SessionFormDep, TemplatesDep
 from dataloader.routers.setup._helpers import (
     pipeline_error_response,
+    reconcile_pairs_from_json_string,
     render_preview_or_redirect,
 )
-from dataloader.session import prune_expired_sessions, sessions
-from dataloader.session.draft_persist import persist_loader_draft
-from jsonutil import loads_str
+from dataloader.routers.setup.validation_funnel import (
+    register_and_persist_new_session_from_validation,
+    revalidate_existing_session,
+)
+from dataloader.session import prune_expired_sessions
 
 
 def register_htmx_validate(router: APIRouter) -> None:
@@ -48,9 +45,9 @@ def register_htmx_validate(router: APIRouter) -> None:
             return pipeline_error_response(outcome)
 
         ol = org_name.strip() or None
-        session = apply_loader_validation_success_to_session(outcome, api_key, org_id, org_label=ol)
-        sessions[session.session_token] = session
-        await persist_loader_draft(request, session)
+        session = await register_and_persist_new_session_from_validation(
+            request, outcome, api_key, org_id, org_label=ol
+        )
         return render_preview_or_redirect(request, session, templates)
 
     @router.post("/api/revalidate")
@@ -66,40 +63,17 @@ def register_htmx_validate(router: APIRouter) -> None:
             return error_response("Session Expired", "Please start over from Setup.")
 
         raw_json = config_json.strip().encode()
-        prev_token = old_session.session_token
+        overrides, manual_maps = reconcile_pairs_from_json_string(reconcile_overrides)
 
-        overrides: dict = {}
-        manual_maps: dict = {}
-        if reconcile_overrides:
-            try:
-                raw_ov = loads_str(reconcile_overrides)
-                overrides = raw_ov.get("overrides", raw_ov) if isinstance(raw_ov, dict) else {}
-                if isinstance(raw_ov, dict):
-                    manual_maps = raw_ov.get("manual_mappings", {})
-            except json.JSONDecodeError:
-                pass
-
-        outcome = await run_loader_validation_pipeline(
-            raw_json,
-            old_session.api_key,
-            old_session.org_id,
+        result = await revalidate_existing_session(
+            request,
+            old_session,
+            raw_json=raw_json,
             reconcile_overrides=overrides,
             manual_mappings=manual_maps,
-            prior_config=old_session.config,
+            preserve_working_config=True,
         )
-        if isinstance(outcome, LoaderValidationFailure):
-            return pipeline_error_response(outcome)
+        if isinstance(result, LoaderValidationFailure):
+            return pipeline_error_response(result)
 
-        session = apply_loader_validation_success_to_session(
-            outcome,
-            old_session.api_key,
-            old_session.org_id,
-            org_label=getattr(old_session, "org_label", None),
-            generation_recipes=old_session.generation_recipes,
-            working_config_json=old_session.working_config_json,
-        )
-        sessions[session.session_token] = session
-        del sessions[prev_token]
-
-        await persist_loader_draft(request, session)
-        return render_preview_or_redirect(request, session, templates)
+        return render_preview_or_redirect(request, result.session, templates)
