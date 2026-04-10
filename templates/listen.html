@@ -153,7 +153,7 @@
                     </div>
                 </div>
                 <div class="mt-filter-pills" id="run-filter-pills">
-                    {% if selected_run_id %}
+                    {% if show_run_filter_chip and selected_run_id %}
                     <div class="mt-chip" data-filter-key="run_id">
                         <div class="mt-chip-content">
                             <span class="mt-chip-label">Run:</span>
@@ -212,7 +212,6 @@
     var container = document.getElementById('live-webhooks');
     var pillsContainer = document.getElementById('run-filter-pills');
     var initialRunId = {{ selected_run_id | tojson }} || null;
-    var streamRequiresRunFilter = {{ webhook_stream_requires_run_filter | tojson }};
     var listenCtx = { run_ids: [], run_org_map: {}, selected_run_id: '' };
     try {
         listenCtx = JSON.parse(document.getElementById('dl-listen-run-context').textContent);
@@ -294,9 +293,6 @@
             source.close();
             source = null;
         }
-        if (streamRequiresRunFilter && !runId) {
-            return;
-        }
         var url = '/webhooks/stream';
         if (runId) {
             url += '?run_id=' + encodeURIComponent(runId) + '&no_replay=true';
@@ -338,7 +334,15 @@
         } else {
             pillsContainer.innerHTML = '';
             window.history.replaceState(null, '', '/listen');
-            connectSSE(null);
+            fetch('/listen')
+                .then(function(r) { return r.text(); })
+                .then(function(html) {
+                    var doc = new DOMParser().parseFromString(html, 'text/html');
+                    var rows = doc.getElementById('live-webhooks');
+                    if (rows) container.innerHTML = rows.innerHTML;
+                    connectSSE(null);
+                    applyWebhookScopeToTable();
+                });
         }
     };
 

@@ -1,8 +1,7 @@
 """Staged-resource types that can be POST-fired from the run detail UI.
 
 Shared by ``dataloader.engine`` (dry-run validation) and
-``dataloader.webhooks.routes`` (dispatch). Keep in sync with
-``_FIRE_DISPATCH`` keys in routes.
+``dataloader.webhooks.runs_staged`` (``_FIRE_DISPATCH``). Keep keys in sync.
 """
 
 from __future__ import annotations

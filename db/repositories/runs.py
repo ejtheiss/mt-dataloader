@@ -204,3 +204,19 @@ async def fetch_run_mt_org_rows(session: AsyncSession) -> list[tuple[str, str]]:
         select(Run.run_id, Run.mt_org_id).where(Run.mt_org_id.isnot(None))
     )
     return [(rid, oid) for rid, oid in result.all() if oid]
+
+
+async def map_mt_org_ids_for_run_ids(
+    session: AsyncSession,
+    run_ids: list[str],
+) -> dict[str, str]:
+    """``run_id`` → ``mt_org_id`` for the given ids (non-null org only)."""
+    if not run_ids:
+        return {}
+    result = await session.execute(
+        select(Run.run_id, Run.mt_org_id).where(
+            Run.run_id.in_(run_ids),
+            Run.mt_org_id.is_not(None),
+        )
+    )
+    return {rid: oid for rid, oid in result.all() if oid}
