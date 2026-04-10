@@ -59,7 +59,7 @@
 <details class="metadata-panel">
     <summary>Trace Metadata
         <span class="info-icon" tabindex="0" role="img" aria-label="How trace metadata works"
-              title="trace_key, trace_value_template, and trace_metadata apply to every step. Per-step metadata is only for extra keys not set here; those keys are hidden under each step and flow-level values win on conflict."
+              title="Flow-level trace (trace_key, template, trace_metadata) is merged onto every step. Keys you add under each step apply only to that step and must not duplicate flow-level keys (duplicates use the flow value). Expand a step and use + Add Key for step-only tags."
               onclick="event.stopPropagation();">&#9432;</span>
     </summary>
     <div class="metadata-panel-body">
@@ -90,7 +90,8 @@
         <div class="metadata-steps-section">
             <label class="metadata-label">Per-Step Metadata</label>
             {% for sm in per_step_metadata %}
-            <details class="metadata-step-detail"{% if sm.metadata %} open{% endif %}>
+            {# Open when empty so "+ Add Key" is visible; keep closed when keys exist (summary shows count). #}
+            <details class="metadata-step-detail"{% if not sm.metadata %} open{% endif %}>
                 <summary>
                     <code>{{ sm.step_id }}</code>
                     <span class="ledgerable-pill ledgerable-{{ sm.resource_type }}">{{ sm.resource_type }}</span>
