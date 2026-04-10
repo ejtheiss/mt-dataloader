@@ -276,8 +276,12 @@ async def test_list_run_ids_with_webhooks_ordered_and_listener_feed(
         async with factory() as s:
             ids_user = await webhooks_repo.list_run_ids_with_webhooks_ordered(s, ctx1)
             ids_admin = await webhooks_repo.list_run_ids_with_webhooks_ordered(s, ctx_admin)
-            feed_user = await webhooks_repo.list_recent_webhook_history_for_listener(s, ctx1, limit=10)
-            feed_admin = await webhooks_repo.list_recent_webhook_history_for_listener(s, ctx_admin, limit=10)
+            feed_user = await webhooks_repo.list_recent_webhook_history_for_listener(
+                s, ctx1, limit=10
+            )
+            feed_admin = await webhooks_repo.list_recent_webhook_history_for_listener(
+                s, ctx_admin, limit=10
+            )
 
         assert ids_user == ["r_new", "r_old"]
         assert set(ids_admin) == {"r_old", "r_new", "r_other"}
