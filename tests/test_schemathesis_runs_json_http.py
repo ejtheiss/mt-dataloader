@@ -14,6 +14,16 @@ import pytest
 
 schemathesis = pytest.importorskip("schemathesis")
 
+# Schemathesis v3 emits jsonschema deprecations internally; keep CI warning output clean.
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore:jsonschema\\.exceptions\\.RefResolutionError is deprecated.*:DeprecationWarning"
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:jsonschema\\.RefResolver is deprecated.*:DeprecationWarning"
+    ),
+]
+
 
 def _pick_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

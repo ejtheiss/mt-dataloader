@@ -18,6 +18,10 @@ select = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+  "ignore:jsonschema\\.exceptions\\.RefResolutionError is deprecated.*:DeprecationWarning",
+  "ignore:jsonschema\\.RefResolver is deprecated.*:DeprecationWarning",
+]
 
 [tool.importlinter]
 root_packages = ["dataloader", "db", "flow_compiler", "org", "models"]
