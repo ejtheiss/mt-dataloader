@@ -77,7 +77,7 @@ from models.resources import (
     VerifyExternalAccountConfig,
     VirtualAccountConfig,
 )
-from models.run_list import RunListRow
+from models.run_list import RunDrawerRow, RunListJsonResponse, RunListRow
 
 # --- runtime types ---
 from models.runtime import HandlerResult
@@ -245,6 +245,8 @@ __all__ = [
     "StagedEntry",
     "RunManifest",
     "RunListRow",
+    "RunListJsonResponse",
+    "RunDrawerRow",
     # App user stub (Plan 0 roles)
     "AppUserRole",
     "CurrentAppUser",

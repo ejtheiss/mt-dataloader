@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from loguru import logger
 
 from dataloader.engine import manifest_json_run_id
@@ -12,7 +12,7 @@ from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep
 from dataloader.run_access import load_run_manifest_for_reader, user_to_ctx
 from dataloader.view_models import runs_list_fragment_context
 from db.repositories import runs as runs_repo
-from models import RunListRow, RunManifest
+from models import RunListJsonResponse, RunListRow, RunManifest
 
 router = APIRouter(tags=["runs"])
 
@@ -43,10 +43,20 @@ async def list_runs(
     if factory is not None:
         try:
             async with factory() as session:
-                rows = await runs_repo.list_run_rows_for_api(session, ctx)
+                q = await runs_repo.query_run_rows_for_api(
+                    session,
+                    ctx,
+                    status=status,
+                    mt_org_id=mt_org_id,
+                    sort=sort,
+                    sort_dir=dir,
+                    limit=None,
+                    offset=0,
+                )
+                rows = q.rows
             db_list_ok = True
         except Exception as exc:
-            logger.warning("db list_run_rows_for_api failed, using disk-only listing: {}", exc)
+            logger.warning("db query_run_rows_for_api failed, using disk-only listing: {}", exc)
 
     if not db_list_ok and runs_dir.exists():
         if current_user.is_admin:
@@ -64,24 +74,25 @@ async def list_runs(
                 "DB unavailable — user role sees empty runs list (disk glob disabled for isolation)"
             )
 
-    if status:
-        rows = [r for r in rows if r.status == status]
+    if not db_list_ok:
+        if status:
+            rows = [r for r in rows if r.status == status]
 
-    if mt_org_id and mt_org_id.strip():
-        oid = mt_org_id.strip()
-        rows = [r for r in rows if r.mt_org_id == oid]
+        if mt_org_id and mt_org_id.strip():
+            oid = mt_org_id.strip()
+            rows = [r for r in rows if r.mt_org_id == oid]
 
-    sort_keys = {
-        "run_id": lambda r: r.run_id,
-        "status": lambda r: r.status,
-        "resources": lambda r: r.resource_count,
-        "staged": lambda r: r.staged_count,
-        "failed": lambda r: r.failed_count,
-    }
-    if sort and sort in sort_keys:
-        rows.sort(key=sort_keys[sort], reverse=(dir == "desc"))
-    else:
-        rows.sort(key=lambda r: r.started_at, reverse=True)
+        sort_keys = {
+            "run_id": lambda r: r.run_id,
+            "status": lambda r: r.status,
+            "resources": lambda r: r.resource_count,
+            "staged": lambda r: r.staged_count,
+            "failed": lambda r: r.failed_count,
+        }
+        if sort and sort in sort_keys:
+            rows.sort(key=sort_keys[sort], reverse=(dir == "desc"))
+        else:
+            rows.sort(key=lambda r: r.started_at, reverse=True)
 
     return templates.TemplateResponse(
         request,
@@ -91,19 +102,91 @@ async def list_runs(
     )
 
 
+@router.get(
+    "/api/runs.json",
+    response_model=RunListJsonResponse,
+    summary="List runs (JSON)",
+    description=(
+        "Paginated run metadata for scripts and integrations. Requires a working app database; "
+        "does not fall back to scanning manifest files on disk. Uses SQL OFFSET pagination — "
+        "rows may shift if data changes while paging."
+    ),
+)
+async def list_runs_json(
+    request: Request,
+    current_user: CurrentAppUserDep,
+    limit: int = Query(
+        20,
+        ge=1,
+        le=100,
+        description="Page size (default 20, max 100).",
+    ),
+    offset: int = Query(0, ge=0, description="Rows to skip before returning the page."),
+    sort: str | None = Query(
+        None,
+        description="Optional column: run_id, status, resources, staged, failed. "
+        "Omitted = newest started_at first.",
+    ),
+    dir: str = Query(
+        "asc",
+        description="Sort direction when ``sort`` is set (asc or desc). Ignored for default ordering.",
+    ),
+    status: str | None = Query(None, description="Filter by run status."),
+    mt_org_id: str | None = Query(None, description="Filter by Modern Treasury organization id."),
+):
+    """JSON run list with SQL-backed filters and pagination (Plan 09)."""
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Runs JSON API requires the application database.",
+        )
+    ctx = user_to_ctx(current_user)
+    try:
+        async with factory() as session:
+            q = await runs_repo.query_run_rows_for_api(
+                session,
+                ctx,
+                status=status,
+                mt_org_id=mt_org_id,
+                sort=sort,
+                sort_dir=dir,
+                limit=limit,
+                offset=offset,
+                fetch_extra_for_has_more=True,
+            )
+    except Exception as exc:
+        logger.warning("db query_run_rows_for_api (json) failed: {}", exc)
+        raise HTTPException(status_code=503, detail="Database error") from exc
+
+    return RunListJsonResponse(
+        items=q.rows,
+        limit=limit,
+        offset=offset,
+        has_more=q.has_more,
+    )
+
+
 @router.get("/api/runs/{run_id}/drawer")
 async def run_drawer(
     request: Request,
     run_id: str,
     templates: TemplatesDep,
-    settings: SettingsDep,
     current_user: CurrentAppUserDep,
 ):
-    """Return drawer partial for a single run."""
-    manifest = await load_run_manifest_for_reader(request, settings, run_id, current_user)
-    if manifest is None:
+    """Return drawer partial for a single run (DB row — same ``status`` as the runs table)."""
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    try:
+        async with factory() as session:
+            row = await runs_repo.fetch_run_drawer_row(session, run_id, user_to_ctx(current_user))
+    except Exception as exc:
+        logger.warning("run drawer DB lookup failed: {}", exc)
+        raise HTTPException(status_code=503, detail="Database error") from exc
+    if row is None:
         raise HTTPException(status_code=404, detail="Run not found")
-    return templates.TemplateResponse(request, "partials/run_drawer.html", {"manifest": manifest})
+    return templates.TemplateResponse(request, "partials/run_drawer.html", {"run": row})
 
 
 @router.get("/api/runs/{run_id}/resources/drawer")
