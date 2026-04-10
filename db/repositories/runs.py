@@ -138,6 +138,18 @@ async def finalize_run(
     await session.execute(update(Run).where(Run.run_id == run_id).values(**values))
 
 
+async def fetch_manifest_json(
+    session: AsyncSession,
+    run_id: str,
+    ctx: RunAccessContext,
+) -> str | None:
+    """Canonical manifest body on the run row if *ctx* may read this run."""
+    row = await get_run_row_for_access(session, run_id, ctx)
+    if row is None or not row.manifest_json:
+        return None
+    return row.manifest_json
+
+
 async def fetch_run_drawer_row(
     session: AsyncSession,
     run_id: str,
