@@ -24,7 +24,9 @@ from loguru import logger
 
 try:
     from opentelemetry import trace as otel_trace
-    from opentelemetry.trace import Span, Status as OtelStatus, StatusCode as OtelStatusCode
+    from opentelemetry.trace import Span
+    from opentelemetry.trace import Status as OtelStatus
+    from opentelemetry.trace import StatusCode as OtelStatusCode
 
     _HAVE_OTEL_API = True
 except ModuleNotFoundError:  # pragma: no cover — exercised in minimal venvs
