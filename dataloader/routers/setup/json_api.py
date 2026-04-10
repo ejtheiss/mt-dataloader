@@ -11,20 +11,19 @@ from pydantic import ValidationError
 from dataloader.json_pointer import apply_json_pointer_set
 from dataloader.loader_validation import (
     LoaderValidationFailure,
-    apply_loader_validation_success_to_session,
     headless_outcome_to_envelope,
     invalid_body_kind_message,
     loader_validation_failure_to_envelope,
     loader_validation_success_to_v1_envelope,
     parse_loader_config_bytes,
     run_headless_validate_after_parse,
-    run_loader_validation_pipeline,
 )
 from dataloader.routers.setup._helpers import (
     loader_setup_json_response,
     reconcile_pairs_from_optional_dict,
     session_working_config_dict,
 )
+from dataloader.routers.setup.validation_funnel import revalidate_existing_session
 from dataloader.session import sessions
 from dataloader.session.draft_persist import persist_loader_draft
 from jsonutil import dumps_pretty, loads_str
@@ -286,35 +285,22 @@ def register_json_api(router: APIRouter) -> None:
             )
 
         raw_json = body.config_json.strip().encode()
-        prev_token = old_session.session_token
         overrides, manual_maps = reconcile_pairs_from_optional_dict(body.reconcile_overrides)
 
-        outcome = await run_loader_validation_pipeline(
-            raw_json,
-            old_session.api_key,
-            old_session.org_id,
+        result = await revalidate_existing_session(
+            request,
+            old_session,
+            raw_json=raw_json,
             reconcile_overrides=overrides,
             manual_mappings=manual_maps,
-            prior_config=old_session.config,
+            preserve_working_config=True,
         )
-        if isinstance(outcome, LoaderValidationFailure):
-            return loader_validation_failure_to_envelope(outcome)
-
-        session = apply_loader_validation_success_to_session(
-            outcome,
-            old_session.api_key,
-            old_session.org_id,
-            org_label=getattr(old_session, "org_label", None),
-            generation_recipes=old_session.generation_recipes,
-            working_config_json=old_session.working_config_json,
-        )
-        sessions[session.session_token] = session
-        del sessions[prev_token]
-        await persist_loader_draft(request, session)
+        if isinstance(result, LoaderValidationFailure):
+            return loader_validation_failure_to_envelope(result)
 
         return loader_validation_success_to_v1_envelope(
-            outcome,
-            extra_data={"session_token": session.session_token},
+            result.pipeline_success,
+            extra_data={"session_token": result.session.session_token},
         )
 
     @router.post(
@@ -410,33 +396,20 @@ def register_json_api(router: APIRouter) -> None:
                     status_code=422,
                 )
         raw_json = dumps_pretty(merged).encode("utf-8")
-        prev_token = old_session.session_token
         overrides, manual_maps = reconcile_pairs_from_optional_dict(body.reconcile_overrides)
 
-        outcome = await run_loader_validation_pipeline(
-            raw_json,
-            old_session.api_key,
-            old_session.org_id,
+        result = await revalidate_existing_session(
+            request,
+            old_session,
+            raw_json=raw_json,
             reconcile_overrides=overrides,
             manual_mappings=manual_maps,
-            prior_config=old_session.config,
+            preserve_working_config=False,
         )
-        if isinstance(outcome, LoaderValidationFailure):
-            return loader_validation_failure_to_envelope(outcome)
-
-        session = apply_loader_validation_success_to_session(
-            outcome,
-            old_session.api_key,
-            old_session.org_id,
-            org_label=getattr(old_session, "org_label", None),
-            generation_recipes=old_session.generation_recipes,
-            working_config_json=None,
-        )
-        sessions[session.session_token] = session
-        del sessions[prev_token]
-        await persist_loader_draft(request, session)
+        if isinstance(result, LoaderValidationFailure):
+            return loader_validation_failure_to_envelope(result)
 
         return loader_validation_success_to_v1_envelope(
-            outcome,
-            extra_data={"session_token": session.session_token},
+            result.pipeline_success,
+            extra_data={"session_token": result.session.session_token},
         )

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from fastapi import Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
@@ -49,6 +51,19 @@ def reconcile_pairs_from_optional_dict(raw: dict | None) -> tuple[dict, dict]:
     mm = raw.get("manual_mappings")
     manual_maps = dict(mm) if isinstance(mm, dict) else {}
     return overrides, manual_maps
+
+
+def reconcile_pairs_from_json_string(raw: str | None) -> tuple[dict, dict]:
+    """Parse multipart/HTMX ``reconcile_overrides`` JSON; same semantics as :func:`reconcile_pairs_from_optional_dict`."""
+    if raw is None or not str(raw).strip():
+        return {}, {}
+    try:
+        parsed = loads_str(str(raw).strip())
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}, {}
+    if not isinstance(parsed, dict):
+        return {}, {}
+    return reconcile_pairs_from_optional_dict(parsed)
 
 
 def session_working_config_dict(session: SessionState) -> dict:
