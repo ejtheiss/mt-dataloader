@@ -6,7 +6,9 @@ Each handler:
 3. Returns a HandlerResult with created ID, child refs, and deletability
 
 This is the ONLY package that imports the MT SDK for resource CRUD.
-Implementation lives in ``constants``, ``operations``, and ``dispatch`` submodules.
+Layout: ``constants``, ``mt_client`` (``MTClient`` + polling), ``services/*`` (per-resource
+``call``), optional ``contracts/``, ``dispatch`` (wiring), and ``operations`` (thin
+``AsyncModernTreasury`` adapters for public re-exports).
 """
 
 from __future__ import annotations
