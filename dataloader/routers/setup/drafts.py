@@ -6,22 +6,17 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
 from dataloader.helpers import error_response
-from dataloader.loader_validation import (
-    LoaderValidationFailure,
-    apply_loader_validation_success_to_session,
-    run_loader_validation_pipeline,
-)
+from dataloader.loader_validation import LoaderValidationFailure, run_loader_validation_pipeline
 from dataloader.routers.deps import AsyncSessionDep, TemplatesDep
 from dataloader.routers.setup._helpers import (
     pipeline_error_response,
     render_preview_or_redirect,
 )
-from dataloader.session import prune_expired_sessions, sessions
-from dataloader.session.draft_persist import (
-    merge_loader_draft_into_session,
-    persist_loader_draft,
-    run_access_context_for_request,
+from dataloader.routers.setup.validation_funnel import (
+    register_and_persist_new_session_from_validation,
 )
+from dataloader.session import prune_expired_sessions
+from dataloader.session.draft_persist import run_access_context_for_request
 from db.repositories import loader_drafts as drafts_repo
 
 
@@ -53,17 +48,16 @@ def register_drafts(router: APIRouter) -> None:
             return pipeline_error_response(outcome)
 
         ol = org_name.strip() or draft.org_label or None
-        session = apply_loader_validation_success_to_session(
+        session = await register_and_persist_new_session_from_validation(
+            request,
             outcome,
             api_key,
             org_id,
             org_label=ol,
             working_config_json=draft.working_config_json,
             generation_recipes=draft.generation_recipes,
+            restored_draft=draft,
         )
-        merge_loader_draft_into_session(session, draft)
-        sessions[session.session_token] = session
-        await persist_loader_draft(request, session)
         return render_preview_or_redirect(request, session, templates)
 
     @router.post("/api/draft/discard", include_in_schema=False)

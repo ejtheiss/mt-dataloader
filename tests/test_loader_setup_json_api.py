@@ -167,7 +167,10 @@ def test_revalidate_json_v1_invalid_body_422():
 
 
 @patch("dataloader.routers.setup.validation_funnel.persist_loader_draft", new_callable=AsyncMock)
-@patch("dataloader.routers.setup.validation_funnel.run_loader_validation_pipeline", new_callable=AsyncMock)
+@patch(
+    "dataloader.routers.setup.validation_funnel.run_loader_validation_pipeline",
+    new_callable=AsyncMock,
+)
 def test_revalidate_json_v1_success_rotates_token(mock_pipe, _mock_persist):
     token = "reval-ok-token"
     new_tok: str | None = None
@@ -220,7 +223,10 @@ def test_revalidate_json_v1_success_rotates_token(mock_pipe, _mock_persist):
             sessions.pop(new_tok, None)
 
 
-@patch("dataloader.routers.setup.validation_funnel.run_loader_validation_pipeline", new_callable=AsyncMock)
+@patch(
+    "dataloader.routers.setup.validation_funnel.run_loader_validation_pipeline",
+    new_callable=AsyncMock,
+)
 def test_revalidate_json_v1_failure_includes_diagnostics(mock_pipe):
     token = "reval-fail-diag-token"
     cfg = DataLoaderConfig.model_validate({})
@@ -295,7 +301,10 @@ def test_patch_json_v1_extra_fields_422():
 
 
 @patch("dataloader.routers.setup.validation_funnel.persist_loader_draft", new_callable=AsyncMock)
-@patch("dataloader.routers.setup.validation_funnel.run_loader_validation_pipeline", new_callable=AsyncMock)
+@patch(
+    "dataloader.routers.setup.validation_funnel.run_loader_validation_pipeline",
+    new_callable=AsyncMock,
+)
 def test_patch_json_v1_merges_before_pipeline(mock_pipe, _mock_persist):
     token = "patch-json-merge-token"
     new_tok: str | None = None
@@ -356,7 +365,10 @@ def test_patch_json_v1_merges_before_pipeline(mock_pipe, _mock_persist):
 
 
 @patch("dataloader.routers.setup.validation_funnel.persist_loader_draft", new_callable=AsyncMock)
-@patch("dataloader.routers.setup.validation_funnel.run_loader_validation_pipeline", new_callable=AsyncMock)
+@patch(
+    "dataloader.routers.setup.validation_funnel.run_loader_validation_pipeline",
+    new_callable=AsyncMock,
+)
 def test_patch_json_v1_pointer_sets_after_shallow_merge(mock_pipe, _mock_persist):
     token = "patch-json-pointer-token"
     new_tok: str | None = None

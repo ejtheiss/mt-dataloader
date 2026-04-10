@@ -444,4 +444,3 @@ class LedgerConfig(MetadataMixin, _BaseResourceConfig):
 
     name: str
     description: str | None = None
-

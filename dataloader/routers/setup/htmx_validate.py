@@ -5,20 +5,18 @@ from __future__ import annotations
 from fastapi import APIRouter, File, Form, Request, UploadFile
 
 from dataloader.helpers import error_response
-from dataloader.loader_validation import (
-    LoaderValidationFailure,
-    apply_loader_validation_success_to_session,
-    run_loader_validation_pipeline,
-)
+from dataloader.loader_validation import LoaderValidationFailure, run_loader_validation_pipeline
 from dataloader.routers.deps import SessionFormDep, TemplatesDep
 from dataloader.routers.setup._helpers import (
     pipeline_error_response,
     reconcile_pairs_from_json_string,
     render_preview_or_redirect,
 )
-from dataloader.routers.setup.validation_funnel import revalidate_existing_session
-from dataloader.session import prune_expired_sessions, sessions
-from dataloader.session.draft_persist import persist_loader_draft
+from dataloader.routers.setup.validation_funnel import (
+    register_and_persist_new_session_from_validation,
+    revalidate_existing_session,
+)
+from dataloader.session import prune_expired_sessions
 
 
 def register_htmx_validate(router: APIRouter) -> None:
@@ -47,9 +45,9 @@ def register_htmx_validate(router: APIRouter) -> None:
             return pipeline_error_response(outcome)
 
         ol = org_name.strip() or None
-        session = apply_loader_validation_success_to_session(outcome, api_key, org_id, org_label=ol)
-        sessions[session.session_token] = session
-        await persist_loader_draft(request, session)
+        session = await register_and_persist_new_session_from_validation(
+            request, outcome, api_key, org_id, org_label=ol
+        )
         return render_preview_or_redirect(request, session, templates)
 
     @router.post("/api/revalidate")

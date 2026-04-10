@@ -474,5 +474,3 @@ class ReturnConfig(MetadataMixin, _BaseResourceConfig):
     reason: str | None = None
     date_of_death: str | None = None
     ledger_transaction: InlineLedgerTransactionConfig | None = None
-
-

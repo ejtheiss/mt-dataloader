@@ -16,7 +16,41 @@ from dataloader.loader_validation import (
     run_loader_validation_pipeline,
 )
 from dataloader.session import SessionState, sessions
-from dataloader.session.draft_persist import persist_loader_draft
+from dataloader.session.draft_persist import (
+    merge_loader_draft_into_session,
+    persist_loader_draft,
+)
+from models.loader_draft import LoaderDraft
+
+
+async def register_and_persist_new_session_from_validation(
+    request: Request,
+    outcome: LoaderValidationSuccess,
+    api_key: str,
+    org_id: str,
+    *,
+    org_label: str | None = None,
+    working_config_json: str | None = None,
+    generation_recipes: dict | None = None,
+    restored_draft: LoaderDraft | None = None,
+) -> SessionState:
+    """Apply pipeline success → optional durable draft overlay → store session → persist draft.
+
+    Shared by HTMX first validate and draft restore (no behavior change vs inline code).
+    """
+    session = apply_loader_validation_success_to_session(
+        outcome,
+        api_key,
+        org_id,
+        org_label=org_label,
+        working_config_json=working_config_json,
+        generation_recipes=generation_recipes,
+    )
+    if restored_draft is not None:
+        merge_loader_draft_into_session(session, restored_draft)
+    sessions[session.session_token] = session
+    await persist_loader_draft(request, session)
+    return session
 
 
 @dataclass(frozen=True)
