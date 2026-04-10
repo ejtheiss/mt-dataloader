@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.expression import ColumnElement
@@ -31,6 +31,8 @@ class RunListQueryResult:
 
 
 _VALID_RUN_LIST_SORT = frozenset({"run_id", "status", "resources", "staged", "failed"})
+# Public alias for routers (HTMX / JSON query validation).
+RUN_LIST_COLUMN_SORT_KEYS: frozenset[str] = _VALID_RUN_LIST_SORT
 
 
 def _run_list_order_parts(sort: str | None, sort_dir: str) -> tuple[ColumnElement[Any], ...]:
@@ -165,12 +167,29 @@ async def query_run_rows_for_api(
     limit: int | None = None,
     offset: int = 0,
     fetch_extra_for_has_more: bool = False,
+    cursor_after: tuple[str, str] | None = None,
 ) -> RunListQueryResult:
-    """Run rows visible to *ctx* with optional filters, sort, and SQL ``LIMIT``/``OFFSET``.
+    """Run rows visible to *ctx* with optional filters, sort, and SQL pagination.
 
-    Filters and sort are applied in the database (not after fetch). When *limit* is set and
-    *fetch_extra_for_has_more* is true, fetches *limit* + 1 rows and sets ``has_more`` accordingly.
+    * **OFFSET** — use *offset* with *cursor_after* ``None``. When *limit* is set and
+      *fetch_extra_for_has_more* is true, fetches *limit* + 1 rows and sets ``has_more``.
+    * **Keyset (default sort only)** — pass *cursor_after* ``(started_at, run_id)`` from the
+      last row of the previous page; *sort* must be omitted (default ``started_at`` desc);
+      *offset* must be 0.
     """
+    if cursor_after is not None:
+        if offset != 0:
+            raise ValueError("cursor_after requires offset=0")
+        if sort is not None and sort in _VALID_RUN_LIST_SORT:
+            raise ValueError("cursor_after only supported for default sort (omit sort=)")
+        sa, rid = cursor_after
+        seek = or_(
+            Run.started_at < sa,
+            and_(Run.started_at == sa, Run.run_id < rid),
+        )
+    else:
+        seek = None
+
     stmt = select(Run)
     if not ctx.is_admin:
         stmt = stmt.where(Run.user_id == ctx.user_id)
@@ -178,6 +197,8 @@ async def query_run_rows_for_api(
         stmt = stmt.where(Run.status == status)
     if mt_org_id and mt_org_id.strip():
         stmt = stmt.where(Run.mt_org_id == mt_org_id.strip())
+    if seek is not None:
+        stmt = stmt.where(seek)
 
     for part in _run_list_order_parts(sort, sort_dir):
         stmt = stmt.order_by(part)
@@ -185,7 +206,9 @@ async def query_run_rows_for_api(
     has_more = False
     if limit is not None:
         cap = limit + 1 if fetch_extra_for_has_more else limit
-        stmt = stmt.limit(cap).offset(max(0, offset))
+        stmt = stmt.limit(cap)
+        if cursor_after is None:
+            stmt = stmt.offset(max(0, offset))
 
     result = await session.scalars(stmt)
     orm_rows = list(result.all())

@@ -47,7 +47,14 @@ class RunListJsonResponse(BaseModel):
 
     items: list[RunListRow]
     limit: int = Field(ge=1, description="Applied page size (capped server-side).")
-    offset: int = Field(ge=0, description="Number of rows skipped (OFFSET semantics).")
+    offset: int = Field(
+        ge=0,
+        description="Rows skipped (OFFSET mode). Always 0 when using ``cursor``.",
+    )
     has_more: bool = Field(
         description="True if at least one more row exists after this page (fetched via limit+1)."
+    )
+    next_cursor: str | None = Field(
+        None,
+        description="Opaque token for the next page when using keyset mode (default sort only).",
     )

@@ -16,6 +16,8 @@ def test_openapi_agent_json_lists_tagged_routes_only():
     assert "/api/validate-json" in paths
     assert "post" in paths["/api/validate-json"]
     assert "/api/flows/scenario-snapshot" in paths
+    assert "/api/runs.json" in paths
+    assert "get" in paths["/api/runs.json"]
     assert "/runs" not in paths
     assert "/api/validate" not in paths
 

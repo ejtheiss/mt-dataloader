@@ -10,6 +10,11 @@ from loguru import logger
 from dataloader.engine import manifest_json_run_id
 from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep
 from dataloader.run_access import load_run_manifest_for_reader, user_to_ctx
+from dataloader.runs_pagination import (
+    RunsSeekCursorError,
+    decode_runs_seek_cursor,
+    encode_runs_seek_cursor,
+)
 from dataloader.view_models import runs_list_fragment_context
 from db.repositories import runs as runs_repo
 from models import RunListJsonResponse, RunListRow, RunManifest
@@ -106,10 +111,13 @@ async def list_runs(
     "/api/runs.json",
     response_model=RunListJsonResponse,
     summary="List runs (JSON)",
+    operation_id="list_runs_json",
+    tags=["runs", "agent"],
     description=(
         "Paginated run metadata for scripts and integrations. Requires a working app database; "
-        "does not fall back to scanning manifest files on disk. Uses SQL OFFSET pagination — "
-        "rows may shift if data changes while paging."
+        "does not fall back to scanning manifest files on disk. "
+        "Use **offset** for arbitrary pages (rows may shift if data changes while paging), "
+        "or **cursor** with default sort only for stable keyset paging (newest ``started_at`` first)."
     ),
 )
 async def list_runs_json(
@@ -121,7 +129,12 @@ async def list_runs_json(
         le=100,
         description="Page size (default 20, max 100).",
     ),
-    offset: int = Query(0, ge=0, description="Rows to skip before returning the page."),
+    offset: int = Query(0, ge=0, description="Rows to skip (omit when using ``cursor``)."),
+    cursor: str | None = Query(
+        None,
+        description="Keyset continuation from ``next_cursor`` (default sort only; do not combine "
+        "with ``offset``>0 or column ``sort``).",
+    ),
     sort: str | None = Query(
         None,
         description="Optional column: run_id, status, resources, staged, failed. "
@@ -141,6 +154,32 @@ async def list_runs_json(
             status_code=503,
             detail="Runs JSON API requires the application database.",
         )
+
+    sort_key = (sort or "").strip() or None
+    if sort_key and sort_key not in runs_repo.RUN_LIST_COLUMN_SORT_KEYS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid sort={sort_key!r}; use one of {sorted(runs_repo.RUN_LIST_COLUMN_SORT_KEYS)}.",
+        )
+
+    if cursor and cursor.strip() and offset != 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Do not pass offset when using cursor pagination.",
+        )
+    if cursor and cursor.strip() and sort_key:
+        raise HTTPException(
+            status_code=400,
+            detail="cursor pagination requires default sort (omit sort=).",
+        )
+
+    cursor_after: tuple[str, str] | None = None
+    if cursor and cursor.strip():
+        try:
+            cursor_after = decode_runs_seek_cursor(cursor)
+        except RunsSeekCursorError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     ctx = user_to_ctx(current_user)
     try:
         async with factory() as session:
@@ -149,21 +188,32 @@ async def list_runs_json(
                 ctx,
                 status=status,
                 mt_org_id=mt_org_id,
-                sort=sort,
+                sort=sort_key,
                 sort_dir=dir,
                 limit=limit,
-                offset=offset,
+                offset=0 if cursor_after is not None else offset,
                 fetch_extra_for_has_more=True,
+                cursor_after=cursor_after,
             )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.warning("db query_run_rows_for_api (json) failed: {}", exc)
         raise HTTPException(status_code=503, detail="Database error") from exc
 
+    next_cursor: str | None = None
+    if cursor_after is not None and q.has_more and q.rows:
+        last = q.rows[-1]
+        next_cursor = encode_runs_seek_cursor(last.started_at, last.run_id)
+
+    resp_offset = 0 if cursor_after is not None else offset
+
     return RunListJsonResponse(
         items=q.rows,
         limit=limit,
-        offset=offset,
+        offset=resp_offset,
         has_more=q.has_more,
+        next_cursor=next_cursor,
     )
 
 
