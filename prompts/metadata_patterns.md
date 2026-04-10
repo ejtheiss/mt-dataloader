@@ -36,7 +36,12 @@ Each `funds_flows` step gets trace metadata from the flow's `trace_key` and
 ```
 
 Example result: `{"deal_id": "DEAL-marketplace__0042"}` on emitted resources.
-Do not duplicate trace keys on individual steps unless you need extras beyond the template.
+
+**Do not duplicate** `trace_key` or `trace_metadata` keys on individual steps: the
+compiler merges `step.metadata` first, then flow-level trace (`trace_meta`) **last**,
+so the same key on a step is **overwritten** by the flow. Use per-step `metadata`
+only for keys that are **not** in `trace_metadata` (e.g. step-specific roles). The
+Fund Flows UI shows only those step-only keys under “Per-step only metadata”.
 
 ---
 

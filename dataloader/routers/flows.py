@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 import flow_compiler.seed_loader as seed_loader
 from dataloader.engine import dry_run
+from dataloader.flow_trace_metadata import forbidden_trace_keys, step_only_metadata
 from dataloader.flows_mutation import (
     compose_all_recipes,
     default_recipe_dict,
@@ -362,8 +363,7 @@ async def flows_view_page(
 
     per_step_metadata: list[dict] = []
     for step in flow_ir.steps:
-        step_meta = dict(step.trace_metadata) if step.trace_metadata else {}
-        step_meta = {k: v for k, v in step_meta.items() if not k.startswith("_flow_")}
+        step_meta = step_only_metadata(trace_metadata, step.payload)
         per_step_metadata.append(
             {
                 "step_id": step.step_id,
@@ -565,6 +565,18 @@ async def update_flow_metadata(
     if trace_metadata is not None:
         flow["trace_metadata"] = trace_metadata
 
+    eff_tk = trace_key if trace_key is not None else flow.get("trace_key")
+    eff_tm: dict[str, str] | None
+    if trace_metadata is not None:
+        eff_tm = dict(trace_metadata)
+    else:
+        raw_tm = flow.get("trace_metadata")
+        eff_tm = dict(raw_tm) if isinstance(raw_tm, dict) else {}
+    forbidden = forbidden_trace_keys(
+        eff_tk if isinstance(eff_tk, str) else None,
+        eff_tm,
+    )
+
     if step_metadata:
         all_steps = list(flow.get("steps", []))
         for og in flow.get("optional_groups", []):
@@ -572,7 +584,18 @@ async def update_flow_metadata(
         step_by_id = {s.get("step_id"): s for s in all_steps}
         for step_id, meta in step_metadata.items():
             if step_id in step_by_id:
-                step_by_id[step_id]["metadata"] = meta
+                cleaned = {
+                    k: v
+                    for k, v in meta.items()
+                    if k not in forbidden and not str(k).startswith("_flow_")
+                }
+                existing = step_by_id[step_id].get("metadata") or {}
+                internal = {
+                    k: v
+                    for k, v in existing.items()
+                    if str(k).startswith("_flow_")
+                }
+                step_by_id[step_id]["metadata"] = {**internal, **cleaned}
 
     updated_json = dumps_pretty(config_dict)
     hdr_sess.working_config_json = updated_json

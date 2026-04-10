@@ -68,6 +68,11 @@
             <input type="text" class="metadata-input metadata-tpl-input" id="meta-trace-value-tpl" value="{{ trace_value_template }}">
         </div>
 
+        <p class="text-muted" style="font-size: 0.85rem; margin: 0 0 8px;">
+            <strong>trace_key</strong> and <strong>trace_metadata</strong> below apply to <em>every</em> step automatically.
+            Use per-step metadata only for extra keys that are not duplicated here (flow-level values win on conflict).
+        </p>
+
         <div class="metadata-kv-section">
             <label class="metadata-label">trace_metadata</label>
             <div id="meta-trace-entries">
@@ -84,7 +89,10 @@
 
         {% if per_step_metadata %}
         <div class="metadata-steps-section">
-            <label class="metadata-label">Per-Step Metadata</label>
+            <label class="metadata-label">Per-step only metadata</label>
+            <p class="text-muted" style="font-size: 0.85rem; margin: 0 0 8px;">
+                Keys already set above are omitted here. Add step-specific tags only.
+            </p>
             {% for sm in per_step_metadata %}
             <details class="metadata-step-detail"{% if sm.metadata %} open{% endif %}>
                 <summary>
