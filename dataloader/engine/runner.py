@@ -303,8 +303,19 @@ async def execute(
                         leaf = exc
                         failed_ref = _guess_failed_ref(leaf, to_create, resource_map)
                     error_detail = _format_exception_detail(leaf, failed_ref)
-                    manifest.record_failure(failed_ref, error_detail)
-                    await emit_sse("error", failed_ref, {"error": error_detail})
+                    fe = _failure_entry_extras(leaf)
+                    manifest.record_failure(
+                        failed_ref,
+                        error_detail,
+                        error_type=fe.get("error_type"),
+                        http_status=fe.get("http_status"),
+                        error_cause=fe.get("error_cause"),
+                    )
+                    await emit_sse(
+                        "error",
+                        failed_ref,
+                        {"error": error_detail, **{k: v for k, v in fe.items() if v is not None}},
+                    )
                 manifest.finalize("failed")
                 manifest.write(runs_dir)
                 raise eg.exceptions[0] from None
@@ -361,12 +372,18 @@ def _guess_failed_ref(
     return batch_refs[0] if batch_refs else "unknown"
 
 
-def _format_exception_detail(exc: BaseException, failed_ref: str) -> str:
+def _format_exception_detail(
+    exc: BaseException,
+    failed_ref: str,
+    *,
+    prefix_ref: bool = True,
+) -> str:
     """Extract a human-readable error string, enriching APIStatusError with body details."""
+    lead = f"[{failed_ref}] " if prefix_ref and failed_ref else ""
     try:
         from modern_treasury._exceptions import APIStatusError
     except ImportError:
-        return f"{type(exc).__name__}: {exc}"
+        return f"{lead}{type(exc).__name__}: {exc}"
 
     if isinstance(exc, APIStatusError):
         body = exc.body
@@ -382,6 +399,22 @@ def _format_exception_detail(exc: BaseException, failed_ref: str) -> str:
                     msg = f"{code}: {msg}"
             else:
                 msg = str(errors)
-            return f"[{failed_ref}] HTTP {exc.status_code}: {msg}"
-        return f"[{failed_ref}] HTTP {exc.status_code}: {body}"
-    return f"[{failed_ref}] {type(exc).__name__}: {exc}"
+            return f"{lead}HTTP {exc.status_code}: {msg}"
+        return f"{lead}HTTP {exc.status_code}: {body}"
+    return f"{lead}{type(exc).__name__}: {exc}"
+
+
+def _failure_entry_extras(exc: BaseException) -> dict[str, str | int | None]:
+    """Structured fields for manifests, SSE, and UI (optional)."""
+    out: dict[str, str | int | None] = {"error_type": type(exc).__name__}
+    try:
+        from modern_treasury._exceptions import APIStatusError
+
+        if isinstance(exc, APIStatusError):
+            out["http_status"] = exc.status_code
+    except ImportError:
+        pass
+    cause = exc.__cause__
+    if cause is not None:
+        out["error_cause"] = _format_exception_detail(cause, "", prefix_ref=False)
+    return out

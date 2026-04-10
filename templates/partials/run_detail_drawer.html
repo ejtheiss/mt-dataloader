@@ -23,8 +23,10 @@
 #}
 
 {# --- Drawer Title --- #}
-<div class="mt-drawer-title">
-  <h3 style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.9rem;">{{ m.run_id }}</h3>
+<div class="mt-drawer-title" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+  <h3 style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.9rem; margin: 0;">{{ m.run_id }}</h3>
+  <button type="button" class="btn btn-sm btn-outline" title="Copy run id"
+          onclick="navigator.clipboard.writeText({{ m.run_id | tojson }}); this.textContent='Copied'; var b=this; setTimeout(function(){ b.textContent='Copy id'; }, 1500);">Copy id</button>
   <span class="badge badge--{{ 'success' if m.status == 'completed' or (m.status.value is defined and m.status.value == 'completed') else 'critical' if m.status == 'failed' or (m.status.value is defined and m.status.value == 'failed') else 'cool' if m.status == 'running' or (m.status.value is defined and m.status.value == 'running') else 'default' }}">
     {{ m.status.value if m.status.value is defined else m.status }}
   </span>
@@ -134,7 +136,12 @@
           </div>
           <div role="cell" class="ui-table-cell truncate">{{ e.typed_ref }}</div>
           <div role="cell" class="ui-table-cell" style="width: 110px; flex: none;">
+            {% set app_url = mt_app_url(e.resource_type, e.created_id) %}
+            {% if app_url %}
+            <a href="{{ app_url }}" target="_blank" rel="noopener noreferrer" class="doc-link" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.85rem;" title="{{ e.created_id }}">{{ e.created_id[:12] }}&hellip;</a>
+            {% else %}
             <code title="{{ e.created_id }}">{{ e.created_id[:12] }}&hellip;</code>
+            {% endif %}
           </div>
           <div role="cell" class="ui-table-cell text-right" style="width: 60px; flex: none;">
             {{ e.created_at.split("T")[1][:8] if "T" in e.created_at else e.created_at }}
@@ -157,7 +164,18 @@
     {% for f in m.resources_failed %}
       <div class="key-value-table-row" style="border-left: 3px solid var(--danger, #C4381D); padding-left: 12px; margin-bottom: 8px;">
       <div class="row-label"><code>{{ f.typed_ref }}</code></div>
-      <div class="row-value" style="color: var(--danger, #C4381D);">{{ f.error }}</div>
+      <div class="row-value" style="color: var(--danger, #C4381D);">
+        {% if f.error_type or f.http_status %}
+        <span class="text-muted" style="font-size: 0.85rem;">{{ f.error_type or "Error" }}{% if f.http_status %} · HTTP {{ f.http_status }}{% endif %}</span><br>
+        {% endif %}
+        {{ f.error }}
+        {% if f.error_cause %}
+        <details style="margin-top: 8px;">
+          <summary style="cursor: pointer; color: var(--text-muted, #666); font-size: 0.9rem;">Caused by</summary>
+          <pre style="margin: 8px 0 0; white-space: pre-wrap; font-size: 0.8rem; color: var(--danger, #C4381D);">{{ f.error_cause }}</pre>
+        </details>
+        {% endif %}
+      </div>
     </div>
     {% endfor %}
   </div>
