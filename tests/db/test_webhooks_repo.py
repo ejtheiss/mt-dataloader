@@ -275,7 +275,10 @@ async def test_list_run_ids_with_webhooks_ordered_and_listener_feed(
         ctx_admin = RunAccessContext(user_id=1, is_admin=True)
         async with factory() as s:
             ids_user = await webhooks_repo.list_run_ids_with_webhooks_ordered(s, ctx1)
-            ids_admin = await webhooks_repo.list_run_ids_with_webhooks_ordered(s, ctx_admin)
+            ids_admin = await webhooks_repo.list_run_ids_with_webhooks_ordered(
+                s,
+                ctx_admin,
+            )
             feed_user = await webhooks_repo.list_recent_webhook_history_for_listener(
                 s, ctx1, limit=10
             )
