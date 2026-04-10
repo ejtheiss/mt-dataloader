@@ -6,12 +6,12 @@ import json
 import re
 from collections.abc import Callable
 
-from sqlalchemy import insert, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.repositories.runs import RunAccessContext, get_run_row_for_access
-from db.tables import WebhookEvent
+from db.tables import Run, WebhookEvent
 
 _DB_ID_RE = re.compile(r"^db-(\d+)$")
 
@@ -79,6 +79,40 @@ async def insert_webhook_event(
     else:
         stmt = insert(WebhookEvent).values(**values)
     await session.execute(stmt)
+
+
+async def list_run_ids_with_webhooks_ordered(
+    session: AsyncSession,
+    ctx: RunAccessContext,
+) -> list[str]:
+    """Distinct ``run_id`` values that have at least one webhook, newest activity first.
+
+    Unmatched webhooks (``run_id`` NULL) are omitted — they do not appear in the run filter.
+    """
+    stmt = (
+        select(WebhookEvent.run_id, func.max(WebhookEvent.received_at).label("mx"))
+        .where(WebhookEvent.run_id.is_not(None))
+        .group_by(WebhookEvent.run_id)
+        .order_by(func.max(WebhookEvent.received_at).desc())
+    )
+    if not ctx.is_admin:
+        stmt = stmt.join(Run, WebhookEvent.run_id == Run.run_id).where(Run.user_id == ctx.user_id)
+    result = await session.execute(stmt)
+    return [row[0] for row in result.all() if row[0]]
+
+
+async def list_recent_webhook_history_for_listener(
+    session: AsyncSession,
+    ctx: RunAccessContext,
+    *,
+    limit: int = 400,
+) -> list[dict]:
+    """Newest-first webhooks visible to *ctx* (all events for admin; user's runs only)."""
+    stmt = select(WebhookEvent).order_by(WebhookEvent.received_at.desc()).limit(limit)
+    if not ctx.is_admin:
+        stmt = stmt.join(Run, WebhookEvent.run_id == Run.run_id).where(Run.user_id == ctx.user_id)
+    result = await session.scalars(stmt)
+    return [row_to_history_dict(r) for r in result.all()]
 
 
 async def list_webhook_history_dicts_for_run(

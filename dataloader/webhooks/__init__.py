@@ -1,9 +1,9 @@
 """Webhook domain package: routes, correlation state, and ``webhook_events`` persistence.
 
-Phase **02a** moved the former root ``webhooks.py`` into ``dataloader.webhooks.routes.py``;
-this module re-exports the public API so ``dataloader.main`` and
-``dataloader.routers.execute`` keep stable imports. ``FIREABLE_TYPES`` is defined in
-``dataloader.staged_fire`` (shared with the engine dry-run path).
+**02a** moved the former root ``webhooks.py`` under ``dataloader/webhooks/``; **07** split
+``routes.py`` into composable sub-routers while keeping ``router`` stable for
+``dataloader.main``. ``FIREABLE_TYPES`` lives in ``dataloader.staged_fire`` (shared with
+the engine dry-run path); staged-fire HTTP handlers live in ``runs_staged.py``.
 """
 
 from __future__ import annotations
@@ -18,7 +18,8 @@ from .correlation_state import (
     register_run_org,
     replace_runtime_correlation_state,
 )
-from .routes import enrich_webhooks_run_org, router
+from .routes import router
+from .webhook_persist import enrich_webhooks_run_org
 
 __all__ = [
     "FIREABLE_TYPES",
