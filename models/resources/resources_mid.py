@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -26,6 +26,7 @@ from models.shared import (
     RoutingDetailConfig,
     WalletAccountNumberType,
     _BaseResourceConfig,
+    implied_ledger_currency_exponent,
 )
 
 # ---------------------------------------------------------------------------
@@ -160,11 +161,26 @@ class LedgerAccountConfig(MetadataMixin, _BaseResourceConfig):
     ledger_id: RefStr
     normal_balance: Literal["credit", "debit"]
     currency: str = "USD"
+    currency_exponent: int | None = None
     description: str | None = None
     ledgerable_type: Literal["external_account", "internal_account", "virtual_account"] | None = (
         None
     )
     ledgerable_id: RefStr | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _inject_currency_exponent(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if data.get("currency_exponent") is not None:
+            return data
+        currency = data.get("currency")
+        if isinstance(currency, str):
+            exp = implied_ledger_currency_exponent(currency)
+            if exp is not None:
+                return {**data, "currency_exponent": exp}
+        return data
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +250,22 @@ class LedgerAccountCategoryConfig(MetadataMixin, _BaseResourceConfig):
     ledger_id: RefStr
     normal_balance: Literal["credit", "debit"]
     currency: str = "USD"
+    currency_exponent: int | None = None
     description: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _inject_currency_exponent(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if data.get("currency_exponent") is not None:
+            return data
+        currency = data.get("currency")
+        if isinstance(currency, str):
+            exp = implied_ledger_currency_exponent(currency)
+            if exp is not None:
+                return {**data, "currency_exponent": exp}
+        return data
 
 
 # ---------------------------------------------------------------------------

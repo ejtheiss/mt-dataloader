@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from enum import IntEnum
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import (
     AfterValidator,
@@ -16,6 +16,7 @@ from pydantic import (
     ConfigDict,
     Field,
     field_validator,
+    model_validator,
 )
 
 # ---------------------------------------------------------------------------
@@ -92,6 +93,29 @@ RefStr = Annotated[str, AfterValidator(_validate_ref_or_literal)]
 """A string that is either a literal UUID or a typed symbolic ref
 (``$ref:type.key[.selector]``).  Format-validated at parse time; resolution
 to an actual UUID happens in the engine layer."""
+
+
+def implied_ledger_currency_exponent(currency: str) -> int | None:
+    """Default ``currency_exponent`` for ledger accounts/categories (MT Ledgers API).
+
+    The HTTP API lists ``currency_exponent`` as optional on
+    ``POST /api/ledger_accounts`` and ``POST /api/ledger_account_categories``,
+    but the server rejects **blank** values for currency codes that are not
+    backed by a built-in ISO-style definition (e.g. stablecoin tickers such as
+    **USDC** and **USDG**).
+
+    Ledger transaction entry ``amount`` is documented as the currency's
+    **smallest unit**; posted entries echo ``ledger_account_currency_exponent``.
+    We default **USDC** and **USDG** to exponent **2** so amounts stay aligned
+    with cent-style conventions in ``InlineLedgerEntryConfig``. Set
+    ``currency_exponent`` explicitly in JSON if you use a different precision
+    (e.g. on-chain minor units).
+    """
+    c = currency.strip().upper()
+    if c in ("USDC", "USDG"):
+        return 2
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Shared / reusable types
@@ -277,7 +301,22 @@ class InlineLedgerAccountConfig(MetadataMixin, BaseModel):
     name: str
     normal_balance: Literal["credit", "debit"]
     currency: str = "USD"
+    currency_exponent: int | None = None
     description: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _inject_currency_exponent(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if data.get("currency_exponent") is not None:
+            return data
+        currency = data.get("currency")
+        if isinstance(currency, str):
+            exp = implied_ledger_currency_exponent(currency)
+            if exp is not None:
+                return {**data, "currency_exponent": exp}
+        return data
 
 
 class InlineLedgerEntryConfig(MetadataMixin, BaseModel):
@@ -289,8 +328,9 @@ class InlineLedgerEntryConfig(MetadataMixin, BaseModel):
         ...,
         gt=0,
         description=(
-            "Minor units of the entry's ledger account currency. For USD and USDC, use the "
-            "same cent-style convention as USD (100 = 1.00), not on-chain 10^-6 token units."
+            "Minor units of the entry's ledger account currency (per that account's "
+            "``currency_exponent``). For USD, USDC, and USDG with the loader's default "
+            "exponent 2, use cent-style amounts (100 = 1.00), not on-chain 10^-6 units."
         ),
     )
     direction: Literal["credit", "debit"]

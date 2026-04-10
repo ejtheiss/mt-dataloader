@@ -9,14 +9,11 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from dataloader.engine import (
     all_resources,
-    config_hash,
     dry_run,
     typed_ref_for,
 )
 from dataloader.helpers import (
     UPDATABLE_RESOURCE_TYPES,
-    build_available_connections,
-    build_discovered_by_type,
     build_preview,
     error_response,
 )
@@ -25,8 +22,9 @@ from dataloader.loader_validation import (
     loader_validation_failure_htmx_parts,
 )
 from dataloader.session import SessionState
+from dataloader.view_models.setup_preview import flat_preview_template_context
 from jsonutil import loads_str
-from models import DataLoaderConfig, DisplayPhase
+from models import DataLoaderConfig
 from models.loader_setup_json import LoaderSetupEnvelopeV1
 from org import reconcile_config, sync_connection_entities_from_reconciliation
 
@@ -99,25 +97,7 @@ def render_preview_or_redirect(
     return templates.TemplateResponse(
         request,
         "preview.html",
-        {
-            "session_token": session.session_token,
-            "batches": session.batches,
-            "preview_items": session.preview_items,
-            "config_hash": config_hash(session.config),
-            "resource_count": sum(len(b) for b in session.batches),
-            "deletable_count": sum(1 for i in session.preview_items if i["deletable"]),
-            "non_deletable_count": sum(1 for i in session.preview_items if not i["deletable"]),
-            "display_phases": DisplayPhase,
-            "discovery": session.discovery,
-            "reconciliation": session.reconciliation,
-            "config_json_text": session.config_json_text,
-            "discovered_by_type": build_discovered_by_type(session.discovery),
-            "has_funds_flows": bool(session.flow_ir),
-            "available_connections": build_available_connections(
-                session.config,
-                session.discovery,
-            ),
-        },
+        flat_preview_template_context(session),
     )
 
 

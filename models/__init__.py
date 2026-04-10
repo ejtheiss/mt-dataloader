@@ -103,6 +103,7 @@ from models.shared import (
     RoutingDetailConfig,
     WalletAccountNumberType,
     _BaseResourceConfig,
+    implied_ledger_currency_exponent,
 )
 
 # --- step models + derived constants ---
@@ -138,6 +139,7 @@ __all__ = [
     "RESOURCE_TYPES",
     "SOURCE_BADGE",
     "RefStr",
+    "implied_ledger_currency_exponent",
     "DisplayPhase",
     # Reusable Annotated types
     "AmountCents",
