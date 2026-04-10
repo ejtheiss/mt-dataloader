@@ -340,7 +340,8 @@ dataloader/          Application package (02a Phase E — see maintainer plan 00
   mt_doc_links.py    MT dashboard deep links
   mt_webhook_endpoints.py  Webhook endpoint registration helpers
   routers/           FastAPI route modules (import: dataloader.routers)
-    setup.py         /api/validate, /api/revalidate, draft restore/discard
+    setup/           Setup package; __init__.py wires one APIRouter (pages, json_api, htmx_validate,
+                     drafts, resource_partials, _helpers)
     flows.py         /flows, /flows/view, /api/flows/generate, /api/flows/metadata
     execute.py       /api/execute, SSE stream
     cleanup.py       /api/cleanup

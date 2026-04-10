@@ -10,7 +10,7 @@ This document is the **in-repo** source for how **actor keys, human labels, prev
 
 | Item | Status | Where to look |
 |------|--------|----------------|
-| **NW-1** — gate Preview until Apply | **Not done** | `templates/flows.html` always links to `/preview`; `dataloader/routers/setup.py` `preview_page` only requires a session. |
+| **NW-1** — gate Preview until Apply | **Not done** | `templates/flows.html` always links to `/preview`; `dataloader/routers/setup/pages.py` `preview_page` only requires a session. |
 | **NW-2** — block Execute if preview stale | **Not done** | `dataloader/routers/execute.py` uses `config_hash` for DB run rows, not to compare against last `build_preview`. |
 | **NW-3** — `resolve_mt_display_label` | **Not done** | Symbol absent; `dataloader/preview_labels.py` still falls back to `flow_compiler.actor_display_name`. |
 | **NW-4** — grouped preview actor strip = MT names | **Not done** | `build_flow_grouped_preview` still sets `"alias"` from `flatten_actor_refs` keys (wiring), not from `preview_items` / `mt_display_name`. |
@@ -202,7 +202,7 @@ After **Apply**, **`flow_ir` / `expanded_flows` / `view_data_cache` / `preview_i
 | Fund flow views | `flow_compiler/flow_views.py` |
 | Preview | `dataloader/helpers.py`, `dataloader/preview_labels.py`, `templates/partials/preview_resource_row.html` |
 | Resource names | `dataloader/engine/resource_display.py` |
-| Routes / session | `dataloader/routers/flows.py`, `dataloader/routers/setup.py`, `dataloader/session/__init__.py` |
+| Routes / session | `dataloader/routers/flows.py`, `dataloader/routers/setup/` (package: `pages`, `json_api`, `htmx_validate`, `drafts`, `resource_partials`), `dataloader/session/__init__.py` |
 | Org names | `org/discovery.py`, `org/reconciliation.py` |
 | Execute SSE | `dataloader/engine/runner.py` |
 | Scenario UI | `templates/partials/scenario_builder.html`, `static/js/scenario-builder.js` |
