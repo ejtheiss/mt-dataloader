@@ -41,9 +41,7 @@ def _client():
 
     s = AppSettings()
     if not s.mt_api_key or not s.mt_org_id:
-        raise SystemExit(
-            "Set DATALOADER_MT_API_KEY and DATALOADER_MT_ORG_ID (see .env.example)."
-        )
+        raise SystemExit("Set DATALOADER_MT_API_KEY and DATALOADER_MT_ORG_ID (see .env.example).")
     return AsyncModernTreasury(api_key=s.mt_api_key, organization_id=s.mt_org_id)
 
 

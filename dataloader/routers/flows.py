@@ -597,11 +597,7 @@ async def update_flow_metadata(
                     if k not in forbidden and not str(k).startswith("_flow_")
                 }
                 existing = step_by_id[step_id].get("metadata") or {}
-                internal = {
-                    k: v
-                    for k, v in existing.items()
-                    if str(k).startswith("_flow_")
-                }
+                internal = {k: v for k, v in existing.items() if str(k).startswith("_flow_")}
                 step_by_id[step_id]["metadata"] = {**internal, **cleaned}
 
     updated_json = dumps_pretty(config_dict)

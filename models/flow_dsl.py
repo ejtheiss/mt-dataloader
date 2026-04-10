@@ -325,11 +325,7 @@ class FundsFlowConfig(BaseModel):
 
         tpl = self.trace_metadata[self.trace_key]
         try:
-            fields = {
-                fname
-                for _, fname, _, _ in _TRACE_FORMATTER.parse(tpl)
-                if fname is not None
-            }
+            fields = {fname for _, fname, _, _ in _TRACE_FORMATTER.parse(tpl) if fname is not None}
         except (ValueError, KeyError) as e:
             raise ValueError(
                 f"Invalid trace template at trace_metadata['{self.trace_key}']: {e}"
