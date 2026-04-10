@@ -1,16 +1,17 @@
-"""Run row upserts — metadata + optional canonical ``manifest_json`` (Wave B)."""
+"""Run row upserts — metadata mirrored from execution (Wave B)."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.expression import ColumnElement
 
 from db.tables import Run
-from models.run_list import RunListRow
+from models.run_list import RunDrawerRow, RunListRow
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,44 @@ class RunAccessContext:
 
     user_id: int
     is_admin: bool
+
+
+@dataclass(frozen=True)
+class RunListQueryResult:
+    """Result of a scoped runs list query (HTML or JSON)."""
+
+    rows: list[RunListRow]
+    has_more: bool = False
+
+
+_VALID_RUN_LIST_SORT = frozenset({"run_id", "status", "resources", "staged", "failed"})
+# Public alias for routers (HTMX / JSON query validation).
+RUN_LIST_COLUMN_SORT_KEYS: frozenset[str] = _VALID_RUN_LIST_SORT
+
+
+def _run_list_order_parts(sort: str | None, sort_dir: str) -> tuple[ColumnElement[Any], ...]:
+    """Build ``ORDER BY`` fragments matching the HTMX runs table (with stable tie-break)."""
+
+    if not sort or sort not in _VALID_RUN_LIST_SORT:
+        # Default list: newest ``started_at`` first (matches legacy ``list_runs`` when no column sort).
+        return (Run.started_at.desc(), Run.run_id.desc())
+
+    descending = sort_dir.lower() == "desc"
+
+    def ob(col: Any) -> ColumnElement[Any]:
+        return col.desc() if descending else col.asc()
+
+    if sort == "run_id":
+        return (ob(Run.run_id), ob(Run.started_at))
+    if sort == "status":
+        return (ob(Run.status), ob(Run.run_id))
+    if sort == "resources":
+        return (ob(Run.resources_created_count), ob(Run.run_id))
+    if sort == "staged":
+        return (ob(Run.resources_staged_count), ob(Run.run_id))
+    if sort == "failed":
+        return (ob(Run.resources_failed_count), ob(Run.run_id))
+    return (ob(Run.started_at), ob(Run.run_id))
 
 
 async def get_run_row_for_access(
@@ -104,26 +143,97 @@ async def fetch_manifest_json(
     run_id: str,
     ctx: RunAccessContext,
 ) -> str | None:
-    """Canonical manifest body on the run row if *ctx* may read that run."""
+    """Canonical manifest body on the run row if *ctx* may read this run."""
     row = await get_run_row_for_access(session, run_id, ctx)
     if row is None or not row.manifest_json:
         return None
     return row.manifest_json
 
 
-async def list_run_rows_for_api(
+async def fetch_run_drawer_row(
+    session: AsyncSession,
+    run_id: str,
+    ctx: RunAccessContext,
+) -> RunDrawerRow | None:
+    """DB-backed run summary for the list slide-over drawer (same ``status`` as ``list_run_rows_for_api``)."""
+    row = await get_run_row_for_access(session, run_id, ctx)
+    if row is None:
+        return None
+    return RunDrawerRow(
+        run_id=row.run_id,
+        status=row.status,
+        started_at=row.started_at,
+        resource_count=row.resources_created_count,
+        staged_count=row.resources_staged_count,
+        failed_count=row.resources_failed_count,
+        mt_org_id=row.mt_org_id,
+        completed_at=row.completed_at,
+        config_hash=row.config_hash,
+    )
+
+
+async def query_run_rows_for_api(
     session: AsyncSession,
     ctx: RunAccessContext,
-) -> list[RunListRow]:
-    """Run rows visible to *ctx*, newest-first by ``started_at`` (SQL).
+    *,
+    status: str | None = None,
+    mt_org_id: str | None = None,
+    sort: str | None = None,
+    sort_dir: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
+    fetch_extra_for_has_more: bool = False,
+    cursor_after: tuple[str, str] | None = None,
+) -> RunListQueryResult:
+    """Run rows visible to *ctx* with optional filters, sort, and SQL pagination.
 
-    ``GET /api/runs`` uses this when the DB is up (no disk glob for ``user``).
+    * **OFFSET** — use *offset* with *cursor_after* ``None``. When *limit* is set and
+      *fetch_extra_for_has_more* is true, fetches *limit* + 1 rows and sets ``has_more``.
+    * **Keyset (default sort only)** — pass *cursor_after* ``(started_at, run_id)`` from the
+      last row of the previous page; *sort* must be omitted (default ``started_at`` desc);
+      *offset* must be 0.
     """
-    stmt = select(Run).order_by(Run.started_at.desc())
+    if cursor_after is not None:
+        if offset != 0:
+            raise ValueError("cursor_after requires offset=0")
+        if sort is not None and sort in _VALID_RUN_LIST_SORT:
+            raise ValueError("cursor_after only supported for default sort (omit sort=)")
+        sa, rid = cursor_after
+        seek = or_(
+            Run.started_at < sa,
+            and_(Run.started_at == sa, Run.run_id < rid),
+        )
+    else:
+        seek = None
+
+    stmt = select(Run)
     if not ctx.is_admin:
         stmt = stmt.where(Run.user_id == ctx.user_id)
+    if status:
+        stmt = stmt.where(Run.status == status)
+    if mt_org_id and mt_org_id.strip():
+        stmt = stmt.where(Run.mt_org_id == mt_org_id.strip())
+    if seek is not None:
+        stmt = stmt.where(seek)
+
+    for part in _run_list_order_parts(sort, sort_dir):
+        stmt = stmt.order_by(part)
+
+    has_more = False
+    if limit is not None:
+        cap = limit + 1 if fetch_extra_for_has_more else limit
+        stmt = stmt.limit(cap)
+        if cursor_after is None:
+            stmt = stmt.offset(max(0, offset))
+
     result = await session.scalars(stmt)
-    return [
+    orm_rows = list(result.all())
+
+    if limit is not None and fetch_extra_for_has_more and len(orm_rows) > limit:
+        has_more = True
+        orm_rows = orm_rows[:limit]
+
+    rows = [
         RunListRow(
             run_id=r.run_id,
             status=r.status,
@@ -133,8 +243,21 @@ async def list_run_rows_for_api(
             failed_count=r.resources_failed_count,
             mt_org_id=r.mt_org_id,
         )
-        for r in result.all()
+        for r in orm_rows
     ]
+    return RunListQueryResult(rows=rows, has_more=has_more)
+
+
+async def list_run_rows_for_api(
+    session: AsyncSession,
+    ctx: RunAccessContext,
+) -> list[RunListRow]:
+    """Run rows visible to *ctx*, default sort (newest ``started_at`` first).
+
+    ``GET /api/runs`` uses this when the DB is up (no disk glob for ``user``).
+    """
+    res = await query_run_rows_for_api(session, ctx, limit=None, offset=0)
+    return res.rows
 
 
 async def list_run_id_set(session: AsyncSession) -> set[str]:
