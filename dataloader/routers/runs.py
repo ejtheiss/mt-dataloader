@@ -20,6 +20,94 @@ from db.repositories import runs as runs_repo
 from models import RunListJsonResponse, RunListRow, RunManifest
 
 router = APIRouter(tags=["runs"])
+HTML_RUNS_HARD_CAP = 500
+
+
+def _request_prefers_json(request: Request) -> bool:
+    """Return True when client explicitly asks for JSON on ``/api/runs``."""
+    accept = (request.headers.get("accept") or "").lower()
+    return "application/json" in accept
+
+
+async def _list_runs_json_payload(
+    request: Request,
+    current_user: CurrentAppUserDep,
+    *,
+    limit: int,
+    offset: int,
+    cursor: str | None,
+    sort: str | None,
+    dir: str,
+    status: str | None,
+    mt_org_id: str | None,
+) -> RunListJsonResponse:
+    """Build the JSON payload shared by ``/api/runs`` and ``/api/runs.json``."""
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Runs JSON API requires the application database.",
+        )
+
+    sort_key = (sort or "").strip() or None
+    if sort_key and sort_key not in runs_repo.RUN_LIST_COLUMN_SORT_KEYS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid sort={sort_key!r}; use one of {sorted(runs_repo.RUN_LIST_COLUMN_SORT_KEYS)}.",
+        )
+
+    if cursor and cursor.strip() and offset != 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Do not pass offset when using cursor pagination.",
+        )
+    if cursor and cursor.strip() and sort_key:
+        raise HTTPException(
+            status_code=400,
+            detail="cursor pagination requires default sort (omit sort=).",
+        )
+
+    cursor_after: tuple[str, str] | None = None
+    if cursor and cursor.strip():
+        try:
+            cursor_after = decode_runs_seek_cursor(cursor)
+        except RunsSeekCursorError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    ctx = user_to_ctx(current_user)
+    try:
+        async with factory() as session:
+            q = await runs_repo.query_run_rows_for_api(
+                session,
+                ctx,
+                status=status,
+                mt_org_id=mt_org_id,
+                sort=sort_key,
+                sort_dir=dir,
+                limit=limit,
+                offset=0 if cursor_after is not None else offset,
+                fetch_extra_for_has_more=True,
+                cursor_after=cursor_after,
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning("db query_run_rows_for_api (json) failed: {}", exc)
+        raise HTTPException(status_code=503, detail="Database error") from exc
+
+    next_cursor: str | None = None
+    if q.has_more and q.rows:
+        last = q.rows[-1]
+        next_cursor = encode_runs_seek_cursor(last.started_at, last.run_id)
+
+    resp_offset = 0 if cursor_after is not None else offset
+    return RunListJsonResponse(
+        items=q.rows,
+        limit=limit,
+        offset=resp_offset,
+        has_more=q.has_more,
+        next_cursor=next_cursor,
+    )
 
 
 @router.get("/runs", include_in_schema=False)
@@ -33,12 +121,40 @@ async def list_runs(
     templates: TemplatesDep,
     settings: SettingsDep,
     current_user: CurrentAppUserDep,
+    limit: int = Query(
+        20,
+        ge=1,
+        le=100,
+        description="JSON mode: page size (default 20, max 100). Ignored for HTML.",
+    ),
+    offset: int = Query(
+        0,
+        ge=0,
+        description="JSON mode rows to skip. Ignored for HTML unless JSON is requested.",
+    ),
+    cursor: str | None = Query(
+        None,
+        description="JSON mode keyset cursor (default sort only). Ignored for HTML.",
+    ),
     sort: str | None = None,
     dir: str = "asc",
     status: str | None = None,
     mt_org_id: str | None = None,
 ):
     """List runs: Wave B uses SQLite when DB is up; ``user`` sees only owned rows."""
+    if _request_prefers_json(request):
+        return await _list_runs_json_payload(
+            request,
+            current_user,
+            limit=limit,
+            offset=offset,
+            cursor=cursor,
+            sort=sort,
+            dir=dir,
+            status=status,
+            mt_org_id=mt_org_id,
+        )
+
     runs_dir = Path(settings.runs_dir)
     rows: list[RunListRow] = []
     db_list_ok = False
@@ -55,7 +171,7 @@ async def list_runs(
                     mt_org_id=mt_org_id,
                     sort=sort,
                     sort_dir=dir,
-                    limit=None,
+                    limit=HTML_RUNS_HARD_CAP,
                     offset=0,
                 )
                 rows = q.rows
@@ -65,7 +181,9 @@ async def list_runs(
 
     if not db_list_ok and runs_dir.exists():
         if current_user.is_admin:
-            for path in sorted(runs_dir.glob("*.json"), reverse=True):
+            for idx, path in enumerate(sorted(runs_dir.glob("*.json"), reverse=True), start=1):
+                if idx > HTML_RUNS_HARD_CAP:
+                    break
                 if manifest_json_run_id(path.name) is None:
                     continue
                 try:
@@ -148,72 +266,16 @@ async def list_runs_json(
     mt_org_id: str | None = Query(None, description="Filter by Modern Treasury organization id."),
 ):
     """JSON run list with SQL-backed filters and pagination (Plan 09)."""
-    factory = getattr(request.app.state, "async_session_factory", None)
-    if factory is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Runs JSON API requires the application database.",
-        )
-
-    sort_key = (sort or "").strip() or None
-    if sort_key and sort_key not in runs_repo.RUN_LIST_COLUMN_SORT_KEYS:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid sort={sort_key!r}; use one of {sorted(runs_repo.RUN_LIST_COLUMN_SORT_KEYS)}.",
-        )
-
-    if cursor and cursor.strip() and offset != 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Do not pass offset when using cursor pagination.",
-        )
-    if cursor and cursor.strip() and sort_key:
-        raise HTTPException(
-            status_code=400,
-            detail="cursor pagination requires default sort (omit sort=).",
-        )
-
-    cursor_after: tuple[str, str] | None = None
-    if cursor and cursor.strip():
-        try:
-            cursor_after = decode_runs_seek_cursor(cursor)
-        except RunsSeekCursorError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    ctx = user_to_ctx(current_user)
-    try:
-        async with factory() as session:
-            q = await runs_repo.query_run_rows_for_api(
-                session,
-                ctx,
-                status=status,
-                mt_org_id=mt_org_id,
-                sort=sort_key,
-                sort_dir=dir,
-                limit=limit,
-                offset=0 if cursor_after is not None else offset,
-                fetch_extra_for_has_more=True,
-                cursor_after=cursor_after,
-            )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        logger.warning("db query_run_rows_for_api (json) failed: {}", exc)
-        raise HTTPException(status_code=503, detail="Database error") from exc
-
-    next_cursor: str | None = None
-    if cursor_after is not None and q.has_more and q.rows:
-        last = q.rows[-1]
-        next_cursor = encode_runs_seek_cursor(last.started_at, last.run_id)
-
-    resp_offset = 0 if cursor_after is not None else offset
-
-    return RunListJsonResponse(
-        items=q.rows,
+    return await _list_runs_json_payload(
+        request,
+        current_user,
         limit=limit,
-        offset=resp_offset,
-        has_more=q.has_more,
-        next_cursor=next_cursor,
+        offset=offset,
+        cursor=cursor,
+        sort=sort,
+        dir=dir,
+        status=status,
+        mt_org_id=mt_org_id,
     )
 
 

@@ -80,7 +80,7 @@ def test_get_api_runs_json_pagination_and_status_filter() -> None:
         assert data["limit"] == 2
         assert data["offset"] == 0
         assert data["has_more"] is True
-        assert data["next_cursor"] is None
+        assert data["next_cursor"] is not None
         assert len(data["items"]) == 2
         assert data["items"][0]["run_id"] == r2
         assert data["items"][1]["run_id"] == r1
@@ -114,7 +114,7 @@ def test_get_api_runs_json_keyset_cursor_matches_offset_pages() -> None:
 
         p1 = client.get("/api/runs.json", params={"limit": 2, **common}).json()
         assert p1["has_more"] is True
-        assert p1["next_cursor"] is None
+        assert p1["next_cursor"] is not None
         assert p1["items"][0]["run_id"] == r2
         assert p1["items"][1]["run_id"] == r1
 
@@ -202,6 +202,21 @@ def test_runs_json_response_validates_as_model() -> None:
     RunListJsonResponse.model_validate(r.json())
 
 
+def test_get_api_runs_accept_json_matches_runs_json() -> None:
+    from dataloader.main import app
+
+    with TestClient(app) as client:
+        via_json = client.get("/api/runs.json", params={"limit": 5, "offset": 0})
+        via_accept = client.get(
+            "/api/runs",
+            params={"limit": 5, "offset": 0},
+            headers={"Accept": "application/json"},
+        )
+    assert via_json.status_code == 200
+    assert via_accept.status_code == 200
+    assert via_accept.json() == via_json.json()
+
+
 @pytest.mark.parametrize("limit,offset", [(1, 0), (20, 0), (50, 0), (10, 5), (100, 0)])
 def test_runs_json_openapi_contract_parametrize(limit: int, offset: int) -> None:
     """Light contract check (Plan 00 §6.6 style) without schemathesis ASGI lifespan issues."""
@@ -227,7 +242,7 @@ def test_keyset_mode_returns_next_cursor_when_more_pages() -> None:
 
         p1 = client.get("/api/runs.json", params={"limit": 2, "mt_org_id": org}).json()
         assert p1["has_more"] is True
-        assert p1["next_cursor"] is None
+        assert p1["next_cursor"] is not None
 
         last = p1["items"][-1]
         cur = encode_runs_seek_cursor(last["started_at"], last["run_id"])
@@ -237,3 +252,22 @@ def test_keyset_mode_returns_next_cursor_when_more_pages() -> None:
         ).json()
         assert p2["has_more"] is True
         assert p2["next_cursor"] is not None
+
+
+def test_get_api_runs_html_hard_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    from dataloader.main import app
+    from dataloader.routers import runs as runs_router
+
+    u = uuid.uuid4().hex[:8]
+    ids = [f"rh_{u}_{i}" for i in range(3)]
+    org = f"org_html_cap_{u}"
+    monkeypatch.setattr(runs_router, "HTML_RUNS_HARD_CAP", 2)
+
+    with TestClient(app) as client:
+        factory = app.state.async_session_factory
+        asyncio.run(_seed_n_runs_iso(factory, ids, mt_org_id=org))
+        r = client.get("/api/runs", params={"mt_org_id": org})
+    assert r.status_code == 200
+    assert ids[2] in r.text
+    assert ids[1] in r.text
+    assert ids[0] not in r.text

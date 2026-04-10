@@ -25,3 +25,4 @@ aiosqlite==0.20.0
 alembic==1.14.0
 pytest-asyncio==0.25.0
 syrupy==4.8.1
+schemathesis==4.15.1
