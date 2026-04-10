@@ -10,7 +10,7 @@ from tenacity import RetryError, retry, retry_if_exception, retry_if_result
 
 from models import HandlerResult
 
-from .constants import (
+from ..constants import (
     DELETABILITY,
     SDK_ATTR_MAP,
     TENACITY_STOP_30,
