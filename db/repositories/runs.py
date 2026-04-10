@@ -124,6 +124,7 @@ async def finalize_run(
     resources_created_count: int | None = None,
     resources_staged_count: int | None = None,
     resources_failed_count: int | None = None,
+    manifest_json: str | None = None,
 ) -> None:
     values: dict[str, Any] = {"status": status, "completed_at": completed_at}
     if resources_created_count is not None:
@@ -132,6 +133,8 @@ async def finalize_run(
         values["resources_staged_count"] = resources_staged_count
     if resources_failed_count is not None:
         values["resources_failed_count"] = resources_failed_count
+    if manifest_json is not None:
+        values["manifest_json"] = manifest_json
     await session.execute(update(Run).where(Run.run_id == run_id).values(**values))
 
 
@@ -265,6 +268,7 @@ async def backfill_upsert_run(
     resources_created_count: int = 0,
     resources_staged_count: int = 0,
     resources_failed_count: int = 0,
+    manifest_json: str | None = None,
 ) -> None:
     """Insert or replace run metadata from disk manifest (historical import)."""
     set_: dict[str, Any] = {
@@ -279,6 +283,8 @@ async def backfill_upsert_run(
         "resources_staged_count": resources_staged_count,
         "resources_failed_count": resources_failed_count,
     }
+    if manifest_json is not None:
+        set_["manifest_json"] = manifest_json
     stmt = (
         sqlite_insert(Run)
         .values(
@@ -293,6 +299,7 @@ async def backfill_upsert_run(
             resources_created_count=resources_created_count,
             resources_staged_count=resources_staged_count,
             resources_failed_count=resources_failed_count,
+            manifest_json=manifest_json,
         )
         .on_conflict_do_update(
             index_elements=["run_id"],
