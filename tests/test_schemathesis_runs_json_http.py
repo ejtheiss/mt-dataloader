@@ -68,15 +68,18 @@ def test_schemathesis_runs_json_contract_http(tmp_path: Path) -> None:
     )
     try:
         _wait_for_openapi(base_url)
-        schema = schemathesis.openapi.from_url(f"{base_url}/openapi.json").include(
+        schema = schemathesis.openapi.from_uri(
+            f"{base_url}/openapi.json",
+            force_schema_version="30",
+        ).include(
             path="/api/runs.json",
             method="GET",
         )
         op = next(schema.get_all_operations()).ok()
         cases = [
-            op.Case(query={"limit": 1, "offset": 0}),
-            op.Case(query={"limit": 20, "offset": 0}),
-            op.Case(query={"limit": 50, "sort": "status", "dir": "desc"}),
+            op.make_case(query={"limit": 1, "offset": 0}),
+            op.make_case(query={"limit": 20, "offset": 0}),
+            op.make_case(query={"limit": 50, "sort": "status", "dir": "desc"}),
         ]
         for case in cases:
             case.call_and_validate(base_url=base_url)
