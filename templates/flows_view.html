@@ -57,7 +57,11 @@
 {% endif %}
 
 <details class="metadata-panel">
-    <summary>Trace Metadata</summary>
+    <summary>Trace Metadata
+        <span class="info-icon" tabindex="0" role="img" aria-label="How trace metadata works"
+              title="trace_key, trace_value_template, and trace_metadata apply to every step. Per-step metadata is only for extra keys not set here; those keys are hidden under each step and flow-level values win on conflict."
+              onclick="event.stopPropagation();">&#9432;</span>
+    </summary>
     <div class="metadata-panel-body">
         <div class="metadata-row">
             <label class="metadata-label">trace_key</label>
@@ -67,11 +71,6 @@
             <label class="metadata-label">trace_value_template</label>
             <input type="text" class="metadata-input metadata-tpl-input" id="meta-trace-value-tpl" value="{{ trace_value_template }}">
         </div>
-
-        <p class="text-muted" style="font-size: 0.85rem; margin: 0 0 8px;">
-            <strong>trace_key</strong> and <strong>trace_metadata</strong> below apply to <em>every</em> step automatically.
-            Use per-step metadata only for extra keys that are not duplicated here (flow-level values win on conflict).
-        </p>
 
         <div class="metadata-kv-section">
             <label class="metadata-label">trace_metadata</label>
@@ -89,10 +88,7 @@
 
         {% if per_step_metadata %}
         <div class="metadata-steps-section">
-            <label class="metadata-label">Per-step only metadata</label>
-            <p class="text-muted" style="font-size: 0.85rem; margin: 0 0 8px;">
-                Keys already set above are omitted here. Add step-specific tags only.
-            </p>
+            <label class="metadata-label">Per-Step Metadata</label>
             {% for sm in per_step_metadata %}
             <details class="metadata-step-detail"{% if sm.metadata %} open{% endif %}>
                 <summary>
