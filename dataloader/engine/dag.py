@@ -144,6 +144,125 @@ def inject_legal_entity_psp_connection_id(
             return
 
 
+def _is_known_or_child_ref(dep: str, all_known_refs: set[str]) -> bool:
+    """True if *dep* exists in config/known refs or parent (type.key) does (child selector)."""
+    if dep in all_known_refs:
+        return True
+    parts = dep.split(".")
+    if len(parts) >= 3:
+        parent = f"{parts[0]}.{parts[1]}"
+        return parent in all_known_refs
+    return False
+
+
+def _dry_run_known_refs_union(
+    resource_map: dict[str, _BaseResourceConfig],
+    known_refs: set[str] | None,
+) -> set[str]:
+    all_known = set(resource_map.keys())
+    if known_refs:
+        all_known |= known_refs
+    return all_known
+
+
+def _dry_run_assert_refs_resolvable(
+    resource_map: dict[str, _BaseResourceConfig],
+    all_known_refs: set[str],
+) -> None:
+    for ref, resource in resource_map.items():
+        for dep in extract_ref_dependencies(resource):
+            if not _is_known_or_child_ref(dep, all_known_refs):
+                raise KeyError(
+                    f"Unresolvable ref '$ref:{dep}' in resource '{ref}'. "
+                    f"It must be defined in the config."
+                )
+
+    for ref, resource in resource_map.items():
+        for dep_str in resource.depends_on:
+            if dep_str.startswith("$ref:"):
+                dep = dep_str[5:]
+                if not _is_known_or_child_ref(dep, all_known_refs):
+                    raise KeyError(
+                        f"Unresolvable depends_on ref '$ref:{dep}' in "
+                        f"resource '{ref}'. It must be defined in the "
+                        f"config."
+                    )
+
+
+def _dry_run_validate_staged_constraints(
+    resource_map: dict[str, _BaseResourceConfig],
+) -> None:
+    staged_refs = {
+        ref for ref, resource in resource_map.items() if getattr(resource, "staged", False)
+    }
+    for ref in staged_refs:
+        rtype = resource_map[ref].resource_type
+        if rtype not in FIREABLE_TYPES:
+            logger.warning(
+                "Staged resource '{}' has type '{}' which cannot be fired. Fireable types: {}",
+                ref,
+                rtype,
+                ", ".join(sorted(FIREABLE_TYPES)),
+            )
+    if not staged_refs:
+        return
+
+    def _dep_hits_staged(dep: str) -> str | None:
+        if dep in staged_refs:
+            return dep
+        parts = dep.split(".")
+        if len(parts) >= 3:
+            parent = f"{parts[0]}.{parts[1]}"
+            if parent in staged_refs:
+                return parent
+        return None
+
+    for ref, resource in resource_map.items():
+        if ref in staged_refs:
+            for dep in extract_ref_dependencies(resource):
+                hit = _dep_hits_staged(dep)
+                if hit:
+                    raise ValueError(
+                        f"Staged resource '{ref}' has a data-field "
+                        f"$ref to staged resource '{hit}' (via "
+                        f"'{dep}'). Data-field refs between staged "
+                        f"resources cannot resolve at execution time "
+                        f"because staged resources have no created_id. "
+                        f"Either un-stage '{hit}' or remove the $ref."
+                    )
+        else:
+            all_deps = extract_ref_dependencies(resource)
+            for dep_str in resource.depends_on:
+                if dep_str.startswith("$ref:"):
+                    all_deps.add(dep_str[5:])
+            for dep in all_deps:
+                hit = _dep_hits_staged(dep)
+                if hit:
+                    raise ValueError(
+                        f"Resource '{ref}' depends on staged resource "
+                        f"'{hit}' (via '{dep}'). Either un-stage "
+                        f"'{hit}' or also stage '{ref}'."
+                    )
+
+
+def _dry_run_batches_from_sorter(
+    ts: TopologicalSorter,
+    resource_map: dict[str, _BaseResourceConfig],
+    skip_refs: set[str],
+) -> list[list[str]]:
+    batches: list[list[str]] = []
+    while ts.is_active():
+        ready = ts.get_ready()
+        to_create = [r for r in ready if r in resource_map and r not in skip_refs]
+        auto_done = [r for r in ready if r not in resource_map or r in skip_refs]
+        if auto_done:
+            ts.done(*auto_done)
+        if to_create:
+            batches.append(to_create)
+            ts.done(*to_create)
+    return batches
+
+
 def dry_run(
     config: DataLoaderConfig,
     known_refs: set[str] | None = None,
@@ -163,102 +282,8 @@ def dry_run(
     ts, resource_map = build_dag(config)
     ts.prepare()
 
-    all_known_refs = set(resource_map.keys())
-    if known_refs:
-        all_known_refs |= known_refs
+    all_known_refs = _dry_run_known_refs_union(resource_map, known_refs)
+    _dry_run_assert_refs_resolvable(resource_map, all_known_refs)
+    _dry_run_validate_staged_constraints(resource_map)
 
-    def _is_known_or_child(dep: str) -> bool:
-        """A ref is resolvable if it exists directly, or if its parent
-        (type.key) exists and the ref has a child selector (.account[0], etc.).
-        Child refs are auto-registered at runtime by handlers."""
-        if dep in all_known_refs:
-            return True
-        parts = dep.split(".")
-        if len(parts) >= 3:
-            parent = f"{parts[0]}.{parts[1]}"
-            return parent in all_known_refs
-        return False
-
-    for ref, resource in resource_map.items():
-        for dep in extract_ref_dependencies(resource):
-            if not _is_known_or_child(dep):
-                raise KeyError(
-                    f"Unresolvable ref '$ref:{dep}' in resource '{ref}'. "
-                    f"It must be defined in the config."
-                )
-
-    for ref, resource in resource_map.items():
-        for dep_str in resource.depends_on:
-            if dep_str.startswith("$ref:"):
-                dep = dep_str[5:]
-                if not _is_known_or_child(dep):
-                    raise KeyError(
-                        f"Unresolvable depends_on ref '$ref:{dep}' in "
-                        f"resource '{ref}'. It must be defined in the "
-                        f"config."
-                    )
-
-    staged_refs = {
-        ref for ref, resource in resource_map.items() if getattr(resource, "staged", False)
-    }
-    for ref in staged_refs:
-        rtype = resource_map[ref].resource_type
-        if rtype not in FIREABLE_TYPES:
-            logger.warning(
-                "Staged resource '{}' has type '{}' which cannot be fired. Fireable types: {}",
-                ref,
-                rtype,
-                ", ".join(sorted(FIREABLE_TYPES)),
-            )
-    if staged_refs:
-
-        def _dep_hits_staged(dep: str) -> str | None:
-            if dep in staged_refs:
-                return dep
-            parts = dep.split(".")
-            if len(parts) >= 3:
-                parent = f"{parts[0]}.{parts[1]}"
-                if parent in staged_refs:
-                    return parent
-            return None
-
-        for ref, resource in resource_map.items():
-            if ref in staged_refs:
-                for dep in extract_ref_dependencies(resource):
-                    hit = _dep_hits_staged(dep)
-                    if hit:
-                        raise ValueError(
-                            f"Staged resource '{ref}' has a data-field "
-                            f"$ref to staged resource '{hit}' (via "
-                            f"'{dep}'). Data-field refs between staged "
-                            f"resources cannot resolve at execution time "
-                            f"because staged resources have no created_id. "
-                            f"Either un-stage '{hit}' or remove the $ref."
-                        )
-            else:
-                all_deps = extract_ref_dependencies(resource)
-                for dep_str in resource.depends_on:
-                    if dep_str.startswith("$ref:"):
-                        all_deps.add(dep_str[5:])
-                for dep in all_deps:
-                    hit = _dep_hits_staged(dep)
-                    if hit:
-                        raise ValueError(
-                            f"Resource '{ref}' depends on staged resource "
-                            f"'{hit}' (via '{dep}'). Either un-stage "
-                            f"'{hit}' or also stage '{ref}'."
-                        )
-
-    _skip = skip_refs or set()
-    batches: list[list[str]] = []
-    while ts.is_active():
-        ready = ts.get_ready()
-        to_create = [r for r in ready if r in resource_map and r not in _skip]
-        auto_done = [r for r in ready if r not in resource_map or r in _skip]
-        if auto_done:
-            ts.done(*auto_done)
-        if to_create:
-            batches.append(to_create)
-            ts.done(*to_create)
-
-    return batches
+    return _dry_run_batches_from_sorter(ts, resource_map, skip_refs or set())
