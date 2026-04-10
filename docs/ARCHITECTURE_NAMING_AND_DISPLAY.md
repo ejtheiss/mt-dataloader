@@ -14,7 +14,31 @@ This document is the **in-repo** source for how **actor keys, human labels, prev
 | **NW-2** — block Execute if preview stale | **Not done** | `dataloader/routers/execute.py` uses `config_hash` for DB run rows, not to compare against last `build_preview`. |
 | **NW-3** — `resolve_mt_display_label` | **Not done** | Symbol absent; `dataloader/preview_labels.py` still falls back to `flow_compiler.actor_display_name`. |
 | **NW-4** — grouped preview actor strip = MT names | **Not done** | `build_flow_grouped_preview` still sets `"alias"` from `flatten_actor_refs` keys (wiring), not from `preview_items` / `mt_display_name`. |
-| **NW-5** — Mermaid uses shared labels | **Not done** | `flow_compiler/mermaid.py`: `_build_ref_display_map`, `_resolve_actor_display`, `actor_display_name` still drive participants. |
+| **NW-5** — Mermaid uses shared labels | **Not done** | `flow_compiler/mermaid.py`: `_build_ref_display_map`, `_resolve_actor_display`, `actor_display_name` still drive participants. **Mandatory execution checklist:** see **§ NW-5 — mandatory checklist** below (do not rely on informal “we’ll fix Mermaid later”). |
+
+### NW-5 — mandatory checklist (Mermaid shared labels)
+
+**Do not ship NW-5 as a drive-by.** Every PR that claims **NW-5** progress must tick the relevant boxes and update **`docs/ARCHITECTURE_NAMING_AND_DISPLAY.md`** § *Implementation status* when status flips.
+
+1. **Gate — NW-3 done first**  
+   - **`resolve_mt_display_label`** (or the **actual** exported name chosen in **10** Phase B) exists, is tested, and is used by at least one **preview** path.  
+   - If the shipped API **differs** from older plan prose (`preview_by_typed`, parameter names, etc.), **update** maintainer-local **`plan/3.31.26 plans-data loader/08_compiler_mermaid_scope.md`** § *Plan 17 Phase C* and **`17a`** § *Code health — Mermaid* in the **same PR** as the code — plans follow code, not the reverse.
+
+2. **Wire Mermaid to the resolver**  
+   - Build **`ref_labels: dict[str, str]`** (or pass through whatever structure NW-3 defines) at **`pass_render_diagrams`** and **`generate_from_recipe`** call sites, using **session / preview / plan** context when available.  
+   - **`render_mermaid`** must accept that input; **pre-Apply / headless** paths use the **documented** slug fallback (no alias+slot display map on the user-visible path).
+
+3. **Delete legacy display-map usage from the Mermaid path only after (2) works**  
+   - Remove **`_build_ref_display_map`**, **`_resolve_actor_display`**, and **`actor_display_name`** from the **diagram** code path per **`17a`** Part B §B.8 / **§19** register — **not** before tests pass with resolver labels.  
+   - **`flow_compiler/display.py`** / **`__init__.py` exports:** coordinate with **NW-6 / NW-9** sweeps; do not leave orphan callers.
+
+4. **Docs in lockstep**  
+   - Update this file’s **NW-5** row to **Done** only when grep confirms the legacy path is gone from **`mermaid.py`** participant resolution.  
+   - Add/update a **01_cycle_ledger.md** PR row for each merge (table stakes per cycle rules).
+
+5. **Regression tests**  
+   - **Syrupy** (or equivalent) golden strings for **at least one** representative diagram after NW-5; keep **`tests/test_mermaid_and_dry.py`** coverage.  
+   - Resolver unit tests live next to NW-3; Mermaid tests assert **labels match** preview policy, not duplicate map logic.
 | **NW-6** — fund-flow columns | **Not done** | `flow_compiler/flow_views.py` still imports `build_ref_display_map` / `resolve_actor_display`. |
 | **NW-7** — case card participants | **Treat as open** | Needs a focused template/router pass to confirm. |
 | **NW-8** — one expansion world | **Not done** | `flow_compiler/pipeline.py` `pass_expand_instances` still uses hardcoded `default_profile` demo strings. |

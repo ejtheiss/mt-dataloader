@@ -17,6 +17,15 @@ python -m pytest tests/ -q
 python -m pytest tests/ -x -q   # stop on first failure
 ```
 
+### Snapshot tests (**syrupy**)
+
+**Plan 08** (compiler refactor / Mermaid) uses **[syrupy](https://github.com/syrupy-org/syrupy)** for golden snapshots (e.g. `compile_flows` / IR / Mermaid string output). It is listed in **`requirements.txt`** so CI installs it with `pip install -r requirements.txt`.
+
+- Update snapshots intentionally: `pytest --snapshot-update` (or the path to the test file).
+- Do not commit snapshot changes without reviewing the diff (silent IR drift is the failure mode we are guarding against).
+
+Normative plan detail: **`plan/…/08_compiler_mermaid_scope.md`** § *Golden snapshots (normative)*.
+
 ## Run the app
 
 ```bash
