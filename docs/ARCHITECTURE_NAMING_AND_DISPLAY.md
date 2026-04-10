@@ -119,6 +119,7 @@ These override earlier “optional” or “two world” wording until implement
 
 | Stage | File | Name-related behavior |
 |-------|------|------------------------|
+| Orchestration | `flow_compiler/generation_pipeline.py` `run_generation_pipeline` | Plan 08 Track B: P0–P13 phase order; see **`docs/FLOW_COMPILER_CORE_MODULES.md`**. |
 | Recipe | `models/flow_dsl.py` `GenerationRecipeV1` | `actor_overrides[frame_key]` → `customer_name`, `name_template`, `dataset`, `entity_type` |
 | Profile | `flow_compiler/generation.py` `_build_instance_profile` | Per frame: literals or Faker via `seed_loader`; keys `{alias}_name`, `{alias}_business_name`, … |
 | Clone / expand | `clone_flow`, `_expand_instance_resources` | `deep_format_map`, `_bind_bare_business_name` |

@@ -1,6 +1,6 @@
-# Flow compiler core modules (Plan 08 Track A)
+# Flow compiler — Plan 08 module map (Track A + Track B)
 
-This document records how **`compile_flows` / `emit_dataloader_config`** were split for **Plan 08** (compiler / Mermaid scope). The normative product plan lives under the maintainer-local `plan/` tree (e.g. `plan/3.31.26_plans-data_loader/08_compiler_mermaid_scope.md`). This **tracked** note exists so **follow-up plans** and reviewers can map prose (`core/lifecycle.py`) to **actual paths** without assuming a `flow_compiler/core/` package exists yet.
+This document records how **Plan 08** (compiler / generation / Mermaid scope) is implemented in **tracked** code. The normative product plan lives under the maintainer-local `plan/` tree (e.g. `plan/3.31.26_plans-data_loader/08_compiler_mermaid_scope.md`). Use this file to map plan prose (`core/lifecycle.py`, `generation/pipeline.py`) to **actual paths** (`core_lifecycle.py`, `generation_pipeline.py`) without assuming a `flow_compiler/core/` or `flow_compiler/generation/` **package** (both would shadow existing modules).
 
 ## Why `core_*.py` instead of `flow_compiler/core/`?
 
@@ -25,8 +25,31 @@ Until that migration, extracted pieces live as **sibling modules**:
 | `core/emit.py` (A4-3) | `flow_compiler/core_emit.py` |
 | `core/step_compile.py` (A4-4) | `flow_compiler/core_step_compile.py` |
 | `compile_pipeline` / thin `compile_flows` | `flow_compiler/core.py` (`compile_flows`, `_compile_one_flow`, phase helpers) |
+| `core/actors.py` (A4-5) | `flow_compiler/core_actors.py` — `flatten_actor_refs`, `resolve_actors`, `expand_trace_value` (re-exported from `core`) |
 
 **Public API:** Callers should keep using **`from flow_compiler import …`** or **`from flow_compiler.core import …`**. The package **`__init__.py`** and **`core.py`** re-export symbols so tests and routers do not need to import `core_*` directly.
+
+## Track B — `generate_from_recipe` (B4-1 / B4-2)
+
+Plan §B.3 targets `generation/pipeline.py`. Implemented as **`flow_compiler/generation_pipeline.py`** so **`generation.py`** is not shadowed by a package.
+
+| Piece | Location |
+| ----- | -------- |
+| Thin entrypoint | `generation.generate_from_recipe` → lazy-imports `run_generation_pipeline` |
+| P0–P13 orchestration | `generation_pipeline.run_generation_pipeline` and `_p0_*` … `_p13_*` helpers |
+| Clone, variance, edge preselect, … | Unchanged in **`generation.py`** (single source for step logic) |
+
+**Lazy Mermaid (R7):** `_p13_mermaid_diagrams` imports **`render_mermaid`** inside the function so **`generation_pipeline`** does not load **`mermaid.py`** at import time.
+
+**Deferred (Plan 17 Phase D / B4-3):** Identity work (`subseed`, `profile_for` alignment inside a dedicated **`profiles`** module) stays a **follow-up** tied to plan **17**; this PR does not fork `generate_from_recipe`.
+
+## Track C — Mermaid / NW-5
+
+**Not executed here.** Plan §Track C and §Plan 17 Phase C require **`resolve_mt_display_label`** (NW-3) first. Until then, **`mermaid.py`** keeps `_build_ref_display_map` / legacy display helpers per architecture checklist.
+
+## Backlog (Plan 08 doc) — seed `_DATASETS` manifest
+
+Deriving **`seed_loader._DATASETS`** from a manifest over **`flow_compiler/seeds/*.yaml`** is **not** part of this change; track under seed / catalog work when scheduled.
 
 ## Import cycle note (A4-4)
 

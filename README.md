@@ -384,9 +384,11 @@ models/              Pydantic config schemas
   settings.py        AppSettings (env config)
   runtime.py         Runtime models (HandlerResult, RunManifest)
 
-flow_compiler/       Funds Flow DSL compiler
-  core.py            compile_to_plan(), compile_flows(), emit_dataloader_config()
-  generation.py      Generation pipeline: recipe → N instances, edge case pre-selection
+flow_compiler/       Funds Flow DSL compiler (see docs/FLOW_COMPILER_CORE_MODULES.md)
+  core.py            compile_flows(); re-exports emit + actors; thin orchestration
+  core_*.py          Plan 08 splits: lifecycle, optional_groups, emit, step_compile, actors
+  generation.py      Recipe helpers (clone, variance, edge preselect, …)
+  generation_pipeline.py  generate_from_recipe orchestration (P0–P13)
   flow_validator.py  Config-level flow validation (advisory diagnostics)
   seed_loader.py     Dataset profiles + YAML seeds under seeds/
   mermaid.py         Mermaid sequenceDiagram rendering
