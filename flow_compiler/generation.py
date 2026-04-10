@@ -1,7 +1,49 @@
 """Generation pipeline: clone, variance, activation, staging, recipe expansion.
 
-Handles the transformation from a ``GenerationRecipeV1`` into N flow
-instances plus their compiled output.
+Transforms a ``GenerationRecipeV1`` into N flow instances plus compiled output.
+The ordered phases below match ``generate_from_recipe`` (verified 2026-04-10;
+keep in sync when refactoring — Plan 08 Track B).
+
+**Per-instance loop** runs for ``i in range(recipe.instances)``.
+
++----------+--------------------------------------------------------------+
+| Phase    | What runs                                                    |
++==========+==============================================================+
+| P0       | Resolve pattern: find ``FundsFlowConfig`` by ``flow_ref``;   |
+|          | build ``pattern_dict``, ``edge_overrides``.                  |
++----------+--------------------------------------------------------------+
+| P1       | Edge preselection: ``preselect_edge_cases``.                 |
++----------+--------------------------------------------------------------+
+| P2       | Staging: ``select_staged_instances``.                        |
++----------+--------------------------------------------------------------+
+| P3       | Timing precompute: ``compute_spread_offsets`` when spread > 0.|
++----------+--------------------------------------------------------------+
+| P4       | Per ``i``: profile → ``clone_flow`` → ``_expand_instance_resources``. |
++----------+--------------------------------------------------------------+
+| P5       | Per ``i``: ``apply_overrides`` (recipe-level).               |
++----------+--------------------------------------------------------------+
+| P6       | Per ``i``: ``apply_amount_variance`` (optional).             |
++----------+--------------------------------------------------------------+
+| P7       | Per ``i``: optional groups — ``activate_optional_groups``,   |
+|          | stamp ``_flow_*`` metadata, ``flatten_optional_groups``.     |
++----------+--------------------------------------------------------------+
+| P8       | Per ``i``: ``mark_staged`` when ``i`` is staged.           |
++----------+--------------------------------------------------------------+
+| P9       | Per ``i``: ``_apply_payment_mix``.                           |
++----------+--------------------------------------------------------------+
+| P10      | Per ``i``: ``compute_effective_dates`` when timing signals.  |
++----------+--------------------------------------------------------------+
+| P11      | Per ``i``: ``FundsFlowConfig.model_validate(flow_dict)``.    |
++----------+--------------------------------------------------------------+
+| P12      | Post-loop: ``compile_flows``, ``emit_dataloader_config``.    |
++----------+--------------------------------------------------------------+
+| P13      | Post-loop: ``render_mermaid`` for first 10 ``(ir, flow)`` pairs. |
++----------+--------------------------------------------------------------+
+
+**Order note:** overrides run before variance and before optional-group
+activation; ``flatten_optional_groups`` runs after activation and metadata
+stamping. Mermaid runs after the full multi-instance compile, not inside the
+instance loop.
 """
 
 from __future__ import annotations
@@ -499,6 +541,8 @@ def generate_from_recipe(
     base_config: DataLoaderConfig,
 ) -> GenerationResult:
     """Expand a recipe into N flow instances, compile, and render Mermaid.
+
+    Phase order is documented in this module's docstring (P0–P13).
 
     Returns a ``GenerationResult`` with compiled config, diagrams,
     edge-case map, flow IRs, and expanded flow configs.
