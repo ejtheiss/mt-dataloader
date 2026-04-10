@@ -30,6 +30,7 @@ __all__ = [
     "_le_display_name",
     "_le_display_name_from_sdk",
     "discover_org",
+    "resource_types_in_config",
 ]
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -196,30 +197,22 @@ def _le_display_name(le: DiscoveredLegalEntity) -> str:
     )
 
 
+def resource_types_in_config(config: Any | None) -> set[str]:
+    """Resource types present in *config* (for conditional discovery phases)."""
+    if config is None:
+        return set()
+    return {res.resource_type for res in all_resources(config)}
+
+
 # ---------------------------------------------------------------------------
-# Main discovery function
+# Discovery phases (CH-4) — strict order; mutate *result* in place
 # ---------------------------------------------------------------------------
 
 
-async def discover_org(
+async def _phase_connections(
     client: AsyncModernTreasury,
-    config: Any | None = None,
-) -> DiscoveryResult:
-    """Discover existing resources from a live org.
-
-    Connections, internal accounts, and ledgers are always fetched.
-    Legal entities and counterparties are only fetched when the config
-    contains those sections (conditional fetch -- avoids pulling thousands
-    of resources in production orgs that don't need them).
-    """
-    result = DiscoveryResult()
-
-    config_types: set[str] = set()
-    if config is not None:
-        for res in all_resources(config):
-            config_types.add(res.resource_type)
-
-    # --- Connections ---
+    result: DiscoveryResult,
+) -> None:
     conn_objects, conn_names = await _collect_named(
         client.connections.list(),
         lambda c: c.vendor_name,
@@ -242,9 +235,13 @@ async def discover_org(
             "Your config will need to create one (sandbox-only, via connections section)."
         )
 
+
+async def _phase_internal_accounts(
+    client: AsyncModernTreasury,
+    result: DiscoveryResult,
+) -> None:
     conn_id_to_ref: dict[str, str] = {c.id: c.auto_ref for c in result.connections}
 
-    # --- Internal Accounts ---
     def _ia_name(ia: Any) -> str:
         return ia.name or f"ia_{(ia.currency or 'usd').lower()}_{ia.id[:8]}"
 
@@ -273,6 +270,8 @@ async def discover_org(
             "Your config will need to create one (requires a connection)."
         )
 
+
+def _phase_attach_connection_currencies(result: DiscoveryResult) -> None:
     conn_currencies: dict[str, set[str]] = {}
     for dia in result.internal_accounts:
         if dia.connection_id:
@@ -280,7 +279,11 @@ async def discover_org(
     for dc in result.connections:
         dc.currencies = sorted(conn_currencies.get(dc.id, set()))
 
-    # --- Ledgers ---
+
+async def _phase_ledgers(
+    client: AsyncModernTreasury,
+    result: DiscoveryResult,
+) -> None:
     ledger_objects, ledger_names = await _collect_named(
         client.ledgers.list(),
         lambda lg: lg.name,
@@ -296,103 +299,151 @@ async def discover_org(
             )
         )
 
+
+async def _phase_ledger_accounts(
+    client: AsyncModernTreasury,
+    result: DiscoveryResult,
+    ledger_id_to_ref: dict[str, str],
+) -> None:
+    la_objects: list[Any] = []
+    la_names: list[str] = []
+    for dl in result.ledgers:
+        async for la in client.ledger_accounts.list(ledger_id=dl.id):
+            la_objects.append(la)
+            la_names.append(la.name or f"la_{la.id[:8]}")
+
+    la_refs = _assign_unique_refs("ledger_account", la_names)
+    for la, ref in zip(la_objects, la_refs):
+        _currency = getattr(la, "currency", None) or "USD"
+        if _currency == "USD" and la.balances and la.balances.pending_balance:
+            _currency = la.balances.pending_balance.currency or "USD"
+        _normal_balance = getattr(la, "normal_balance", None) or "credit"
+        result.ledger_accounts.append(
+            DiscoveredLedgerAccount(
+                id=la.id,
+                name=la.name or "",
+                currency=_currency,
+                ledger_id=la.ledger_id,
+                ledger_ref=ledger_id_to_ref.get(la.ledger_id, ""),
+                normal_balance=_normal_balance,
+                auto_ref=ref,
+            )
+        )
+
+
+async def _phase_ledger_account_categories(
+    client: AsyncModernTreasury,
+    result: DiscoveryResult,
+    ledger_id_to_ref: dict[str, str],
+) -> None:
+    lac_objects: list[Any] = []
+    lac_names: list[str] = []
+    for dl in result.ledgers:
+        async for lac in client.ledger_account_categories.list(ledger_id=dl.id):
+            lac_objects.append(lac)
+            lac_names.append(lac.name or f"lac_{lac.id[:8]}")
+
+    lac_refs = _assign_unique_refs("ledger_account_category", lac_names)
+    for lac, ref in zip(lac_objects, lac_refs):
+        _lac_currency = getattr(lac, "currency", None) or "USD"
+        if _lac_currency == "USD" and lac.balances and lac.balances.pending_balance:
+            _lac_currency = lac.balances.pending_balance.currency or "USD"
+        _lac_normal_balance = getattr(lac, "normal_balance", None) or "credit"
+        result.ledger_account_categories.append(
+            DiscoveredLedgerAccountCategory(
+                id=lac.id,
+                name=lac.name or "",
+                currency=_lac_currency,
+                ledger_id=lac.ledger_id,
+                ledger_ref=ledger_id_to_ref.get(lac.ledger_id, ""),
+                normal_balance=_lac_normal_balance,
+                auto_ref=ref,
+            )
+        )
+
+
+async def _phase_legal_entities(
+    client: AsyncModernTreasury,
+    result: DiscoveryResult,
+) -> None:
+    le_objects, le_names = await _collect_named(
+        client.legal_entities.list(),
+        _le_display_name_from_sdk,
+    )
+
+    le_refs = _assign_unique_refs("legal_entity", le_names)
+    for le, ref in zip(le_objects, le_refs):
+        result.legal_entities.append(
+            DiscoveredLegalEntity(
+                id=le.id,
+                legal_entity_type=le.legal_entity_type or "business",
+                business_name=le.business_name,
+                first_name=le.first_name,
+                last_name=le.last_name,
+                status=le.status or "unknown",
+                auto_ref=ref,
+            )
+        )
+
+
+async def _phase_counterparties(
+    client: AsyncModernTreasury,
+    result: DiscoveryResult,
+) -> None:
+    cp_objects, cp_names = await _collect_named(
+        client.counterparties.list(),
+        lambda cp: cp.name or f"cp_{cp.id[:8]}",
+    )
+
+    cp_refs = _assign_unique_refs("counterparty", cp_names)
+    for cp, ref in zip(cp_objects, cp_refs):
+        acct_ids = [a.id for a in (cp.accounts or []) if a.id]
+        result.counterparties.append(
+            DiscoveredCounterparty(
+                id=cp.id,
+                name=cp.name or f"cp_{cp.id[:8]}",
+                legal_entity_id=cp.legal_entity_id,
+                account_count=len(cp.accounts) if cp.accounts else 0,
+                account_ids=acct_ids,
+                auto_ref=ref,
+            )
+        )
+
+
+# ---------------------------------------------------------------------------
+# Main discovery function
+# ---------------------------------------------------------------------------
+
+
+async def discover_org(
+    client: AsyncModernTreasury,
+    config: Any | None = None,
+) -> DiscoveryResult:
+    """Discover existing resources from a live org.
+
+    Connections, internal accounts, and ledgers are always fetched.
+    Legal entities and counterparties are only fetched when the config
+    contains those sections (conditional fetch -- avoids pulling thousands
+    of resources in production orgs that don't need them).
+    """
+    result = DiscoveryResult()
+    config_types = resource_types_in_config(config)
+
+    await _phase_connections(client, result)
+    await _phase_internal_accounts(client, result)
+    _phase_attach_connection_currencies(result)
+    await _phase_ledgers(client, result)
+
     ledger_id_to_ref: dict[str, str] = {dl.id: dl.auto_ref for dl in result.ledgers}
 
-    # --- Ledger Accounts (conditional) ---
     if "ledger_account" in config_types:
-        la_objects: list[Any] = []
-        la_names: list[str] = []
-        for dl in result.ledgers:
-            async for la in client.ledger_accounts.list(ledger_id=dl.id):
-                la_objects.append(la)
-                la_names.append(la.name or f"la_{la.id[:8]}")
-
-        la_refs = _assign_unique_refs("ledger_account", la_names)
-        for la, ref in zip(la_objects, la_refs):
-            _currency = getattr(la, "currency", None) or "USD"
-            if _currency == "USD" and la.balances and la.balances.pending_balance:
-                _currency = la.balances.pending_balance.currency or "USD"
-            _normal_balance = getattr(la, "normal_balance", None) or "credit"
-            result.ledger_accounts.append(
-                DiscoveredLedgerAccount(
-                    id=la.id,
-                    name=la.name or "",
-                    currency=_currency,
-                    ledger_id=la.ledger_id,
-                    ledger_ref=ledger_id_to_ref.get(la.ledger_id, ""),
-                    normal_balance=_normal_balance,
-                    auto_ref=ref,
-                )
-            )
-
-    # --- Ledger Account Categories (conditional) ---
+        await _phase_ledger_accounts(client, result, ledger_id_to_ref)
     if "ledger_account_category" in config_types:
-        lac_objects: list[Any] = []
-        lac_names: list[str] = []
-        for dl in result.ledgers:
-            async for lac in client.ledger_account_categories.list(ledger_id=dl.id):
-                lac_objects.append(lac)
-                lac_names.append(lac.name or f"lac_{lac.id[:8]}")
-
-        lac_refs = _assign_unique_refs("ledger_account_category", lac_names)
-        for lac, ref in zip(lac_objects, lac_refs):
-            _lac_currency = getattr(lac, "currency", None) or "USD"
-            if _lac_currency == "USD" and lac.balances and lac.balances.pending_balance:
-                _lac_currency = lac.balances.pending_balance.currency or "USD"
-            _lac_normal_balance = getattr(lac, "normal_balance", None) or "credit"
-            result.ledger_account_categories.append(
-                DiscoveredLedgerAccountCategory(
-                    id=lac.id,
-                    name=lac.name or "",
-                    currency=_lac_currency,
-                    ledger_id=lac.ledger_id,
-                    ledger_ref=ledger_id_to_ref.get(lac.ledger_id, ""),
-                    normal_balance=_lac_normal_balance,
-                    auto_ref=ref,
-                )
-            )
-
-    # --- Legal Entities (conditional) ---
+        await _phase_ledger_account_categories(client, result, ledger_id_to_ref)
     if "legal_entity" in config_types:
-        le_objects, le_names = await _collect_named(
-            client.legal_entities.list(),
-            _le_display_name_from_sdk,
-        )
-
-        le_refs = _assign_unique_refs("legal_entity", le_names)
-        for le, ref in zip(le_objects, le_refs):
-            result.legal_entities.append(
-                DiscoveredLegalEntity(
-                    id=le.id,
-                    legal_entity_type=le.legal_entity_type or "business",
-                    business_name=le.business_name,
-                    first_name=le.first_name,
-                    last_name=le.last_name,
-                    status=le.status or "unknown",
-                    auto_ref=ref,
-                )
-            )
-
-    # --- Counterparties (conditional) ---
+        await _phase_legal_entities(client, result)
     if "counterparty" in config_types:
-        cp_objects, cp_names = await _collect_named(
-            client.counterparties.list(),
-            lambda cp: cp.name or f"cp_{cp.id[:8]}",
-        )
-
-        cp_refs = _assign_unique_refs("counterparty", cp_names)
-        for cp, ref in zip(cp_objects, cp_refs):
-            acct_ids = [a.id for a in (cp.accounts or []) if a.id]
-            result.counterparties.append(
-                DiscoveredCounterparty(
-                    id=cp.id,
-                    name=cp.name or f"cp_{cp.id[:8]}",
-                    legal_entity_id=cp.legal_entity_id,
-                    account_count=len(cp.accounts) if cp.accounts else 0,
-                    account_ids=acct_ids,
-                    auto_ref=ref,
-                )
-            )
+        await _phase_counterparties(client, result)
 
     logger.bind(
         connections=len(result.connections),
