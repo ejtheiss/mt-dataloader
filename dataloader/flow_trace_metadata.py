@@ -1,6 +1,6 @@
 """Trace vs per-step metadata — shared rules for compiler and Fund Flows UI.
 
-``flow_compiler.core._compile_step`` merges:
+``flow_compiler.core_step_compile._compile_step`` merges:
 
     payload["metadata"] = {**step.metadata, **trace_meta}
 

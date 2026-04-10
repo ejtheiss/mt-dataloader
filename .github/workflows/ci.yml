@@ -12,6 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Block tracked files under plan/
+        run: |
+          if git ls-files | grep -qE '^plan(/|$)'; then
+            echo "The plan/ directory must not be tracked. Offending paths:" >&2
+            git ls-files | grep -E '^plan(/|$)' >&2
+            exit 1
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

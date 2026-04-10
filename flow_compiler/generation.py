@@ -1,7 +1,49 @@
 """Generation pipeline: clone, variance, activation, staging, recipe expansion.
 
-Handles the transformation from a ``GenerationRecipeV1`` into N flow
-instances plus their compiled output.
+Transforms a ``GenerationRecipeV1`` into N flow instances plus compiled output.
+The ordered phases below match ``generate_from_recipe`` (verified 2026-04-10;
+keep in sync when refactoring — Plan 08 Track B).
+
+**Per-instance loop** runs for ``i in range(recipe.instances)``.
+
++----------+--------------------------------------------------------------+
+| Phase    | What runs                                                    |
++==========+==============================================================+
+| P0       | Resolve pattern: find ``FundsFlowConfig`` by ``flow_ref``;   |
+|          | build ``pattern_dict``, ``edge_overrides``.                  |
++----------+--------------------------------------------------------------+
+| P1       | Edge preselection: ``preselect_edge_cases``.                 |
++----------+--------------------------------------------------------------+
+| P2       | Staging: ``select_staged_instances``.                        |
++----------+--------------------------------------------------------------+
+| P3       | Timing precompute: ``compute_spread_offsets`` when spread > 0.|
++----------+--------------------------------------------------------------+
+| P4       | Per ``i``: profile → ``clone_flow`` → ``_expand_instance_resources``. |
++----------+--------------------------------------------------------------+
+| P5       | Per ``i``: ``apply_overrides`` (recipe-level).               |
++----------+--------------------------------------------------------------+
+| P6       | Per ``i``: ``apply_amount_variance`` (optional).             |
++----------+--------------------------------------------------------------+
+| P7       | Per ``i``: optional groups — ``activate_optional_groups``,   |
+|          | stamp ``_flow_*`` metadata, ``flatten_optional_groups``.     |
++----------+--------------------------------------------------------------+
+| P8       | Per ``i``: ``mark_staged`` when ``i`` is staged.           |
++----------+--------------------------------------------------------------+
+| P9       | Per ``i``: ``_apply_payment_mix``.                           |
++----------+--------------------------------------------------------------+
+| P10      | Per ``i``: ``compute_effective_dates`` when timing signals.  |
++----------+--------------------------------------------------------------+
+| P11      | Per ``i``: ``FundsFlowConfig.model_validate(flow_dict)``.    |
++----------+--------------------------------------------------------------+
+| P12      | Post-loop: ``compile_flows``, ``emit_dataloader_config``.    |
++----------+--------------------------------------------------------------+
+| P13      | Post-loop: ``render_mermaid`` for first 10 ``(ir, flow)`` pairs. |
++----------+--------------------------------------------------------------+
+
+**Order note:** overrides run before variance and before optional-group
+activation; ``flatten_optional_groups`` runs after activation and metadata
+stamping. Mermaid runs after the full multi-instance compile, not inside the
+instance loop.
 """
 
 from __future__ import annotations
@@ -21,10 +63,7 @@ from models import (
 )
 
 from . import seed_loader
-from .core import compile_flows, emit_dataloader_config, flatten_optional_groups
 from .ir import FlowIR
-from .mermaid import render_mermaid
-from .timing import compute_effective_dates, compute_spread_offsets
 
 
 @dataclass(frozen=True)
@@ -500,157 +539,12 @@ def generate_from_recipe(
 ) -> GenerationResult:
     """Expand a recipe into N flow instances, compile, and render Mermaid.
 
+    Phase order is documented in this module's docstring (P0–P13).  The
+    orchestration body lives in ``generation_pipeline.run_generation_pipeline``.
+
     Returns a ``GenerationResult`` with compiled config, diagrams,
     edge-case map, flow IRs, and expanded flow configs.
     """
-    pattern = next(
-        (f for f in base_config.funds_flows if f.ref == recipe.flow_ref),
-        None,
-    )
-    if pattern is None:
-        available = [f.ref for f in base_config.funds_flows]
-        raise ValueError(
-            f"flow_ref '{recipe.flow_ref}' not found in loaded config. Available: {available}"
-        )
+    from .generation_pipeline import run_generation_pipeline
 
-    edge_overrides = (
-        {k: v.model_dump() for k, v in recipe.edge_case_overrides.items()}
-        if recipe.edge_case_overrides
-        else None
-    )
-    pattern_dict = pattern.model_dump()
-    edge_selections = preselect_edge_cases(
-        pattern_dict,
-        recipe.edge_case_count,
-        recipe.instances,
-        recipe.seed,
-        overrides=edge_overrides,
-    )
-
-    staged_instances = select_staged_instances(
-        recipe,
-        recipe.instances,
-        random.Random(recipe.seed),
-        edge_selections=edge_selections,
-    )
-
-    # Pre-compute timing spread offsets (deterministic for given seed)
-    recipe_timing = recipe.timing
-    flow_timing = pattern.timing
-    spread_offsets: list[float] = []
-    if recipe_timing and recipe_timing.instance_spread_days > 0:
-        spread_offsets = compute_spread_offsets(
-            recipe.instances,
-            recipe_timing.instance_spread_days,
-            recipe_timing.spread_pattern,
-            recipe.seed,
-            jitter_days=recipe_timing.spread_jitter_days,
-        )
-
-    extra_resources: dict[str, list[dict]] = {}
-    flows: list[FundsFlowConfig] = []
-    for i in range(recipe.instances):
-        rng = random.Random(recipe.seed + i)
-        profile = _build_instance_profile(pattern, recipe, i)
-        flow_dict, instance_resources = clone_flow(pattern, i, profile)
-
-        if instance_resources:
-            expanded = _expand_instance_resources(instance_resources, i, profile, pattern=pattern)
-            for section, items in expanded.items():
-                bucket = extra_resources.setdefault(section, [])
-                seen = {it.get("ref") for it in bucket if isinstance(it, dict) and it.get("ref")}
-                for item in items:
-                    ref = item.get("ref") if isinstance(item, dict) else None
-                    if ref and ref in seen:
-                        continue
-                    bucket.append(item)
-                    if ref:
-                        seen.add(ref)
-
-        if recipe.overrides:
-            apply_overrides(flow_dict, recipe.overrides)
-
-        has_variance = (
-            recipe.amount_variance_min_pct < 0
-            or recipe.amount_variance_max_pct > 0
-            or recipe.step_variance
-        )
-        if has_variance:
-            apply_amount_variance(
-                flow_dict,
-                recipe.amount_variance_min_pct,
-                recipe.amount_variance_max_pct,
-                rng,
-                step_variance=recipe.step_variance or None,
-            )
-
-        activated = {label for label, indices in edge_selections.items() if i in indices}
-        activated = activate_optional_groups(flow_dict, activated)
-
-        for og in flow_dict.get("optional_groups", []):
-            if og["label"] in activated:
-                group_count = len(edge_selections.get(og["label"], set()))
-                for step in og["steps"]:
-                    step.setdefault("metadata", {})
-                    step["metadata"]["_flow_optional_group"] = og["label"]
-                    step["metadata"]["_flow_edge_case_count"] = str(group_count)
-                    step["metadata"]["_flow_trigger"] = og.get("trigger", "manual")
-
-        flatten_optional_groups(flow_dict, activated)
-
-        if i in staged_instances:
-            mark_staged(flow_dict)
-
-        if recipe.payment_mix:
-            _apply_payment_mix(flow_dict, recipe.payment_mix)
-
-        # Apply timing/seasoning (stamps effective_date / effective_at)
-        # Only stamp dates when there is an explicit timing signal:
-        #   - start_date anchor, spread across days, step offsets, or
-        #     flow-level timing config.
-        # Without these, POs are created without effective_date so they
-        # process immediately.
-        has_explicit_dates = (
-            (recipe_timing and recipe_timing.start_date)
-            or (recipe_timing and recipe_timing.instance_spread_days > 0)
-            or (recipe_timing and recipe_timing.step_offsets)
-            or flow_timing
-        )
-        if has_explicit_dates:
-            spread = spread_offsets[i] if i < len(spread_offsets) else 0.0
-            compute_effective_dates(
-                flow_dict,
-                instance_index=i,
-                spread_offset_days=spread,
-                flow_timing=flow_timing,
-                recipe_timing=recipe_timing,
-                seed=recipe.seed,
-            )
-            # Remove internal keys before validation
-            flow_dict.pop("_computed_dates", None)
-            flow_dict.pop("_base_date", None)
-
-        flows.append(FundsFlowConfig.model_validate(flow_dict))
-
-    flow_irs = compile_flows(flows, base_config)
-    compiled = emit_dataloader_config(
-        flow_irs,
-        base_config=base_config,
-        extra_resources=extra_resources,
-    )
-
-    diagrams: list[str] = []
-    for ir, flow_config in zip(flow_irs[:10], flows[:10]):
-        diagrams.append(render_mermaid(ir, flow_config))
-
-    edge_case_map = {
-        label: sorted(indices) for label, indices in edge_selections.items() if indices
-    }
-
-    return GenerationResult(
-        config=compiled,
-        diagrams=diagrams,
-        edge_case_map=edge_case_map,
-        flow_irs=flow_irs,
-        expanded_flows=flows,
-    )
+    return run_generation_pipeline(recipe, base_config)

@@ -1,0 +1,1259 @@
+# serializer version: 1
+# name: test_compile_flows_flow_ir_snapshot[funds_flow_demo.json][funds_flow_demo]
+  list([
+    dict({
+      'flow_ref': 'simple_deposit',
+      'instance_id': '0000',
+      'pattern_type': 'deposit_settle',
+      'steps': tuple(
+        dict({
+          'depends_on': tuple(
+          ),
+          'flow_ref': 'simple_deposit',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 50000,
+            'description': 'Incoming ACH deposit for {first_name} {last_name}',
+            'direction': 'credit',
+            'internal_account_id': '$ref:internal_account.ops_usd',
+            'metadata': dict({
+              'deal_id': 'deal-simple_deposit-0',
+            }),
+            'originating_account_id': '$ref:counterparty.demo_customer.account[0]',
+            'type': 'ach',
+          }),
+          'preview_only': False,
+          'resource_type': 'incoming_payment_detail',
+          'step_id': 'deposit',
+          'trace_metadata': dict({
+            'deal_id': 'deal-simple_deposit-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:incoming_payment_detail.simple_deposit__0000__deposit',
+          ),
+          'flow_ref': 'simple_deposit',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+            dict({
+              'entries': tuple(
+                dict({
+                  'amount': 50000,
+                  'direction': 'debit',
+                  'ledger_account_id': '$ref:ledger_account.cash',
+                  'metadata': dict({
+                  }),
+                }),
+                dict({
+                  'amount': 50000,
+                  'direction': 'credit',
+                  'ledger_account_id': '$ref:ledger_account.revenue',
+                  'metadata': dict({
+                  }),
+                }),
+              ),
+              'group_id': 'settle_lg0',
+              'inline': False,
+              'metadata': dict({
+                'deal_id': 'deal-simple_deposit-0',
+              }),
+              'status': 'pending',
+            }),
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'description': 'Book the settled deposit for {first_name} {last_name}',
+            'metadata': dict({
+              'deal_id': 'deal-simple_deposit-0',
+            }),
+          }),
+          'preview_only': False,
+          'resource_type': 'ledger_transaction',
+          'step_id': 'settle',
+          'trace_metadata': dict({
+            'deal_id': 'deal-simple_deposit-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:incoming_payment_detail.simple_deposit__0000__deposit',
+          ),
+          'flow_ref': 'simple_deposit',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': 'Customer requests return',
+          'payload': dict({
+            'code': 'R01',
+            'metadata': dict({
+              'deal_id': 'deal-simple_deposit-0',
+            }),
+            'returnable_id': '$ref:incoming_payment_detail.simple_deposit__0000__deposit',
+            'returnable_type': 'incoming_payment_detail',
+          }),
+          'preview_only': True,
+          'resource_type': 'return',
+          'step_id': 'return_deposit',
+          'trace_metadata': dict({
+            'deal_id': 'deal-simple_deposit-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:ledger_transaction.simple_deposit__0000__settle',
+          ),
+          'flow_ref': 'simple_deposit',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': 'Customer requests return',
+          'payload': dict({
+            'description': 'Archive the original settlement LT',
+            'ledger_transaction_id': '$ref:ledger_transaction.simple_deposit__0000__settle',
+            'metadata': dict({
+              'deal_id': 'deal-simple_deposit-0',
+            }),
+            'status': 'archived',
+          }),
+          'preview_only': True,
+          'resource_type': 'transition_ledger_transaction',
+          'step_id': 'archive_settle',
+          'trace_metadata': dict({
+            'deal_id': 'deal-simple_deposit-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:return.simple_deposit__0000__return_deposit',
+          ),
+          'flow_ref': 'simple_deposit',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+            dict({
+              'entries': tuple(
+                dict({
+                  'amount': 50000,
+                  'direction': 'credit',
+                  'ledger_account_id': '$ref:ledger_account.cash',
+                  'metadata': dict({
+                  }),
+                }),
+                dict({
+                  'amount': 50000,
+                  'direction': 'debit',
+                  'ledger_account_id': '$ref:ledger_account.revenue',
+                  'metadata': dict({
+                  }),
+                }),
+              ),
+              'group_id': 'reverse_settle_lg0',
+              'inline': False,
+              'metadata': dict({
+                'deal_id': 'deal-simple_deposit-0',
+              }),
+              'status': None,
+            }),
+          ),
+          'optional_group': 'Customer requests return',
+          'payload': dict({
+            'description': 'Reverse the settled deposit',
+            'metadata': dict({
+              'deal_id': 'deal-simple_deposit-0',
+            }),
+          }),
+          'preview_only': True,
+          'resource_type': 'ledger_transaction',
+          'step_id': 'reverse_settle',
+          'trace_metadata': dict({
+            'deal_id': 'deal-simple_deposit-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:ledger_transaction.simple_deposit__0000__settle',
+          ),
+          'flow_ref': 'simple_deposit',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'description': 'Post the settlement LT after deposit completes',
+            'ledger_transaction_id': '$ref:ledger_transaction.simple_deposit__0000__settle',
+            'metadata': dict({
+              'deal_id': 'deal-simple_deposit-0',
+            }),
+            'status': 'posted',
+          }),
+          'preview_only': False,
+          'resource_type': 'transition_ledger_transaction',
+          'step_id': 'post_settle',
+          'trace_metadata': dict({
+            'deal_id': 'deal-simple_deposit-0',
+          }),
+        }),
+      ),
+      'trace_key': 'deal_id',
+      'trace_metadata': dict({
+        'deal_id': 'deal-simple_deposit-0',
+      }),
+      'trace_value': 'deal-simple_deposit-0',
+    }),
+  ])
+# ---
+# name: test_compile_flows_flow_ir_snapshot[lending_platform.json][lending_platform]
+  list([
+    dict({
+      'flow_ref': 'customer_deposit',
+      'instance_id': '0000',
+      'pattern_type': 'deposit',
+      'steps': tuple(
+        dict({
+          'depends_on': tuple(
+          ),
+          'flow_ref': 'customer_deposit',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 5000000,
+            'as_of_date': '2025-09-29',
+            'description': 'Investor ACH funding deposit from {first_name} {last_name}',
+            'direction': 'credit',
+            'internal_account_id': '$ref:internal_account.ops',
+            'metadata': dict({
+              'deposit_id': 'DEP-0',
+            }),
+            'originating_account_id': '$ref:counterparty.investor_{instance}.account[0]',
+            'type': 'ach',
+          }),
+          'preview_only': False,
+          'resource_type': 'incoming_payment_detail',
+          'step_id': 'receive_deposit',
+          'trace_metadata': dict({
+            'deposit_id': 'DEP-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:incoming_payment_detail.customer_deposit__0000__receive_deposit',
+          ),
+          'flow_ref': 'customer_deposit',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+            dict({
+              'entries': tuple(
+                dict({
+                  'amount': 5000000,
+                  'direction': 'debit',
+                  'ledger_account_id': '$ref:ledger_account.cash',
+                  'metadata': dict({
+                  }),
+                }),
+                dict({
+                  'amount': 5000000,
+                  'direction': 'credit',
+                  'ledger_account_id': '$ref:ledger_account.deposits_payable',
+                  'metadata': dict({
+                  }),
+                }),
+              ),
+              'group_id': 'book_deposit_lg0',
+              'inline': False,
+              'metadata': dict({
+                'deposit_id': 'DEP-0',
+              }),
+              'status': None,
+            }),
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'description': 'Record investor funding liability',
+            'effective_date': '2025-09-29',
+            'metadata': dict({
+              'deposit_id': 'DEP-0',
+            }),
+          }),
+          'preview_only': False,
+          'resource_type': 'ledger_transaction',
+          'step_id': 'book_deposit',
+          'trace_metadata': dict({
+            'deposit_id': 'DEP-0',
+          }),
+        }),
+      ),
+      'trace_key': 'deposit_id',
+      'trace_metadata': dict({
+        'deposit_id': 'DEP-0',
+      }),
+      'trace_value': 'DEP-0',
+    }),
+    dict({
+      'flow_ref': 'loan_disbursement',
+      'instance_id': '0000',
+      'pattern_type': 'disbursement',
+      'steps': tuple(
+        dict({
+          'depends_on': tuple(
+          ),
+          'flow_ref': 'loan_disbursement',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 5000000,
+            'description': 'Loan disbursement to {business_name} beneficiary sub account',
+            'direction': 'credit',
+            'effective_date': '2025-10-03',
+            'metadata': dict({
+              'loan_id': 'LOAN-0',
+            }),
+            'originating_account_id': '$ref:internal_account.ops',
+            'receiving_account_id': '$ref:internal_account.beneficiary_{instance}_wallet',
+            'type': 'book',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'disburse',
+          'trace_metadata': dict({
+            'loan_id': 'LOAN-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.loan_disbursement__0000__disburse',
+          ),
+          'flow_ref': 'loan_disbursement',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': 'Disbursement reversal',
+          'payload': dict({
+            'description': 'Reverse failed disbursement',
+            'metadata': dict({
+              'loan_id': 'LOAN-0',
+            }),
+            'payment_order_id': '$ref:payment_order.loan_disbursement__0000__disburse',
+            'reason': 'duplicate',
+          }),
+          'preview_only': True,
+          'resource_type': 'reversal',
+          'step_id': 'reverse_disburse',
+          'trace_metadata': dict({
+            'loan_id': 'LOAN-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.loan_disbursement__0000__disburse',
+          ),
+          'flow_ref': 'loan_disbursement',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+            dict({
+              'entries': tuple(
+                dict({
+                  'amount': 5000000,
+                  'direction': 'debit',
+                  'ledger_account_id': '$ref:ledger_account.beneficiary_{instance}_position',
+                  'metadata': dict({
+                  }),
+                }),
+                dict({
+                  'amount': 5000000,
+                  'direction': 'credit',
+                  'ledger_account_id': '$ref:ledger_account.cash',
+                  'metadata': dict({
+                  }),
+                }),
+              ),
+              'group_id': 'book_loan_principal_lg0',
+              'inline': False,
+              'metadata': dict({
+                'loan_id': 'LOAN-0',
+              }),
+              'status': None,
+            }),
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'description': 'Record loan principal disbursed as beneficiary receivable',
+            'effective_date': '2025-10-03',
+            'metadata': dict({
+              'loan_id': 'LOAN-0',
+            }),
+          }),
+          'preview_only': False,
+          'resource_type': 'ledger_transaction',
+          'step_id': 'book_loan_principal',
+          'trace_metadata': dict({
+            'loan_id': 'LOAN-0',
+          }),
+        }),
+      ),
+      'trace_key': 'loan_id',
+      'trace_metadata': dict({
+        'loan_id': 'LOAN-0',
+      }),
+      'trace_value': 'LOAN-0',
+    }),
+    dict({
+      'flow_ref': 'loan_repayment',
+      'instance_id': '0000',
+      'pattern_type': 'repayment',
+      'steps': tuple(
+        dict({
+          'depends_on': tuple(
+          ),
+          'flow_ref': 'loan_repayment',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 525000,
+            'description': 'ACH debit repayment pull from {business_name} external account into platform collections',
+            'direction': 'debit',
+            'effective_date': '2025-11-15',
+            'metadata': dict({
+              'repayment_id': 'REPAY-0',
+            }),
+            'originating_account_id': '$ref:internal_account.collections',
+            'receiving_account_id': '$ref:counterparty.beneficiary_external_{instance}.account[0]',
+            'type': 'ach',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'pull_repayment',
+          'trace_metadata': dict({
+            'repayment_id': 'REPAY-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.loan_repayment__0000__pull_repayment',
+          ),
+          'flow_ref': 'loan_repayment',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+            dict({
+              'entries': tuple(
+                dict({
+                  'amount': 500000,
+                  'direction': 'debit',
+                  'ledger_account_id': '$ref:ledger_account.cash',
+                  'metadata': dict({
+                  }),
+                }),
+                dict({
+                  'amount': 500000,
+                  'direction': 'credit',
+                  'ledger_account_id': '$ref:ledger_account.beneficiary_{instance}_position',
+                  'metadata': dict({
+                  }),
+                }),
+              ),
+              'group_id': 'apply_principal_lg0',
+              'inline': False,
+              'metadata': dict({
+                'repayment_id': 'REPAY-0',
+              }),
+              'status': None,
+            }),
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'description': 'Apply principal reduction against beneficiary position',
+            'effective_date': '2025-11-18',
+            'metadata': dict({
+              'repayment_id': 'REPAY-0',
+            }),
+          }),
+          'preview_only': False,
+          'resource_type': 'ledger_transaction',
+          'step_id': 'apply_principal',
+          'trace_metadata': dict({
+            'repayment_id': 'REPAY-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.loan_repayment__0000__pull_repayment',
+          ),
+          'flow_ref': 'loan_repayment',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+            dict({
+              'entries': tuple(
+                dict({
+                  'amount': 20000,
+                  'direction': 'debit',
+                  'ledger_account_id': '$ref:ledger_account.cash',
+                  'metadata': dict({
+                  }),
+                }),
+                dict({
+                  'amount': 20000,
+                  'direction': 'credit',
+                  'ledger_account_id': '$ref:ledger_account.investor_{instance}_payable',
+                  'metadata': dict({
+                  }),
+                }),
+              ),
+              'group_id': 'accrue_investor_distribution_lg0',
+              'inline': False,
+              'metadata': dict({
+                'repayment_id': 'REPAY-0',
+              }),
+              'status': None,
+            }),
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'description': 'Accrue investor distribution payable from repayment proceeds',
+            'effective_date': '2025-11-18',
+            'metadata': dict({
+              'repayment_id': 'REPAY-0',
+            }),
+          }),
+          'preview_only': False,
+          'resource_type': 'ledger_transaction',
+          'step_id': 'accrue_investor_distribution',
+          'trace_metadata': dict({
+            'repayment_id': 'REPAY-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.loan_repayment__0000__pull_repayment',
+          ),
+          'flow_ref': 'loan_repayment',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+            dict({
+              'entries': tuple(
+                dict({
+                  'amount': 5000,
+                  'direction': 'debit',
+                  'ledger_account_id': '$ref:ledger_account.cash',
+                  'metadata': dict({
+                  }),
+                }),
+                dict({
+                  'amount': 5000,
+                  'direction': 'credit',
+                  'ledger_account_id': '$ref:ledger_account.interest_income',
+                  'metadata': dict({
+                  }),
+                }),
+              ),
+              'group_id': 'recognize_servicing_income_lg0',
+              'inline': False,
+              'metadata': dict({
+                'repayment_id': 'REPAY-0',
+              }),
+              'status': None,
+            }),
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'description': 'Recognize servicing spread retained by platform',
+            'effective_date': '2025-11-18',
+            'metadata': dict({
+              'repayment_id': 'REPAY-0',
+            }),
+          }),
+          'preview_only': False,
+          'resource_type': 'ledger_transaction',
+          'step_id': 'recognize_servicing_income',
+          'trace_metadata': dict({
+            'repayment_id': 'REPAY-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:ledger_transaction.loan_repayment__0000__accrue_investor_distribution',
+          ),
+          'flow_ref': 'loan_repayment',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 20000,
+            'description': 'Weekly investor distribution to {first_name} {last_name} after repayment clearing',
+            'direction': 'credit',
+            'effective_date': '2025-11-24',
+            'metadata': dict({
+              'repayment_id': 'REPAY-0',
+            }),
+            'originating_account_id': '$ref:internal_account.collections',
+            'receiving_account_id': '$ref:counterparty.investor_{instance}.account[0]',
+            'type': 'ach',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'distribute_to_investor',
+          'trace_metadata': dict({
+            'repayment_id': 'REPAY-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.loan_repayment__0000__distribute_to_investor',
+          ),
+          'flow_ref': 'loan_repayment',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+            dict({
+              'entries': tuple(
+                dict({
+                  'amount': 20000,
+                  'direction': 'debit',
+                  'ledger_account_id': '$ref:ledger_account.investor_{instance}_payable',
+                  'metadata': dict({
+                  }),
+                }),
+                dict({
+                  'amount': 20000,
+                  'direction': 'credit',
+                  'ledger_account_id': '$ref:ledger_account.cash',
+                  'metadata': dict({
+                  }),
+                }),
+              ),
+              'group_id': 'clear_investor_payable_lg0',
+              'inline': False,
+              'metadata': dict({
+                'repayment_id': 'REPAY-0',
+              }),
+              'status': None,
+            }),
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'description': 'Clear investor distribution payable after ACH payout',
+            'effective_date': '2025-11-24',
+            'metadata': dict({
+              'repayment_id': 'REPAY-0',
+            }),
+          }),
+          'preview_only': False,
+          'resource_type': 'ledger_transaction',
+          'step_id': 'clear_investor_payable',
+          'trace_metadata': dict({
+            'repayment_id': 'REPAY-0',
+          }),
+        }),
+      ),
+      'trace_key': 'repayment_id',
+      'trace_metadata': dict({
+        'repayment_id': 'REPAY-0',
+      }),
+      'trace_value': 'REPAY-0',
+    }),
+  ])
+# ---
+# name: test_compile_flows_flow_ir_snapshot[marketplace_demo.json][marketplace_demo]
+  list([
+    dict({
+      'flow_ref': 'marketplace_retry_purchase',
+      'instance_id': '0000',
+      'pattern_type': 'marketplace_settlement',
+      'steps': tuple(
+        dict({
+          'depends_on': tuple(
+          ),
+          'flow_ref': 'marketplace_retry_purchase',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 13750000,
+            'description': 'ACH debit from first buyer bank — triggers R01 return (NSF)',
+            'direction': 'debit',
+            'metadata': dict({
+              'attempt_sequence': '1',
+              'demo_purpose': 'sandbox_auto_return_r01',
+              'listing_id': 'BOAT-marketplace_retry_purchase-0',
+              'transaction_type': 'ach_collection',
+            }),
+            'originating_account_id': '$ref:internal_account.first_buyer_{instance}_wallet',
+            'receiving_account_id': '$ref:counterparty.first_buyer_{instance}_cp.account[0]',
+            'type': 'ach',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'first_buyer_debit_attempt',
+          'trace_metadata': dict({
+            'listing_id': 'BOAT-marketplace_retry_purchase-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+          ),
+          'flow_ref': 'marketplace_retry_purchase',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 13750000,
+            'description': 'ACH debit from second buyer bank — succeeds',
+            'direction': 'debit',
+            'metadata': dict({
+              'attempt_sequence': '2',
+              'demo_purpose': 'successful_buyer_funding',
+              'listing_id': 'BOAT-marketplace_retry_purchase-0',
+              'transaction_type': 'ach_collection',
+            }),
+            'originating_account_id': '$ref:internal_account.second_buyer_{instance}_wallet',
+            'receiving_account_id': '$ref:counterparty.second_buyer_{instance}_cp.account[0]',
+            'type': 'ach',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'second_buyer_debit',
+          'trace_metadata': dict({
+            'listing_id': 'BOAT-marketplace_retry_purchase-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.marketplace_retry_purchase__0000__second_buyer_debit',
+          ),
+          'flow_ref': 'marketplace_retry_purchase',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 412500,
+            'description': 'Marketplace commission (3%) from second buyer funds',
+            'direction': 'credit',
+            'metadata': dict({
+              'fee_rate_pct': '3.0',
+              'fee_type': 'marketplace_commission',
+              'listing_id': 'BOAT-marketplace_retry_purchase-0',
+            }),
+            'originating_account_id': '$ref:internal_account.second_buyer_{instance}_wallet',
+            'receiving_account_id': '$ref:internal_account.platform_revenue',
+            'type': 'book',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'platform_fee',
+          'trace_metadata': dict({
+            'listing_id': 'BOAT-marketplace_retry_purchase-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.marketplace_retry_purchase__0000__platform_fee',
+          ),
+          'flow_ref': 'marketplace_retry_purchase',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 13337500,
+            'description': 'Net proceeds to seller wallet from second buyer purchase',
+            'direction': 'credit',
+            'metadata': dict({
+              'listing_id': 'BOAT-marketplace_retry_purchase-0',
+              'successful_buyer': 'second_buyer',
+              'transaction_type': 'marketplace_settlement',
+            }),
+            'originating_account_id': '$ref:internal_account.second_buyer_{instance}_wallet',
+            'receiving_account_id': '$ref:internal_account.seller_{instance}_wallet',
+            'type': 'book',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'settle_seller',
+          'trace_metadata': dict({
+            'listing_id': 'BOAT-marketplace_retry_purchase-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.marketplace_retry_purchase__0000__settle_seller',
+          ),
+          'flow_ref': 'marketplace_retry_purchase',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 13337500,
+            'description': 'ACH payout to seller bank account after second buyer purchase',
+            'direction': 'credit',
+            'metadata': dict({
+              'listing_id': 'BOAT-marketplace_retry_purchase-0',
+            }),
+            'originating_account_id': '$ref:internal_account.seller_{instance}_wallet',
+            'receiving_account_id': '$ref:counterparty.seller_{instance}_cp.account[0]',
+            'type': 'ach',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'payout_seller',
+          'trace_metadata': dict({
+            'listing_id': 'BOAT-marketplace_retry_purchase-0',
+          }),
+        }),
+      ),
+      'trace_key': 'listing_id',
+      'trace_metadata': dict({
+        'listing_id': 'BOAT-marketplace_retry_purchase-0',
+      }),
+      'trace_value': 'BOAT-marketplace_retry_purchase-0',
+    }),
+  ])
+# ---
+# name: test_compile_flows_flow_ir_snapshot[stablecoin_ramp.json][stablecoin_ramp]
+  list([
+    dict({
+      'flow_ref': 'usdc_onramp',
+      'instance_id': '0000',
+      'pattern_type': 'fiat_to_stablecoin',
+      'steps': tuple(
+        dict({
+          'depends_on': tuple(
+          ),
+          'flow_ref': 'usdc_onramp',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 100000,
+            'description': '{first_name} {last_name} ACH deposit for USDC purchase',
+            'direction': 'credit',
+            'internal_account_id': '$ref:internal_account.c2_payment_usd',
+            'metadata': dict({
+              'onramp_id': 'ONRAMP-0',
+            }),
+            'originating_account_id': '$ref:counterparty.customer_{instance}_bank.account[0]',
+            'type': 'ach',
+          }),
+          'preview_only': False,
+          'resource_type': 'incoming_payment_detail',
+          'step_id': 'ach_deposit',
+          'trace_metadata': dict({
+            'onramp_id': 'ONRAMP-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:incoming_payment_detail.usdc_onramp__0000__ach_deposit',
+          ),
+          'flow_ref': 'usdc_onramp',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': 'ACH return (R01 insufficient funds)',
+          'payload': dict({
+            'amount': 100000,
+            'description': 'ACH return — insufficient funds on customer deposit',
+            'direction': 'debit',
+            'metadata': dict({
+              'onramp_id': 'ONRAMP-0',
+            }),
+            'originating_account_id': '$ref:internal_account.c2_payment_usd',
+            'receiving_account_id': '$ref:counterparty.customer_{instance}_bank.account[0]',
+            'type': 'ach',
+          }),
+          'preview_only': True,
+          'resource_type': 'payment_order',
+          'step_id': 'ach_return_nsf',
+          'trace_metadata': dict({
+            'onramp_id': 'ONRAMP-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:incoming_payment_detail.usdc_onramp__0000__ach_deposit',
+          ),
+          'flow_ref': 'usdc_onramp',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+            dict({
+              'entries': tuple(
+                dict({
+                  'amount': 100000,
+                  'direction': 'debit',
+                  'ledger_account_id': '$ref:internal_account.payment_usdc.ledger_account',
+                }),
+                dict({
+                  'amount': 100000,
+                  'direction': 'credit',
+                  'ledger_account_id': '$ref:internal_account.c2_payment_usd.ledger_account',
+                }),
+              ),
+              'group_id': 'book_usd_to_usdc_lg_auto_xcur_book',
+              'inline': True,
+              'metadata': dict({
+                'onramp_id': 'ONRAMP-0',
+              }),
+              'status': None,
+            }),
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 100000,
+            'description': 'Book transfer USD → USDC omnibus for conversion',
+            'direction': 'credit',
+            'metadata': dict({
+              'onramp_id': 'ONRAMP-0',
+            }),
+            'originating_account_id': '$ref:internal_account.c2_payment_usd',
+            'receiving_account_id': '$ref:internal_account.payment_usdc',
+            'type': 'book',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'book_usd_to_usdc',
+          'trace_metadata': dict({
+            'onramp_id': 'ONRAMP-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.usdc_onramp__0000__book_usd_to_usdc',
+          ),
+          'flow_ref': 'usdc_onramp',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 99500,
+            'currency': 'USDC',
+            'description': 'Send USDC to {first_name} {last_name} external wallet',
+            'direction': 'credit',
+            'metadata': dict({
+              'onramp_id': 'ONRAMP-0',
+            }),
+            'originating_account_id': '$ref:internal_account.payment_usdc',
+            'receiving_account_id': '$ref:counterparty.customer_{instance}_wallet.account[0]',
+            'type': 'ethereum',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'send_usdc',
+          'trace_metadata': dict({
+            'onramp_id': 'ONRAMP-0',
+          }),
+        }),
+      ),
+      'trace_key': 'onramp_id',
+      'trace_metadata': dict({
+        'onramp_id': 'ONRAMP-0',
+      }),
+      'trace_value': 'ONRAMP-0',
+    }),
+    dict({
+      'flow_ref': 'usdc_offramp',
+      'instance_id': '0000',
+      'pattern_type': 'stablecoin_to_fiat',
+      'steps': tuple(
+        dict({
+          'depends_on': tuple(
+          ),
+          'flow_ref': 'usdc_offramp',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 75000,
+            'currency': 'USDC',
+            'description': '{first_name} {last_name} sends USDC for off-ramp',
+            'direction': 'credit',
+            'internal_account_id': '$ref:internal_account.payment_usdc',
+            'metadata': dict({
+              'offramp_id': 'OFFRAMP-0',
+            }),
+            'originating_account_id': '$ref:counterparty.customer_{instance}_wallet.account[0]',
+            'type': 'ethereum',
+          }),
+          'preview_only': False,
+          'resource_type': 'incoming_payment_detail',
+          'step_id': 'usdc_received',
+          'trace_metadata': dict({
+            'offramp_id': 'OFFRAMP-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:incoming_payment_detail.usdc_offramp__0000__usdc_received',
+          ),
+          'flow_ref': 'usdc_offramp',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+            dict({
+              'entries': tuple(
+                dict({
+                  'amount': 75000,
+                  'direction': 'debit',
+                  'ledger_account_id': '$ref:internal_account.employee_payment_usd.ledger_account',
+                }),
+                dict({
+                  'amount': 75000,
+                  'direction': 'credit',
+                  'ledger_account_id': '$ref:internal_account.payment_usdc.ledger_account',
+                }),
+              ),
+              'group_id': 'book_usdc_to_usd_lg_auto_xcur_book',
+              'inline': True,
+              'metadata': dict({
+                'offramp_id': 'OFFRAMP-0',
+              }),
+              'status': None,
+            }),
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 75000,
+            'description': 'Book transfer USDC → USD for fiat off-ramp',
+            'direction': 'credit',
+            'metadata': dict({
+              'offramp_id': 'OFFRAMP-0',
+            }),
+            'originating_account_id': '$ref:internal_account.payment_usdc',
+            'receiving_account_id': '$ref:internal_account.employee_payment_usd',
+            'type': 'book',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'book_usdc_to_usd',
+          'trace_metadata': dict({
+            'offramp_id': 'OFFRAMP-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.usdc_offramp__0000__book_usdc_to_usd',
+          ),
+          'flow_ref': 'usdc_offramp',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 74625,
+            'description': 'ACH payout of USD to {first_name} {last_name} bank',
+            'direction': 'credit',
+            'metadata': dict({
+              'offramp_id': 'OFFRAMP-0',
+            }),
+            'originating_account_id': '$ref:internal_account.employee_payment_usd',
+            'receiving_account_id': '$ref:counterparty.customer_{instance}_bank.account[0]',
+            'type': 'ach',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'fiat_payout',
+          'trace_metadata': dict({
+            'offramp_id': 'OFFRAMP-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.usdc_offramp__0000__book_usdc_to_usd',
+          ),
+          'flow_ref': 'usdc_offramp',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': 'Wire payout',
+          'payload': dict({
+            'amount': 74625,
+            'description': 'Wire payout to {first_name} {last_name}',
+            'direction': 'credit',
+            'metadata': dict({
+              'offramp_id': 'OFFRAMP-0',
+            }),
+            'originating_account_id': '$ref:internal_account.employee_payment_usd',
+            'receiving_account_id': '$ref:counterparty.customer_{instance}_bank.account[0]',
+            'type': 'wire',
+          }),
+          'preview_only': True,
+          'resource_type': 'payment_order',
+          'step_id': 'wire_payout',
+          'trace_metadata': dict({
+            'offramp_id': 'OFFRAMP-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.usdc_offramp__0000__book_usdc_to_usd',
+          ),
+          'flow_ref': 'usdc_offramp',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': 'RTP instant payout',
+          'payload': dict({
+            'amount': 74625,
+            'description': 'RTP instant payout to {first_name} {last_name}',
+            'direction': 'credit',
+            'metadata': dict({
+              'offramp_id': 'OFFRAMP-0',
+            }),
+            'originating_account_id': '$ref:internal_account.employee_payment_usd',
+            'receiving_account_id': '$ref:counterparty.customer_{instance}_bank.account[0]',
+            'type': 'rtp',
+          }),
+          'preview_only': True,
+          'resource_type': 'payment_order',
+          'step_id': 'rtp_payout',
+          'trace_metadata': dict({
+            'offramp_id': 'OFFRAMP-0',
+          }),
+        }),
+      ),
+      'trace_key': 'offramp_id',
+      'trace_metadata': dict({
+        'offramp_id': 'OFFRAMP-0',
+      }),
+      'trace_value': 'OFFRAMP-0',
+    }),
+  ])
+# ---
+# name: test_compile_flows_flow_ir_snapshot[staged_demo.json][staged_demo]
+  list([
+    dict({
+      'flow_ref': 'staged_marketplace',
+      'instance_id': '0000',
+      'pattern_type': 'marketplace_settlement',
+      'steps': tuple(
+        dict({
+          'depends_on': tuple(
+          ),
+          'flow_ref': 'staged_marketplace',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 5000000,
+            'description': 'Buyer deposits $50,000 via ACH',
+            'direction': 'credit',
+            'internal_account_id': '$ref:internal_account.buyer_{instance}_wallet',
+            'metadata': dict({
+              'order_id': 'ORD-staged_marketplace-0',
+            }),
+            'originating_account_id': '$ref:counterparty.buyer_{instance}_cp.account[0]',
+            'staged': True,
+            'type': 'ach',
+          }),
+          'preview_only': False,
+          'resource_type': 'incoming_payment_detail',
+          'step_id': 'buyer_deposit',
+          'trace_metadata': dict({
+            'order_id': 'ORD-staged_marketplace-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:incoming_payment_detail.staged_marketplace__0000__buyer_deposit',
+          ),
+          'flow_ref': 'staged_marketplace',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 150000,
+            'description': 'Platform takes 3% fee ($1,500)',
+            'direction': 'credit',
+            'metadata': dict({
+              'order_id': 'ORD-staged_marketplace-0',
+            }),
+            'originating_account_id': '$ref:internal_account.buyer_{instance}_wallet',
+            'receiving_account_id': '$ref:internal_account.platform_revenue',
+            'staged': True,
+            'type': 'book',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'platform_fee',
+          'trace_metadata': dict({
+            'order_id': 'ORD-staged_marketplace-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.staged_marketplace__0000__platform_fee',
+          ),
+          'flow_ref': 'staged_marketplace',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 4850000,
+            'description': 'Net proceeds ($48,500) to seller wallet',
+            'direction': 'credit',
+            'metadata': dict({
+              'order_id': 'ORD-staged_marketplace-0',
+            }),
+            'originating_account_id': '$ref:internal_account.buyer_{instance}_wallet',
+            'receiving_account_id': '$ref:internal_account.seller_{instance}_wallet',
+            'staged': True,
+            'type': 'book',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'settle_seller',
+          'trace_metadata': dict({
+            'order_id': 'ORD-staged_marketplace-0',
+          }),
+        }),
+        dict({
+          'depends_on': tuple(
+            '$ref:payment_order.staged_marketplace__0000__settle_seller',
+          ),
+          'flow_ref': 'staged_marketplace',
+          'instance_id': '0000',
+          'ledger_groups': tuple(
+          ),
+          'optional_group': None,
+          'payload': dict({
+            'amount': 4850000,
+            'description': 'ACH payout to seller bank account',
+            'direction': 'credit',
+            'metadata': dict({
+              'order_id': 'ORD-staged_marketplace-0',
+            }),
+            'originating_account_id': '$ref:internal_account.seller_{instance}_wallet',
+            'receiving_account_id': '$ref:counterparty.seller_{instance}_cp.account[0]',
+            'staged': True,
+            'type': 'ach',
+          }),
+          'preview_only': False,
+          'resource_type': 'payment_order',
+          'step_id': 'payout_seller',
+          'trace_metadata': dict({
+            'order_id': 'ORD-staged_marketplace-0',
+          }),
+        }),
+      ),
+      'trace_key': 'order_id',
+      'trace_metadata': dict({
+        'order_id': 'ORD-staged_marketplace-0',
+      }),
+      'trace_value': 'ORD-staged_marketplace-0',
+    }),
+  ])
+# ---

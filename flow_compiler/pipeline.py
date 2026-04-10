@@ -16,7 +16,6 @@ from models import DataLoaderConfig, FundsFlowConfig, GenerationRecipeV1
 from .core import compile_flows, emit_dataloader_config
 from .generation import _expand_instance_resources, deep_format_map
 from .ir import StepRelationships, build_step_relationships
-from .mermaid import render_mermaid
 
 # ---------------------------------------------------------------------------
 # Pipeline types — immutable boundaries between compiler stages
@@ -174,6 +173,8 @@ def pass_emit_resources(ctx: CompilationContext) -> CompilationContext:
 
 def pass_render_diagrams(ctx: CompilationContext) -> CompilationContext:
     """Pass 7: Render Mermaid diagrams for each flow."""
+    from .mermaid import render_mermaid
+
     diagrams: list[str] = []
     flows = ctx.expanded_flows
     cname = ctx.authoring.config.customer_name
