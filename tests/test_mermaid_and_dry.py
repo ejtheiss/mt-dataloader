@@ -349,7 +349,7 @@ class TestReturnBreak:
             ref="f",
             pattern_type="t",
             trace_key="k",
-            trace_value_template="test-{instance}",
+            trace_metadata={"k": "test-{instance}"},
             steps=[
                 {
                     "step_id": "deposit",
@@ -525,7 +525,7 @@ class TestAltElseRendering:
             ref="f",
             pattern_type="t",
             trace_key="k",
-            trace_value_template="test-{instance}",
+            trace_metadata={"k": "test-{instance}"},
             steps=[
                 {
                     "step_id": "setup",
@@ -899,7 +899,7 @@ class TestActorsAsParticipants:
             ref="f",
             pattern_type="t",
             trace_key="k",
-            trace_value_template="test-{instance}",
+            trace_metadata={"k": "test-{instance}"},
             actors={
                 "direct_1": ActorFrame(
                     alias="Platform",
@@ -1031,7 +1031,7 @@ class TestActorsAsParticipants:
             ref="f",
             pattern_type="t",
             trace_key="k",
-            trace_value_template="test-{instance}",
+            trace_metadata={"k": "test-{instance}"},
             actors={
                 "direct_1": ActorFrame(
                     alias="Platform",

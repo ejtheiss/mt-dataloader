@@ -59,7 +59,7 @@
 <details class="metadata-panel">
     <summary>Trace Metadata
         <span class="info-icon" tabindex="0" role="img" aria-label="How trace metadata works"
-              title="Flow-level trace (trace_key, template, trace_metadata) is merged onto every step. Keys you add under each step apply only to that step and must not duplicate flow-level keys (duplicates use the flow value). Expand a step and use + Add Key for step-only tags."
+              title="Flow-level trace: the template at trace_metadata[trace_key] (plus any extra trace_metadata keys) is merged onto every step. Keys under each step are step-only and must not duplicate flow keys (duplicates use the flow value). Expand a step and use + Add Key for step-only tags."
               onclick="event.stopPropagation();">&#9432;</span>
     </summary>
     <div class="metadata-panel-body">
@@ -68,14 +68,14 @@
             <input type="text" class="metadata-input" id="meta-trace-key" value="{{ metadata_key }}">
         </div>
         <div class="metadata-row">
-            <label class="metadata-label">trace_value_template</label>
-            <input type="text" class="metadata-input metadata-tpl-input" id="meta-trace-value-tpl" value="{{ trace_value_template }}">
+            <label class="metadata-label">Primary template (trace_metadata[trace_key])</label>
+            <input type="text" class="metadata-input metadata-tpl-input" id="meta-primary-trace-tpl" value="{{ primary_trace_template }}">
         </div>
 
         <div class="metadata-kv-section">
-            <label class="metadata-label">trace_metadata</label>
+            <label class="metadata-label">trace_metadata (additional keys)</label>
             <div id="meta-trace-entries">
-                {% for k, v in trace_metadata.items() %}
+                {% for k, v in trace_metadata_extra.items() %}
                 <div class="metadata-kv-row">
                     <input type="text" class="metadata-kv-key" value="{{ k }}" placeholder="key">
                     <input type="text" class="metadata-kv-val{% if '{' in v and '}' in v %} metadata-tpl-input{% endif %}" value="{{ v }}" placeholder="value">
@@ -170,11 +170,22 @@ function collectKV(container) {
     return result;
 }
 
+function buildTraceMetadataPayload() {
+    var tk = document.getElementById('meta-trace-key').value.trim();
+    var primary = document.getElementById('meta-primary-trace-tpl').value.trim();
+    var rest = collectKV(document.getElementById('meta-trace-entries'));
+    var out = {};
+    Object.keys(rest).forEach(function(k) {
+        if (k !== tk) out[k] = rest[k];
+    });
+    if (tk) out[tk] = primary;
+    return out;
+}
+
 async function saveMetadata() {
     var body = {
         trace_key: document.getElementById('meta-trace-key').value.trim(),
-        trace_value_template: document.getElementById('meta-trace-value-tpl').value.trim(),
-        trace_metadata: collectKV(document.getElementById('meta-trace-entries')),
+        trace_metadata: buildTraceMetadataPayload(),
     };
 
     var stepMeta = {};

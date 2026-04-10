@@ -4,8 +4,10 @@
 
     payload["metadata"] = {**step.metadata, **trace_meta}
 
-where ``trace_meta`` is ``{flow.trace_key: expanded_value, **flow.trace_metadata}``.
-Flow-level keys therefore **win** on collision; duplicating them on steps is redundant.
+where ``trace_meta`` is built from ``flow.trace_metadata``: the value at
+``flow.trace_key`` is expanded from its template string; other keys are copied
+through unchanged. Flow-level keys therefore **win** on collision; duplicating
+them on steps is redundant.
 """
 
 from __future__ import annotations

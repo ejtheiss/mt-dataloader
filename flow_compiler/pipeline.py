@@ -120,10 +120,14 @@ def pass_expand_instances(ctx: CompilationContext) -> CompilationContext:
                 extra_resources.append((section, items))
         flow_dict = flow.model_dump()
         flow_dict.pop("instance_resources", None)
-        saved_trace_tpl = flow_dict.get("trace_value_template")
+        tk = flow_dict.get("trace_key", "deal_id")
+        tm = dict(flow_dict.get("trace_metadata") or {})
+        saved_primary_tpl = tm.get(tk)
         flow_dict = deep_format_map(flow_dict, mapping)
-        if saved_trace_tpl is not None:
-            flow_dict["trace_value_template"] = saved_trace_tpl
+        tm2 = dict(flow_dict.get("trace_metadata") or {})
+        if saved_primary_tpl is not None:
+            tm2[tk] = saved_primary_tpl
+        flow_dict["trace_metadata"] = tm2
         expanded_flows.append(FundsFlowConfig.model_validate(flow_dict))
 
     rels = tuple(build_step_relationships(f.steps, f.optional_groups) for f in expanded_flows)
