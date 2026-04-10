@@ -1,0 +1,1162 @@
+# serializer version: 1
+# name: test_emit_dataloader_config_snapshot[funds_flow_demo.json][funds_flow_demo]
+  dict({
+    'archive_resources': list([
+    ]),
+    'category_memberships': list([
+    ]),
+    'complete_verifications': list([
+    ]),
+    'connections': list([
+      dict({
+        'entity_id': 'modern_treasury',
+        'ref': 'demo_bank',
+      }),
+    ]),
+    'counterparties': list([
+      dict({
+        'accounts': list([
+          dict({
+            'account_details': list([
+              dict({
+                'account_number': '123456789',
+              }),
+            ]),
+            'account_type': 'checking',
+            'metadata': dict({
+            }),
+            'party_name': 'Demo Customer',
+            'party_type': 'individual',
+            'routing_details': list([
+              dict({
+                'payment_type': 'ach',
+                'routing_number': '121141822',
+                'routing_number_type': 'aba',
+              }),
+              dict({
+                'payment_type': 'wire',
+                'routing_number': '121141822',
+                'routing_number_type': 'aba',
+              }),
+            ]),
+          }),
+        ]),
+        'metadata': dict({
+        }),
+        'name': 'Demo Customer',
+        'ref': 'demo_customer',
+      }),
+    ]),
+    'customer_name': 'direct',
+    'expected_payments': list([
+    ]),
+    'external_accounts': list([
+    ]),
+    'funds_flows': list([
+    ]),
+    'incoming_payment_details': list([
+      dict({
+        'amount': 50000,
+        'description': 'Incoming ACH deposit for {first_name} {last_name}',
+        'direction': 'credit',
+        'internal_account_id': '$ref:internal_account.ops_usd',
+        'metadata': dict({
+          'deal_id': 'deal-simple_deposit-0',
+        }),
+        'ref': 'simple_deposit__0000__deposit',
+        'type': 'ach',
+      }),
+    ]),
+    'internal_accounts': list([
+      dict({
+        'connection_id': '$ref:connection.demo_bank',
+        'currency': 'USD',
+        'metadata': dict({
+        }),
+        'name': 'Ops USD',
+        'party_name': 'Demo Corp',
+        'ref': 'ops_usd',
+      }),
+    ]),
+    'ledger_account_categories': list([
+    ]),
+    'ledger_accounts': list([
+      dict({
+        'currency': 'USD',
+        'ledger_id': '$ref:ledger.main',
+        'metadata': dict({
+        }),
+        'name': 'Cash',
+        'normal_balance': 'debit',
+        'ref': 'cash',
+      }),
+      dict({
+        'currency': 'USD',
+        'ledger_id': '$ref:ledger.main',
+        'metadata': dict({
+        }),
+        'name': 'Revenue',
+        'normal_balance': 'credit',
+        'ref': 'revenue',
+      }),
+    ]),
+    'ledger_transactions': list([
+      dict({
+        'description': 'Book the settled deposit for {first_name} {last_name}',
+        'ledger_entries': list([
+          dict({
+            'amount': 50000,
+            'direction': 'debit',
+            'ledger_account_id': '$ref:ledger_account.cash',
+            'metadata': dict({
+            }),
+          }),
+          dict({
+            'amount': 50000,
+            'direction': 'credit',
+            'ledger_account_id': '$ref:ledger_account.revenue',
+            'metadata': dict({
+            }),
+          }),
+        ]),
+        'metadata': dict({
+          'deal_id': 'deal-simple_deposit-0',
+        }),
+        'ref': 'simple_deposit__0000__settle',
+        'status': 'pending',
+      }),
+    ]),
+    'ledgers': list([
+      dict({
+        'metadata': dict({
+        }),
+        'name': 'Main Ledger',
+        'ref': 'main',
+      }),
+    ]),
+    'legal_entities': list([
+    ]),
+    'nested_categories': list([
+    ]),
+    'payment_orders': list([
+    ]),
+    'returns': list([
+    ]),
+    'reversals': list([
+    ]),
+    'transition_ledger_transactions': list([
+      dict({
+        'ledger_transaction_id': '$ref:ledger_transaction.simple_deposit__0000__settle',
+        'metadata': dict({
+          'deal_id': 'deal-simple_deposit-0',
+        }),
+        'ref': 'simple_deposit__0000__post_settle',
+        'status': 'posted',
+      }),
+    ]),
+    'verify_external_accounts': list([
+    ]),
+    'virtual_accounts': list([
+    ]),
+  })
+# ---
+# name: test_emit_dataloader_config_snapshot[lending_platform.json][lending_platform]
+  dict({
+    'archive_resources': list([
+    ]),
+    'category_memberships': list([
+    ]),
+    'complete_verifications': list([
+    ]),
+    'connections': list([
+      dict({
+        'entity_id': 'modern_treasury',
+        'nickname': 'PSP Connection',
+        'ref': 'bank',
+      }),
+    ]),
+    'counterparties': list([
+    ]),
+    'customer_name': 'direct',
+    'expected_payments': list([
+    ]),
+    'external_accounts': list([
+    ]),
+    'funds_flows': list([
+    ]),
+    'incoming_payment_details': list([
+      dict({
+        'amount': 5000000,
+        'as_of_date': '2025-09-29',
+        'description': 'Investor ACH funding deposit from {first_name} {last_name}',
+        'direction': 'credit',
+        'internal_account_id': '$ref:internal_account.ops',
+        'metadata': dict({
+          'deposit_id': 'DEP-0',
+        }),
+        'ref': 'customer_deposit__0000__receive_deposit',
+        'type': 'ach',
+      }),
+    ]),
+    'internal_accounts': list([
+      dict({
+        'connection_id': '$ref:connection.bank',
+        'currency': 'USD',
+        'legal_entity_id': '$ref:legal_entity.lendco_inc',
+        'metadata': dict({
+        }),
+        'name': 'Operating Account',
+        'party_name': 'LendCo Inc.',
+        'ref': 'ops',
+      }),
+      dict({
+        'connection_id': '$ref:connection.bank',
+        'currency': 'USD',
+        'legal_entity_id': '$ref:legal_entity.lendco_inc',
+        'metadata': dict({
+        }),
+        'name': 'Collections Account',
+        'party_name': 'LendCo Inc.',
+        'ref': 'collections',
+      }),
+    ]),
+    'ledger_account_categories': list([
+    ]),
+    'ledger_accounts': list([
+      dict({
+        'currency': 'USD',
+        'ledger_id': '$ref:ledger.main',
+        'metadata': dict({
+        }),
+        'name': 'Cash',
+        'normal_balance': 'debit',
+        'ref': 'cash',
+      }),
+      dict({
+        'currency': 'USD',
+        'ledger_id': '$ref:ledger.main',
+        'metadata': dict({
+        }),
+        'name': 'Servicing Income',
+        'normal_balance': 'credit',
+        'ref': 'interest_income',
+      }),
+      dict({
+        'currency': 'USD',
+        'ledger_id': '$ref:ledger.main',
+        'metadata': dict({
+        }),
+        'name': 'Investor Funding Payable',
+        'normal_balance': 'credit',
+        'ref': 'deposits_payable',
+      }),
+    ]),
+    'ledger_transactions': list([
+      dict({
+        'description': 'Record investor funding liability',
+        'effective_date': '2025-09-29',
+        'ledger_entries': list([
+          dict({
+            'amount': 5000000,
+            'direction': 'debit',
+            'ledger_account_id': '$ref:ledger_account.cash',
+            'metadata': dict({
+            }),
+          }),
+          dict({
+            'amount': 5000000,
+            'direction': 'credit',
+            'ledger_account_id': '$ref:ledger_account.deposits_payable',
+            'metadata': dict({
+            }),
+          }),
+        ]),
+        'metadata': dict({
+          'deposit_id': 'DEP-0',
+        }),
+        'ref': 'customer_deposit__0000__book_deposit',
+      }),
+      dict({
+        'description': 'Record loan principal disbursed as beneficiary receivable',
+        'effective_date': '2025-10-03',
+        'ledger_entries': list([
+          dict({
+            'amount': 5000000,
+            'direction': 'debit',
+            'ledger_account_id': '$ref:ledger_account.beneficiary_{instance}_position',
+            'metadata': dict({
+            }),
+          }),
+          dict({
+            'amount': 5000000,
+            'direction': 'credit',
+            'ledger_account_id': '$ref:ledger_account.cash',
+            'metadata': dict({
+            }),
+          }),
+        ]),
+        'metadata': dict({
+          'loan_id': 'LOAN-0',
+        }),
+        'ref': 'loan_disbursement__0000__book_loan_principal',
+      }),
+      dict({
+        'description': 'Apply principal reduction against beneficiary position',
+        'effective_date': '2025-11-18',
+        'ledger_entries': list([
+          dict({
+            'amount': 500000,
+            'direction': 'debit',
+            'ledger_account_id': '$ref:ledger_account.cash',
+            'metadata': dict({
+            }),
+          }),
+          dict({
+            'amount': 500000,
+            'direction': 'credit',
+            'ledger_account_id': '$ref:ledger_account.beneficiary_{instance}_position',
+            'metadata': dict({
+            }),
+          }),
+        ]),
+        'metadata': dict({
+          'repayment_id': 'REPAY-0',
+        }),
+        'ref': 'loan_repayment__0000__apply_principal',
+      }),
+      dict({
+        'description': 'Accrue investor distribution payable from repayment proceeds',
+        'effective_date': '2025-11-18',
+        'ledger_entries': list([
+          dict({
+            'amount': 20000,
+            'direction': 'debit',
+            'ledger_account_id': '$ref:ledger_account.cash',
+            'metadata': dict({
+            }),
+          }),
+          dict({
+            'amount': 20000,
+            'direction': 'credit',
+            'ledger_account_id': '$ref:ledger_account.investor_{instance}_payable',
+            'metadata': dict({
+            }),
+          }),
+        ]),
+        'metadata': dict({
+          'repayment_id': 'REPAY-0',
+        }),
+        'ref': 'loan_repayment__0000__accrue_investor_distribution',
+      }),
+      dict({
+        'description': 'Recognize servicing spread retained by platform',
+        'effective_date': '2025-11-18',
+        'ledger_entries': list([
+          dict({
+            'amount': 5000,
+            'direction': 'debit',
+            'ledger_account_id': '$ref:ledger_account.cash',
+            'metadata': dict({
+            }),
+          }),
+          dict({
+            'amount': 5000,
+            'direction': 'credit',
+            'ledger_account_id': '$ref:ledger_account.interest_income',
+            'metadata': dict({
+            }),
+          }),
+        ]),
+        'metadata': dict({
+          'repayment_id': 'REPAY-0',
+        }),
+        'ref': 'loan_repayment__0000__recognize_servicing_income',
+      }),
+      dict({
+        'description': 'Clear investor distribution payable after ACH payout',
+        'effective_date': '2025-11-24',
+        'ledger_entries': list([
+          dict({
+            'amount': 20000,
+            'direction': 'debit',
+            'ledger_account_id': '$ref:ledger_account.investor_{instance}_payable',
+            'metadata': dict({
+            }),
+          }),
+          dict({
+            'amount': 20000,
+            'direction': 'credit',
+            'ledger_account_id': '$ref:ledger_account.cash',
+            'metadata': dict({
+            }),
+          }),
+        ]),
+        'metadata': dict({
+          'repayment_id': 'REPAY-0',
+        }),
+        'ref': 'loan_repayment__0000__clear_investor_payable',
+      }),
+    ]),
+    'ledgers': list([
+      dict({
+        'metadata': dict({
+        }),
+        'name': 'LendCo General Ledger',
+        'ref': 'main',
+      }),
+    ]),
+    'legal_entities': list([
+      dict({
+        'addresses': list([
+          dict({
+            'address_types': list([
+              'business',
+            ]),
+            'country': 'US',
+            'line1': '100 Main Street',
+            'locality': 'New York',
+            'postal_code': '10001',
+            'region': 'NY',
+          }),
+        ]),
+        'business_name': 'LendCo Inc.',
+        'country_of_incorporation': 'US',
+        'date_formed': '2020-01-15',
+        'documents': list([
+          dict({
+            'document_type': 'articles_of_incorporation',
+            'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+            'filename': 'articles_of_incorporation.pdf',
+          }),
+          dict({
+            'document_type': 'proof_of_address',
+            'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+            'filename': 'proof_of_address.pdf',
+          }),
+        ]),
+        'email': 'compliance@example.com',
+        'expected_activity_volume': 100,
+        'identifications': list([
+          dict({
+            'documents': list([
+              dict({
+                'document_type': 'ein_letter',
+                'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+                'filename': 'ein_letter.pdf',
+              }),
+            ]),
+            'id_number': '670305890',
+            'id_type': 'us_ein',
+          }),
+        ]),
+        'intended_use': 'Sandbox demo and testing',
+        'legal_entity_type': 'business',
+        'legal_structure': 'llc',
+        'metadata': dict({
+        }),
+        'operating_jurisdictions': list([
+          'US',
+        ]),
+        'phone_numbers': list([
+          dict({
+            'phone_number': '+15551234567',
+          }),
+        ]),
+        'ref': 'lendco_inc',
+        'wealth_and_employment_details': dict({
+          'industry': 'finance',
+          'source_of_funds': 'business_revenue',
+        }),
+      }),
+    ]),
+    'nested_categories': list([
+    ]),
+    'payment_orders': list([
+      dict({
+        'amount': 5000000,
+        'description': 'Loan disbursement to {business_name} beneficiary sub account',
+        'direction': 'credit',
+        'effective_date': '2025-10-03',
+        'metadata': dict({
+          'loan_id': 'LOAN-0',
+        }),
+        'originating_account_id': '$ref:internal_account.ops',
+        'receiving_account_id': '$ref:internal_account.beneficiary_{instance}_wallet',
+        'ref': 'loan_disbursement__0000__disburse',
+        'type': 'book',
+      }),
+      dict({
+        'amount': 525000,
+        'description': 'ACH debit repayment pull from {business_name} external account into platform collections',
+        'direction': 'debit',
+        'effective_date': '2025-11-15',
+        'metadata': dict({
+          'repayment_id': 'REPAY-0',
+        }),
+        'originating_account_id': '$ref:internal_account.collections',
+        'receiving_account_id': '$ref:counterparty.beneficiary_external_{instance}.account[0]',
+        'ref': 'loan_repayment__0000__pull_repayment',
+        'type': 'ach',
+      }),
+      dict({
+        'amount': 20000,
+        'description': 'Weekly investor distribution to {first_name} {last_name} after repayment clearing',
+        'direction': 'credit',
+        'effective_date': '2025-11-24',
+        'metadata': dict({
+          'repayment_id': 'REPAY-0',
+        }),
+        'originating_account_id': '$ref:internal_account.collections',
+        'receiving_account_id': '$ref:counterparty.investor_{instance}.account[0]',
+        'ref': 'loan_repayment__0000__distribute_to_investor',
+        'type': 'ach',
+      }),
+    ]),
+    'returns': list([
+    ]),
+    'reversals': list([
+    ]),
+    'transition_ledger_transactions': list([
+    ]),
+    'verify_external_accounts': list([
+    ]),
+    'virtual_accounts': list([
+    ]),
+  })
+# ---
+# name: test_emit_dataloader_config_snapshot[marketplace_demo.json][marketplace_demo]
+  dict({
+    'archive_resources': list([
+    ]),
+    'category_memberships': list([
+    ]),
+    'complete_verifications': list([
+    ]),
+    'connections': list([
+      dict({
+        'entity_id': 'modern_treasury',
+        'nickname': 'Modern Treasury PSP',
+        'ref': 'modern_treasury_bank',
+      }),
+    ]),
+    'counterparties': list([
+    ]),
+    'customer_name': 'direct',
+    'expected_payments': list([
+    ]),
+    'external_accounts': list([
+    ]),
+    'funds_flows': list([
+    ]),
+    'incoming_payment_details': list([
+    ]),
+    'internal_accounts': list([
+      dict({
+        'connection_id': '$ref:connection.modern_treasury_bank',
+        'currency': 'USD',
+        'legal_entity_id': '$ref:legal_entity.platform_corp',
+        'metadata': dict({
+          'account_purpose': 'platform_revenue',
+        }),
+        'name': 'Boats Group Revenue Account',
+        'party_name': 'Boats Group, Inc.',
+        'ref': 'platform_revenue',
+      }),
+    ]),
+    'ledger_account_categories': list([
+    ]),
+    'ledger_accounts': list([
+    ]),
+    'ledger_transactions': list([
+    ]),
+    'ledgers': list([
+    ]),
+    'legal_entities': list([
+      dict({
+        'addresses': list([
+          dict({
+            'address_types': list([
+              'business',
+            ]),
+            'country': 'US',
+            'line1': '100 Main Street',
+            'locality': 'New York',
+            'postal_code': '10001',
+            'region': 'NY',
+          }),
+        ]),
+        'business_name': 'Boats Group, Inc.',
+        'country_of_incorporation': 'US',
+        'date_formed': '2020-01-15',
+        'documents': list([
+          dict({
+            'document_type': 'articles_of_incorporation',
+            'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+            'filename': 'articles_of_incorporation.pdf',
+          }),
+          dict({
+            'document_type': 'proof_of_address',
+            'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+            'filename': 'proof_of_address.pdf',
+          }),
+        ]),
+        'email': 'compliance@example.com',
+        'expected_activity_volume': 100,
+        'identifications': list([
+          dict({
+            'documents': list([
+              dict({
+                'document_type': 'ein_letter',
+                'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+                'filename': 'ein_letter.pdf',
+              }),
+            ]),
+            'id_number': '676047349',
+            'id_type': 'us_ein',
+          }),
+        ]),
+        'intended_use': 'Sandbox demo and testing',
+        'legal_entity_type': 'business',
+        'legal_structure': 'corporation',
+        'metadata': dict({
+          'user_type': 'platform',
+        }),
+        'operating_jurisdictions': list([
+          'US',
+        ]),
+        'phone_numbers': list([
+          dict({
+            'phone_number': '+15551234567',
+          }),
+        ]),
+        'ref': 'platform_corp',
+        'wealth_and_employment_details': dict({
+          'industry': 'finance',
+          'source_of_funds': 'business_revenue',
+        }),
+      }),
+    ]),
+    'nested_categories': list([
+    ]),
+    'payment_orders': list([
+      dict({
+        'amount': 13750000,
+        'description': 'ACH debit from first buyer bank — triggers R01 return (NSF)',
+        'direction': 'debit',
+        'metadata': dict({
+          'attempt_sequence': '1',
+          'demo_purpose': 'sandbox_auto_return_r01',
+          'listing_id': 'BOAT-marketplace_retry_purchase-0',
+          'transaction_type': 'ach_collection',
+        }),
+        'originating_account_id': '$ref:internal_account.first_buyer_{instance}_wallet',
+        'receiving_account_id': '$ref:counterparty.first_buyer_{instance}_cp.account[0]',
+        'ref': 'marketplace_retry_purchase__0000__first_buyer_debit_attempt',
+        'type': 'ach',
+      }),
+      dict({
+        'amount': 13750000,
+        'description': 'ACH debit from second buyer bank — succeeds',
+        'direction': 'debit',
+        'metadata': dict({
+          'attempt_sequence': '2',
+          'demo_purpose': 'successful_buyer_funding',
+          'listing_id': 'BOAT-marketplace_retry_purchase-0',
+          'transaction_type': 'ach_collection',
+        }),
+        'originating_account_id': '$ref:internal_account.second_buyer_{instance}_wallet',
+        'receiving_account_id': '$ref:counterparty.second_buyer_{instance}_cp.account[0]',
+        'ref': 'marketplace_retry_purchase__0000__second_buyer_debit',
+        'type': 'ach',
+      }),
+      dict({
+        'amount': 412500,
+        'description': 'Marketplace commission (3%) from second buyer funds',
+        'direction': 'credit',
+        'metadata': dict({
+          'fee_rate_pct': '3.0',
+          'fee_type': 'marketplace_commission',
+          'listing_id': 'BOAT-marketplace_retry_purchase-0',
+        }),
+        'originating_account_id': '$ref:internal_account.second_buyer_{instance}_wallet',
+        'receiving_account_id': '$ref:internal_account.platform_revenue',
+        'ref': 'marketplace_retry_purchase__0000__platform_fee',
+        'type': 'book',
+      }),
+      dict({
+        'amount': 13337500,
+        'description': 'Net proceeds to seller wallet from second buyer purchase',
+        'direction': 'credit',
+        'metadata': dict({
+          'listing_id': 'BOAT-marketplace_retry_purchase-0',
+          'successful_buyer': 'second_buyer',
+          'transaction_type': 'marketplace_settlement',
+        }),
+        'originating_account_id': '$ref:internal_account.second_buyer_{instance}_wallet',
+        'receiving_account_id': '$ref:internal_account.seller_{instance}_wallet',
+        'ref': 'marketplace_retry_purchase__0000__settle_seller',
+        'type': 'book',
+      }),
+      dict({
+        'amount': 13337500,
+        'description': 'ACH payout to seller bank account after second buyer purchase',
+        'direction': 'credit',
+        'metadata': dict({
+          'listing_id': 'BOAT-marketplace_retry_purchase-0',
+        }),
+        'originating_account_id': '$ref:internal_account.seller_{instance}_wallet',
+        'receiving_account_id': '$ref:counterparty.seller_{instance}_cp.account[0]',
+        'ref': 'marketplace_retry_purchase__0000__payout_seller',
+        'type': 'ach',
+      }),
+    ]),
+    'returns': list([
+    ]),
+    'reversals': list([
+    ]),
+    'transition_ledger_transactions': list([
+    ]),
+    'verify_external_accounts': list([
+    ]),
+    'virtual_accounts': list([
+    ]),
+  })
+# ---
+# name: test_emit_dataloader_config_snapshot[stablecoin_ramp.json][stablecoin_ramp]
+  dict({
+    'archive_resources': list([
+    ]),
+    'category_memberships': list([
+    ]),
+    'complete_verifications': list([
+    ]),
+    'connections': list([
+      dict({
+        'entity_id': 'modern_treasury',
+        'nickname': 'Modern Treasury PSP (USD + USDC)',
+        'ref': 'platform_psp',
+      }),
+    ]),
+    'counterparties': list([
+    ]),
+    'customer_name': 'direct',
+    'expected_payments': list([
+    ]),
+    'external_accounts': list([
+    ]),
+    'funds_flows': list([
+    ]),
+    'incoming_payment_details': list([
+      dict({
+        'amount': 100000,
+        'description': '{first_name} {last_name} ACH deposit for USDC purchase',
+        'direction': 'credit',
+        'internal_account_id': '$ref:internal_account.c2_payment_usd',
+        'metadata': dict({
+          'onramp_id': 'ONRAMP-0',
+        }),
+        'ref': 'usdc_onramp__0000__ach_deposit',
+        'type': 'ach',
+      }),
+      dict({
+        'amount': 75000,
+        'currency': 'USDC',
+        'description': '{first_name} {last_name} sends USDC for off-ramp',
+        'direction': 'credit',
+        'internal_account_id': '$ref:internal_account.payment_usdc',
+        'metadata': dict({
+          'offramp_id': 'OFFRAMP-0',
+        }),
+        'ref': 'usdc_offramp__0000__usdc_received',
+        'type': 'ethereum',
+      }),
+    ]),
+    'internal_accounts': list([
+      dict({
+        'connection_id': '$ref:connection.platform_psp',
+        'currency': 'USD',
+        'legal_entity_id': '$ref:legal_entity.platform_entity',
+        'metadata': dict({
+          'account_role': 'fiat_collection',
+        }),
+        'name': 'C2 Payment Account (USD)',
+        'party_name': 'Archer Payments Inc.',
+        'ref': 'c2_payment_usd',
+      }),
+      dict({
+        'connection_id': '$ref:connection.platform_psp',
+        'currency': 'USDC',
+        'legal_entity_id': '$ref:legal_entity.platform_entity',
+        'metadata': dict({
+          'account_role': 'usdc_omnibus',
+        }),
+        'name': 'Payment Account (USDC)',
+        'party_name': 'Archer Payments Inc.',
+        'ref': 'payment_usdc',
+      }),
+      dict({
+        'connection_id': '$ref:connection.platform_psp',
+        'currency': 'USD',
+        'legal_entity_id': '$ref:legal_entity.platform_entity',
+        'metadata': dict({
+          'account_role': 'fiat_disbursement',
+        }),
+        'name': 'Employee Payment Account (USD)',
+        'party_name': 'Archer Payments Inc.',
+        'ref': 'employee_payment_usd',
+      }),
+    ]),
+    'ledger_account_categories': list([
+    ]),
+    'ledger_accounts': list([
+    ]),
+    'ledger_transactions': list([
+    ]),
+    'ledgers': list([
+    ]),
+    'legal_entities': list([
+      dict({
+        'addresses': list([
+          dict({
+            'address_types': list([
+              'business',
+            ]),
+            'country': 'US',
+            'line1': '100 Main Street',
+            'locality': 'New York',
+            'postal_code': '10001',
+            'region': 'NY',
+          }),
+        ]),
+        'business_name': 'Archer Payments Inc.',
+        'country_of_incorporation': 'US',
+        'date_formed': '2020-01-15',
+        'documents': list([
+          dict({
+            'document_type': 'articles_of_incorporation',
+            'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+            'filename': 'articles_of_incorporation.pdf',
+          }),
+          dict({
+            'document_type': 'proof_of_address',
+            'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+            'filename': 'proof_of_address.pdf',
+          }),
+        ]),
+        'email': 'compliance@example.com',
+        'expected_activity_volume': 100,
+        'identifications': list([
+          dict({
+            'documents': list([
+              dict({
+                'document_type': 'ein_letter',
+                'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+                'filename': 'ein_letter.pdf',
+              }),
+            ]),
+            'id_number': '639837323',
+            'id_type': 'us_ein',
+          }),
+        ]),
+        'intended_use': 'Sandbox demo and testing',
+        'legal_entity_type': 'business',
+        'legal_structure': 'llc',
+        'metadata': dict({
+        }),
+        'operating_jurisdictions': list([
+          'US',
+        ]),
+        'phone_numbers': list([
+          dict({
+            'phone_number': '+15551234567',
+          }),
+        ]),
+        'ref': 'platform_entity',
+        'wealth_and_employment_details': dict({
+          'industry': 'finance',
+          'source_of_funds': 'business_revenue',
+        }),
+      }),
+    ]),
+    'nested_categories': list([
+    ]),
+    'payment_orders': list([
+      dict({
+        'amount': 100000,
+        'description': 'Book transfer USD → USDC omnibus for conversion',
+        'direction': 'credit',
+        'ledger_transaction': dict({
+          'description': 'Book transfer USD → USDC omnibus for conversion',
+          'ledger_entries': list([
+            dict({
+              'amount': 100000,
+              'direction': 'debit',
+              'ledger_account_id': '$ref:internal_account.payment_usdc.ledger_account',
+              'metadata': dict({
+              }),
+            }),
+            dict({
+              'amount': 100000,
+              'direction': 'credit',
+              'ledger_account_id': '$ref:internal_account.c2_payment_usd.ledger_account',
+              'metadata': dict({
+              }),
+            }),
+          ]),
+          'metadata': dict({
+            'onramp_id': 'ONRAMP-0',
+          }),
+        }),
+        'metadata': dict({
+          'onramp_id': 'ONRAMP-0',
+        }),
+        'originating_account_id': '$ref:internal_account.c2_payment_usd',
+        'receiving_account_id': '$ref:internal_account.payment_usdc',
+        'ref': 'usdc_onramp__0000__book_usd_to_usdc',
+        'type': 'book',
+      }),
+      dict({
+        'amount': 99500,
+        'currency': 'USDC',
+        'description': 'Send USDC to {first_name} {last_name} external wallet',
+        'direction': 'credit',
+        'metadata': dict({
+          'onramp_id': 'ONRAMP-0',
+        }),
+        'originating_account_id': '$ref:internal_account.payment_usdc',
+        'receiving_account_id': '$ref:counterparty.customer_{instance}_wallet.account[0]',
+        'ref': 'usdc_onramp__0000__send_usdc',
+        'type': 'ethereum',
+      }),
+      dict({
+        'amount': 75000,
+        'description': 'Book transfer USDC → USD for fiat off-ramp',
+        'direction': 'credit',
+        'ledger_transaction': dict({
+          'description': 'Book transfer USDC → USD for fiat off-ramp',
+          'ledger_entries': list([
+            dict({
+              'amount': 75000,
+              'direction': 'debit',
+              'ledger_account_id': '$ref:internal_account.employee_payment_usd.ledger_account',
+              'metadata': dict({
+              }),
+            }),
+            dict({
+              'amount': 75000,
+              'direction': 'credit',
+              'ledger_account_id': '$ref:internal_account.payment_usdc.ledger_account',
+              'metadata': dict({
+              }),
+            }),
+          ]),
+          'metadata': dict({
+            'offramp_id': 'OFFRAMP-0',
+          }),
+        }),
+        'metadata': dict({
+          'offramp_id': 'OFFRAMP-0',
+        }),
+        'originating_account_id': '$ref:internal_account.payment_usdc',
+        'receiving_account_id': '$ref:internal_account.employee_payment_usd',
+        'ref': 'usdc_offramp__0000__book_usdc_to_usd',
+        'type': 'book',
+      }),
+      dict({
+        'amount': 74625,
+        'description': 'ACH payout of USD to {first_name} {last_name} bank',
+        'direction': 'credit',
+        'metadata': dict({
+          'offramp_id': 'OFFRAMP-0',
+        }),
+        'originating_account_id': '$ref:internal_account.employee_payment_usd',
+        'receiving_account_id': '$ref:counterparty.customer_{instance}_bank.account[0]',
+        'ref': 'usdc_offramp__0000__fiat_payout',
+        'type': 'ach',
+      }),
+    ]),
+    'returns': list([
+    ]),
+    'reversals': list([
+    ]),
+    'transition_ledger_transactions': list([
+    ]),
+    'verify_external_accounts': list([
+    ]),
+    'virtual_accounts': list([
+    ]),
+  })
+# ---
+# name: test_emit_dataloader_config_snapshot[staged_demo.json][staged_demo]
+  dict({
+    'archive_resources': list([
+    ]),
+    'category_memberships': list([
+    ]),
+    'complete_verifications': list([
+    ]),
+    'connections': list([
+      dict({
+        'entity_id': 'modern_treasury',
+        'nickname': 'Demo PSP',
+        'ref': 'mt_bank',
+      }),
+    ]),
+    'counterparties': list([
+    ]),
+    'customer_name': 'direct',
+    'expected_payments': list([
+    ]),
+    'external_accounts': list([
+    ]),
+    'funds_flows': list([
+    ]),
+    'incoming_payment_details': list([
+      dict({
+        'amount': 5000000,
+        'description': 'Buyer deposits $50,000 via ACH',
+        'direction': 'credit',
+        'internal_account_id': '$ref:internal_account.buyer_{instance}_wallet',
+        'metadata': dict({
+          'order_id': 'ORD-staged_marketplace-0',
+        }),
+        'ref': 'staged_marketplace__0000__buyer_deposit',
+        'type': 'ach',
+      }),
+    ]),
+    'internal_accounts': list([
+      dict({
+        'connection_id': '$ref:connection.mt_bank',
+        'currency': 'USD',
+        'legal_entity_id': '$ref:legal_entity.platform_corp',
+        'metadata': dict({
+        }),
+        'name': 'Acme Revenue Account',
+        'party_name': 'Acme Payments Inc.',
+        'ref': 'platform_revenue',
+      }),
+    ]),
+    'ledger_account_categories': list([
+    ]),
+    'ledger_accounts': list([
+    ]),
+    'ledger_transactions': list([
+    ]),
+    'ledgers': list([
+    ]),
+    'legal_entities': list([
+      dict({
+        'addresses': list([
+          dict({
+            'address_types': list([
+              'business',
+            ]),
+            'country': 'US',
+            'line1': '100 Main Street',
+            'locality': 'New York',
+            'postal_code': '10001',
+            'region': 'NY',
+          }),
+        ]),
+        'business_name': 'Acme Payments Inc.',
+        'country_of_incorporation': 'US',
+        'date_formed': '2020-01-15',
+        'documents': list([
+          dict({
+            'document_type': 'articles_of_incorporation',
+            'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+            'filename': 'articles_of_incorporation.pdf',
+          }),
+          dict({
+            'document_type': 'proof_of_address',
+            'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+            'filename': 'proof_of_address.pdf',
+          }),
+        ]),
+        'email': 'compliance@example.com',
+        'expected_activity_volume': 100,
+        'identifications': list([
+          dict({
+            'documents': list([
+              dict({
+                'document_type': 'ein_letter',
+                'file_data': 'JVBERi0xLjAKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFI+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTA4IDAwMDAwIG4gCnRyYWlsZXI8PC9Sb290IDEgMCBSL1NpemUgND4+CnN0YXJ0eHJlZgoxNzgKJSVFT0Y=',
+                'filename': 'ein_letter.pdf',
+              }),
+            ]),
+            'id_number': '676047349',
+            'id_type': 'us_ein',
+          }),
+        ]),
+        'intended_use': 'Sandbox demo and testing',
+        'legal_entity_type': 'business',
+        'legal_structure': 'corporation',
+        'metadata': dict({
+        }),
+        'operating_jurisdictions': list([
+          'US',
+        ]),
+        'phone_numbers': list([
+          dict({
+            'phone_number': '+15551234567',
+          }),
+        ]),
+        'ref': 'platform_corp',
+        'wealth_and_employment_details': dict({
+          'industry': 'finance',
+          'source_of_funds': 'business_revenue',
+        }),
+      }),
+    ]),
+    'nested_categories': list([
+    ]),
+    'payment_orders': list([
+      dict({
+        'amount': 150000,
+        'description': 'Platform takes 3% fee ($1,500)',
+        'direction': 'credit',
+        'metadata': dict({
+          'order_id': 'ORD-staged_marketplace-0',
+        }),
+        'originating_account_id': '$ref:internal_account.buyer_{instance}_wallet',
+        'receiving_account_id': '$ref:internal_account.platform_revenue',
+        'ref': 'staged_marketplace__0000__platform_fee',
+        'type': 'book',
+      }),
+      dict({
+        'amount': 4850000,
+        'description': 'Net proceeds ($48,500) to seller wallet',
+        'direction': 'credit',
+        'metadata': dict({
+          'order_id': 'ORD-staged_marketplace-0',
+        }),
+        'originating_account_id': '$ref:internal_account.buyer_{instance}_wallet',
+        'receiving_account_id': '$ref:internal_account.seller_{instance}_wallet',
+        'ref': 'staged_marketplace__0000__settle_seller',
+        'type': 'book',
+      }),
+      dict({
+        'amount': 4850000,
+        'description': 'ACH payout to seller bank account',
+        'direction': 'credit',
+        'metadata': dict({
+          'order_id': 'ORD-staged_marketplace-0',
+        }),
+        'originating_account_id': '$ref:internal_account.seller_{instance}_wallet',
+        'receiving_account_id': '$ref:counterparty.seller_{instance}_cp.account[0]',
+        'ref': 'staged_marketplace__0000__payout_seller',
+        'type': 'ach',
+      }),
+    ]),
+    'returns': list([
+    ]),
+    'reversals': list([
+    ]),
+    'transition_ledger_transactions': list([
+    ]),
+    'verify_external_accounts': list([
+    ]),
+    'virtual_accounts': list([
+    ]),
+  })
+# ---

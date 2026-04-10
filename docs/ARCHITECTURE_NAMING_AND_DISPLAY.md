@@ -108,8 +108,8 @@ These override earlier “optional” or “two world” wording until implement
 | Pass | File | Name-related behavior |
 |------|------|------------------------|
 | **expand instances** | `flow_compiler/pipeline.py` `pass_expand_instances` | Uses **hardcoded** `default_profile` — **not** Faker, **not** recipes. Expands `instance_resources` with `instance="0000"`. |
-| **compile → IR** | `flow_compiler/core.py` `compile_flows` | `flatten_actor_refs` + `resolve_actors`; `expand_trace_value` with instance `0` unless template already substituted |
-| **emit** | `emit_dataloader_config` | Resources land in `config` with expanded template names |
+| **compile → IR** | `flow_compiler/core.py` `compile_flows` | `flatten_actor_refs` + `resolve_actors`; `expand_trace_value` with instance `0` unless template already substituted. **Plan 08** split modules: **`docs/FLOW_COMPILER_CORE_MODULES.md`**. |
+| **emit** | `flow_compiler/core_emit.py` `emit_dataloader_config` (re-exported from `core` / package) | Resources land in `config` with expanded template names |
 | **Mermaid** | `pass_render_diagrams` | `render_mermaid(ir, fc, customer_name=authoring.config.customer_name)` |
 | **Fund flow views** | `pass_compute_view_data` | `compute_view_data` → `build_ref_display_map` / `resolve_actor_display` (alias + slot — **target:** shared resolver, §0.5) |
 

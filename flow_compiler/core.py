@@ -108,8 +108,10 @@ from .core_step_compile import _compile_step  # noqa: E402
 # ---------------------------------------------------------------------------
 
 
-def _compile_one_flow(flow: FundsFlowConfig, base_config: DataLoaderConfig) -> FlowIR:
-    """Compile a single ``FundsFlowConfig`` (main steps + optional groups) to ``FlowIR``."""
+def _flow_instance_id_and_trace_meta(
+    flow: FundsFlowConfig,
+) -> tuple[str, str, dict[str, str]]:
+    """Parse ``flow.ref`` for instance id; build ``trace_value`` and merged ``trace_meta``."""
     parts = flow.ref.rsplit("__", 1)
     if len(parts) == 2 and parts[1].isdigit():
         _validate_ref_segment(parts[0])
@@ -127,7 +129,11 @@ def _compile_one_flow(flow: FundsFlowConfig, base_config: DataLoaderConfig) -> F
     trace_value = expand_trace_value(primary_tpl, flow.ref, int(instance_id))
     extras = {k: v for k, v in flow.trace_metadata.items() if k != flow.trace_key}
     trace_meta = {flow.trace_key: trace_value, **extras}
+    return instance_id, trace_value, trace_meta
 
+
+def _optional_group_step_ids(flow: FundsFlowConfig) -> dict[str, str]:
+    """Map optional-group step_id → group label (schema + stamped ``_flow_optional_group``)."""
     og_step_ids: dict[str, str] = {}
     for og in flow.optional_groups:
         for s in og.steps:
@@ -136,22 +142,43 @@ def _compile_one_flow(flow: FundsFlowConfig, base_config: DataLoaderConfig) -> F
         meta = s.metadata
         if "_flow_optional_group" in meta and s.step_id not in og_step_ids:
             og_step_ids[s.step_id] = meta["_flow_optional_group"]
+    return og_step_ids
 
+
+def _all_steps_main_and_optional(flow: FundsFlowConfig) -> list[_StepBase]:
+    """Flatten main ``steps`` plus every optional group's steps (compile ref map over all)."""
     all_steps: list[_StepBase] = list(flow.steps)
     for og in flow.optional_groups:
         all_steps.extend(og.steps)
+    return all_steps
 
-    # --- Pass 1: build ref map for ALL steps (main + OG) ---
+
+def _typed_step_ref_map(
+    flow: FundsFlowConfig,
+    instance_id: str,
+    all_steps: list[_StepBase],
+) -> dict[str, str]:
+    """step_id → ``$ref:<type>.<flow_ref>__<instance>__<step_id>`` for main + OG steps."""
     step_ref_map: dict[str, str] = {}
     for step in all_steps:
         _validate_ref_segment(step.step_id)
         emitted_ref = f"{flow.ref}__{instance_id}__{step.step_id}"
         typed_ref = f"$ref:{step.type}.{emitted_ref}"
         step_ref_map[step.step_id] = typed_ref
+    return step_ref_map
 
-    actor_refs = flatten_actor_refs(flow.actors)
 
-    # --- Pass 2: compile main steps ---
+def _compile_main_steps_to_ir(
+    flow: FundsFlowConfig,
+    instance_id: str,
+    trace_meta: dict[str, str],
+    step_ref_map: dict[str, str],
+    all_steps: list[_StepBase],
+    actor_refs: dict[str, str],
+    og_step_ids: dict[str, str],
+    base_config: DataLoaderConfig,
+) -> list[FlowIRStep]:
+    """Compile only main-line ``flow.steps`` into ``FlowIRStep`` list."""
     ir_steps: list[FlowIRStep] = []
     for step in flow.steps:
         ir_steps.append(
@@ -167,8 +194,24 @@ def _compile_one_flow(flow: FundsFlowConfig, base_config: DataLoaderConfig) -> F
                 base_config,
             )
         )
+    return ir_steps
 
-    # --- Pass 3: compile optional group steps (preview_only for Mermaid) ---
+
+def _splice_optional_group_preview_steps(
+    flow: FundsFlowConfig,
+    instance_id: str,
+    trace_meta: dict[str, str],
+    step_ref_map: dict[str, str],
+    all_steps: list[_StepBase],
+    actor_refs: dict[str, str],
+    og_step_ids: dict[str, str],
+    base_config: DataLoaderConfig,
+    ir_steps: list[FlowIRStep],
+) -> None:
+    """Compile optional-group steps as ``preview_only`` and insert per OG position rules.
+
+    Mutates ``ir_steps`` in place.
+    """
     main_step_ids = [s.step_id for s in ir_steps]
     for og in flow.optional_groups:
         compiled_og: list[FlowIRStep] = []
@@ -189,7 +232,6 @@ def _compile_one_flow(flow: FundsFlowConfig, base_config: DataLoaderConfig) -> F
         position = getattr(og, "position", "after")
         anchor = getattr(og, "insert_after", None)
 
-        # Auto-infer anchor from OG steps' depends_on when not explicit
         if not anchor:
             latest_idx = -1
             for og_step in og.steps:
@@ -199,7 +241,6 @@ def _compile_one_flow(flow: FundsFlowConfig, base_config: DataLoaderConfig) -> F
                         if idx > latest_idx:
                             latest_idx = idx
                             anchor = dep
-            # "before" without anchor means prepend to start
             if not anchor and position != "before":
                 ir_steps.extend(compiled_og)
                 main_step_ids = [s.step_id for s in ir_steps]
@@ -219,6 +260,37 @@ def _compile_one_flow(flow: FundsFlowConfig, base_config: DataLoaderConfig) -> F
         else:
             ir_steps.extend(compiled_og)
         main_step_ids = [s.step_id for s in ir_steps]
+
+
+def _compile_one_flow(flow: FundsFlowConfig, base_config: DataLoaderConfig) -> FlowIR:
+    """Compile a single ``FundsFlowConfig`` (main steps + optional groups) to ``FlowIR``."""
+    instance_id, trace_value, trace_meta = _flow_instance_id_and_trace_meta(flow)
+    og_step_ids = _optional_group_step_ids(flow)
+    all_steps = _all_steps_main_and_optional(flow)
+    step_ref_map = _typed_step_ref_map(flow, instance_id, all_steps)
+    actor_refs = flatten_actor_refs(flow.actors)
+
+    ir_steps = _compile_main_steps_to_ir(
+        flow,
+        instance_id,
+        trace_meta,
+        step_ref_map,
+        all_steps,
+        actor_refs,
+        og_step_ids,
+        base_config,
+    )
+    _splice_optional_group_preview_steps(
+        flow,
+        instance_id,
+        trace_meta,
+        step_ref_map,
+        all_steps,
+        actor_refs,
+        og_step_ids,
+        base_config,
+        ir_steps,
+    )
 
     return FlowIR(
         flow_ref=flow.ref,

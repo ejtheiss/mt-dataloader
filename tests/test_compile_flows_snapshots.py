@@ -12,6 +12,7 @@ import pytest
 
 from flow_compiler import compile_flows
 from models import DataLoaderConfig
+from tests.compiler_snapshot_examples import COMPILER_SNAPSHOT_EXAMPLE_FILES
 from tests.paths import EXAMPLES_DIR
 
 
@@ -28,16 +29,7 @@ def _compile_example_json(name: str):
     return compile_flows(list(config.funds_flows), config)
 
 
-@pytest.mark.parametrize(
-    "example_file",
-    [
-        "funds_flow_demo.json",
-        "marketplace_demo.json",
-        "stablecoin_ramp.json",
-        "staged_demo.json",
-        "lending_platform.json",
-    ],
-)
+@pytest.mark.parametrize("example_file", COMPILER_SNAPSHOT_EXAMPLE_FILES)
 def test_compile_flows_flow_ir_snapshot(example_file: str, snapshot):
     flow_irs = _compile_example_json(example_file)
     stem = Path(example_file).stem

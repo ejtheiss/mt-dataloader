@@ -6,6 +6,7 @@ See ``resources_mid`` and ``resources_tail`` for later dependency layers.
 from __future__ import annotations
 
 import base64 as _b64
+import hashlib
 from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -114,9 +115,14 @@ _MOCK_PDF_B64: str = _b64.standard_b64encode(
 
 
 def _mock_nine_digits(seed: str, offset: int = 0) -> str:
-    """Deterministic 9-digit number from a seed string. Never starts with 0."""
-    h = hash(seed) + offset
-    n = abs(h) % 900_000_000 + 100_000_000
+    """Deterministic 9-digit number from a seed string. Never starts with 0.
+
+    Uses SHA-256 (not ``hash()``) so sandbox mock IDs are stable across
+    processes and match golden snapshots / CI (``PYTHONHASHSEED`` varies).
+    """
+    digest = hashlib.sha256(f"{seed}\0{offset}".encode()).digest()
+    h = int.from_bytes(digest[:8], "big")
+    n = h % 900_000_000 + 100_000_000
     return str(n)
 
 
