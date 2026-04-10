@@ -5,7 +5,7 @@ alwaysApply: true
 
 # `plan/` is never part of the git repo
 
-- The repository **ignores** `plan/` (see root `.gitignore`). Treat everything under `plan/` as **private / local** working material.
+- `plan/` is **not** listed in `.gitignore` so local search/indexing can see it; it must still **never** be tracked. CI fails if any path matching `^plan(/|$)` is in the git index. Optionally run `git config core.hooksPath .githooks` to enable the local pre-commit guard. Treat everything under `plan/` as **private / local** working material.
 - **Do not** `git add`, stage, or commit files under `plan/` (including Coast chunks, gap analyses, or chunker output). Never use `git add -f` on `plan/` unless the user explicitly orders it.
 - **Do not** copy or relocate content from `plan/` into tracked directories (e.g. `docs/`, `scripts/`) **unless the user explicitly asks** for that specific export.
 - **Do not** add long-lived “plan ingestion” scripts under tracked `scripts/` unless the user asks; one-off chunking belongs in ephemeral snippets or local-only paths, not the repo.

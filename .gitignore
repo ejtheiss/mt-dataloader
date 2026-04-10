@@ -29,8 +29,8 @@ env/
 .DS_Store
 Thumbs.db
 
-# Internal plans and reviews (not for public repo)
-plan/
+# plan/ is local-only but not gitignored so editors/search can index it.
+# Do not track it — CI fails if plan/ appears in the index; use .githooks/pre-commit locally.
 
 # Generated token preview (regen script); shipped tokens.css stays tracked
 static/css/tokens.regen-preview.css
