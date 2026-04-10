@@ -44,3 +44,7 @@ logs/
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Local tooling output / agent dirs (not part of the product tree)
+.claude/
+reports/
