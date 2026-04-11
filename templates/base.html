@@ -6,7 +6,7 @@
     <title>{% block title %}MT Dataloader{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="/static/mt-favicon-violet.svg">
     <script>
-    (function(){var p=localStorage.getItem("dl_theme")||"system";var e=(p==="dark"||(p==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches))?"dark":"light";document.documentElement.dataset.theme=e;document.documentElement.style.colorScheme=e;})();
+    (function(){var p=localStorage.getItem("dl_theme")||"system";var e=(p==="dark"||(p==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches))?"dark":"light";document.documentElement.dataset.theme=e;document.documentElement.style.colorScheme=e;window._dlThemePref=p;})();
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -111,9 +111,12 @@
                     <label for="theme-light">Light</label>
                     <input type="radio" id="theme-dark" name="dl_theme_pref" value="dark">
                     <label for="theme-dark">Dark</label>
-                    <input type="radio" id="theme-system" name="dl_theme_pref" value="system" checked>
+                    <input type="radio" id="theme-system" name="dl_theme_pref" value="system">
                     <label for="theme-system">System</label>
                 </fieldset>
+                <script>
+                (function(){var p=window._dlThemePref||"system";var r=document.querySelector('input[name="dl_theme_pref"][value="'+p+'"]');if(r)r.checked=true;})();
+                </script>
                 <span class="sidebar-version">v{{ app_version }}</span>
             </div>
         </aside>
