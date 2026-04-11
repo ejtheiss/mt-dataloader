@@ -2,18 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <script>
-    (function () {
-        try {
-            var k = "dataloader-theme", s = localStorage.getItem(k);
-            var t = (s === "light" || s === "dark") ? s
-                : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-            document.documentElement.setAttribute("data-theme", t);
-        } catch (e) {
-            document.documentElement.setAttribute("data-theme", "light");
-        }
-    })();
-    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}MT Dataloader{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="/static/mt-favicon-violet.svg">
@@ -21,7 +9,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/tokens.css?v={{ css_version }}">
-    <link rel="stylesheet" href="/static/css/theme-dark.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/turbogrid/turbogrid.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/mt-patterns.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/css/drawer.css?v={{ css_version }}">
@@ -45,7 +32,6 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
     <script src="/static/js/org-context.js?v={{ css_version }}" defer></script>
-    <script src="/static/js/theme.js?v={{ css_version }}" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
     <script src="/static/editor.js"></script>
     <script>

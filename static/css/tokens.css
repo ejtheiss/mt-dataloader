@@ -223,7 +223,7 @@
   --shadow-select-bar: 0 1px 0px 0 rgba(0, 0, 0, 0.05);
   --shadow-popover:    0px 2px 10px 0px rgba(0, 0, 0, 0.1);
 
-  /* Navigation / breadcrumbs (semantic — theme-dark.css overrides) */
+  /* Navigation / breadcrumbs (semantic — optional future theme sheet may remap) */
   --text-breadcrumb: var(--text-muted);
   --text-breadcrumb-current: var(--text-default);
   --text-breadcrumb-separator: var(--gray-400);

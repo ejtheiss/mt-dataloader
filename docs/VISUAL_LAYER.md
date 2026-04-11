@@ -1,6 +1,6 @@
-# Visual layer — tokens, themes, and conventions
+# Visual layer — tokens and conventions
 
-This app ships **Jinja + static CSS** (no Tailwind in templates, no CSS bundler). Theming is **CSS custom properties**: primitives and semantics live in [`static/css/tokens.css`](../static/css/tokens.css); dark mode **re-maps semantics** in [`static/css/theme-dark.css`](../static/css/theme-dark.css) when `document.documentElement` has `data-theme="dark"`.
+This app ships **Jinja + static CSS** (no Tailwind in templates, no CSS bundler). The product today is a **single light theme**: primitives and semantics live in [`static/css/tokens.css`](../static/css/tokens.css). Component CSS should consume **semantic variables** so a second theme (for example a `[data-theme="dark"]` overlay) can be added later **without** rewriting every rule.
 
 ## Primitives vs semantics
 
@@ -13,14 +13,13 @@ This app ships **Jinja + static CSS** (no Tailwind in templates, no CSS bundler)
 
 **Exception policy:** If a literal hex/rgb is unavoidable, add `/* literal: <reason> */` on the same or previous line and note it in PR review.
 
-## Cascade order
+## Cascade order (current)
 
-1. [`tokens.css`](../static/css/tokens.css) — `:root` primitives + light semantic defaults  
-2. [`theme-dark.css`](../static/css/theme-dark.css) — `[data-theme="dark"]` semantic overrides (+ light alpha bridges where needed)  
-3. Component CSS under `static/css/*.css` — layout and components consume semantics  
-4. [`static/style.css`](../static/style.css) — app-specific overrides last  
+1. [`tokens.css`](../static/css/tokens.css) — `:root` primitives + semantic defaults  
+2. Component CSS under `static/css/*.css` — layout and components consume semantics  
+3. [`static/style.css`](../static/style.css) — app-specific overrides last  
 
-`data-theme` is set **before first paint** (inline boot snippet in [`templates/base.html`](../templates/base.html)); [`static/js/theme.js`](../static/js/theme.js) (deferred) re-syncs on `prefers-color-scheme` changes and exposes `window.applyDataloaderTheme('light'|'dark'|'system')` for a future settings toggle.
+A future dark (or high-contrast) pass would typically insert **one** additional stylesheet after `tokens.css` that only reassigns semantic custom properties; it is **not** shipped in the app today.
 
 ## Literal inventory (maintenance)
 
@@ -28,24 +27,24 @@ Approximate **`#rrggbb` / `rgb(`** counts under `static/css/` (excluding generat
 
 | File | Notes |
 |------|--------|
-| `tokens.css` | Expected: full primitive scale + light semantics |
-| `page-chrome.css` | Breadcrumbs, badges, cards — migrated to semantics where listed in that file |
-| `buttons.css`, `forms.css` | Higher literal load; chip away over time |
+| `tokens.css` | Expected: full primitive scale + semantics |
+| `page-chrome.css` | Breadcrumbs, badges, cards — semantic vars only (CI-guarded) |
+| `buttons.css`, `forms.css` | Higher literal load; migrate incrementally |
 | `layout.css` | Layout-only; typically no raw colors |
 
 ## Third-party widgets
 
 | Widget | Behavior |
 |--------|----------|
-| **Monaco** | [`static/editor.js`](../static/editor.js) uses `data-theme` first (`dark` → `vs-dark`), then falls back to `--bg` heuristic. Listens for `dataloader-theme-changed` to update open editors. |
-| **Mermaid** | [`templates/partials/mermaid_scripts.html`](../templates/partials/mermaid_scripts.html) picks `theme: 'dark' \| 'neutral'` from `data-theme` at init. |
-| **TurboGrid** | Vendor stylesheet in `/static/turbogrid/`; prefer wrapping cells with classes that use **semantic** tokens from app CSS. Avoid new grid-specific hex in `static/css/` when a semantic exists. |
-| **`mt-patterns.css`** | Uses `--mt-*` aliases defined in `tokens.css`; keep aliases mapped to semantics so dark overrides propagate. |
+| **Monaco** | [`static/editor.js`](../static/editor.js) uses the existing `--bg` luminance heuristic (`vs` vs `vs-dark`). |
+| **Mermaid** | [`templates/partials/mermaid_scripts.html`](../templates/partials/mermaid_scripts.html) uses `theme: 'neutral'` (pinned CDN build in the partial). |
+| **TurboGrid** | Vendor stylesheet under `/static/turbogrid/`; prefer app classes that use **semantic** tokens. Avoid new grid-specific hex in `static/css/` when a semantic exists. |
+| **`mt-patterns.css`** | Uses `--mt-*` aliases from `tokens.css`; keep aliases on semantics so future theme sheets stay small. |
 
 ## CI guard
 
-[`scripts/check_css_literals.py`](../scripts/check_css_literals.py) fails if **new** bare hex literals appear in strict-listed chrome files (currently `page-chrome.css`). Extend the allowlist as more files go semantic-only.
+[`scripts/check_css_literals.py`](../scripts/check_css_literals.py) fails if **new** bare hex literals appear in strict-listed chrome files (currently `page-chrome.css`). Extend `STRICT_CSS_FILES` as more modules go semantic-only.
 
 ## Related
 
-- Run state / BFF docs: [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md) (orthogonal to theming).
+- Run state / BFF: [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md) (orthogonal).
