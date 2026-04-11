@@ -167,6 +167,7 @@
 .ui-table-cell.text-right {
   justify-content: flex-end;
   text-align: right;
+  gap: 6px;
 }
 
 /* ===== Sort Button — IndexTable.tsx line 891-909 ===== */

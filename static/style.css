@@ -718,10 +718,11 @@ a.doc-link:hover .type-badge {
     outline-offset: 1px;
 }
 a.doc-link-inline {
-    color: var(--primary);
+    color: var(--primary-interactive);
     text-decoration: none;
     font-weight: 500;
-    border-bottom: 1px dotted var(--primary);
+    border-bottom: 1px dotted var(--primary-interactive);
+    padding-bottom: 1px;
 }
 a.doc-link-inline:hover { border-bottom-style: solid; }
 
