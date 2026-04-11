@@ -421,7 +421,7 @@ body {
     display: block;
     font-size: var(--mt-text-xs, 0.75rem);
     font-weight: 500;
-    color: var(--mt-gray-500);
+    color: var(--text-muted);
     margin-bottom: 6px;
     letter-spacing: 0.03em;
 }
@@ -1571,17 +1571,17 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 .amount-step-item {
     display: flex; align-items: center; gap: 8px;
     font-size: 0.82rem; padding: 6px 10px;
-    background: var(--mt-gray-50); border-radius: var(--mt-radius-sm);
+    background: var(--background-light); border-radius: var(--mt-radius-sm);
 }
 .edge-case-count-input {
     width: 64px; padding: 3px 6px; font-size: 0.82rem;
-    border: 1px solid var(--mt-border); border-radius: var(--mt-radius-sm);
-    background: var(--mt-white); text-align: center;
+    border: 1px solid var(--border-default); border-radius: var(--mt-radius-sm);
+    background: var(--background-default); text-align: center;
 }
 .amount-step-header {
     display: flex; align-items: center; padding: 0 10px;
     font-size: var(--mt-text-xs); font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.04em; color: var(--mt-gray-500);
+    letter-spacing: 0.04em; color: var(--text-muted);
 }
 .amount-header-right {
     margin-left: auto;
@@ -1918,7 +1918,7 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 .drawer-section-label {
     font-size: var(--mt-text-sm, 0.875rem);
     font-weight: 600;
-    color: var(--mt-gray-700);
+    color: var(--text-default);
     margin-bottom: 8px;
 }
 
@@ -1926,7 +1926,7 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 .drawer-section-title {
     font-size: var(--mt-text-sm, 0.875rem);
     font-weight: 600;
-    color: var(--mt-gray-800);
+    color: var(--text-default);
     margin: var(--mt-spacing-4, 1rem) 0 var(--mt-spacing-2, 0.5rem);
 }
 .drawer-section-title:first-child {
