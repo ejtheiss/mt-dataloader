@@ -151,6 +151,8 @@ Ordered for dependency and risk (adjust to product priority).
 | Execution accumulator              | `tests/dataloader/test_execution_accumulator.py` |
 | Runs list SQL                      | `tests/db/test_runs_list_sql.py`                 |
 | Router view-DTO hygiene            | `tests/test_router_dto_hygiene.py`               |
+| Run detail SELECT budget (G3)     | `tests/db/test_run_state_invariants.py` (`test_fetch_run_detail_view_select_budget`) |
+| Migration rehearsal (G2, ops)     | [`MIGRATION_REHEARSAL_RUNBOOK.md`](MIGRATION_REHEARSAL_RUNBOOK.md) |
 
 
 ## Quick reference (env)

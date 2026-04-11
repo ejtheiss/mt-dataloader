@@ -1,6 +1,6 @@
 # DB-only run state — solvability and delivery gates
 
-This document satisfies the **solvability report** and **derisk gates** from the DB-only run state plan. Canonical architecture remains in [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md).
+This document satisfies the **solvability report** (`solvability-report` / `adr-decisions` / design-hardening todos) and **derisk gates** from the DB-only run state plan. Canonical architecture remains in [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md). **G2** has a dedicated checklist: [`MIGRATION_REHEARSAL_RUNBOOK.md`](MIGRATION_REHEARSAL_RUNBOOK.md).
 
 ## Solvability (in-scope risks)
 
@@ -33,6 +33,8 @@ Context7 hydration pointers for Alembic / SQLAlchemy / FastAPI / sse-starlette /
 
 ## G2 — Migration rehearsal (pre-merge / deploy)
 
+Step-by-step checklist: **[`MIGRATION_REHEARSAL_RUNBOOK.md`](MIGRATION_REHEARSAL_RUNBOOK.md)**.
+
 Run against a **copy** of real `dataloader.sqlite` and optional `runs/` snapshot:
 
 1. Record `SELECT COUNT(*)` from `runs` before upgrade.
@@ -53,7 +55,9 @@ Capture on representative hardware with a warm DB (adjust numbers after first me
 | Cleanup POST + first SSE row | &lt; 300 ms to first event after MT client connect | Single DB read for created rows (already ordered) |
 | Runs list (HTML cap) | &lt; 400 ms p95 | Indexed SQL list query |
 
-Record actual numbers in release notes or a pinned benchmark run when profiling.
+**Query ceiling (CI):** `tests/db/test_run_state_invariants.py::test_fetch_run_detail_view_select_budget` asserts a low **SELECT** count for `fetch_run_detail_view` (guards accidental N+1 or duplicate staged loads).
+
+Record actual wall-clock numbers in release notes or a pinned benchmark run when profiling.
 
 ## Review checklist — mapper boundary
 

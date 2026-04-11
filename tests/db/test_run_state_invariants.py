@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 
 from db.database import (
     build_sqlite_file_urls,
@@ -126,6 +126,130 @@ async def test_correlation_index_includes_child_ref_targets(
         assert ids["po_parent"] == (run_id, "payment_orders.po1")
         assert ids["lt_child"] == (run_id, "payment_orders.po1.ledger_transaction")
     finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_correlation_index_each_created_id_maps_to_single_tuple(
+    tmp_path: Path,
+    repo_root: Path,
+) -> None:
+    """G1: webhook index has at most one (run_id, typed_ref) per created_id (parent + child keys)."""
+    sqlite_path = tmp_path / "dataloader.sqlite"
+    sync_url, async_url = build_sqlite_file_urls(sqlite_path)
+    run_alembic_upgrade(repo_root, sync_url)
+    engine, factory = create_async_engine_and_sessionmaker(async_url)
+    run_id = "inv-corr-uniq-1"
+    try:
+        async with factory() as s:
+            await runs_repo.ensure_run(
+                s,
+                run_id=run_id,
+                user_id=1,
+                mt_org_id=None,
+                mt_org_label=None,
+                config_hash="h",
+                started_at="2026-01-01T00:00:00+00:00",
+            )
+            await run_artifacts.insert_created_resource_row(
+                s,
+                run_id=run_id,
+                batch=0,
+                resource_type="payment_order",
+                typed_ref="payment_orders.po1",
+                created_id="po_parent",
+                created_at="2026-01-01T00:00:01+00:00",
+                deletable=False,
+                child_refs={"ledger_transaction": "lt_child", "x": "y"},
+            )
+            await s.commit()
+
+        async with factory() as s:
+            rows = await run_artifacts.fetch_correlation_index_rows(s)
+        by_id: dict[str, tuple[str, str]] = {}
+        for cid, rid, tref in rows:
+            assert cid not in by_id, f"duplicate correlation id {cid!r}"
+            by_id[cid] = (rid, tref)
+        assert by_id["po_parent"] == (run_id, "payment_orders.po1")
+        assert by_id["lt_child"] == (run_id, "payment_orders.po1.ledger_transaction")
+        assert by_id["y"] == (run_id, "payment_orders.po1.x")
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_fetch_run_detail_view_select_budget(
+    tmp_path: Path,
+    repo_root: Path,
+) -> None:
+    """G3: run detail assembly uses a bounded number of SELECTs (no per-row N+1)."""
+    sqlite_path = tmp_path / "dataloader.sqlite"
+    sync_url, async_url = build_sqlite_file_urls(sqlite_path)
+    run_alembic_upgrade(repo_root, sync_url)
+    engine, factory = create_async_engine_and_sessionmaker(async_url)
+    run_id = "inv-budget-1"
+    ctx = RunAccessContext(user_id=1, is_admin=False)
+
+    select_stmts: list[str] = []
+
+    def _count_select(
+        conn: object,
+        cursor: object,
+        statement: str | object,
+        parameters: object,
+        context: object,
+        executemany: bool,
+    ) -> None:
+        if isinstance(statement, str):
+            head = statement.strip().split("--", 1)[0].strip().lower()
+            if head.startswith("select") or head.startswith("with "):
+                select_stmts.append(statement)
+
+    sync = engine.sync_engine
+    ev = event.listen(sync, "before_cursor_execute", _count_select, propagate=True)
+    try:
+        async with factory() as s:
+            await runs_repo.ensure_run(
+                s,
+                run_id=run_id,
+                user_id=1,
+                mt_org_id=None,
+                mt_org_label=None,
+                config_hash="h",
+                started_at="2026-01-01T00:00:00+00:00",
+            )
+            await run_artifacts.insert_created_resource_row(
+                s,
+                run_id=run_id,
+                batch=0,
+                resource_type="ledger",
+                typed_ref="ledgers.a",
+                created_id="la_1",
+                created_at="2026-01-01T00:00:01+00:00",
+                deletable=False,
+                child_refs={},
+            )
+            await run_artifacts.upsert_staged_item(
+                s,
+                run_id=run_id,
+                typed_ref="payment_orders.s",
+                resource_type="payment_order",
+                staged_at="2026-01-01T00:00:02+00:00",
+                payload_json='{"k":1}',
+            )
+            await s.commit()
+
+        select_stmts.clear()
+        async with factory() as s:
+            detail = await run_artifacts.fetch_run_detail_view(s, run_id, ctx)
+        assert detail is not None
+        assert len(detail.resources_created) == 1
+        assert len(detail.resources_staged) == 1
+        assert detail.staged_payloads.get("payment_orders.s") == {"k": 1}
+        # 4 ORM selects (run, created, failures, staged) + small ORM overhead; stay well under N+1.
+        assert len(select_stmts) <= 12, f"too many SELECTs ({len(select_stmts)}): {select_stmts[:5]!r} ..."
+    finally:
+        event.remove(sync, "before_cursor_execute", _count_select)
         await engine.dispose()
 
 

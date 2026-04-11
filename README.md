@@ -106,7 +106,7 @@ make run
 |------|------------------|
 | **MT credentials** | Enter in the web UI when you run a flow. Stored for that session; you can skip `.env` entirely. |
 | **`.env`** | Optional. Copy `.env.example` -> `.env` only if you want the server to pre-fill defaults (e.g. key/org so you don't type them each time). |
-| **Run history / DB** | **`DATALOADER_DATA_DIR`** (default `data/`) holds **`dataloader.sqlite`** — sole authority for runs, normalized artifacts, webhooks, drafts. Docker: mount a volume on `data/` (or your `DATALOADER_DATA_DIR`) so upgrades keep history. See [`docs/RUN_STATE_STORAGE.md`](docs/RUN_STATE_STORAGE.md) and [`docs/DB_ONLY_RUN_STATE_SOLVABILITY.md`](docs/DB_ONLY_RUN_STATE_SOLVABILITY.md). |
+| **Run history / DB** | **`DATALOADER_DATA_DIR`** (default `data/`) holds **`dataloader.sqlite`** — sole authority for runs, normalized artifacts, webhooks, drafts. Docker: mount a volume on `data/` (or your `DATALOADER_DATA_DIR`) so upgrades keep history. See [`docs/RUN_STATE_STORAGE.md`](docs/RUN_STATE_STORAGE.md), [`docs/DB_ONLY_RUN_STATE_SOLVABILITY.md`](docs/DB_ONLY_RUN_STATE_SOLVABILITY.md), and [`docs/MIGRATION_REHEARSAL_RUNBOOK.md`](docs/MIGRATION_REHEARSAL_RUNBOOK.md) before upgrading a copy of production data. |
 | **Logs** | Under `logs/` (created automatically). |
 | **`runs/`** | Optional directory for tunnel/local files; **not** where executed run outcomes are stored. |
 
