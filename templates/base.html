@@ -99,7 +99,7 @@
                         var name=active?active.label:"Add organization";
                         var oid=active?active.orgId||"":"";
                         var sub=active?(oid.length>20?oid.slice(0,10)+"\u2026"+oid.slice(-6):oid):"Required for API calls";
-                        root.innerHTML='<div class="org-switcher"><button type="button" class="org-switcher-trigger" aria-expanded="false"><div class="org-switcher-labels"><span class="org-switcher-name">'+name+'</span><span class="org-switcher-sub">'+sub+'</span></div><span class="org-switcher-chevron" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg></span></button></div>';
+                        root.innerHTML='<div class="org-switcher"><button type="button" class="org-switcher-trigger" aria-expanded="false" aria-haspopup="listbox"><div class="org-switcher-labels"><span class="org-switcher-name">'+name+'</span><span class="org-switcher-sub">'+sub+'</span></div><svg class="org-switcher-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button></div>';
                     }catch(e){}
                 })();
                 </script>
