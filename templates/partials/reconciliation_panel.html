@@ -93,7 +93,7 @@
                                 {% endif %}
                             </div>
                         </summary>
-                        <div class="recon-card-body" style="padding: 8px 16px 12px; border-bottom: 1px solid var(--border, #eee);">
+                        <div class="recon-card-body" style="padding: 8px 16px 12px; border-bottom: 1px solid var(--border);">
                             <div class="recon-match-info">
                                 <span class="recon-label">Discovered ID:</span>
                                 <code class="recon-discovered-id" title="{{ m.discovered_id }}">{{ m.discovered_id[:20] }}&hellip;</code>
@@ -162,7 +162,7 @@
                                 <span class="recon-chip recon-chip-new">new</span>
                             </div>
                         </summary>
-                        <div class="recon-card-body" style="padding: 8px 16px 12px; border-bottom: 1px solid var(--border, #eee);">
+                        <div class="recon-card-body" style="padding: 8px 16px 12px; border-bottom: 1px solid var(--border);">
                             {% if discovered_by_type and discovered_by_type.get(rtype) %}
                             <span class="recon-label">Map to existing:</span>
                             <select class="recon-remap-select"

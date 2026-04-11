@@ -13,7 +13,26 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # Paths relative to repo root — keep small; expand deliberately.
-STRICT_CSS_FILES = ("static/css/page-chrome.css",)
+STRICT_CSS_FILES = (
+    "static/css/page-chrome.css",
+    "static/css/layout.css",
+    "static/css/index-table.css",
+    "static/css/kv-table.css",
+    "static/css/filter-bar.css",
+    "static/css/pagination.css",
+    "static/css/drawer.css",
+    "static/css/toast.css",
+    "static/css/buttons.css",
+    "static/css/forms.css",
+    "static/css/case-card.css",
+    "static/css/status-indicator.css",
+    "static/css/chip.css",
+    "static/css/json-view.css",
+    "static/css/tabs.css",
+    "static/css/toggle-switch.css",
+    "static/css/pill.css",
+    "static/mt-patterns.css",
+)
 
 # Match #rgb, #rrggbb, #rrggbbaa (not # in id selectors — line must look like a color use)
 HEX_COLOR = re.compile(r"#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b")

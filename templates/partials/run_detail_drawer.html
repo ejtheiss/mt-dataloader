@@ -61,7 +61,7 @@
   {% if m.resources_failed %}
   <div class="key-value-table-row">
     <div class="row-label">Resources Failed</div>
-    <div class="row-value" style="color: var(--danger, #C4381D);">{{ m.resources_failed | length }}</div>
+    <div class="row-value" style="color: var(--danger);">{{ m.resources_failed | length }}</div>
   </div>
   {% endif %}
 </div>
@@ -162,17 +162,17 @@
 <div class="mt-section-panel" id="section-drawer-failed" hidden>
   <div style="margin-top: 8px;">
     {% for f in m.resources_failed %}
-      <div class="key-value-table-row" style="border-left: 3px solid var(--danger, #C4381D); padding-left: 12px; margin-bottom: 8px;">
+      <div class="key-value-table-row" style="border-left: 3px solid var(--danger); padding-left: 12px; margin-bottom: 8px;">
       <div class="row-label"><code>{{ f.typed_ref }}</code></div>
-      <div class="row-value" style="color: var(--danger, #C4381D);">
+      <div class="row-value" style="color: var(--danger);">
         {% if f.error_type or f.http_status %}
         <span class="text-muted" style="font-size: 0.85rem;">{{ f.error_type or "Error" }}{% if f.http_status %} · HTTP {{ f.http_status }}{% endif %}</span><br>
         {% endif %}
         {{ f.error }}
         {% if f.error_cause %}
         <details style="margin-top: 8px;">
-          <summary style="cursor: pointer; color: var(--text-muted, #666); font-size: 0.9rem;">Caused by</summary>
-          <pre style="margin: 8px 0 0; white-space: pre-wrap; font-size: 0.8rem; color: var(--danger, #C4381D);">{{ f.error_cause }}</pre>
+          <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.9rem;">Caused by</summary>
+          <pre style="margin: 8px 0 0; white-space: pre-wrap; font-size: 0.8rem; color: var(--danger);">{{ f.error_cause }}</pre>
         </details>
         {% endif %}
       </div>

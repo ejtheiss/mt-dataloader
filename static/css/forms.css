@@ -27,13 +27,13 @@
   font-size: 1rem;
   font-weight: 500;                          /* font-medium */
   line-height: 1.5;
-  color: var(--gray-800);                            /* text-gray-800 */
+  color: var(--text-default);                            /* text-gray-800 */
   margin-bottom: 8px;
 }
 
 .mt-form-section-heading .mt-form-optional {
   font-size: 0.75rem;                        /* text-xs */
-  color: #6B695D;                            /* text-gray-500 */
+  color: var(--text-muted);                            /* text-gray-500 */
   margin-left: 4px;
 }
 
@@ -46,7 +46,7 @@
 /* --- Form Section Separator --- */
 /* Source: Form.tsx line 82 — className="form-section-separator" */
 .mt-form-section-separator {
-  border-top: 1px solid rgba(0, 0, 0, 0.09); /* border-alpha-black-100 */
+  border-top: 1px solid var(--alpha-black-100); /* border-alpha-black-100 */
   margin: 16px 0;
 }
 
@@ -111,13 +111,13 @@
   display: flex;
   flex-direction: column;
   border-radius: 4px;                        /* rounded */
-  border: 1px solid rgba(0, 0, 0, 0.09);    /* border-alpha-black-100 */
-  background: #F5F5F0;                       /* bg-gray-50 */
+  border: 1px solid var(--alpha-black-100);    /* border-alpha-black-100 */
+  background: var(--background-light);                       /* bg-gray-50 */
   padding: 12px;                             /* p-3 */
 }
 
 .mt-form-surface--invalid {
-  border-color: #E25C4B;                     /* red-400 */
+  border-color: var(--action-critical);                     /* red-400 */
 }
 
 .mt-form-surface-header {
@@ -140,7 +140,7 @@
 
 .mt-form-surface-heading .mt-form-optional {
   font-size: 0.75rem;
-  color: #6B695D;                            /* text-gray-500 */
+  color: var(--text-muted);                            /* text-gray-500 */
 }
 
 /* --- Label --- */
@@ -149,12 +149,12 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  color: #504E43;                            /* text-gray-700 */
+  color: var(--text-default);                            /* text-gray-700 */
   margin-bottom: 4px;
 }
 
 .mt-label:hover {
-  color: var(--gray-800);                            /* hover:text-gray-900 — approximation (MT uses gray-900) */
+  color: var(--text-default);                            /* hover:text-gray-900 — approximation (MT uses gray-900) */
 }
 
 .mt-label label {
@@ -168,12 +168,12 @@
   margin-right: 4px;                         /* mr-1 */
   font-size: 0.875rem;                       /* text-sm */
   font-weight: 500;                          /* font-medium */
-  color: #6B695D;                            /* text-gray-500 */
+  color: var(--text-muted);                            /* text-gray-500 */
 }
 
 .mt-label-conditional {
   font-size: 0.75rem;                        /* text-xs */
-  color: #6B695D;                            /* text-gray-500 */
+  color: var(--text-muted);                            /* text-gray-500 */
 }
 
 .mt-label-help {
@@ -181,7 +181,7 @@
   display: inline-flex;
   align-items: center;
   cursor: help;
-  color: #6B695D;
+  color: var(--text-muted);
 }
 
 .mt-label-help svg {
@@ -195,20 +195,20 @@
   height: 32px;                              /* h-8 */
   width: 100%;
   border-radius: 2px;                        /* rounded-sm */
-  border: 1px solid var(--border-default, #DEDDD7);
+  border: 1px solid var(--border-default);
   padding: 4px 8px;                          /* py-1 px-2 */
   font-size: 0.875rem;                       /* text-sm */
-  color: var(--gray-800);                            /* text-gray-800 */
+  color: var(--text-default);                            /* text-gray-800 */
   outline: none;
-  background: var(--white);
+  background: var(--background-default);
 }
 
 .mt-input::placeholder {
-  color: #ADAC9F;                            /* placeholder-gray-400 */
+  color: var(--text-disabled);                            /* placeholder-gray-400 */
 }
 
 .mt-input:hover:not(:disabled) {
-  border-color: #ADAC9F;                     /* hover:border-gray-300 */
+  border-color: var(--text-disabled);                     /* hover:border-gray-300 */
 }
 
 .mt-input:active:not(:disabled),
@@ -219,22 +219,22 @@
 
 .mt-input:disabled {
   cursor: not-allowed;
-  border-color: var(--gray-100);              /* border-gray-100 */
-  background: #F5F5F0;
+  border-color: var(--border-default);              /* border-gray-100 */
+  background: var(--background-light);
 }
 
 /* Invalid state */
 /* Source: Input.tsx lines 190-192 */
 .mt-input--invalid {
-  border-color: #E25C4B;                     /* border-red-400 */
+  border-color: var(--action-critical);                     /* border-red-400 */
 }
 
 .mt-input--invalid::placeholder {
-  color: #6B695D;                            /* placeholder-gray-500 */
+  color: var(--text-muted);                            /* placeholder-gray-500 */
 }
 
 .mt-input--invalid:hover:not(:disabled) {
-  border-color: #D44020;                     /* hover:border-red-500 */
+  border-color: var(--action-critical);                     /* hover:border-red-500 */
 }
 
 /* With prefix icon */
@@ -265,7 +265,7 @@
   height: 100%;
   align-items: center;
   padding-left: 8px;
-  color: #ADAC9F;                            /* text-gray-400 */
+  color: var(--text-disabled);                            /* text-gray-400 */
 }
 
 .mt-input-suffix-icon {
@@ -276,7 +276,7 @@
   height: 100%;
   align-items: center;
   padding-right: 8px;
-  color: #ADAC9F;                            /* text-gray-400 */
+  color: var(--text-disabled);                            /* text-gray-400 */
 }
 
 /* --- Textarea (same styling as input, just taller) --- */
@@ -284,12 +284,12 @@
   width: 100%;
   min-height: 80px;
   border-radius: 2px;
-  border: 1px solid var(--border-default, #DEDDD7);
+  border: 1px solid var(--border-default);
   padding: 8px;
   font-size: 0.875rem;
-  color: var(--gray-800);
+  color: var(--text-default);
   outline: none;
-  background: var(--white);
+  background: var(--background-default);
   resize: vertical;
 }
 
@@ -302,12 +302,12 @@
   height: 32px;
   width: 100%;
   border-radius: 2px;
-  border: 1px solid var(--border-default, #DEDDD7);
+  border: 1px solid var(--border-default);
   padding: 4px 8px;
   font-size: 0.875rem;
-  color: var(--gray-800);
+  color: var(--text-default);
   outline: none;
-  background: var(--white);
+  background: var(--background-default);
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236B695D' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;

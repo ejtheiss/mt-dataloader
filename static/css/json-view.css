@@ -9,9 +9,9 @@
 
 /* --- JSON View Container --- */
 .mt-json-view {
-  border: 1px solid rgba(0, 0, 0, 0.09);   /* border-alpha-black-100 */
+  border: 1px solid var(--alpha-black-100);   /* border-alpha-black-100 */
   border-radius: 6px;
-  background: var(--white);
+  background: var(--background-default);
   overflow: hidden;
 }
 
@@ -21,16 +21,16 @@
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
-  background: #F5F5F0;                      /* bg-gray-50 */
+  border-bottom: 1px solid var(--alpha-black-100);
+  background: var(--background-light);                      /* bg-gray-50 */
 }
 
 .mt-json-view-name {
   padding: 6px 12px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #504E43;                            /* text-gray-700 */
-  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+  color: var(--text-default);                            /* text-gray-700 */
+  border-bottom: 1px solid var(--alpha-black-100);
 }
 
 .mt-json-copy-btn,
@@ -41,17 +41,17 @@
   padding: 2px 8px;
   font-size: 0.7rem;
   font-weight: 500;
-  color: #6B695D;                            /* text-gray-600 */
+  color: var(--text-muted);                            /* text-gray-600 */
   background: transparent;
-  border: 1px solid rgba(0, 0, 0, 0.09);
+  border: 1px solid var(--alpha-black-100);
   border-radius: 4px;
   cursor: pointer;
 }
 
 .mt-json-copy-btn:hover,
 .mt-json-toggle-btn:hover {
-  background: var(--gray-100);                /* bg-gray-100 */
-  color: var(--gray-800);
+  background: var(--border-default);                /* bg-gray-100 */
+  color: var(--text-default);
 }
 
 /* --- JSON Pre Block --- */
@@ -61,8 +61,8 @@
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: var(--gray-800);                            /* text-gray-800 */
-  background: var(--white);
+  color: var(--text-default);                            /* text-gray-800 */
+  background: var(--background-default);
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
@@ -71,7 +71,7 @@
 /* --- JSON Accordion (for webhook headers/body) --- */
 /* Source: WebhookDeliveryAttemptsView.tsx lines 48-64 — collapsible sections */
 .mt-json-accordion {
-  border: 1px solid rgba(0, 0, 0, 0.09);
+  border: 1px solid var(--alpha-black-100);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -87,8 +87,8 @@
   padding: 8px 12px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #504E43;                            /* text-gray-700 */
-  background: #F5F5F0;                       /* bg-gray-50 */
+  color: var(--text-default);                            /* text-gray-700 */
+  background: var(--background-light);                       /* bg-gray-50 */
   cursor: pointer;
   user-select: none;
   list-style: none;                          /* remove default marker */
@@ -110,11 +110,11 @@
 .mt-json-accordion-header svg {
   transition: transform 150ms ease;
   flex-shrink: 0;
-  color: #6B695D;
+  color: var(--text-muted);
 }
 
 .mt-json-accordion-panel {
-  border-top: 1px solid rgba(0, 0, 0, 0.09);
+  border-top: 1px solid var(--alpha-black-100);
 }
 
 /* Remove nested json-view border when inside accordion */

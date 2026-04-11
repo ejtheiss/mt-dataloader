@@ -61,7 +61,7 @@
   {# Failed count #}
   <div class="mt-index-table-cell" role="cell" style="width: 14%;">
     {% if m.resources_failed %}
-    <span style="color: var(--danger, #C4381D);">{{ m.resources_failed | length }} failed</span>
+    <span style="color: var(--danger);">{{ m.resources_failed | length }} failed</span>
     {% else %}
     <span class="text-muted">—</span>
     {% endif %}

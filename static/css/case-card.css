@@ -29,14 +29,14 @@
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--text-default, #303030);
+  color: var(--text-default);
 }
 
 .case-card-subline {
   margin-top: 6px;
   font-size: 0.75rem;
   line-height: 1.4;
-  color: var(--text-muted, #575757);
+  color: var(--text-muted);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -44,7 +44,7 @@
 }
 
 .case-card-subline-sep {
-  color: var(--text-muted, #575757);
+  color: var(--text-muted);
   opacity: 0.6;
 }
 
@@ -81,9 +81,9 @@
 }
 
 .case-card-meta-stat {
-  border: 1px solid var(--border-muted, rgba(0, 0, 0, 0.08));
+  border: 1px solid var(--border-muted);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--app-background, #f7f7f5) 85%, transparent);
+  background: color-mix(in srgb, var(--app-background) 85%, transparent);
   padding: 8px 10px;
 }
 
@@ -92,14 +92,14 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-muted, #575757);
+  color: var(--text-muted);
 }
 
 .case-card-meta-stat-value {
   margin-top: 4px;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--text-default, #303030);
+  color: var(--text-default);
 }
 
 .case-card-meta-stat-value--nums {
@@ -122,15 +122,15 @@
 .case-card-section-head {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--text-default, #303030);
+  color: var(--text-default);
   margin-bottom: 8px;
 }
 
 .case-card-table-wrap {
   overflow: hidden;
-  border: 1px solid var(--border-muted, rgba(0, 0, 0, 0.08));
+  border: 1px solid var(--border-muted);
   border-radius: 8px;
-  background: var(--background-default, #fff);
+  background: var(--background-default);
 }
 
 .case-card-table-head,
@@ -147,25 +147,25 @@
 }
 
 .case-card-table-head {
-  background: color-mix(in srgb, var(--app-background, #f7f7f5) 90%, transparent);
+  background: color-mix(in srgb, var(--app-background) 90%, transparent);
   font-weight: 600;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted, #575757);
+  color: var(--text-muted);
 }
 
 .case-card-table-row {
-  border-top: 1px solid var(--border-muted, rgba(0, 0, 0, 0.06));
+  border-top: 1px solid var(--border-muted);
 }
 
 .case-card-table-strong {
   font-weight: 600;
-  color: var(--text-default, #303030);
+  color: var(--text-default);
 }
 
 .case-card-table-muted {
-  color: var(--text-muted, #575757);
+  color: var(--text-muted);
 }
 
 .case-card-balance-grid {
@@ -180,15 +180,15 @@
 }
 
 .case-card-balance-card {
-  border: 1px solid var(--border-muted, rgba(0, 0, 0, 0.08));
+  border: 1px solid var(--border-muted);
   border-radius: 8px;
-  background: var(--background-default, #fff);
+  background: var(--background-default);
   padding: 10px 12px;
 }
 
 .case-card-balance-label {
   font-size: 0.7rem;
-  color: var(--text-muted, #575757);
+  color: var(--text-muted);
 }
 
 .case-card-balance-value {
@@ -196,7 +196,7 @@
   font-size: 0.8125rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--text-default, #303030);
+  color: var(--text-default);
 }
 
 /* --- Summary (dl-based key-value) --- */
@@ -208,7 +208,7 @@
   padding: 0;
   font-size: 0.75rem;                          /* text-xs */
   line-height: 22px;
-  color: var(--text-default, #303030);
+  color: var(--text-default);
 }
 
 .case-card-summary-row {
@@ -216,7 +216,7 @@
   grid-template-columns: 140px 1fr;
   gap: 16px;                                   /* spacing-m */
   padding: 8px 0;                              /* py-2 */
-  border-bottom: 1px solid var(--border-muted, rgba(0, 0, 0, 0.05));
+  border-bottom: 1px solid var(--border-muted);
 }
 
 .case-card-summary-row:last-child {
@@ -225,7 +225,7 @@
 
 .case-card-summary dt {
   font-weight: 500;                            /* font-medium */
-  color: var(--text-muted, #575757);
+  color: var(--text-muted);
   word-break: break-word;
 }
 
@@ -233,5 +233,5 @@
   margin: 0;
   font-weight: 400;
   word-break: break-all;
-  color: var(--text-default, #303030);
+  color: var(--text-default);
 }

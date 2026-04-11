@@ -35,12 +35,12 @@
 .mt-status-dot--posted,
 .mt-status-dot--sent,
 .mt-status-dot--successful {
-  background-color: #22C55E;                 /* green-500 */
+  background-color: var(--status-created);                 /* green-500 */
 }
 
 /* Partial green — partiallyComplete */
 .mt-status-dot--partiallyComplete {
-  background-color: #4ADE80;                 /* green-400 */
+  background-color: var(--status-created);                 /* green-400 */
 }
 
 /* Red — cancelled, denied, failed, unresponsive, unstable */
@@ -49,7 +49,7 @@
 .mt-status-dot--failed,
 .mt-status-dot--unresponsive,
 .mt-status-dot--unstable {
-  background-color: #D44020;                 /* red-500 */
+  background-color: var(--status-error);                 /* red-500 */
 }
 
 /* Yellow/Warning — completedWithErrors, pendingEdits, returned, tentativelyComplete */
@@ -57,23 +57,23 @@
 .mt-status-dot--pendingEdits,
 .mt-status-dot--returned,
 .mt-status-dot--tentativelyComplete {
-  background-color: #FDE047;                 /* yellow-300 */
+  background-color: var(--status-waiting);                 /* yellow-300 */
 }
 
 /* Yellow processing */
 .mt-status-dot--processing {
-  background-color: #EAB308;                 /* yellow-500 */
+  background-color: var(--status-waiting);                 /* yellow-500 */
 }
 
 /* Orange — needs_approval, incomplete */
 .mt-status-dot--needs_approval,
 .mt-status-dot--incomplete {
-  background-color: #FB923C;                 /* orange-300a approximation */
+  background-color: var(--status-waiting);                 /* orange-300a approximation */
 }
 
 /* Yellow held (warning) */
 .mt-status-dot--held {
-  background-color: #FDE047;                 /* yellow-300 */
+  background-color: var(--status-waiting);                 /* yellow-300 */
 }
 
 /* Gray — archived, inactive, reversed, archiving, deleted, paused, pending */
@@ -84,25 +84,25 @@
 .mt-status-dot--deleted,
 .mt-status-dot--paused,
 .mt-status-dot--pending {
-  background-color: #D4D3CC;                 /* gray-300 */
+  background-color: var(--status-pending);                 /* gray-300 */
 }
 
 /* Dark gray — locked, editable */
 .mt-status-dot--locked,
 .mt-status-dot--editable {
-  background-color: var(--gray-800);                 /* black-300 approximation */
+  background-color: var(--background-dark);                 /* black-300 approximation */
 }
 
 /* MT managed — gray-500 */
 .mt-status-dot--mtManaged {
-  background-color: #6B695D;                 /* gray-500 */
+  background-color: var(--status-skipped);                 /* gray-500 */
 }
 
 /* --- Verbose mode (dot + text) --- */
 /* Source: StatusIndicator.tsx lines 208-219 — verbose uses Badge */
 .mt-status-indicator--verbose .mt-status-text {
   font-size: 0.875rem;
-  color: #504E43;                            /* text-gray-700 */
+  color: var(--text-default);                            /* text-gray-700 */
 }
 
 /* --- Tooltip mode (dot only, with title attr) --- */

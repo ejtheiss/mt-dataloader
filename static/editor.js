@@ -76,11 +76,11 @@
   }
 
   function _detectTheme() {
+    if (document.documentElement.dataset.theme === "dark") return "vs-dark";
     var bg = getComputedStyle(document.documentElement)
       .getPropertyValue("--bg")
       .trim();
     if (!bg) return "vs";
-    // Simple heuristic: dark backgrounds start with #0-#4 or rgb < 80
     if (bg.startsWith("#")) {
       var hex = bg.replace("#", "");
       if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
@@ -90,6 +90,7 @@
     return "vs";
   }
 
+  var _editorRegistry = [];
   var _modelCounter = 0;
 
   /**
@@ -228,7 +229,20 @@
         },
       };
 
+      _editorRegistry.push(editor);
+      editor.onDidDispose(function () {
+        var idx = _editorRegistry.indexOf(editor);
+        if (idx !== -1) _editorRegistry.splice(idx, 1);
+      });
+
       return handle;
     });
   };
+
+  document.addEventListener("dataloader-theme-changed", function () {
+    var theme = _detectTheme();
+    _editorRegistry.forEach(function (ed) {
+      try { ed.updateOptions({ theme: theme }); } catch (_) { /* disposed */ }
+    });
+  });
 })();

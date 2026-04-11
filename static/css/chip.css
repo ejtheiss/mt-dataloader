@@ -21,9 +21,9 @@
   width: 100%;
   align-items: flex-start;
   gap: 8px;                                  /* gap-2 */
-  background: #F5F5F0;                       /* bg-gray-50 */
+  background: var(--background-light);                       /* bg-gray-50 */
   padding: 4px 8px;                          /* px-2 py-1 */
-  color: #504E43;                            /* text-gray-700 */
+  color: var(--text-default);                            /* text-gray-700 */
   font-size: 0.75rem;                        /* text-xs */
   border-radius: 4px;
 }
@@ -48,7 +48,7 @@
 }
 
 .mt-chip--clickable .mt-chip-content:hover {
-  background: #EDEDEA;                       /* bg-gray-100 (approximation) */
+  background: var(--border-default);                       /* bg-gray-100 (approximation) */
 }
 
 /* --- Chip Label --- */
@@ -72,14 +72,14 @@
   justify-content: center;
   cursor: pointer;
   padding: 0 2px;
-  color: #6B695D;                            /* text-gray-500 */
+  color: var(--text-muted);                            /* text-gray-500 */
   background: none;
   border: none;
   flex-shrink: 0;
 }
 
 .mt-chip-remove:hover {
-  color: var(--gray-800);                            /* text-gray-800 */
+  color: var(--text-default);                            /* text-gray-800 */
 }
 
 .mt-chip-remove svg {
@@ -92,11 +92,11 @@
 .mt-chip-operator {
   display: flex;
   align-items: center;
-  background: #F5F5F0;                       /* bg-gray-50 */
+  background: var(--background-light);                       /* bg-gray-50 */
   padding: 4px 4px;                          /* px-1 py-1 */
   font-size: 0.625rem;                       /* text-[10px] */
   font-weight: 600;                          /* font-semibold */
-  color: #6B695D;                            /* text-gray-500 */
+  color: var(--text-muted);                            /* text-gray-500 */
   text-transform: uppercase;
 }
 
@@ -110,6 +110,6 @@
 
 /* --- Warning variant --- */
 .mt-chip--warning .mt-chip-content {
-  background: #FEF9C3;                       /* yellow-50-ish */
-  color: #92400E;                            /* amber-800 */
+  background: var(--badge-warning-bg);                       /* yellow-50-ish */
+  color: var(--badge-warning-text);                            /* amber-800 */
 }

@@ -54,7 +54,7 @@
   <h4 class="drawer-section-label">Payload Body</h4>
   <div id="wh-payload-monaco-{{ wh.webhook_id }}" class="monaco-container"
        style="height: 320px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;">
-    <pre class="monaco-fallback" style="margin:0;padding:12px;font-size:12px;overflow:auto;height:100%;background:var(--mt-gray-25,#fafafa);">{{ wh.raw | tojson(indent=2) }}</pre>
+    <pre class="monaco-fallback" style="margin:0;padding:12px;font-size:12px;overflow:auto;height:100%;background:var(--mt-gray-25);">{{ wh.raw | tojson(indent=2) }}</pre>
   </div>
 </div>
 {% endif %}
@@ -65,7 +65,7 @@
   <h4 class="drawer-section-label">Request Headers</h4>
   <div id="wh-headers-monaco-{{ wh.webhook_id }}" class="monaco-container"
        style="height: 200px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;">
-    <pre class="monaco-fallback" style="margin:0;padding:12px;font-size:12px;overflow:auto;height:100%;background:var(--mt-gray-25,#fafafa);">{{ wh.headers | tojson(indent=2) }}</pre>
+    <pre class="monaco-fallback" style="margin:0;padding:12px;font-size:12px;overflow:auto;height:100%;background:var(--mt-gray-25);">{{ wh.headers | tojson(indent=2) }}</pre>
   </div>
 </div>
 {% endif %}

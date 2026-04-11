@@ -26,7 +26,7 @@
 }
 
 .mt-btn:focus {
-  box-shadow: 0 0 0 1px var(--blue-500, #386FB1);  /* ring-1 ring-blue-500 */
+  box-shadow: 0 0 0 1px var(--blue-500);  /* ring-1 ring-blue-500 */
 }
 
 /* --- Heights --- */
@@ -57,24 +57,24 @@
 /* --- Primary --- */
 /* Source: Button.tsx lines 118-122 */
 .mt-btn--primary {
-  border: 1px solid var(--primary-interactive, #386FB1);
-  background: var(--primary-interactive, #386FB1);
+  border: 1px solid var(--primary-interactive);
+  background: var(--primary-interactive);
   color: var(--white);
 }
 
 .mt-btn--primary:hover:not(:disabled) {
-  border-color: var(--primary-hover, #2F5E99);
-  background: var(--primary-interactive-hover, #2F5E99);
+  border-color: var(--primary-hover);
+  background: var(--primary-interactive-hover);
 }
 
 .mt-btn--primary:active:not(:disabled) {
-  border-color: var(--primary-interactive, #386FB1);
-  background: var(--primary-interactive-pressed, #265083);
+  border-color: var(--primary-interactive);
+  background: var(--primary-interactive-pressed);
 }
 
 .mt-btn--primary:focus {
   border-color: var(--white);
-  box-shadow: 0 0 0 1px var(--primary-interactive, #386FB1);
+  box-shadow: 0 0 0 1px var(--primary-interactive);
 }
 
 .mt-btn--primary:disabled {
@@ -85,28 +85,28 @@
 /* --- Secondary --- */
 /* Source: Button.tsx lines 123-127 */
 .mt-btn--secondary {
-  border: 1px solid rgba(0, 0, 0, 0.18);    /* border-alpha-black-200 */
-  background: var(--button-background-default, #fff);
+  border: 1px solid var(--alpha-black-200);    /* border-alpha-black-200 */
+  background: var(--button-background-default);
   color: inherit;
 }
 
 .mt-btn--secondary:hover:not(:disabled) {
-  border-color: #C4C3BB;                     /* gray-200 */
+  border-color: var(--border-strong);                     /* gray-200 */
   background: var(--app-background);                       /* gray-25 */
 }
 
 .mt-btn--secondary:active:not(:disabled) {
-  border-color: #ADAC9F;                     /* gray-300 */
-  background: #F5F5F0;                       /* gray-50 */
+  border-color: var(--text-disabled);                     /* gray-300 */
+  background: var(--background-light);                       /* gray-50 */
 }
 
 .mt-btn--secondary:focus {
   border-color: transparent;
-  box-shadow: 0 0 0 2px var(--cyan-500, #06b6d4);
+  box-shadow: 0 0 0 2px var(--cyan-500);
 }
 
 .mt-btn--secondary:disabled {
-  background: #F5F5F0;                       /* gray-50 */
+  background: var(--background-light);                       /* gray-50 */
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -114,24 +114,24 @@
 /* --- Destructive --- */
 /* Source: Button.tsx lines 128-132 */
 .mt-btn--destructive {
-  border: 1px solid #C4381D;                 /* red-600 */
-  background: #D44020;                       /* red-500 */
+  border: 1px solid var(--action-critical-hover);                 /* red-600 */
+  background: var(--action-critical);                       /* red-500 */
   color: var(--white);
 }
 
 .mt-btn--destructive:hover:not(:disabled) {
-  border-color: #A5301A;                     /* red-700 */
-  background: #C4381D;                       /* red-600 */
+  border-color: var(--action-critical-pressed);                     /* red-700 */
+  background: var(--action-critical-hover);                       /* red-600 */
 }
 
 .mt-btn--destructive:active:not(:disabled) {
-  border-color: #A5301A;                     /* red-700 */
-  background: #A5301A;                       /* red-700 */
+  border-color: var(--action-critical-pressed);                     /* red-700 */
+  background: var(--action-critical-pressed);                       /* red-700 */
 }
 
 .mt-btn--destructive:focus {
   border-color: transparent;
-  box-shadow: 0 0 0 2px var(--cyan-500, #06b6d4);
+  box-shadow: 0 0 0 2px var(--cyan-500);
 }
 
 .mt-btn--destructive:disabled {
@@ -142,24 +142,24 @@
 /* --- Internal --- */
 /* Source: Button.tsx lines 133-137 */
 .mt-btn--internal {
-  border: 1px solid #7C3AED;                 /* purple-600 */
-  background: #8B5CF6;                       /* purple-500 */
+  border: 1px solid var(--purple-600);                 /* purple-600 */
+  background: var(--purple-500);                       /* purple-500 */
   color: var(--white);
 }
 
 .mt-btn--internal:hover:not(:disabled) {
-  border-color: #6D28D9;                     /* purple-700 */
-  background: #7C3AED;                       /* purple-600 */
+  border-color: var(--purple-700);                     /* purple-700 */
+  background: var(--purple-600);                       /* purple-600 */
 }
 
 .mt-btn--internal:active:not(:disabled) {
-  border-color: #6D28D9;                     /* purple-700 */
-  background: #6D28D9;                       /* purple-700 */
+  border-color: var(--purple-700);                     /* purple-700 */
+  background: var(--purple-700);                       /* purple-700 */
 }
 
 .mt-btn--internal:focus {
   border-color: transparent;
-  box-shadow: 0 0 0 2px var(--cyan-500, #06b6d4);
+  box-shadow: 0 0 0 2px var(--cyan-500);
 }
 
 .mt-btn--internal:disabled {
@@ -176,17 +176,17 @@
 }
 
 .mt-btn--text:hover:not(:disabled) {
-  background: #F5F5F0;                       /* gray-50 */
+  background: var(--background-light);                       /* gray-50 */
 }
 
 .mt-btn--text:active:not(:disabled) {
-  background: #EDEDEA;                       /* gray-75 */
-  border-color: #ADAC9F;                     /* gray-400 */
+  background: var(--border-default);                       /* gray-75 */
+  border-color: var(--text-disabled);                     /* gray-400 */
 }
 
 .mt-btn--text:focus {
   border-color: transparent;
-  box-shadow: 0 0 0 2px var(--cyan-500, #06b6d4);
+  box-shadow: 0 0 0 2px var(--cyan-500);
 }
 
 .mt-btn--text:disabled {
@@ -207,11 +207,11 @@
 }
 
 .mt-btn--link:hover:not(:disabled) {
-  color: #2F5E99;                            /* blue-600 */
+  color: var(--primary-interactive-hover);                            /* blue-600 */
 }
 
 .mt-btn--link:disabled {
-  color: #6B695D;                            /* gray-600 */
+  color: var(--text-muted);                            /* gray-600 */
   cursor: not-allowed;
 }
 

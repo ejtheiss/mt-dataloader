@@ -24,12 +24,12 @@
   align-items: center;
   gap: 4px;                                  /* gap-1 */
   border-radius: 9999px;                     /* rounded-2xl */
-  border: 1px solid rgba(0, 0, 0, 0.09);    /* border-alpha-black-100 */
-  background-color: var(--white);                    /* bg-white */
+  border: 1px solid var(--alpha-black-100);    /* border-alpha-black-100 */
+  background-color: var(--background-default);                    /* bg-white */
   padding: 4px 12px;                         /* px-3 py-1 */
   font-size: 0.75rem;                        /* text-xs */
   font-weight: 500;                          /* font-medium */
-  color: var(--gray-800);                            /* text-gray-800 */
+  color: var(--text-default);                            /* text-gray-800 */
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -42,7 +42,7 @@
 /* Source: Pill.tsx line 65 — group-hover/pill:bg-gray-50 */
 .mt-pill:hover .mt-pill-content,
 .mt-pill-content:hover {
-  background-color: #F5F5F0;                 /* bg-gray-50 */
+  background-color: var(--background-light);                 /* bg-gray-50 */
 }
 
 /* --- Pill as link --- */
