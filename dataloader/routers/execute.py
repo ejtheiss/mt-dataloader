@@ -104,7 +104,9 @@ async def execute_stream(
                 try:
                     await persist.set_config_json(run_id, session.config_json_text)
                 except Exception as exc:
-                    logger.bind(run_id=run_id).warning("db set_config_json failed (non-fatal): {}", exc)
+                    logger.bind(run_id=run_id).warning(
+                        "db set_config_json failed (non-fatal): {}", exc
+                    )
 
             async def on_resource_created_db(rid: str, created_id: str, tref: str) -> None:
                 index_resource(rid, created_id, tref)

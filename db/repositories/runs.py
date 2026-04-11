@@ -138,13 +138,17 @@ async def finalize_run(
 async def sync_artifact_counts_from_tables(session: AsyncSession, run_id: str) -> None:
     """Recompute denormalized counters from normalized artifact tables."""
     nc = await session.scalar(
-        select(func.count()).select_from(RunCreatedResource).where(RunCreatedResource.run_id == run_id)
+        select(func.count())
+        .select_from(RunCreatedResource)
+        .where(RunCreatedResource.run_id == run_id)
     )
     ns = await session.scalar(
         select(func.count()).select_from(RunStagedItem).where(RunStagedItem.run_id == run_id)
     )
     nf = await session.scalar(
-        select(func.count()).select_from(RunResourceFailure).where(RunResourceFailure.run_id == run_id)
+        select(func.count())
+        .select_from(RunResourceFailure)
+        .where(RunResourceFailure.run_id == run_id)
     )
     await session.execute(
         update(Run)

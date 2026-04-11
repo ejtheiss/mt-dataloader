@@ -248,7 +248,9 @@ async def test_fetch_run_detail_view_select_budget(
         assert len(detail.resources_staged) == 1
         assert detail.staged_payloads.get("payment_orders.s") == {"k": 1}
         # 4 ORM selects (run, created, failures, staged) + small ORM overhead; stay well under N+1.
-        assert len(select_stmts) <= 12, f"too many SELECTs ({len(select_stmts)}): {select_stmts[:5]!r} ..."
+        assert len(select_stmts) <= 12, (
+            f"too many SELECTs ({len(select_stmts)}): {select_stmts[:5]!r} ..."
+        )
     finally:
         event.remove(sync, "before_cursor_execute", _count_select)
         await engine.dispose()
@@ -313,7 +315,9 @@ async def test_fetch_cleanup_created_rows_select_budget(
             rows = await run_artifacts.fetch_cleanup_created_rows(s, run_id, ctx)
         assert len(rows) == 1
         assert rows[0].typed_ref == "ledgers.a"
-        assert len(select_stmts) <= 8, f"too many SELECTs ({len(select_stmts)}): {select_stmts[:5]!r} ..."
+        assert len(select_stmts) <= 8, (
+            f"too many SELECTs ({len(select_stmts)}): {select_stmts[:5]!r} ..."
+        )
     finally:
         event.remove(sync, "before_cursor_execute", _count_select)
         await engine.dispose()
@@ -474,13 +478,19 @@ async def test_count_parity_run_row_matches_aggregate_selects(
         async with factory() as s:
             row = await s.get(Run, run_id)
             nc = await s.scalar(
-                select(func.count()).select_from(RunCreatedResource).where(RunCreatedResource.run_id == run_id)
+                select(func.count())
+                .select_from(RunCreatedResource)
+                .where(RunCreatedResource.run_id == run_id)
             )
             ns = await s.scalar(
-                select(func.count()).select_from(RunStagedItem).where(RunStagedItem.run_id == run_id)
+                select(func.count())
+                .select_from(RunStagedItem)
+                .where(RunStagedItem.run_id == run_id)
             )
             nf = await s.scalar(
-                select(func.count()).select_from(RunResourceFailure).where(RunResourceFailure.run_id == run_id)
+                select(func.count())
+                .select_from(RunResourceFailure)
+                .where(RunResourceFailure.run_id == run_id)
             )
         assert row is not None
         assert row.resources_created_count == int(nc or 0) == 2

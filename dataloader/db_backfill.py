@@ -50,7 +50,9 @@ async def backfill_missing_runs_from_disk(
             raw = load_legacy_run_json_dict(path)
             snap = LegacyRunDiskSnapshot.model_validate(raw)
         except (OSError, TypeError, ValueError, ValidationError) as exc:
-            logger.bind(run_id=run_id, path=str(path)).warning("backfill: load/validate failed: {}", exc)
+            logger.bind(run_id=run_id, path=str(path)).warning(
+                "backfill: load/validate failed: {}", exc
+            )
             continue
 
         cfg_path = rdir / f"{run_id}_config.json"
