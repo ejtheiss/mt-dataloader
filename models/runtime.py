@@ -1,6 +1,6 @@
 """Internal runtime types — handler results.
 
-Manifest entries live in ``models.manifest`` (Pydantic) for JSON round-trip.
+Created/failed/staged execution facts live in ``models.run_execution_entries`` (Pydantic).
 """
 
 from __future__ import annotations

@@ -9,7 +9,7 @@ def compute_flow_status(flow_ir: FlowIR) -> str:
     """Compute aggregate flow status from FlowIR at compile time.
 
     Returns "preview" for compile-time data; post-execution should query
-    actual LT statuses from RunManifest.
+    actual LT statuses from persisted run artifact rows / engine summaries.
     """
     return "preview"
 

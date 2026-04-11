@@ -17,7 +17,7 @@ def runs_list_fragment_context(
     """Context for ``runs_page.html`` + ``block_name=runs_list`` (and the included list body)."""
     return {
         "title": "Runs",
-        "manifests": rows,
+        "run_rows": rows,
         "deletability": DELETABILITY,
         "sort_key": sort or "",
         "sort_dir": dir,

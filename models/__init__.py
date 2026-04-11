@@ -41,9 +41,6 @@ from models.loader_setup_json import (
     RevalidateJsonRequestV1,
 )
 
-# --- manifest (run JSON on disk) ---
-from models.manifest import FailedEntry, ManifestEntry, RunManifest, StagedEntry
-
 # --- resource configs (Layers 0–6) ---
 from models.resources import (
     ArchiveResourceConfig,
@@ -77,7 +74,17 @@ from models.resources import (
     VerifyExternalAccountConfig,
     VirtualAccountConfig,
 )
+
+# --- execution facts (engine accumulator, persist port) ---
+from models.run_execution_entries import FailedEntry, ManifestEntry, StagedEntry
 from models.run_list import RunDrawerRow, RunListJsonResponse, RunListRow
+from models.run_views import (
+    CreatedResourceRow,
+    FailedResourceRow,
+    RunDetailView,
+    RunExecuteSummaryDTO,
+    StagedItemView,
+)
 
 # --- runtime types ---
 from models.runtime import HandlerResult
@@ -243,10 +250,14 @@ __all__ = [
     "ManifestEntry",
     "FailedEntry",
     "StagedEntry",
-    "RunManifest",
     "RunListRow",
     "RunListJsonResponse",
     "RunDrawerRow",
+    "CreatedResourceRow",
+    "FailedResourceRow",
+    "StagedItemView",
+    "RunDetailView",
+    "RunExecuteSummaryDTO",
     # App user stub (Plan 0 roles)
     "AppUserRole",
     "CurrentAppUser",

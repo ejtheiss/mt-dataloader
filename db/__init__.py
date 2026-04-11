@@ -1,10 +1,19 @@
-"""SQLAlchemy persistence (Plan 0). ORM tables live here; ``models/`` stays Pydantic.
+"""Database package — SQLAlchemy models and session helpers."""
 
-Import ``db.database`` from application lifespan; this package must not import ``dataloader``.
-"""
+from db.tables import (
+    Base,
+    Run,
+    RunCreatedResource,
+    RunResourceFailure,
+    RunStagedItem,
+    User,
+)
 
-from __future__ import annotations
-
-from db.tables import Base, ResourceCorrelation, Run, User
-
-__all__ = ["Base", "User", "Run", "ResourceCorrelation"]
+__all__ = [
+    "Base",
+    "User",
+    "Run",
+    "RunCreatedResource",
+    "RunResourceFailure",
+    "RunStagedItem",
+]

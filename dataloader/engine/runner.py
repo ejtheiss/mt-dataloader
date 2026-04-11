@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from loguru import logger
@@ -14,12 +13,14 @@ from models import (
     DataLoaderConfig,
     HandlerResult,
     ManifestEntry,
-    RunManifest,
     _BaseResourceConfig,
 )
 from models.shared import ErrorStrategy
 
 from .dag import build_dag, inject_legal_entity_psp_connection_id
+from .execution_accumulator import ExecutionAccumulator
+from .execution_summary import ExecutionResultSummary
+from .persist_port import RunStatePersistPort
 from .refs import RefRegistry, resolve_refs
 from .resource_display import extract_display_name as _extract_display_name
 from .run_meta import _now_iso, config_hash
@@ -170,7 +171,8 @@ async def execute(
     mt_org_id: str | None = None,
     mt_org_label: str | None = None,
     on_run_org_registered: RunOrgRegisteredFn | None = None,
-) -> RunManifest:
+    persist: RunStatePersistPort | None = None,
+) -> ExecutionResultSummary:
     """Execute the DAG with intra-batch concurrency.
 
     Baseline refs (in the registry but not in the config) are auto-drained
@@ -183,6 +185,8 @@ async def execute(
 
     *on_run_org_registered* — optional hook (e.g. webhook listener org map);
     called with ``(run_id, mt_org_id)`` when *mt_org_id* is set.
+
+    *persist* — when set, incremental writes go to SQLite (no disk manifest).
     """
     _skip = skip_refs or set()
     _update = update_refs or {}
@@ -190,7 +194,7 @@ async def execute(
     ts, resource_map = build_dag(config)
     ts.prepare()
 
-    manifest = RunManifest(
+    acc = ExecutionAccumulator(
         run_id=run_id,
         config_hash=config_hash(config),
         mt_org_id=mt_org_id,
@@ -200,16 +204,35 @@ async def execute(
         _maybe = on_run_org_registered(run_id, mt_org_id)
         if inspect.isawaitable(_maybe):
             await _maybe
-    staged_payloads: dict[str, dict] = {}
-
     batch_index = 0
+
+    def _summary() -> ExecutionResultSummary:
+        return ExecutionResultSummary(
+            run_id=acc.run_id,
+            status=str(acc.status),
+            completed_at=acc.completed_at,
+            resources_created_count=len(acc.resources_created),
+            resources_staged_count=len(acc.resources_staged),
+            resources_failed_count=len(acc.resources_failed),
+        )
+
+    async def _persist_finalize(status: str) -> None:
+        acc.finalize(status)
+        if persist is not None:
+            await persist.finalize(
+                run_id,
+                str(acc.status),
+                acc.completed_at,
+                resources_created_count=len(acc.resources_created),
+                resources_staged_count=len(acc.resources_staged),
+                resources_failed_count=len(acc.resources_failed),
+            )
 
     try:
         while ts.is_active():
             if is_disconnected():
-                manifest.finalize("disconnected")
-                manifest.write(runs_dir)
-                return manifest
+                await _persist_finalize("disconnected")
+                return _summary()
 
             ready = ts.get_ready()
 
@@ -238,9 +261,16 @@ async def execute(
                             )
 
                         if getattr(resource, "staged", False):
-                            staged_payloads[typed_ref] = resolved
-                            manifest.record_staged(typed_ref, resource.resource_type)
-                            manifest.write(runs_dir)
+                            acc.record_staged(typed_ref, resource.resource_type)
+                            st = acc.resources_staged[-1]
+                            if persist is not None:
+                                await persist.append_staged_item(
+                                    run_id,
+                                    typed_ref,
+                                    resource.resource_type,
+                                    st.staged_at,
+                                    dumps_pretty(resolved),
+                                )
                             await emit_sse("staged", typed_ref, {"display_name": dn} if dn else {})
                             return
 
@@ -272,18 +302,18 @@ async def execute(
                         if inspect.isawaitable(_c):
                             await _c
 
-                manifest.record(
-                    ManifestEntry(
-                        batch=_batch,
-                        resource_type=result.resource_type,
-                        typed_ref=typed_ref,
-                        created_id=result.created_id,
-                        created_at=_now_iso(),
-                        deletable=result.deletable,
-                        child_refs=result.child_refs,
-                    )
+                entry = ManifestEntry(
+                    batch=_batch,
+                    resource_type=result.resource_type,
+                    typed_ref=typed_ref,
+                    created_id=result.created_id,
+                    created_at=_now_iso(),
+                    deletable=result.deletable,
+                    child_refs=result.child_refs,
                 )
-                manifest.write(runs_dir)
+                acc.record(entry)
+                if persist is not None:
+                    await persist.append_created(run_id, entry)
                 data: dict[str, Any] = {"id": result.created_id, "child_refs": result.child_refs}
                 if dn:
                     data["display_name"] = dn
@@ -304,43 +334,42 @@ async def execute(
                         failed_ref = _guess_failed_ref(leaf, to_create, resource_map)
                     error_detail = _format_exception_detail(leaf, failed_ref)
                     fe = _failure_entry_extras(leaf)
-                    manifest.record_failure(
+                    acc.record_failure(
                         failed_ref,
                         error_detail,
                         error_type=fe.get("error_type"),
                         http_status=fe.get("http_status"),
                         error_cause=fe.get("error_cause"),
                     )
+                    if persist is not None and acc.resources_failed:
+                        fl = acc.resources_failed[-1]
+                        await persist.append_failure(
+                            run_id,
+                            fl.typed_ref,
+                            fl.error,
+                            failed_at=fl.failed_at,
+                            error_type=fl.error_type,
+                            http_status=fl.http_status,
+                            error_cause=fl.error_cause,
+                        )
                     await emit_sse(
                         "error",
                         failed_ref,
                         {"error": error_detail, **{k: v for k, v in fe.items() if v is not None}},
                     )
-                manifest.finalize("failed")
-                manifest.write(runs_dir)
+                await _persist_finalize("failed")
                 raise eg.exceptions[0] from None
 
             ts.done(*to_create)
             batch_index += 1
 
     except asyncio.CancelledError:
-        manifest.finalize("disconnected")
-        manifest.write(runs_dir)
-        _write_staged_payloads(staged_payloads, runs_dir, run_id)
-        return manifest
+        await _persist_finalize("disconnected")
+        return _summary()
 
-    manifest.finalize("completed")
-    manifest.write(runs_dir)
-    _write_staged_payloads(staged_payloads, runs_dir, run_id)
+    await _persist_finalize("completed")
 
-    return manifest
-
-
-def _write_staged_payloads(staged_payloads: dict[str, dict], runs_dir: str, run_id: str) -> None:
-    if not staged_payloads:
-        return
-    staged_path = Path(runs_dir) / f"{run_id}_staged.json"
-    staged_path.write_text(dumps_pretty(staged_payloads), encoding="utf-8")
+    return _summary()
 
 
 def _find_execution_phase_error(exc: BaseException) -> ExecutionPhaseError | None:

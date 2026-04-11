@@ -21,7 +21,7 @@
     </div>
 </div>
 
-{% if manifests %}
+{% if run_rows %}
 <div class="ui-table-container" id="runs-table" role="table">
     <div class="ui-table-container__inner">
         <div role="rowgroup" class="ui-table-head">
@@ -65,7 +65,7 @@
             </div>
         </div>
         <div role="rowgroup" class="ui-table-body" id="runs-table-body">
-            {% for m in manifests %}
+            {% for m in run_rows %}
             <div role="row" class="ui-table-row linked"
                  data-url="/runs/{{ m.run_id }}"
                  hx-get="/api/runs/{{ m.run_id }}/drawer"

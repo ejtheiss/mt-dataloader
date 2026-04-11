@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import APIRouter, Request
 from loguru import logger
@@ -12,7 +11,7 @@ from modern_treasury import AsyncModernTreasury
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from dataloader.engine import execute, generate_run_id
-from dataloader.engine.run_meta import config_hash, resolve_manifest_path
+from dataloader.engine.run_meta import config_hash
 from dataloader.handlers import build_handler_dispatch, build_update_dispatch
 from dataloader.helpers import error_html, error_response
 from dataloader.routers.deps import SessionFormDep, SettingsDep, TemplatesDep
@@ -23,47 +22,12 @@ from dataloader.session.draft_persist import (
 )
 from dataloader.sse_helpers import make_emit_sse, sse_error_response
 from dataloader.webhooks import index_resource, register_run_org
-from db.repositories import correlation as correlation_repo
 from db.repositories import loader_drafts as loader_drafts_repo
 from db.repositories import runs as runs_repo
-from models import DisplayPhase, RunManifest
+from db.repositories.run_state_persist import SqliteRunStatePersist
+from models import DisplayPhase
 
 router = APIRouter(tags=["execute"])
-
-
-async def _persist_manifest_status_to_db(
-    session_factory,
-    runs_dir: str,
-    run_id: str,
-) -> None:
-    """Mirror terminal manifest status and list counts into ``runs`` (best-effort)."""
-    path = resolve_manifest_path(Path(runs_dir), run_id)
-    if path is None:
-        return
-    try:
-        manifest = RunManifest.load(path)
-    except Exception as exc:
-        logger.bind(run_id=run_id).warning("db finalize_run: could not load manifest: {}", exc)
-        return
-    try:
-        async with session_factory() as s:
-            await runs_repo.finalize_run(
-                s,
-                run_id=manifest.run_id,
-                status=manifest.status,
-                completed_at=manifest.completed_at,
-                resources_created_count=len(manifest.resources_created),
-                resources_staged_count=len(manifest.resources_staged)
-                if manifest.resources_staged
-                else 0,
-                resources_failed_count=len(manifest.resources_failed)
-                if manifest.resources_failed
-                else 0,
-                manifest_json=manifest.model_dump_json(),
-            )
-            await s.commit()
-    except Exception as exc:
-        logger.bind(run_id=run_id).warning("db finalize_run failed (non-fatal): {}", exc)
 
 
 @router.post("/api/execute")
@@ -111,12 +75,9 @@ async def execute_stream(
         run_id = generate_run_id()
         semaphore = asyncio.Semaphore(settings.max_concurrent_requests)
 
-        config_path = Path(settings.runs_dir) / f"{run_id}_config.json"
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        config_path.write_text(session.config_json_text, encoding="utf-8")
-
         disconnected = False
         session_factory = getattr(request.app.state, "async_session_factory", None)
+        persist = SqliteRunStatePersist(session_factory) if session_factory is not None else None
 
         async def run_engine():
             nonlocal disconnected
@@ -139,23 +100,16 @@ async def execute_stream(
                 except Exception as exc:
                     logger.bind(run_id=run_id).warning("db ensure_run failed (non-fatal): {}", exc)
 
+            if persist is not None:
+                try:
+                    await persist.set_config_json(run_id, session.config_json_text)
+                except Exception as exc:
+                    logger.bind(run_id=run_id).warning(
+                        "db set_config_json failed (non-fatal): {}", exc
+                    )
+
             async def on_resource_created_db(rid: str, created_id: str, tref: str) -> None:
                 index_resource(rid, created_id, tref)
-                if session_factory is None:
-                    return
-                try:
-                    async with session_factory() as s:
-                        await correlation_repo.upsert_correlation(
-                            s,
-                            created_id=created_id,
-                            run_id=rid,
-                            typed_ref=tref,
-                        )
-                        await s.commit()
-                except Exception as exc:
-                    logger.bind(run_id=rid, created_id=created_id).warning(
-                        "db correlation upsert failed (non-fatal): {}", exc
-                    )
 
             async def on_run_org_registered_db(rid: str, org_id: str) -> None:
                 register_run_org(rid, org_id)
@@ -175,7 +129,7 @@ async def execute_stream(
                 handler_dispatch = build_handler_dispatch(client, emit_sse)
                 update_dispatch = build_update_dispatch(client, emit_sse)
                 try:
-                    manifest = await execute(
+                    summary = await execute(
                         config=session.config,
                         registry=session.registry,
                         handler_dispatch=handler_dispatch,
@@ -191,9 +145,12 @@ async def execute_stream(
                         mt_org_id=session.org_id,
                         mt_org_label=session.org_label,
                         on_run_org_registered=on_run_org_registered_db,
+                        persist=persist,
                     )
+                    dto = summary.to_execute_summary_dto()
                     html = templates.get_template("partials/run_complete.html").render(
-                        manifest=manifest, run_id=run_id
+                        summary=dto,
+                        run_id=run_id,
                     )
                     await queue.put(ServerSentEvent(data=html, event="run_complete"))
                 except Exception as exc:
@@ -201,10 +158,6 @@ async def execute_stream(
                     html = templates.get_template("partials/error.html").render(error=str(exc))
                     await queue.put(ServerSentEvent(data=html, event="error"))
                 finally:
-                    if session_factory is not None:
-                        await _persist_manifest_status_to_db(
-                            session_factory, settings.runs_dir, run_id
-                        )
                     if session_factory is not None:
                         try:
                             draft = loader_draft_from_session(session)

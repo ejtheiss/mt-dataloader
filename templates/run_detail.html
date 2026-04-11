@@ -12,7 +12,7 @@
 {% endblock %}
 
 {% block title_slot %}
-<span class="badge badge--{{ 'success' if manifest.status == 'completed' else 'critical' if manifest.status == 'failed' else 'default' }}">{{ manifest.status }}</span>
+<span class="badge badge--{{ 'success' if run_detail.status == 'completed' else 'critical' if run_detail.status == 'failed' else 'default' }}">{{ run_detail.status }}</span>
 {% endblock %}
 
 {% block header_actions %}
@@ -29,10 +29,10 @@
             <button role="tab" class="mt-tab__btn" onclick="activateTab('config'); setActiveTab(this)">Config</button>
         </div>
         <div class="mt-tab" data-tab="resources">
-            <button role="tab" class="mt-tab__btn" onclick="activateTab('resources'); setActiveTab(this)">Resources ({{ manifest.resources_created|length }})</button>
+            <button role="tab" class="mt-tab__btn" onclick="activateTab('resources'); setActiveTab(this)">Resources ({{ run_detail.resources_created|length }})</button>
         </div>
         <div class="mt-tab" data-tab="staged">
-            <button role="tab" class="mt-tab__btn" onclick="activateTab('staged'); setActiveTab(this)">Staged ({{ manifest.resources_staged|length }})</button>
+            <button role="tab" class="mt-tab__btn" onclick="activateTab('staged'); setActiveTab(this)">Staged ({{ run_detail.resources_staged|length }})</button>
         </div>
     </div>
 </div>
@@ -56,39 +56,39 @@
                     <div class="key-value-table-row">
                         <div class="row-label">Status</div>
                         <div class="row-value">
-                            <span class="badge badge--{{ 'success' if manifest.status == 'completed' else 'critical' if manifest.status == 'failed' else 'cool' if manifest.status == 'running' else 'default' }}">{{ manifest.status }}</span>
+                            <span class="badge badge--{{ 'success' if run_detail.status == 'completed' else 'critical' if run_detail.status == 'failed' else 'cool' if run_detail.status == 'running' else 'default' }}">{{ run_detail.status }}</span>
                         </div>
                     </div>
                     <div class="key-value-table-row">
                         <div class="row-label">Started</div>
-                        <div class="row-value">{{ manifest.started_at }}</div>
+                        <div class="row-value">{{ run_detail.started_at }}</div>
                     </div>
-                    {% if manifest.completed_at %}
+                    {% if run_detail.completed_at %}
                     <div class="key-value-table-row">
                         <div class="row-label">Completed</div>
-                        <div class="row-value">{{ manifest.completed_at }}</div>
+                        <div class="row-value">{{ run_detail.completed_at }}</div>
                     </div>
                     {% endif %}
                     <div class="key-value-table-row">
                         <div class="row-label">Resources</div>
-                        <div class="row-value"><span class="chip">{{ manifest.resources_created|length }} created</span></div>
+                        <div class="row-value"><span class="chip">{{ run_detail.resources_created|length }} created</span></div>
                     </div>
-                    {% if manifest.resources_staged %}
+                    {% if run_detail.resources_staged %}
                     <div class="key-value-table-row">
                         <div class="row-label">Staged</div>
-                        <div class="row-value"><span class="chip">{{ manifest.resources_staged|length }} staged</span></div>
+                        <div class="row-value"><span class="chip">{{ run_detail.resources_staged|length }} staged</span></div>
                     </div>
                     {% endif %}
-                    {% if manifest.resources_failed %}
+                    {% if run_detail.resources_failed %}
                     <div class="key-value-table-row">
                         <div class="row-label">Failed</div>
-                        <div class="row-value"><span class="chip chip--warning">{{ manifest.resources_failed|length }} failed</span></div>
+                        <div class="row-value"><span class="chip chip--warning">{{ run_detail.resources_failed|length }} failed</span></div>
                     </div>
                     {% endif %}
-                    {% if manifest.config_hash %}
+                    {% if run_detail.config_hash %}
                     <div class="key-value-table-row">
                         <div class="row-label">Config Hash</div>
-                        <div class="row-value"><code>{{ manifest.config_hash[:16] }}&hellip;</code></div>
+                        <div class="row-value"><code>{{ run_detail.config_hash[:16] }}&hellip;</code></div>
                     </div>
                     {% endif %}
                 </div>
@@ -108,7 +108,7 @@
 
 <!-- Resources tab -->
 <div class="tab-panel" id="tab-resources">
-    {% if manifest.resources_created %}
+    {% if run_detail.resources_created %}
     <div class="ui-table-container" id="resources-table" role="table">
         <div class="ui-table-container__inner">
             <div role="rowgroup" class="ui-table-head">
@@ -121,7 +121,7 @@
                 </div>
             </div>
             <div role="rowgroup" class="ui-table-body" id="resources-table-body">
-                {% for e in manifest.resources_created %}
+                {% for e in run_detail.resources_created %}
                 <div role="row" class="ui-table-row linked"
                      data-url="/runs/{{ run_id }}"
                      hx-get="/api/runs/{{ run_id }}/resources/drawer?ref={{ e.typed_ref|urlencode }}"
@@ -158,9 +158,9 @@
     {% include "partials/empty_state.html" %}
     {% endif %}
 
-    {% if manifest.resources_failed %}
+    {% if run_detail.resources_failed %}
     <h4 style="margin-top: 16px; color: var(--mt-red-500);">Failed</h4>
-    {% for f in manifest.resources_failed %}
+    {% for f in run_detail.resources_failed %}
     <div class="failed-entry">
         <code>{{ f.typed_ref }}</code>
         {% if f.error_type or f.http_status %}
@@ -199,7 +199,7 @@
     </details>
 
     <div id="staged-list">
-        {% if manifest.resources_staged %}
+        {% if run_detail.resources_staged %}
         <div class="ui-table-container" role="table">
             <div class="ui-table-container__inner">
                 <div role="rowgroup" class="ui-table-head">
@@ -211,8 +211,8 @@
                     </div>
                 </div>
                 <div role="rowgroup" class="ui-table-body">
-                    {% for s in manifest.resources_staged %}
-                    {% set payload = staged_payloads.get(s.typed_ref, {}) %}
+                    {% for s in run_detail.resources_staged %}
+                    {% set payload = run_detail.staged_payloads.get(s.typed_ref, {}) %}
                     {% include "partials/staged_row.html" %}
                     {% endfor %}
                 </div>
@@ -247,7 +247,7 @@
     var monacoEl = document.getElementById('run-detail-config-monaco');
     if (monacoEl && typeof initMonacoEditor === 'function') {
         initMonacoEditor(monacoEl, {
-            value: {{ config_json | tojson }},
+            value: {{ run_detail.config_json | tojson }},
             readOnly: true
         });
     }

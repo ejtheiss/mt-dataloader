@@ -3,26 +3,25 @@
 from __future__ import annotations
 
 import asyncio
-import json
-from pathlib import Path
 
 from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from modern_treasury import AsyncModernTreasury
 from tenacity import RetryError, retry, retry_if_result
 
-from dataloader.engine import _now_iso
+from dataloader.engine.run_meta import _now_iso
 from dataloader.handlers import DELETABILITY, TENACITY_STOP_30, TENACITY_WAIT_EXP_2_10
 from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep
-from dataloader.run_access import load_run_manifest_for_reader, run_is_readable
+from dataloader.run_access import get_run_detail_view, run_is_readable, user_to_ctx
 from dataloader.staged_fire import FIREABLE_TYPES
 from dataloader.webhooks import correlation_state
 from dataloader.webhooks.webhook_persist import (
     _webhook_history_and_org_for_run_detail,
     enrich_webhooks_run_org,
 )
-from jsonutil import dumps_pretty, loads_path
-from models import ManifestEntry, RunManifest
+from db.repositories import run_artifacts
+from db.repositories import runs as runs_repo
+from models import ManifestEntry
 
 router = APIRouter()
 
@@ -133,25 +132,10 @@ async def run_detail_page(
     current_user: CurrentAppUserDep,
 ):
     """Four-tab run detail page: Config, Resources, Staged, Webhooks."""
-    runs_dir = Path(settings.runs_dir)
-
-    manifest = await load_run_manifest_for_reader(request, settings, run_id, current_user)
-    if manifest is None:
+    run_detail = await get_run_detail_view(request, settings, run_id, current_user)
+    if run_detail is None:
         raise HTTPException(404, f"Run '{run_id}' not found")
-    correlation_state.ensure_run_indexed(run_id, manifest)
-
-    config_path = runs_dir / f"{run_id}_config.json"
-    config_json = config_path.read_text("utf-8") if config_path.exists() else "{}"
-
-    staged_path = runs_dir / f"{run_id}_staged.json"
-    staged_payloads: dict[str, dict] = {}
-    if staged_path.exists():
-        try:
-            data = loads_path(staged_path)
-            if isinstance(data, dict):
-                staged_payloads = data
-        except (json.JSONDecodeError, OSError, TypeError):
-            pass
+    correlation_state.ensure_run_indexed_from_rows(run_id, run_detail.resources_created)
 
     webhook_history, rom = await _webhook_history_and_org_for_run_detail(
         request, run_id, current_user
@@ -163,9 +147,7 @@ async def run_detail_page(
         "run_detail.html",
         {
             "run_id": run_id,
-            "manifest": manifest,
-            "config_json": config_json,
-            "staged_payloads": staged_payloads,
+            "run_detail": run_detail,
             "webhook_history": webhook_history,
         },
     )
@@ -184,35 +166,21 @@ async def staged_drawer(
     if not await run_is_readable(request, settings, run_id, current_user):
         raise HTTPException(404, "Run not found")
 
-    runs_dir = Path(settings.runs_dir)
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        raise HTTPException(503, "Database unavailable")
 
-    staged_path = runs_dir / f"{run_id}_staged.json"
-    if not staged_path.exists():
-        raise HTTPException(404, "No staged payloads for this run")
-
-    try:
-        raw = loads_path(staged_path)
-    except (json.JSONDecodeError, OSError, TypeError) as exc:
-        raise HTTPException(404, f"Invalid staged file: {exc}") from exc
-    if not isinstance(raw, dict):
-        raise HTTPException(404, "Invalid staged file shape")
-    staged_payloads: dict[str, dict] = raw
-    if ref not in staged_payloads:
-        raise HTTPException(404, f"Staged payload not found: {ref}")
-
-    manifest_path = runs_dir / f"{run_id}.json"
-    manifest = RunManifest.load(manifest_path) if manifest_path.exists() else None
-    staged_at = ""
-    if manifest and manifest.resources_staged:
-        for s in manifest.resources_staged:
-            if s.typed_ref == ref:
-                staged_at = s.staged_at
-                break
+    ctx = user_to_ctx(current_user)
+    async with factory() as session:
+        loaded = await run_artifacts.fetch_staged_payload_and_meta(session, run_id, ref, ctx)
+    if loaded is None:
+        raise HTTPException(404, "Staged payload not found")
+    payload, staged_at = loaded
 
     return templates.TemplateResponse(
         request,
         "partials/staged_drawer.html",
-        {"typed_ref": ref, "payload": staged_payloads[ref], "staged_at": staged_at},
+        {"typed_ref": ref, "payload": payload, "staged_at": staged_at},
     )
 
 
@@ -231,25 +199,21 @@ async def fire_staged(
     if not await run_is_readable(request, settings, run_id, current_user):
         raise HTTPException(404, "Run not found")
 
-    runs_dir = Path(settings.runs_dir)
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        raise HTTPException(503, "Database unavailable")
 
     lock = _fire_locks.setdefault(run_id, asyncio.Lock())
     async with lock:
-        staged_path = runs_dir / f"{run_id}_staged.json"
-        if not staged_path.exists():
-            raise HTTPException(404, "No staged payloads for this run")
+        ctx = user_to_ctx(current_user)
+        async with factory() as session:
+            loaded = await run_artifacts.fetch_staged_payload_and_meta(
+                session, run_id, typed_ref, ctx
+            )
+            if loaded is None:
+                raise HTTPException(404, "Staged payload not found")
+            resolved, _st = loaded
 
-        try:
-            loaded = loads_path(staged_path)
-        except (json.JSONDecodeError, OSError, TypeError) as exc:
-            raise HTTPException(404, f"Invalid staged file: {exc}") from exc
-        if not isinstance(loaded, dict):
-            raise HTTPException(404, "Invalid staged file shape")
-        staged_payloads = loaded
-        if typed_ref not in staged_payloads:
-            raise HTTPException(404, f"Staged payload not found: {typed_ref}")
-
-        resolved = staged_payloads[typed_ref]
         resource_type = typed_ref.split(".")[0]
 
         handler = _FIRE_DISPATCH.get(resource_type)
@@ -267,29 +231,32 @@ async def fire_staged(
                 idempotency_key=f"{run_id}:staged:{typed_ref}",
             )
 
-        manifest_path = runs_dir / f"{run_id}.json"
-        manifest = RunManifest.load(manifest_path)
-        manifest.resources_created.append(
-            ManifestEntry(
-                batch=-1,
-                resource_type=resource_type,
-                typed_ref=typed_ref,
-                created_id=result["created_id"],
-                created_at=_now_iso(),
-                deletable=DELETABILITY.get(resource_type, False),
-                child_refs=result.get("child_refs", {}),
-            )
+        entry = ManifestEntry(
+            batch=-1,
+            resource_type=resource_type,
+            typed_ref=typed_ref,
+            created_id=result["created_id"],
+            created_at=_now_iso(),
+            deletable=DELETABILITY.get(resource_type, False),
+            child_refs=result.get("child_refs", {}),
         )
-        manifest.resources_staged = [
-            s for s in manifest.resources_staged if s.typed_ref != typed_ref
-        ]
-        manifest.write(settings.runs_dir)
 
-        del staged_payloads[typed_ref]
-        if staged_payloads:
-            staged_path.write_text(dumps_pretty(staged_payloads), encoding="utf-8")
-        else:
-            staged_path.unlink(missing_ok=True)
+        async with factory() as session:
+            async with session.begin():
+                await run_artifacts.delete_staged_item(session, run_id, typed_ref)
+                await run_artifacts.insert_created_resource_row(
+                    session,
+                    run_id=run_id,
+                    batch=entry.batch,
+                    resource_type=entry.resource_type,
+                    typed_ref=entry.typed_ref,
+                    created_id=entry.created_id,
+                    created_at=entry.created_at,
+                    deletable=entry.deletable,
+                    child_refs=dict(entry.child_refs),
+                    cleanup_status=entry.cleanup_status,
+                )
+                await runs_repo.sync_artifact_counts_from_tables(session, run_id)
 
     correlation_state.index_resource(run_id, result["created_id"], typed_ref)
     for child_key, child_id in result.get("child_refs", {}).items():

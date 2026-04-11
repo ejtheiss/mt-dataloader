@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -57,12 +57,71 @@ class Run(Base):
     resources_created_count: Mapped[int] = mapped_column(Integer, default=0)
     resources_staged_count: Mapped[int] = mapped_column(Integer, default=0)
     resources_failed_count: Mapped[int] = mapped_column(Integer, default=0)
-    manifest_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    config_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    run_extras_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user: Mapped[User | None] = relationship(back_populates="runs")
-    correlations: Mapped[list[ResourceCorrelation]] = relationship(
-        back_populates="run", cascade="all, delete-orphan"
+    created_resources: Mapped[list[RunCreatedResource]] = relationship(
+        back_populates="run",
+        cascade="all, delete-orphan",
     )
+    resource_failures: Mapped[list[RunResourceFailure]] = relationship(
+        back_populates="run",
+        cascade="all, delete-orphan",
+    )
+    staged_items: Mapped[list[RunStagedItem]] = relationship(
+        back_populates="run",
+        cascade="all, delete-orphan",
+    )
+
+
+class RunCreatedResource(Base):
+    __tablename__ = "run_created_resources"
+
+    created_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        String(128), ForeignKey("runs.run_id", ondelete="CASCADE"), nullable=False
+    )
+    batch: Mapped[int] = mapped_column(Integer)
+    resource_type: Mapped[str] = mapped_column(String(128))
+    typed_ref: Mapped[str] = mapped_column(String(512))
+    created_at: Mapped[str] = mapped_column(String(64))
+    deletable: Mapped[bool] = mapped_column(Boolean, default=False)
+    cleanup_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    child_refs_json: Mapped[str] = mapped_column(Text, default="{}")
+
+    run: Mapped[Run] = relationship(back_populates="created_resources")
+
+
+class RunResourceFailure(Base):
+    __tablename__ = "run_resource_failures"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(
+        String(128), ForeignKey("runs.run_id", ondelete="CASCADE"), nullable=False
+    )
+    typed_ref: Mapped[str] = mapped_column(String(512))
+    error: Mapped[str] = mapped_column(Text)
+    failed_at: Mapped[str] = mapped_column(String(64))
+    error_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_cause: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    run: Mapped[Run] = relationship(back_populates="resource_failures")
+
+
+class RunStagedItem(Base):
+    __tablename__ = "run_staged_items"
+
+    run_id: Mapped[str] = mapped_column(
+        String(128), ForeignKey("runs.run_id", ondelete="CASCADE"), primary_key=True
+    )
+    typed_ref: Mapped[str] = mapped_column(String(512), primary_key=True)
+    resource_type: Mapped[str] = mapped_column(String(128))
+    staged_at: Mapped[str] = mapped_column(String(64))
+    payload_json: Mapped[str] = mapped_column(Text)
+
+    run: Mapped[Run] = relationship(back_populates="staged_items")
 
 
 class WebhookEvent(Base):
@@ -79,13 +138,3 @@ class WebhookEvent(Base):
     resource_type: Mapped[str] = mapped_column(String(128))
     resource_id: Mapped[str] = mapped_column(String(256), default="")
     raw_json: Mapped[str] = mapped_column(Text)
-
-
-class ResourceCorrelation(Base):
-    __tablename__ = "resource_correlation"
-
-    created_id: Mapped[str] = mapped_column(String(128), primary_key=True)
-    run_id: Mapped[str] = mapped_column(String(128), ForeignKey("runs.run_id", ondelete="CASCADE"))
-    typed_ref: Mapped[str] = mapped_column(String(512))
-
-    run: Mapped[Run] = relationship(back_populates="correlations")
