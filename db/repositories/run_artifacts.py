@@ -17,12 +17,7 @@ from db.mappers.run_artifact_rows import (
 )
 from db.tables import Run, RunCreatedResource, RunResourceFailure, RunStagedItem
 from db.repositories.runs import RunAccessContext, get_run_row_for_access
-from models.run_views import (
-    CreatedResourceRow,
-    FailedResourceRow,
-    RunDetailView,
-    StagedItemView,
-)
+from models.run_views import CreatedResourceRow, FailedResourceRow, RunDetailView
 
 
 async def fetch_correlation_index_rows(session: AsyncSession) -> list[tuple[str, str, str]]:
@@ -63,18 +58,19 @@ async def fetch_run_detail_view(
         .where(RunResourceFailure.run_id == run_id)
         .order_by(RunResourceFailure.id)
     )
-    staged = await session.scalars(
+    staged_result = await session.scalars(
         select(RunStagedItem)
         .where(RunStagedItem.run_id == run_id)
         .order_by(RunStagedItem.staged_at)
     )
+    staged_orm_list = staged_result.all()
 
     created_rows = tuple(orm_created_to_row(r) for r in created.all())
     failed_rows = tuple(orm_failure_to_row(r) for r in failures.all())
-    staged_rows = tuple(orm_staged_to_view(r) for r in staged.all())
+    staged_rows = tuple(orm_staged_to_view(r) for r in staged_orm_list)
 
     staged_payloads: dict[str, dict[str, Any]] = {}
-    for r in await session.scalars(select(RunStagedItem).where(RunStagedItem.run_id == run_id)):
+    for r in staged_orm_list:
         try:
             payload = json.loads(r.payload_json)
             if isinstance(payload, dict):

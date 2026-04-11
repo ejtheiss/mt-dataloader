@@ -32,13 +32,13 @@
 ## ADR-style decisions (this cutover)
 
 
-| Topic             | Decision                                                                                                                                                                 |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Counts**        | Denormalized columns on `runs`; recomputed via `runs_repo.sync_artifact_counts_from_tables` when mutating artifacts outside the execute persist port (e.g. staged fire). |
-| **Cleanup SSE**   | Snapshot DTO list at POST (deterministic, bounded session memory).                                                                                                       |
-| **Webhook index** | Derive tuples from `run_created_resources` + JSON child refs at startup (no separate index table in v1).                                                                 |
-| **`run_stats` view** | **Deferred** — denormalized `runs.resources_*_count` + `sync_artifact_counts_from_tables` is authoritative after mutations; a SQL view can be added later if drift is observed. |
-| **Mapper boundary** | Artifact row mapping only in `db/mappers/`; routers do not build DTOs from ORM (see review checklist in [`DB_ONLY_RUN_STATE_SOLVABILITY.md`](DB_ONLY_RUN_STATE_SOLVABILITY.md)). |
+| Topic                | Decision                                                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Counts**           | Denormalized columns on `runs`; recomputed via `runs_repo.sync_artifact_counts_from_tables` when mutating artifacts outside the execute persist port (e.g. staged fire).         |
+| **Cleanup SSE**      | Snapshot DTO list at POST (deterministic, bounded session memory).                                                                                                               |
+| **Webhook index**    | Derive tuples from `run_created_resources` + JSON child refs at startup (no separate index table in v1).                                                                         |
+| **`run_stats` view** | **Rejected for v1** — denormalized `runs.resources_*_count` + `sync_artifact_counts_from_tables` is authoritative after mutations; a SQL view remains optional if drift is observed in ops. |
+| **Mapper boundary**  | Artifact row mapping only in `db/mappers/`; routers do not build view DTOs from ORM (see checklist + `tests/test_router_dto_hygiene.py` in [`DB_ONLY_RUN_STATE_SOLVABILITY.md`](DB_ONLY_RUN_STATE_SOLVABILITY.md)). |
 
 
 ## Alembic
@@ -95,18 +95,18 @@ Hydration was run **after** the DB-only cutover using the **user-context7** MCP:
 
 ## Solvability report and gates
 
-See **[`DB_ONLY_RUN_STATE_SOLVABILITY.md`](DB_ONLY_RUN_STATE_SOLVABILITY.md)** for the risk/solvability matrix, migration rehearsal steps (G2), performance budget template (G3), and mapper-boundary review checklist.
+See `**[DB_ONLY_RUN_STATE_SOLVABILITY.md](DB_ONLY_RUN_STATE_SOLVABILITY.md)`** for the risk/solvability matrix, migration rehearsal steps (G2), performance budget template (G3), and mapper-boundary review checklist.
 
 ---
 
 ## Cutover status (this branch)
 
 
-| Area                   | State                                                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Authority**          | SQLite only for list, detail, execute summary, cleanup snapshots, webhook correlation index hydration.        |
-| **Legacy columns**     | `manifest_json` / `resource_correlation` removed after migration backfill.                                    |
-| **Disk `runs/*.json`** | Used by **Alembic backfill** and **optional** `backfill_missing_runs_from_disk`; not used for hot-path reads. |
+| Area                   | State                                                                                                                                           |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Authority**          | SQLite only for list, detail, execute summary, cleanup snapshots, webhook correlation index hydration.                                          |
+| **Legacy columns**     | `manifest_json` / `resource_correlation` removed after migration backfill.                                                                      |
+| **Disk `runs/*.json`** | Used by **Alembic backfill** and **optional** `backfill_missing_runs_from_disk`; not used for hot-path reads.                                   |
 | **DTO boundary**       | Routers/templates use `models/run_views.py`; ORM→DTO rows in `db/mappers/run_artifact_rows.py`; assembly in `db/repositories/run_artifacts.py`. |
 
 
@@ -136,24 +136,24 @@ Ordered for dependency and risk (adjust to product priority).
 
 ### 5. Hygiene
 
-- Rename or narrow **`manifest_json_run_id`** / `list_manifest_ids` in `dataloader/engine/run_meta.py` if the word “manifest” confuses operators (behavior: disk JSON filename conventions for backfill only).
-- Keep **`plan/`** out of git; design notes that must ship with the repo belong here or in `.cursor/rules/` as needed.
+- Rename or narrow `**manifest_json_run_id`** / `list_manifest_ids` in `dataloader/engine/run_meta.py` if the word “manifest” confuses operators (behavior: disk JSON filename conventions for backfill only).
+- Keep `**plan/**` out of git; design notes that must ship with the repo belong here or in `.cursor/rules/` as needed.
 
 ## Test and verification map
 
 
-| Concern                   | Tests (representative)                  |
-| ------------------------- | --------------------------------------- |
-| Schema + drops            | `tests/db/test_migrations.py`           |
-| Backfill assumptions      | `tests/db/test_backfill.py`             |
-| Artifact ↔ run invariants + access | `tests/db/test_run_state_invariants.py` |
-| SSE partials + DTOs | `tests/test_cleanup_sse_dto.py` |
-| Execution accumulator | `tests/dataloader/test_execution_accumulator.py` |
-| Runs list SQL             | `tests/db/test_runs_list_sql.py`        |
+| Concern                            | Tests (representative)                           |
+| ---------------------------------- | ------------------------------------------------ |
+| Schema + drops                     | `tests/db/test_migrations.py`                    |
+| Backfill assumptions               | `tests/db/test_backfill.py`                      |
+| Artifact ↔ run invariants + access | `tests/db/test_run_state_invariants.py`          |
+| SSE partials + DTOs                | `tests/test_cleanup_sse_dto.py`                  |
+| Execution accumulator              | `tests/dataloader/test_execution_accumulator.py` |
+| Runs list SQL                      | `tests/db/test_runs_list_sql.py`                 |
+| Router view-DTO hygiene            | `tests/test_router_dto_hygiene.py`               |
 
 
 ## Quick reference (env)
 
 - **`DATALOADER_DATA_DIR`** — SQLite file location (see `models/settings.py`).
 - **`DATALOADER_RUNS_DIR`** — disk manifests for migration/backfill tools only (`alembic` revision `20260420120000`, `db_backfill`).
-

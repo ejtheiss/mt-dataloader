@@ -20,6 +20,17 @@ This document satisfies the **solvability report** and **derisk gates** from the
 
 **Conclusion:** In-scope risks are addressable with the current stack; open choices are documented as ADRs in [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md) and this file.
 
+## G4 — ADR lock-in (design choices recorded)
+
+Aligned with plan **§ Derisk execution gates / G4** and **§ Remaining research checkpoints** (evidence = code + tests, not one-off benchmarks unless noted):
+
+1. **Counts strategy:** **Denormalized** `runs.resources_*_count` columns, recomputed with `runs_repo.sync_artifact_counts_from_tables` after mutations outside the execute persist port (e.g. staged fire). **No `run_stats` view in v1** — defer unless drift appears in production metrics.
+2. **Cleanup SSE strategy:** **Snapshot at POST** — immutable `tuple[CreatedResourceRow, ...]` in `SessionState.cleanup_resources` for deterministic SSE; stream-from-DB reserved for very large runs if memory becomes an issue.
+3. **Webhook index strategy:** **Derive at startup** from `run_created_resources` + `child_refs_json` expansion (`fetch_correlation_index_rows`). **No `webhook_resource_index` table in v1** — revisit if startup time or memory becomes a measured bottleneck.
+4. **Migration execution path:** **D1** — data backfill runs inside Alembic revision `20260420120000_db_only_run_artifacts`, reading `DATALOADER_RUNS_DIR` (default `runs`) as documented in the revision docstring; CI runs `alembic upgrade head` on a fresh DB before pytest.
+
+Context7 hydration pointers for Alembic / SQLAlchemy / FastAPI / sse-starlette / pytest are recorded in [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md) § Context7 MCP hydration.
+
 ## G2 — Migration rehearsal (pre-merge / deploy)
 
 Run against a **copy** of real `dataloader.sqlite` and optional `runs/` snapshot:
@@ -47,4 +58,4 @@ Record actual numbers in release notes or a pinned benchmark run when profiling.
 ## Review checklist — mapper boundary
 
 - **ORM → DTO** mapping lives in `db/mappers/run_artifact_rows.py` (and repo assembly in `db/repositories/run_artifacts.py`).
-- **Routers** should not construct `CreatedResourceRow` / `RunDetailView` except forwarding repo results; prefer adding a repo method over inline SQL + DTO build in a route.
+- **Routers** should not construct `CreatedResourceRow` / `RunDetailView` / `FailedResourceRow` / `StagedItemView` — use repositories. CI guard: `tests/test_router_dto_hygiene.py`.
