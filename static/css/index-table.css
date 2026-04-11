@@ -35,7 +35,7 @@
   min-height: 5rem; /* min-h-20 = 80px */
   width: 100%;
   justify-content: flex-start;
-  border: 1px solid rgba(0, 0, 0, 0.09); /* border-alpha-black-100 */
+  border: 1px solid var(--alpha-black-100); /* border-alpha-black-100 */
   background-color: var(--white);
   border-radius: 0.5rem; /* rounded-lg */
 }
@@ -64,7 +64,7 @@
 .ui-table-head {
   border-top-left-radius: 0.5rem;
   border-top-right-radius: 0.5rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+  border-bottom: 1px solid var(--alpha-black-100);
   background-color: var(--app-background); /* bg-background-light = gray-25 */
   font-weight: 500;
 }
@@ -84,7 +84,7 @@
   padding-right: 1.5rem;
   font-size: 0.75rem; /* text-xs = 12px */
   line-height: 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+  border-bottom: 1px solid var(--alpha-black-100);
   background-color: var(--white); /* bg-background-default */
 }
 
@@ -153,7 +153,7 @@
 /* Empty cell — table.css line 192-194 */
 /* @apply text-gray-500 */
 .ui-table-cell.empty {
-  color: #807E72;
+  color: var(--text-muted);
 }
 
 /* Truncate — table.css line 197-202 */
@@ -181,7 +181,7 @@
   cursor: pointer;
   font: inherit;
   font-weight: 500;
-  color: #6B695D; /* text-gray-600 */
+  color: var(--text-muted); /* text-gray-600 */
 }
 
 .index-table-sort-btn:hover {
@@ -208,7 +208,7 @@
 .mt-index-table {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(0, 0, 0, 0.09);
+  border: 1px solid var(--alpha-black-100);
   border-radius: 0.5rem;
   background-color: var(--white);
   overflow: hidden;
@@ -218,7 +218,7 @@
   display: flex;
   gap: 1.25rem;
   padding: 0 1.5rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+  border-bottom: 1px solid var(--alpha-black-100);
   background-color: var(--app-background);
   font-weight: 500;
   font-size: 0.75rem;
@@ -230,7 +230,7 @@
   flex: 1 1 0%;
   align-items: center;
   padding: 0.5rem 0;
-  color: #6B695D;
+  color: var(--text-muted);
 }
 
 .mt-index-table-body {
@@ -244,7 +244,7 @@
   padding: 0 1.5rem;
   font-size: 0.75rem;
   line-height: 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+  border-bottom: 1px solid var(--alpha-black-100);
   background-color: var(--white);
   cursor: pointer;
   transition: background-color 0.1s ease;
@@ -271,7 +271,7 @@
 .mt-index-table-empty {
   padding: 3rem 1.5rem;
   text-align: center;
-  color: #807E72;
+  color: var(--text-muted);
 }
 
 .mt-row-primary {

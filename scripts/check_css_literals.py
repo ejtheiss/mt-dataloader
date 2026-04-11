@@ -16,6 +16,22 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 STRICT_CSS_FILES = (
     "static/css/page-chrome.css",
     "static/css/layout.css",
+    "static/css/index-table.css",
+    "static/css/kv-table.css",
+    "static/css/filter-bar.css",
+    "static/css/pagination.css",
+    "static/css/drawer.css",
+    "static/css/toast.css",
+    "static/css/buttons.css",
+    "static/css/forms.css",
+    "static/css/case-card.css",
+    "static/css/status-indicator.css",
+    "static/css/chip.css",
+    "static/css/json-view.css",
+    "static/css/tabs.css",
+    "static/css/toggle-switch.css",
+    "static/css/pill.css",
+    "static/mt-patterns.css",
 )
 
 # Match #rgb, #rrggbb, #rrggbbaa (not # in id selectors — line must look like a color use)

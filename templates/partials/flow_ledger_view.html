@@ -114,11 +114,11 @@
             <div class="flow-row flow-row-split flow-row-summary" style="height: 48px; font-weight: 600; border-top: 2px solid var(--border);">
                 <span class="flow-td-entry" style="width: 100%; text-align: center;">
                     {% if ns.net > 0 %}
-                    <span class="entry-amount" style="color: var(--green, #22c55e);">{{ fmt_amt(ns.net) }} DR</span>
+                    <span class="entry-amount" style="color: var(--green);">{{ fmt_amt(ns.net) }} DR</span>
                     {% elif ns.net < 0 %}
-                    <span class="entry-amount" style="color: var(--red, #ef4444);">{{ fmt_amt(-ns.net) }} CR</span>
+                    <span class="entry-amount" style="color: var(--red);">{{ fmt_amt(-ns.net) }} CR</span>
                     {% else %}
-                    <span class="entry-amount" style="color: var(--muted, #888);">$0.00</span>
+                    <span class="entry-amount" style="color: var(--muted);">$0.00</span>
                     {% endif %}
                 </span>
             </div>

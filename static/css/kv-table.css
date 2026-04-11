@@ -110,14 +110,14 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #807E72; /* text-gray-500 */
+  color: var(--text-muted); /* text-gray-500 */
   border-radius: 0.25rem;
   vertical-align: middle;
 }
 
 .kv-copy-btn:hover {
   color: var(--gray-800); /* text-gray-800 */
-  background-color: #F1F0EC; /* bg-gray-50 */
+  background-color: var(--background-light); /* bg-gray-50 */
 }
 
 /* ===== Editable input in KV row ===== */
@@ -135,7 +135,7 @@
 .kv-edit-input:focus {
   outline: none;
   border-color: var(--blue-500); /* blue-500 focus ring */
-  box-shadow: 0 0 0 1px #386FB1;
+  box-shadow: 0 0 0 1px var(--primary-interactive);
 }
 
 /* ===== Expandable toggle — KeyValueTable.tsx line 198-234 ===== */
@@ -172,7 +172,7 @@
 .key-value-table.key-value-table-subtable {
   padding: 16px;
   border-radius: 4px;
-  background-color: #F0F9FA; /* bg-cyan-25 approximation */
+  background-color: var(--surface-info); /* bg-cyan-25 approximation */
 }
 
 .key-value-table.key-value-table-subtable:not(:first-child) {
@@ -189,7 +189,7 @@
   align-items: flex-start;
   gap: 1rem; /* gap-4 */
   border-radius: 0.375rem; /* rounded-md */
-  border: 1px solid rgba(0, 0, 0, 0.09);
+  border: 1px solid var(--alpha-black-100);
   background-color: var(--white);
   padding: 1.5rem; /* p-6 */
 }
@@ -212,7 +212,7 @@
 .detail-panel-row .row-label {
   font-size: 0.75rem; /* text-xs */
   font-weight: 400;
-  color: #6B695D; /* text-gray-600 */
+  color: var(--text-muted); /* text-gray-600 */
 }
 
 .detail-panel-row .row-value {

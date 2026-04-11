@@ -46,7 +46,7 @@
   border-radius: var(--mt-radius-lg);
   border: 1px solid var(--mt-border-alpha);
   background-color: var(--mt-white);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px -1px var(--alpha-black-100), 0 2px 4px -2px var(--alpha-black-100);
   outline: none;
 }
 
@@ -192,8 +192,8 @@
 }
 
 .chip--warning {
-  background: color-mix(in srgb, #F59E0B 12%, transparent);
-  color: #92400E;
+  background: color-mix(in srgb, var(--status-waiting) 12%, transparent);
+  color: var(--badge-warning-text);
 }
 
 .chip--muted {
@@ -345,7 +345,7 @@
   align-items: center;
   gap: var(--mt-spacing-2);
   padding: var(--mt-spacing-2) var(--mt-spacing-3);
-  border-bottom: 1px solid var(--mt-gray-100, #DEDDD7);
+  border-bottom: 1px solid var(--mt-gray-100);
   font-size: var(--mt-text-sm);
 }
 

@@ -57,7 +57,7 @@
 </div>
 <div class="payload-editor-wrap">
     <div id="payload-monaco-{{ item.typed_ref | replace('.', '-') }}" class="monaco-container" style="height: 280px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;">
-        <pre class="monaco-fallback" style="margin:0;padding:12px;font-size:12px;overflow:auto;height:100%;background:var(--mt-gray-25,#fafafa);">{{ item.payload | tojson(indent=2) }}</pre>
+        <pre class="monaco-fallback" style="margin:0;padding:12px;font-size:12px;overflow:auto;height:100%;background:var(--mt-gray-25);">{{ item.payload | tojson(indent=2) }}</pre>
     </div>
     <input type="hidden" id="payload-hidden-{{ item.typed_ref | replace('.', '-') }}" value="">
     <div id="payload-status-{{ item.typed_ref | replace('.', '-') }}" class="json-parse-status"></div>

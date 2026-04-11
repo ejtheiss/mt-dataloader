@@ -14,8 +14,8 @@
 /* Source: FilterAreaLoadingWrapper lines 287-290 */
 /* Original: flex flex-wrap border-b border-alpha-black-100 bg-background-default px-4 pt-3 */
 .mt-filter-bar {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.09);  /* border-alpha-black-100 */
-  background: var(--bg-default, #FAFAFA);          /* bg-background-default */
+  border-bottom: 1px solid var(--alpha-black-100);  /* border-alpha-black-100 */
+  background: var(--bg-default);          /* bg-background-default */
   padding: 12px 16px 0;                            /* px-4 pt-3 */
 }
 
@@ -52,16 +52,16 @@
   align-items: center;
   gap: 4px;                                        /* gap-1 */
   border-radius: 4px;                              /* rounded-sm */
-  border: 1px solid rgba(0, 0, 0, 0.09);          /* border-alpha-black-100 */
+  border: 1px solid var(--alpha-black-100);          /* border-alpha-black-100 */
   padding: 0 8px;                                  /* px-2 */
   font-size: 0.75rem;                              /* text-xs */
-  color: #504E43;                                  /* text-gray-700 */
+  color: var(--text-default);                                  /* text-gray-700 */
   background: transparent;
   cursor: pointer;
 }
 
 .mt-filter-trigger:hover {
-  background: rgba(0, 0, 0, 0.04);                /* hover:bg-alpha-black-50 */
+  background: var(--alpha-black-50);                /* hover:bg-alpha-black-50 */
 }
 
 /* --- Filter Dropdown Panel --- */
@@ -77,9 +77,9 @@
   z-index: 100;
   min-width: 200px;
   background: var(--white);
-  border: 1px solid rgba(0, 0, 0, 0.09);
+  border: 1px solid var(--alpha-black-100);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px var(--alpha-black-100);
   padding: 4px 0;
 }
 
@@ -89,20 +89,20 @@
   text-align: left;
   padding: 6px 12px;
   font-size: 0.75rem;
-  color: #504E43;
+  color: var(--text-default);
   background: transparent;
   border: 0;
   cursor: pointer;
 }
 
 .mt-filter-option:hover {
-  background: #F5F5F0;                             /* bg-gray-50 */
+  background: var(--background-light);                             /* bg-gray-50 */
 }
 
 /* --- Filter Search Input --- */
 .mt-filter-search {
   height: 24px;
-  border: 1px solid rgba(0, 0, 0, 0.09);
+  border: 1px solid var(--alpha-black-100);
   border-radius: 4px;
   padding: 0 8px;
   font-size: 0.75rem;
@@ -114,7 +114,7 @@
 
 .mt-filter-search:focus {
   border-color: var(--blue-500);                    /* focus:border-blue-500 */
-  box-shadow: 0 0 0 1px #386FB1;
+  box-shadow: 0 0 0 1px var(--primary-interactive);
 }
 
 /* --- Filter Pills Container --- */
@@ -132,7 +132,7 @@
   display: inline-flex;
   align-items: center;
   border-radius: 4px;                              /* rounded-sm */
-  border: 1px solid rgba(0, 0, 0, 0.09);          /* border-alpha-black-100 */
+  border: 1px solid var(--alpha-black-100);          /* border-alpha-black-100 */
   font-size: 0.75rem;                              /* text-xs */
   overflow: hidden;
 }
@@ -143,9 +143,9 @@
   display: flex;
   align-items: center;
   gap: 8px;                                        /* gap-2 */
-  background: #F5F5F0;                             /* bg-gray-50 */
+  background: var(--background-light);                             /* bg-gray-50 */
   padding: 4px 8px;                                /* px-2 py-1 */
-  color: #504E43;                                  /* text-gray-700 */
+  color: var(--text-default);                                  /* text-gray-700 */
 }
 
 .mt-chip-icon {
@@ -171,10 +171,10 @@
   align-items: center;
   justify-content: center;
   padding: 4px 6px;                                /* px-1.5 py-1 */
-  background: #F5F5F0;                             /* same bg as chip content */
+  background: var(--background-light);                             /* same bg as chip content */
   border: 0;
-  border-left: 1px solid rgba(0, 0, 0, 0.09);
-  color: #6B695D;                                  /* text-gray-600 */
+  border-left: 1px solid var(--alpha-black-100);
+  color: var(--text-muted);                                  /* text-gray-600 */
   cursor: pointer;
   border-radius: 0 4px 4px 0;                     /* rounded-r-sm */
 }
@@ -193,17 +193,17 @@
   gap: 6px;
   height: 24px;
   border-radius: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.09);
+  border: 1px solid var(--alpha-black-100);
   padding: 0 8px;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #504E43;                                  /* text-gray-700 */
+  color: var(--text-default);                                  /* text-gray-700 */
   background: transparent;
   cursor: pointer;
 }
 
 .mt-export-btn:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--alpha-black-50);
 }
 
 .mt-export-icon {
@@ -227,9 +227,9 @@
   z-index: 100;
   min-width: 160px;
   background: var(--white);
-  border: 1px solid rgba(0, 0, 0, 0.09);
+  border: 1px solid var(--alpha-black-100);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px var(--alpha-black-100);
   padding: 4px 0;
 }
 
@@ -239,12 +239,12 @@
   text-align: left;
   padding: 6px 12px;
   font-size: 0.75rem;
-  color: #504E43;
+  color: var(--text-default);
   background: transparent;
   border: 0;
   cursor: pointer;
 }
 
 .mt-export-option:hover {
-  background: #F5F5F0;
+  background: var(--background-light);
 }

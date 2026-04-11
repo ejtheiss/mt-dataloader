@@ -54,7 +54,7 @@
 */
 .mt-tabs {
   width: 100%;
-  border-color: rgba(0, 0, 0, 0.04); /* border-alpha-black-50 */
+  border-color: var(--alpha-black-50); /* border-alpha-black-50 */
 }
 
 /* showBorder variant */
@@ -83,18 +83,18 @@
 .mt-tab {
   white-space: nowrap;
   border-bottom: 3px solid transparent; /* border-b-3 border-transparent */
-  color: #807E72; /* text-gray-500 */
+  color: var(--text-muted); /* text-gray-500 */
   transition: color 0.15s, border-color 0.15s;
 }
 
 .mt-tab:hover {
-  color: #504E43; /* hover:text-gray-700 */
+  color: var(--text-default); /* hover:text-gray-700 */
 }
 
 /* Active tab — blue bottom border, darker text */
 .mt-tab--active {
-  border-bottom-color: #386FB1; /* border-blue-500 */
-  color: #504E43; /* text-gray-700 */
+  border-bottom-color: var(--primary-interactive); /* border-blue-500 */
+  color: var(--text-default); /* text-gray-700 */
 }
 
 /* ===== Tab Button — Tabs.tsx line 166-175 ===== */

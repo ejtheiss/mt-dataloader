@@ -39,7 +39,7 @@
   height: fit-content;
   border-bottom-left-radius: 0.5rem; /* rounded-b-lg */
   border-bottom-right-radius: 0.5rem;
-  border: 1px solid rgba(0, 0, 0, 0.09); /* border-alpha-black-100 */
+  border: 1px solid var(--alpha-black-100); /* border-alpha-black-100 */
   border-top: 0; /* border-t-0 */
   background-color: var(--white);
   padding: 0.75rem; /* p-s = 12px */
@@ -62,10 +62,11 @@
   cursor: pointer;
   font-size: 0.75rem; /* text-xs */
   line-height: 1rem;
-  color: #504E43; /* text-gray-700 — matches PopoverTrigger */
+  color: var(--text-default); /* text-gray-700 — matches PopoverTrigger */
   font-weight: 400;
   padding: 0.25rem 1.25rem 0.25rem 0.5rem;
   /* Inline caret icon to match MT's Icon caret_down */
+  /* literal: SVG data URL — %23504E43 cannot use var() inside data URI */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23504E43' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.25rem center;
@@ -104,13 +105,13 @@
   border: none;
   border-radius: 0.25rem;
   cursor: pointer;
-  color: #6B695D; /* text-gray-600 */
+  color: var(--text-muted); /* text-gray-600 */
   font-size: 1.25rem;
   line-height: 1;
 }
 
 .pagination-btn:hover:not([disabled]) {
-  background-color: #F1F0EC; /* bg-gray-50 */
+  background-color: var(--background-light); /* bg-gray-50 */
   color: var(--gray-800); /* text-gray-800 */
 }
 
@@ -127,7 +128,7 @@
 .pagination-range {
   font-size: 0.75rem; /* text-xs */
   line-height: 1rem;
-  color: #504E43; /* text-gray-700 */
+  color: var(--text-default); /* text-gray-700 */
   padding: 0 0.25rem;
   white-space: nowrap;
 }

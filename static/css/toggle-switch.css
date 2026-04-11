@@ -19,7 +19,7 @@
   border: 2px solid transparent;
   transition: background-color 150ms, border-color 150ms;
   padding: 0;
-  background: #EDEDEA;                       /* bg-gray-100 (unchecked) */
+  background: var(--border-default);                       /* bg-gray-100 (unchecked) */
   position: relative;
   appearance: none;
   outline: none;
@@ -35,7 +35,7 @@
 /* Source: RadixSwitch.tsx line 16 — focus-visible:ring-2 ring-blue-500 ring-offset-1 */
 .mt-toggle:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 1px #fff, 0 0 0 3px #386FB1;  /* ring-2 ring-blue-500 ring-offset-1 */
+  box-shadow: 0 0 0 1px var(--white), 0 0 0 3px var(--primary-interactive);  /* ring-2 ring-blue-500 ring-offset-1 */
 }
 
 /* Disabled */
@@ -92,7 +92,7 @@
 
 .mt-toggle-label {
   font-size: 0.875rem;                       /* text-sm */
-  color: #504E43;                            /* text-gray-700 */
+  color: var(--text-default);                            /* text-gray-700 */
   cursor: pointer;
 }
 
