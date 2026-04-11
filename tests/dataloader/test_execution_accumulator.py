@@ -1,9 +1,9 @@
-"""Engine-internal execution state (not ``RunManifest``)."""
+"""Engine-internal execution state (``ExecutionAccumulator``)."""
 
 from __future__ import annotations
 
 from dataloader.engine.execution_accumulator import ExecutionAccumulator
-from models.manifest import ManifestEntry
+from models.run_execution_entries import ManifestEntry
 
 
 def test_accumulator_record_and_finalize() -> None:

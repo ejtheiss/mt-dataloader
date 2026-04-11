@@ -1,4 +1,4 @@
-"""Manifest → DB backfill and webhook index hydration."""
+"""Legacy disk run JSON → DB backfill and webhook index hydration."""
 
 from __future__ import annotations
 

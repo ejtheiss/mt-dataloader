@@ -1,7 +1,7 @@
 """GET ``/webhooks/stream`` — SSE fan-out of incoming webhooks.
 
 Run visibility for filtered streams uses ``run_is_readable`` (SQLite ``runs`` only);
-no disk manifest or ``RunManifest`` on this path.
+no legacy disk run JSON or aggregate manifest type on this path.
 """
 
 from __future__ import annotations

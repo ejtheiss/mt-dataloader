@@ -384,7 +384,7 @@ models/              Pydantic config schemas
   steps.py           Typed step models (discriminated union)
   flow_dsl.py        FundsFlowConfig, ActorFrame, GenerationRecipeV1
   settings.py        AppSettings (env config)
-  runtime.py         Runtime models (HandlerResult, RunManifest for tests/legacy JSON)
+  runtime.py         Runtime models (HandlerResult); execution facts in run_execution_entries.py
 
 flow_compiler/       Funds Flow DSL compiler (see docs/FLOW_COMPILER_CORE_MODULES.md)
   core.py            compile_flows(); re-exports emit + actors; thin orchestration

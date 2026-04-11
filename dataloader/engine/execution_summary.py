@@ -1,4 +1,4 @@
-"""Immutable summary returned from ``engine.execute`` (not ``RunManifest``)."""
+"""Immutable summary returned from ``engine.execute``."""
 
 from __future__ import annotations
 

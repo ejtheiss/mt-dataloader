@@ -2,7 +2,7 @@
 
 Covers: compile_to_plan pipeline, compute_flow_status,
 flow_account_deltas, compile_diagnostics, actor_display_name rename,
-FlowIRStep.optional_group, RunManifest new fields, backward-compat load,
+FlowIRStep.optional_group, legacy run disk snapshot fields, backward-compat load,
 and passthrough regression.
 """
 
@@ -13,7 +13,8 @@ import tempfile
 
 import pytest
 
-from dataloader.engine import RunManifest, _now_iso
+from dataloader.engine.run_meta import _now_iso
+from dataloader.legacy_run_disk import LegacyRunDiskSnapshot, load_legacy_run_json_dict
 from flow_compiler import (
     AuthoringConfig,
     FlowIR,
@@ -320,45 +321,55 @@ class TestFlowIRFrozen:
 
 
 # ---------------------------------------------------------------------------
-# RunManifest new fields
+# Legacy run disk JSON snapshot (backfill / historical files)
 # ---------------------------------------------------------------------------
 
 
-class TestRunManifestNewFields:
+class TestLegacyRunDiskSnapshot:
     def test_defaults_to_none(self):
-        m = RunManifest(run_id="test", config_hash="sha256:abc")
+        m = LegacyRunDiskSnapshot(run_id="test", config_hash="sha256:abc")
         assert m.generation_recipe is None
         assert m.compile_id is None
         assert m.seed_version is None
 
-    def test_to_dict_includes_new_fields(self):
-        m = RunManifest(run_id="test", config_hash="sha256:abc")
-        m.generation_recipe = {"flow_ref": "deposit", "instances": 100}
-        m.compile_id = "c123"
-        m.seed_version = "v1"
-        d = m._to_dict()
+    def test_model_dump_includes_new_fields(self):
+        m = LegacyRunDiskSnapshot(
+            run_id="test",
+            config_hash="sha256:abc",
+            generation_recipe={"flow_ref": "deposit", "instances": 100},
+            compile_id="c123",
+            seed_version="v1",
+        )
+        d = m.model_dump(mode="json")
         assert d["generation_recipe"] == {"flow_ref": "deposit", "instances": 100}
         assert d["compile_id"] == "c123"
         assert d["seed_version"] == "v1"
 
     def test_load_with_new_fields(self):
-        m = RunManifest(run_id="test", config_hash="sha256:abc")
-        m.generation_recipe = {"flow_ref": "x"}
-        m.compile_id = "c1"
-        m.seed_version = "sv1"
-        m.finalize("completed")
-
+        body = {
+            "run_id": "test",
+            "config_hash": "sha256:abc",
+            "started_at": _now_iso(),
+            "status": "completed",
+            "generation_recipe": {"flow_ref": "x"},
+            "compile_id": "c1",
+            "seed_version": "sv1",
+            "resources_created": [],
+            "resources_failed": [],
+            "resources_staged": [],
+        }
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(m._to_dict(), f)
+            json.dump(body, f)
             f.flush()
-            loaded = RunManifest.load(f.name)
+            raw = load_legacy_run_json_dict(f.name)
+            loaded = LegacyRunDiskSnapshot.model_validate(raw)
 
         assert loaded.generation_recipe == {"flow_ref": "x"}
         assert loaded.compile_id == "c1"
         assert loaded.seed_version == "sv1"
 
     def test_load_backward_compat_legacy_manifest(self):
-        """Legacy manifests without new fields should load without error."""
+        """Legacy files without new fields should parse without error."""
         legacy = {
             "run_id": "legacy",
             "config_hash": "sha256:old",
@@ -371,7 +382,8 @@ class TestRunManifestNewFields:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(legacy, f)
             f.flush()
-            loaded = RunManifest.load(f.name)
+            raw = load_legacy_run_json_dict(f.name)
+            loaded = LegacyRunDiskSnapshot.model_validate(raw)
 
         assert loaded.generation_recipe is None
         assert loaded.compile_id is None

@@ -1,14 +1,14 @@
-"""Mutable execution state during DAG runs (engine-internal; not ``RunManifest``).
+"""Mutable execution state during DAG runs (engine-internal accumulator).
 
-``RunManifest`` remains for JSON round-trip, backfill, and tests. The execute
-path uses this accumulator so callers receive only ``ExecutionResultSummary``.
+Facts are persisted via :class:`~dataloader.engine.persist_port.RunStatePersistPort`;
+callers receive only :class:`~dataloader.engine.execution_summary.ExecutionResultSummary`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from models.manifest import FailedEntry, ManifestEntry, StagedEntry
+from models.run_execution_entries import FailedEntry, ManifestEntry, StagedEntry
 
 from .run_meta import _now_iso
 

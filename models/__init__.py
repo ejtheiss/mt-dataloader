@@ -41,8 +41,8 @@ from models.loader_setup_json import (
     RevalidateJsonRequestV1,
 )
 
-# --- manifest-shaped models (engine accumulator, tests, optional JSON export) ---
-from models.manifest import FailedEntry, ManifestEntry, RunManifest, StagedEntry
+# --- execution facts (engine accumulator, persist port) ---
+from models.run_execution_entries import FailedEntry, ManifestEntry, StagedEntry
 
 # --- resource configs (Layers 0–6) ---
 from models.resources import (
@@ -250,7 +250,6 @@ __all__ = [
     "ManifestEntry",
     "FailedEntry",
     "StagedEntry",
-    "RunManifest",
     "RunListRow",
     "RunListJsonResponse",
     "RunDrawerRow",

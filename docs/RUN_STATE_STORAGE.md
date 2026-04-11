@@ -12,7 +12,7 @@
 - HTTP handlers and Jinja templates consume **Pydantic view DTOs** in `models/run_views.py` (`RunDetailView`, `CreatedResourceRow`, …). Re-exports for BFF-only imports: `dataloader/view_models/run_detail.py`.
 - **ORM → DTO** mapping for artifact rows lives in `db/mappers/run_artifact_rows.py`; `db/repositories/run_artifacts.py` runs SQL and assembles `RunDetailView`.
 - SQLAlchemy ORM row types do not cross into routers or templates.
-- **`execute()`** uses `dataloader/engine/execution_accumulator.py` (`ExecutionAccumulator`) for in-DAG mutable state; **`RunManifest`** remains for JSON/backfill/tests only, not returned from `execute()`.
+- **`execute()`** uses `dataloader/engine/execution_accumulator.py` (`ExecutionAccumulator`) for in-DAG mutable state; execution facts are `models/run_execution_entries.py` (`ManifestEntry`, …). Legacy per-run JSON on disk is parsed only by `dataloader/legacy_run_disk.py` + `dataloader/db_backfill.py` — there is no **`RunManifest`** type in the codebase.
 
 ## SSE
 
@@ -106,7 +106,7 @@ See `**[DB_ONLY_RUN_STATE_SOLVABILITY.md](DB_ONLY_RUN_STATE_SOLVABILITY.md)`** f
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Authority**          | SQLite only for list, detail, execute summary, cleanup snapshots, webhook correlation index hydration.                                          |
 | **Legacy columns**     | `manifest_json` / `resource_correlation` removed after migration backfill.                                                                      |
-| **Disk `runs/*.json`** | Used by **Alembic backfill** and **optional** `backfill_missing_runs_from_disk`; not used for hot-path reads.                                   |
+| **Disk `runs/*.json`** | Used by **Alembic backfill** and **optional** `backfill_missing_runs_from_disk` (typed via `LegacyRunDiskSnapshot` / dict parse only); not used for hot-path reads. |
 | **DTO boundary**       | Routers/templates use `models/run_views.py`; ORM→DTO rows in `db/mappers/run_artifact_rows.py`; assembly in `db/repositories/run_artifacts.py`. |
 
 
@@ -127,7 +127,7 @@ Ordered for dependency and risk (adjust to product priority).
 
 ### 3. Export and integrations
 
-- **JSON export CLI or route (read-only):** reconstruct a `RunManifest`-shaped document from DB rows for archival / support; explicitly **not** authoritative and not required for runtime.
+- **JSON export CLI or route (read-only):** reconstruct an aggregate JSON document from DB rows (same keys as historical `runs/<id>.json`) for archival / support; explicitly **not** authoritative and not required for runtime.
 - **Headless execute:** if scheduled loads need API-only execution, add an authenticated non-browser path with the same persist + SSE (or polled job) contract; see `SCHEDULED_LOADS_RUNBOOK.md`.
 
 ### 4. SSE stack (optional)
@@ -136,7 +136,7 @@ Ordered for dependency and risk (adjust to product priority).
 
 ### 5. Hygiene
 
-- Rename or narrow `**manifest_json_run_id`** / `list_manifest_ids` in `dataloader/engine/run_meta.py` if the word “manifest” confuses operators (behavior: disk JSON filename conventions for backfill only).
+- Legacy disk filename helpers live in `dataloader/legacy_run_disk.py` (`legacy_run_json_id_from_filename`, `list_legacy_run_json_ids`, …) for backfill only.
 - Keep `**plan/**` out of git; design notes that must ship with the repo belong here or in `.cursor/rules/` as needed.
 
 ## Test and verification map

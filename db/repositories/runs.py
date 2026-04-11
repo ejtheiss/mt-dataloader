@@ -290,7 +290,7 @@ async def backfill_upsert_run(
     config_json: str | None = None,
     run_extras_json: str | None = None,
 ) -> None:
-    """Insert or replace run metadata from disk manifest (historical import)."""
+    """Insert or replace run metadata from legacy disk import / backfill."""
     set_: dict[str, Any] = {
         "user_id": user_id,
         "mt_org_id": mt_org_id,
