@@ -493,17 +493,17 @@ body {
     border: 1px solid transparent;
 }
 .status-text { font-size: inherit; color: inherit; }
-.resource-row.created .status-indicator  { background: var(--mt-green-50); color: var(--mt-green-700); border-color: var(--green-100); }
-.resource-row.error .status-indicator    { background: var(--mt-red-50); color: var(--red-500); border-color: var(--red-100); }
-.resource-row.waiting .status-indicator  { background: var(--yellow-50); color: var(--status-waiting); border-color: var(--field-warning-border); }
-.resource-row.staged .status-indicator   { background: var(--background-light); color: var(--text-muted); border-color: var(--gray-100); }
-.resource-row.creating .status-indicator { background: var(--mt-green-50); color: var(--mt-green-700); border-color: var(--green-100); }
-.resource-row.pending .status-indicator  { background: var(--background-light); color: var(--text-muted); border-color: var(--gray-100); }
-.cleanup-row.deleted .status-indicator   { background: var(--mt-green-50); color: var(--mt-green-700); border-color: var(--green-100); }
-.cleanup-row.removed .status-indicator   { background: var(--mt-green-50); color: var(--mt-green-700); border-color: var(--green-100); }
+.resource-row.created .status-indicator  { background: var(--surface-success); color: var(--text-success); border-color: var(--field-success-border); }
+.resource-row.error .status-indicator    { background: var(--surface-critical); color: var(--text-critical); border-color: var(--field-error-border); }
+.resource-row.waiting .status-indicator  { background: var(--field-warning-bg); color: var(--status-waiting); border-color: var(--field-warning-border); }
+.resource-row.staged .status-indicator   { background: var(--background-light); color: var(--text-muted); border-color: var(--border-default); }
+.resource-row.creating .status-indicator { background: var(--surface-success); color: var(--text-success); border-color: var(--field-success-border); }
+.resource-row.pending .status-indicator  { background: var(--background-light); color: var(--text-muted); border-color: var(--border-default); }
+.cleanup-row.deleted .status-indicator   { background: var(--surface-success); color: var(--text-success); border-color: var(--field-success-border); }
+.cleanup-row.removed .status-indicator   { background: var(--surface-success); color: var(--text-success); border-color: var(--field-success-border); }
 .cleanup-row.archived .status-indicator  { background: var(--purple-50); color: var(--purple-700); border-color: var(--purple-100); }
-.cleanup-row.failed .status-indicator    { background: var(--mt-red-50); color: var(--red-500); border-color: var(--red-100); }
-.cleanup-row.skipped .status-indicator   { background: var(--background-light); color: var(--text-muted); border-color: var(--gray-100); }
+.cleanup-row.failed .status-indicator    { background: var(--surface-critical); color: var(--text-critical); border-color: var(--field-error-border); }
+.cleanup-row.skipped .status-indicator   { background: var(--background-light); color: var(--text-muted); border-color: var(--border-default); }
 .ref-name { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; font-size: 0.825rem; }
 .resource-display-name {
     font-size: 0.84rem;
@@ -632,9 +632,9 @@ body {
 /* --- Error alerts --- */
 .error-alert {
     display: flex; flex-direction: column; gap: 8px;
-    background: var(--mt-red-50);
-    border: 1px solid var(--red-100);
-    border-left: 3px solid var(--red-500);
+    background: var(--surface-critical);
+    border: 1px solid var(--field-error-border);
+    border-left: 3px solid var(--text-critical);
     border-radius: var(--radius); padding: 12px 16px;
 }
 .error-alert h3 { margin: 0; color: var(--status-error); font-size: 0.85rem; }
@@ -658,8 +658,8 @@ body {
     font-size: 0.7rem; font-weight: 700; padding: 2px 6px;
     border-radius: 3px; min-width: 50px; text-align: center;
 }
-.issue-row.issue-error .issue-level { background: var(--mt-red-50); color: var(--red-500); border: 1px solid var(--red-100); }
-.issue-row.issue-warning .issue-level { background: var(--yellow-50); color: var(--status-waiting); border: 1px solid var(--field-warning-border); }
+.issue-row.issue-error .issue-level { background: var(--surface-critical); color: var(--text-critical); border: 1px solid var(--field-error-border); }
+.issue-row.issue-warning .issue-level { background: var(--field-warning-bg); color: var(--status-waiting); border: 1px solid var(--field-warning-border); }
 .issue-ref { font-size: 0.8rem; }
 
 /* --- Cleanup rows (status backgrounds overlay IndexTable rows) --- */
@@ -679,8 +679,8 @@ body {
 /* --- Run complete --- */
 .run-complete {
     display: flex; flex-direction: column; gap: 12px;
-    background: var(--mt-green-50);
-    border: 1px solid var(--green-100);
+    background: var(--surface-success);
+    border: 1px solid var(--field-success-border);
     border-radius: var(--radius); padding: 20px; margin-top: 20px;
 }
 .run-complete h3 { margin: 0; color: var(--status-created); }
@@ -694,8 +694,8 @@ body {
 /* --- Cleanup complete --- */
 .cleanup-complete {
     display: flex; flex-direction: column; gap: 12px;
-    background: var(--mt-green-50);
-    border: 1px solid var(--green-100);
+    background: var(--surface-success);
+    border: 1px solid var(--field-success-border);
     border-radius: var(--radius); padding: 20px; margin-top: 20px;
 }
 
@@ -1536,12 +1536,12 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
     border-radius: var(--radius);
 }
 .scenario-builder--just-applied > .accordion-toggle {
-    background: var(--mt-green-50);
+    background: var(--surface-success);
 }
 .chip.scenario-builder-applied-chip {
     margin-left: 8px;
-    background: var(--mt-green-100);
-    color: var(--mt-green-700);
+    background: var(--badge-success-bg);
+    color: var(--badge-success-text);
     font-weight: 600;
 }
 
