@@ -23,7 +23,7 @@ from dataloader.run_access import user_to_ctx
 from dataloader.session import SessionState, sessions
 from dataloader.sse_helpers import sse_error_response
 from db.repositories import run_artifacts
-from models import DataLoaderConfig
+from models import CreatedResourceRow, DataLoaderConfig
 
 router = APIRouter(tags=["cleanup"])
 
@@ -130,7 +130,7 @@ async def cleanup_stream(token: str, templates: TemplatesDep):
 
 async def _cleanup_one(
     client: AsyncModernTreasury,
-    entry: Any,
+    entry: CreatedResourceRow,
 ) -> tuple[str, str]:
     """Dispatch a single cleanup action."""
     rtype = entry.resource_type

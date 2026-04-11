@@ -13,12 +13,12 @@ from models import (
     DataLoaderConfig,
     HandlerResult,
     ManifestEntry,
-    RunManifest,
     _BaseResourceConfig,
 )
 from models.shared import ErrorStrategy
 
 from .dag import build_dag, inject_legal_entity_psp_connection_id
+from .execution_accumulator import ExecutionAccumulator
 from .execution_summary import ExecutionResultSummary
 from .persist_port import RunStatePersistPort
 from .refs import RefRegistry, resolve_refs
@@ -194,7 +194,7 @@ async def execute(
     ts, resource_map = build_dag(config)
     ts.prepare()
 
-    manifest = RunManifest(
+    acc = ExecutionAccumulator(
         run_id=run_id,
         config_hash=config_hash(config),
         mt_org_id=mt_org_id,
@@ -208,24 +208,24 @@ async def execute(
 
     def _summary() -> ExecutionResultSummary:
         return ExecutionResultSummary(
-            run_id=manifest.run_id,
-            status=str(manifest.status),
-            completed_at=manifest.completed_at,
-            resources_created_count=len(manifest.resources_created),
-            resources_staged_count=len(manifest.resources_staged),
-            resources_failed_count=len(manifest.resources_failed),
+            run_id=acc.run_id,
+            status=str(acc.status),
+            completed_at=acc.completed_at,
+            resources_created_count=len(acc.resources_created),
+            resources_staged_count=len(acc.resources_staged),
+            resources_failed_count=len(acc.resources_failed),
         )
 
     async def _persist_finalize(status: str) -> None:
-        manifest.finalize(status)
+        acc.finalize(status)
         if persist is not None:
             await persist.finalize(
                 run_id,
-                str(manifest.status),
-                manifest.completed_at,
-                resources_created_count=len(manifest.resources_created),
-                resources_staged_count=len(manifest.resources_staged),
-                resources_failed_count=len(manifest.resources_failed),
+                str(acc.status),
+                acc.completed_at,
+                resources_created_count=len(acc.resources_created),
+                resources_staged_count=len(acc.resources_staged),
+                resources_failed_count=len(acc.resources_failed),
             )
 
     try:
@@ -261,8 +261,8 @@ async def execute(
                             )
 
                         if getattr(resource, "staged", False):
-                            manifest.record_staged(typed_ref, resource.resource_type)
-                            st = manifest.resources_staged[-1]
+                            acc.record_staged(typed_ref, resource.resource_type)
+                            st = acc.resources_staged[-1]
                             if persist is not None:
                                 await persist.append_staged_item(
                                     run_id,
@@ -311,7 +311,7 @@ async def execute(
                     deletable=result.deletable,
                     child_refs=result.child_refs,
                 )
-                manifest.record(entry)
+                acc.record(entry)
                 if persist is not None:
                     await persist.append_created(run_id, entry)
                 data: dict[str, Any] = {"id": result.created_id, "child_refs": result.child_refs}
@@ -334,15 +334,15 @@ async def execute(
                         failed_ref = _guess_failed_ref(leaf, to_create, resource_map)
                     error_detail = _format_exception_detail(leaf, failed_ref)
                     fe = _failure_entry_extras(leaf)
-                    manifest.record_failure(
+                    acc.record_failure(
                         failed_ref,
                         error_detail,
                         error_type=fe.get("error_type"),
                         http_status=fe.get("http_status"),
                         error_cause=fe.get("error_cause"),
                     )
-                    if persist is not None and manifest.resources_failed:
-                        fl = manifest.resources_failed[-1]
+                    if persist is not None and acc.resources_failed:
+                        fl = acc.resources_failed[-1]
                         await persist.append_failure(
                             run_id,
                             fl.typed_ref,

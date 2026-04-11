@@ -6,7 +6,7 @@ The web UI is the primary path: **Setup** → validate → **Execute** (SSE stre
 
 - **Config JSON** (or a saved loader draft in the DB if you use drafts).
 - **Modern Treasury** sandbox (or prod) API key and organization id — treat as secrets in CI.
-- **Artifact location**: run outcomes and config snapshots are persisted in **SQLite** (`DATALOADER_DATA_DIR` / `dataloader.sqlite`). See [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md). Optional disk files under `runs/` are not authoritative.
+- **Artifact location**: run outcomes, resource rows, staged payloads, and config snapshots are persisted only in **SQLite** (`DATALOADER_DATA_DIR` / `dataloader.sqlite`). There is no parallel “manifest on disk” source of truth. See [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md) and [`DB_ONLY_RUN_STATE_SOLVABILITY.md`](DB_ONLY_RUN_STATE_SOLVABILITY.md). Optional files under `runs/` are for tunnel/local tooling or one-time backfill input, not authoritative history.
 
 ## Headless / CI
 

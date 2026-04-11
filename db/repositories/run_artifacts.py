@@ -9,6 +9,12 @@ from sqlalchemy import delete, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from db.mappers.run_artifact_rows import (
+    child_refs_from_json_column,
+    orm_created_to_row,
+    orm_failure_to_row,
+    orm_staged_to_view,
+)
 from db.tables import Run, RunCreatedResource, RunResourceFailure, RunStagedItem
 from db.repositories.runs import RunAccessContext, get_run_row_for_access
 from models.run_views import (
@@ -17,16 +23,6 @@ from models.run_views import (
     RunDetailView,
     StagedItemView,
 )
-
-
-def _child_refs_map(raw: str | None) -> dict[str, str]:
-    if not raw or raw == "{}":
-        return {}
-    try:
-        data = json.loads(raw)
-        return data if isinstance(data, dict) else {}
-    except (json.JSONDecodeError, TypeError):
-        return {}
 
 
 async def fetch_correlation_index_rows(session: AsyncSession) -> list[tuple[str, str, str]]:
@@ -42,42 +38,10 @@ async def fetch_correlation_index_rows(session: AsyncSession) -> list[tuple[str,
     out: list[tuple[str, str, str]] = []
     for cid, rid, tref, cref in result.all():
         out.append((cid, rid, tref))
-        for ck, child_id in _child_refs_map(cref).items():
+        for ck, child_id in child_refs_from_json_column(cref).items():
             if child_id:
                 out.append((child_id, rid, f"{tref}.{ck}"))
     return out
-
-
-def orm_created_to_row(row: RunCreatedResource) -> CreatedResourceRow:
-    return CreatedResourceRow(
-        batch=row.batch,
-        resource_type=row.resource_type,
-        typed_ref=row.typed_ref,
-        created_id=row.created_id,
-        created_at=row.created_at,
-        deletable=bool(row.deletable),
-        child_refs=_child_refs_map(row.child_refs_json),
-        cleanup_status=row.cleanup_status,
-    )
-
-
-def orm_failure_to_row(row: RunResourceFailure) -> FailedResourceRow:
-    return FailedResourceRow(
-        typed_ref=row.typed_ref,
-        error=row.error,
-        failed_at=row.failed_at,
-        error_type=row.error_type,
-        http_status=row.http_status,
-        error_cause=row.error_cause,
-    )
-
-
-def orm_staged_to_view(row: RunStagedItem) -> StagedItemView:
-    return StagedItemView(
-        resource_type=row.resource_type,
-        typed_ref=row.typed_ref,
-        staged_at=row.staged_at,
-    )
 
 
 async def fetch_run_detail_view(

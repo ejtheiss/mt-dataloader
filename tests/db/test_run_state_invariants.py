@@ -12,6 +12,7 @@ from db.database import (
     run_alembic_upgrade,
 )
 from db.repositories import run_artifacts, runs as runs_repo
+from db.repositories.runs import RunAccessContext
 from db.tables import Run
 
 
@@ -122,5 +123,49 @@ async def test_correlation_index_includes_child_ref_targets(
         ids = {r[0]: (r[1], r[2]) for r in rows}
         assert ids["po_parent"] == (run_id, "payment_orders.po1")
         assert ids["lt_child"] == (run_id, "payment_orders.po1.ledger_transaction")
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_access_scoping_non_owner_sees_no_artifacts(
+    tmp_path: Path,
+    repo_root: Path,
+) -> None:
+    sqlite_path = tmp_path / "dataloader.sqlite"
+    sync_url, async_url = build_sqlite_file_urls(sqlite_path)
+    run_alembic_upgrade(repo_root, sync_url)
+    engine, factory = create_async_engine_and_sessionmaker(async_url)
+    run_id = "inv-access-1"
+    try:
+        async with factory() as s:
+            await runs_repo.ensure_run(
+                s,
+                run_id=run_id,
+                user_id=1,
+                mt_org_id=None,
+                mt_org_label=None,
+                config_hash="h",
+                started_at="2026-01-01T00:00:00+00:00",
+            )
+            await run_artifacts.insert_created_resource_row(
+                s,
+                run_id=run_id,
+                batch=0,
+                resource_type="ledger",
+                typed_ref="ledgers.main",
+                created_id="la_1",
+                created_at="2026-01-01T00:00:01+00:00",
+                deletable=False,
+                child_refs={},
+            )
+            await s.commit()
+
+        other = RunAccessContext(user_id=2, is_admin=False)
+        async with factory() as s:
+            cleanup_rows = await run_artifacts.fetch_cleanup_created_rows(s, run_id, other)
+            detail = await run_artifacts.fetch_run_detail_view(s, run_id, other)
+        assert cleanup_rows == []
+        assert detail is None
     finally:
         await engine.dispose()

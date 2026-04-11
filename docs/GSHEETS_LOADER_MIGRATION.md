@@ -19,7 +19,7 @@ This note maps familiar spreadsheet concepts to the Modern Treasury dataloader r
 | Data Generation - Lists | Seed YAML + recipe-driven generation |
 | Data Generation - Groups (LA / bank / metadata per group) | Resource arrays in JSON (`ledger_account`, `internal_account`, `counterparty`, …) |
 | Category dictionaries | `ledger_account_categories` and modeled account fields; `flow_validator` + Pydantic |
-| History Tool (curl, payloads, balances) | **Runs** (data from SQLite), **Execute** SSE stream, **Listener**; CLI `scripts/mt_ops.py` for list-by-metadata and ledger balance — see [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md) |
+| History Tool (curl, payloads, balances) | **Runs** (history from **SQLite only** — not `runs/*.json`), **Execute** SSE stream, **Listener**; CLI `scripts/mt_ops.py` for list-by-metadata and ledger balance — see [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md) |
 
 ## Many payroll rows (N employees)
 

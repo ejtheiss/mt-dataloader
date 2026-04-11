@@ -3,7 +3,7 @@
 Rebuild at runtime (not stored): ``registry`` (``RefRegistry``), ``org_registry``,
 ``discovery``, ``reconciliation``, ``flow_ir``, ``expanded_flows``,
 ``pattern_flow_ir``, ``pattern_expanded_flows``, ``view_data_cache``,
-``cleanup_manifest``, in-memory ``config`` (parse from ``config_json_text``),
+``cleanup_resources`` / ``cleanup_run_id`` (ephemeral cleanup SSE only), in-memory ``config`` (parse from ``config_json_text``),
 ``api_key`` / ``session_token`` (ephemeral; re-prompt per Plan 0).
 
 **SessionState fields → LoaderDraft (persist)**
@@ -16,7 +16,7 @@ Rebuild at runtime (not stored): ``registry`` (``RefRegistry``), ``org_registry`
   ``flow_diagnostics``, ``skip_refs``, ``update_refs``, ``payload_overrides``.
 - **Not stored:** ``api_key``, ``session_token``, ``registry``, ``org_registry``,
   ``discovery``, ``reconciliation``, ``flow_ir``, ``expanded_flows``,
-  ``pattern_*``, ``view_data_cache``, ``cleanup_manifest``, ``created_at`` (use
+  ``pattern_*``, ``view_data_cache``, ``cleanup_resources``, ``created_at`` (use
   row ``updated_at`` / TTL policy instead).
 """
 
