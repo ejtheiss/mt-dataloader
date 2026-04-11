@@ -327,17 +327,18 @@ body {
 .sidebar-link:hover { background: var(--sidebar-hover); color: var(--white); }
 .sidebar-link.active { background: var(--sidebar-active); color: var(--white); }
 .sidebar-footer {
-    padding: 12px 16px;
+    padding: 8px 12px;
     border-top: 1px solid rgba(255, 255, 255, 0.12); /* literal: sidebar chrome separator */
     margin-top: auto;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 /* Segmented theme control — fieldset + radio labels as pill segments */
 .theme-pref {
     display: flex;
+    flex: 1;
+    min-width: 0;
     border: none;
     margin: 0;
     padding: 0;
@@ -380,23 +381,22 @@ body {
     position: relative;
     display: inline-flex;
     align-items: center;
-    margin-left: auto;
+    flex-shrink: 0;
 }
 .sidebar-info-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
+    width: 16px;
+    height: 16px;
     color: var(--sidebar-text);
-    opacity: 0.5;
+    opacity: 0.35;
     cursor: pointer;
     transition: opacity 0.15s;
 }
 .sidebar-info-icon:hover,
 .sidebar-info-icon:focus-visible {
-    opacity: 1;
+    opacity: 0.8;
 }
 .sidebar-info-popover {
     display: none;
