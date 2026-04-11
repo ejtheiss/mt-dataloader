@@ -122,7 +122,7 @@
 }
 
 .ui-table-row.linked:hover {
-  background-color: var(--app-background); /* bg-background-light */
+  background-color: color-mix(in srgb, var(--text-default) 5%, var(--background-default));
 }
 
 /* ===== Th (Table Header Cell) — table.css line 133-134 ===== */
@@ -255,7 +255,7 @@
 }
 
 .mt-index-table-row:hover {
-  background-color: var(--app-background);
+  background-color: color-mix(in srgb, var(--text-default) 5%, var(--background-default));
 }
 
 .mt-index-table-cell {
