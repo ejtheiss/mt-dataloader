@@ -1,28 +1,43 @@
 {# Pinned patch (Plan 08): reproducible renderer; bump intentionally after testing. #}
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11.14.0/dist/mermaid.min.js"></script>
 <script>
-mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+(function() {
+    function mermaidTheme() {
+        return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'neutral';
+    }
 
-function renderMermaidAccordion(details) {
-    var container = details.querySelector('.mermaid-render');
-    var source = details.querySelector('.mermaid-source');
-    if (!container || !source || container.dataset.rendered) return;
-    var mermaidId = 'mmd-' + (container.id || Math.random().toString(36).slice(2, 8));
-    container.innerHTML = '<span class="spinner-sm" style="display:inline-block"></span>';
-    mermaid.render(mermaidId, source.textContent.trim()).then(function(result) {
-        container.innerHTML = result.svg;
-        container.dataset.rendered = 'true';
-    }).catch(function(err) {
-        container.innerHTML = '<pre class="error-alert" style="white-space:pre-wrap;">'
-            + 'Mermaid render error:\n' + err.message + '</pre>';
-    });
-}
+    mermaid.initialize({ startOnLoad: false, theme: mermaidTheme(), securityLevel: 'loose' });
 
-document.querySelectorAll('.accordion[data-mermaid]').forEach(function(details) {
-    details.addEventListener('toggle', function() {
-        if (this.open) renderMermaidAccordion(this);
+    window.renderMermaidAccordion = function(details) {
+        var container = details.querySelector('.mermaid-render');
+        var source = details.querySelector('.mermaid-source');
+        if (!container || !source || container.dataset.rendered) return;
+        var mermaidId = 'mmd-' + (container.id || Math.random().toString(36).slice(2, 8));
+        container.innerHTML = '<span class="spinner-sm" style="display:inline-block"></span>';
+        mermaid.render(mermaidId, source.textContent.trim()).then(function(result) {
+            container.innerHTML = result.svg;
+            container.dataset.rendered = 'true';
+        }).catch(function(err) {
+            container.innerHTML = '<pre class="error-alert" style="white-space:pre-wrap;">'
+                + 'Mermaid render error:\n' + err.message + '</pre>';
+        });
+    };
+
+    document.querySelectorAll('.accordion[data-mermaid]').forEach(function(details) {
+        details.addEventListener('toggle', function() {
+            if (this.open) renderMermaidAccordion(this);
+        });
     });
-});
+
+    document.addEventListener('dataloader-theme-changed', function() {
+        mermaid.initialize({ startOnLoad: false, theme: mermaidTheme(), securityLevel: 'loose' });
+        document.querySelectorAll('.mermaid-render[data-rendered]').forEach(function(el) {
+            delete el.dataset.rendered;
+            var accordion = el.closest('.accordion[data-mermaid]');
+            if (accordion && accordion.open) renderMermaidAccordion(accordion);
+        });
+    });
+})();
 
 function copyMermaidSyntax(id) {
     var el = document.getElementById('mermaid-source-' + id);

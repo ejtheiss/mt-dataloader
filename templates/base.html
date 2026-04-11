@@ -5,10 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}MT Dataloader{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="/static/mt-favicon-violet.svg">
+    <script>
+    (function(){var p=localStorage.getItem("dl_theme")||"system";var e=(p==="dark"||(p==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches))?"dark":"light";document.documentElement.dataset.theme=e;document.documentElement.style.colorScheme=e;})();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/tokens.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/theme-dark.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/turbogrid/turbogrid.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/mt-patterns.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/css/drawer.css?v={{ css_version }}">
@@ -32,6 +36,7 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
     <script src="/static/js/org-context.js?v={{ css_version }}" defer></script>
+    <script src="/static/js/theme.js?v={{ css_version }}" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
     <script src="/static/editor.js"></script>
     <script>
@@ -101,6 +106,12 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
+                <label class="sidebar-theme-label" for="theme-select">Theme</label>
+                <select id="theme-select" class="sidebar-theme-select" aria-label="Color theme preference">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="system">System</option>
+                </select>
                 <span class="sidebar-version">v{{ app_version }}</span>
             </div>
         </aside>

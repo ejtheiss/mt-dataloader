@@ -50,6 +50,12 @@ jobs:
       - name: CSS literal guard (strict chrome files)
         run: python scripts/check_css_literals.py
 
+      - name: Theme CSS generation check (tokens.css + theme-dark.css)
+        run: python scripts/generate_theme_css.py --check
+
+      - name: Dark theme contrast check (WCAG AA)
+        run: python scripts/check_contrast.py
+
       - name: Import linter (layer contracts)
         run: lint-imports
 

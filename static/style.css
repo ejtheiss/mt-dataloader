@@ -12,63 +12,9 @@
     min-height: 0;
 }
 
-:root {
-    /* Core tokens loaded from static/css/tokens.css.
-       This block defines app-specific semantic tokens only. */
-
-    /* Status colors (uses MINT scale) */
-    --status-pending:  var(--gray-300);
-    --status-creating: var(--green-500);
-    --status-created:  var(--green-500);
-    --status-waiting:  var(--yellow-400);
-    --status-error:    var(--red-500);
-    --status-archived: var(--purple-500);
-    --status-skipped:  var(--gray-500);
-    --status-staged:   var(--gray-400);
-    --status-fired:    var(--green-500);
-    --tunnel-ok:       var(--green-50);
-    --tunnel-warn:     var(--yellow-50);
-
-    /* Type badge colors (uses MINT scale) */
-    --type-connection:  var(--purple-900);
-    --type-entity:      var(--violet-500);
-    --type-ledger:      var(--blue-500);
-    --type-payment:     var(--green-500);
-    --type-lifecycle:   var(--yellow-500);
-    --type-mutation:    var(--gray-500);
-
-    /* Sidebar (uses MINT scale) */
-    --sidebar-bg:      var(--gray-900);
-    --sidebar-text:    var(--gray-200);
-    --sidebar-hover:   var(--gray-700);
-    --sidebar-active:  var(--mist-800);
-    --sidebar-width:   220px;
-
-    /* Turbogrid token bridge (field status) */
-    --field-success-bg:     var(--green-50);
-    --field-success-border: var(--green-100);
-    --field-success-text:   var(--green-700);
-    --field-error-bg:       var(--red-50);
-    --field-error-border:   var(--red-100);
-    --field-error-text:     var(--red-700);
-    --field-warning-bg:     var(--yellow-50);
-    --field-warning-border: var(--yellow-100);
-    --field-warning-text:   var(--yellow-700);
-
-    /* Resource type colors (uses MINT scale) */
-    --rt-connection-bg: var(--purple-50);  --rt-connection-fg: var(--purple-700); --rt-connection-border: var(--purple-100);
-    --rt-entity-bg: var(--violet-25);      --rt-entity-fg: var(--violet-600);     --rt-entity-border: var(--violet-100);
-    --rt-ledger-bg: var(--blue-50);        --rt-ledger-fg: var(--blue-700);       --rt-ledger-border: var(--blue-100);
-    --rt-account-bg: var(--green-50);      --rt-account-fg: var(--green-700);     --rt-account-border: var(--green-100);
-    --rt-payment-bg: var(--green-50);      --rt-payment-fg: var(--green-700);     --rt-payment-border: var(--green-100);
-    --rt-ipd-bg: var(--yellow-50);         --rt-ipd-fg: var(--yellow-600);        --rt-ipd-border: var(--yellow-100);
-    --rt-expected-bg: var(--purple-50);    --rt-expected-fg: var(--purple-700);    --rt-expected-border: var(--purple-100);
-    --rt-return-bg: var(--red-50);         --rt-return-fg: var(--red-500);        --rt-return-border: var(--red-100);
-    --rt-reversal-bg: var(--red-50);       --rt-reversal-fg: var(--red-500);      --rt-reversal-border: var(--red-100);
-    --rt-lt-bg: var(--blue-50);            --rt-lt-fg: var(--blue-700);           --rt-lt-border: var(--blue-100);
-    --rt-tlt-bg: var(--purple-50);         --rt-tlt-fg: var(--purple-700);        --rt-tlt-border: var(--purple-100);
-    --rt-neutral-bg: var(--gray-50);       --rt-neutral-fg: var(--gray-600);      --rt-neutral-border: var(--gray-100);
-}
+/* App-specific color tokens are now generated into tokens.css from theme-tokens.json.
+   This file retains only layout, sidebar chrome, and non-color overrides.
+   See docs/VISUAL_LAYER.md for the token pipeline. */
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -86,10 +32,10 @@ body {
 /* Thin scrollbar utility */
 .thin-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+    scrollbar-color: var(--alpha-black-200) transparent;
 }
 .thin-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-.thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 3px; }
+.thin-scrollbar::-webkit-scrollbar-thumb { background: var(--alpha-black-200); border-radius: 3px; }
 .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
 
 /* App shell layout (from MT view-mode-indicator.css) */
@@ -387,8 +333,29 @@ body {
 .sidebar-link.active { background: var(--sidebar-active); color: var(--white); }
 .sidebar-footer {
     padding: 12px 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    border-top: 1px solid rgba(255, 255, 255, 0.12); /* literal: sidebar chrome separator */
     margin-top: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.sidebar-theme-label {
+    font-size: 11px;
+    color: var(--sidebar-text);
+}
+.sidebar-theme-select {
+    font-size: 11px;
+    font-family: inherit;
+    padding: 2px 4px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.14); /* literal: sidebar chrome control border */
+    background: rgba(0, 0, 0, 0.25); /* literal: sidebar chrome control surface */
+    color: var(--white);
+    cursor: pointer;
+}
+.sidebar-theme-select:hover {
+    background: rgba(255, 255, 255, 0.06); /* literal: sidebar chrome hover */
 }
 #sidebar-org:empty { display: none; }
 .sidebar-version {
