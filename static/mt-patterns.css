@@ -45,7 +45,7 @@
   overflow: hidden;
   border-radius: var(--mt-radius-lg);
   border: 1px solid var(--mt-border-alpha);
-  background-color: var(--mt-white);
+  background-color: var(--background-default);
   box-shadow: 0 4px 6px -1px var(--alpha-black-100), 0 2px 4px -2px var(--alpha-black-100);
   outline: none;
 }
@@ -54,7 +54,7 @@
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  border-bottom: 1px solid var(--mt-gray-100);
+  border-bottom: 1px solid var(--border-default);
   padding: var(--mt-spacing-4);
 }
 
@@ -72,7 +72,7 @@
 .modal-description {
   font-size: var(--mt-text-xs);
   font-weight: 500;
-  color: var(--mt-gray-500);
+  color: var(--text-muted);
 }
 
 .modal-body {
@@ -112,7 +112,7 @@
   padding: var(--mt-spacing-2) var(--mt-spacing-4);
   font-size: var(--mt-text-xs);
   font-weight: 500;
-  color: var(--mt-gray-700);
+  color: var(--text-default);
   justify-content: space-between;
 }
 
@@ -162,12 +162,12 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--mt-gray-500);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
 }
 .alert-dismiss:hover {
-  color: var(--mt-gray-800);
+  color: var(--text-default);
 }
 
 
@@ -183,11 +183,11 @@
   display: inline-flex;
   align-items: center;
   gap: var(--mt-spacing-1);
-  background: var(--mt-gray-50);
+  background: var(--background-light);
   padding: 2px var(--mt-spacing-2);
   font-size: var(--mt-text-xs);
   font-weight: 500;
-  color: var(--mt-gray-700);
+  color: var(--text-default);
   border-radius: var(--mt-radius-sm);
 }
 
@@ -197,7 +197,7 @@
 }
 
 .chip--muted {
-  color: var(--mt-gray-500);
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -225,7 +225,7 @@
   align-items: center;
   gap: var(--mt-spacing-1);
   border: 1px solid var(--mt-border-alpha);
-  background: var(--mt-white);
+  background: var(--background-default);
   padding: 3px var(--mt-spacing-3);
   border-radius: 16px;
   font-size: var(--mt-text-xs);
@@ -234,7 +234,7 @@
 }
 
 .pill:hover .pill-content {
-  background: var(--mt-gray-50);
+  background: var(--background-light);
 }
 
 .pill-content strong {
@@ -243,7 +243,7 @@
 
 .pill-secondary {
   font-size: 0.7rem;
-  color: var(--mt-gray-500);
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -268,9 +268,9 @@
    14. ACCORDION — reusable <details> pattern
    ============================================================ */
 .accordion {
-  border: 1px solid var(--mt-border);
+  border: 1px solid var(--border-default);
   border-radius: var(--mt-radius-md);
-  background: var(--mt-white);
+  background: var(--background-default);
 }
 
 .accordion-toggle {
@@ -282,7 +282,7 @@
   padding: var(--mt-spacing-3) var(--mt-spacing-4);
   font-size: var(--mt-text-sm);
   font-weight: 500;
-  color: var(--mt-gray-700);
+  color: var(--text-default);
   user-select: none;
   transition: background-color 0.15s;
 }
@@ -290,14 +290,14 @@
 .accordion-toggle::-webkit-details-marker { display: none; }
 
 .accordion-toggle:hover {
-  background: var(--mt-gray-50);
+  background: var(--background-light);
 }
 
 .accordion-toggle::before {
   content: '';
   display: inline-block;
   width: 0; height: 0;
-  border-left: 5px solid var(--mt-gray-400);
+  border-left: 5px solid var(--text-disabled);
   border-top: 4px solid transparent;
   border-bottom: 4px solid transparent;
   transition: transform 0.15s;
@@ -318,8 +318,8 @@
 }
 
 .accordion--muted {
-  background: var(--mt-gray-50);
-  border-color: var(--mt-border);
+  background: var(--background-light);
+  border-color: var(--border-default);
 }
 
 /* Fieldset-like sections within an accordion or card */
@@ -336,7 +336,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--mt-gray-500);
+  color: var(--text-muted);
   margin-bottom: var(--mt-spacing-2);
 }
 
@@ -345,7 +345,7 @@
   align-items: center;
   gap: var(--mt-spacing-2);
   padding: var(--mt-spacing-2) var(--mt-spacing-3);
-  border-bottom: 1px solid var(--mt-gray-100);
+  border-bottom: 1px solid var(--border-default);
   font-size: var(--mt-text-sm);
 }
 
@@ -370,5 +370,5 @@
   align-items: center;
   gap: var(--mt-spacing-2);
   padding-top: var(--mt-spacing-3);
-  border-top: 1px solid var(--mt-border);
+  border-top: 1px solid var(--border-default);
 }
