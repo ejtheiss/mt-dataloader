@@ -322,6 +322,7 @@ body {
 }
 .sidebar-link .nav-icon {
     flex-shrink: 0;
+    filter: brightness(0) invert(1); /* literal: always-light icons on persistent dark sidebar */
 }
 .sidebar-link:hover { background: var(--sidebar-hover); color: var(--white); }
 .sidebar-link.active { background: var(--sidebar-active); color: var(--white); }
@@ -1606,6 +1607,16 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 .variance-lock-btn .variance-lock-icon {
     flex-shrink: 0;
     vertical-align: middle;
+}
+/* Dark mode: invert all currentColor SVG icons in content area */
+html[data-theme="dark"] #content img[src$=".svg"] {
+    filter: brightness(0) invert(1);
+}
+html[data-theme="dark"] .drawer-panel img[src$=".svg"] {
+    filter: brightness(0) invert(1);
+}
+html[data-theme="dark"] .toast-container img[src$=".svg"] {
+    filter: brightness(0) invert(1);
 }
 [data-variance-mode="locked"] .variance-lock-btn { color: var(--accent); }
 [data-variance-mode="custom"] .variance-lock-btn { color: var(--warning); }
