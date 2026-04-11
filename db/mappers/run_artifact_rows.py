@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 
 from db.tables import RunCreatedResource, RunResourceFailure, RunStagedItem
 from models.run_views import CreatedResourceRow, FailedResourceRow, StagedItemView

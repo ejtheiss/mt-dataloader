@@ -7,6 +7,7 @@ re-exports the public API unchanged for callers.
 from __future__ import annotations
 
 from .dag import build_dag, dry_run, inject_legal_entity_psp_connection_id
+from .execution_summary import ExecutionResultSummary
 from .refs import (
     RefRegistry,
     all_resources,
@@ -15,7 +16,6 @@ from .refs import (
     typed_ref_for,
 )
 from .run_meta import _now_iso, config_hash, generate_run_id
-from .execution_summary import ExecutionResultSummary
 from .runner import ExecutionPhaseError, execute
 
 __all__ = [

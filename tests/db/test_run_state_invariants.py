@@ -12,9 +12,10 @@ from db.database import (
     create_async_engine_and_sessionmaker,
     run_alembic_upgrade,
 )
-from db.repositories import run_artifacts, runs as runs_repo
-from db.repositories.runs import RunAccessContext
+from db.repositories import run_artifacts
+from db.repositories import runs as runs_repo
 from db.repositories.run_state_persist import SqliteRunStatePersist
+from db.repositories.runs import RunAccessContext
 from db.tables import Run, RunCreatedResource, RunResourceFailure, RunStagedItem
 
 
@@ -206,7 +207,7 @@ async def test_fetch_run_detail_view_select_budget(
                 select_stmts.append(statement)
 
     sync = engine.sync_engine
-    ev = event.listen(sync, "before_cursor_execute", _count_select, propagate=True)
+    event.listen(sync, "before_cursor_execute", _count_select, propagate=True)
     try:
         async with factory() as s:
             await runs_repo.ensure_run(

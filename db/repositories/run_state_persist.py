@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from db.repositories import run_artifacts, runs as runs_repo
+from db.repositories import run_artifacts
+from db.repositories import runs as runs_repo
 from models.run_execution_entries import ManifestEntry
 
 

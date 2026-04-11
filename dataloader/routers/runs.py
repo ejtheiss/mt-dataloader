@@ -7,15 +7,15 @@ from loguru import logger
 
 from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep
 from dataloader.run_access import user_to_ctx
-from db.repositories import run_artifacts
 from dataloader.runs_pagination import (
     RunsSeekCursorError,
     decode_runs_seek_cursor,
     encode_runs_seek_cursor,
 )
 from dataloader.view_models import runs_list_fragment_context
+from db.repositories import run_artifacts
 from db.repositories import runs as runs_repo
-from models import RunListJsonResponse, RunListRow
+from models import RunListJsonResponse
 
 router = APIRouter(tags=["runs"])
 HTML_RUNS_HARD_CAP = 500

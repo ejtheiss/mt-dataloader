@@ -15,9 +15,9 @@ from db.mappers.run_artifact_rows import (
     orm_failure_to_row,
     orm_staged_to_view,
 )
-from db.tables import Run, RunCreatedResource, RunResourceFailure, RunStagedItem
 from db.repositories.runs import RunAccessContext, get_run_row_for_access
-from models.run_views import CreatedResourceRow, FailedResourceRow, RunDetailView
+from db.tables import Run, RunCreatedResource, RunResourceFailure, RunStagedItem
+from models.run_views import CreatedResourceRow, RunDetailView
 
 
 async def fetch_correlation_index_rows(session: AsyncSession) -> list[tuple[str, str, str]]:
