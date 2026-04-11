@@ -71,8 +71,16 @@ def generate_tokens(data: dict) -> str:
 
     lines.append("  /* ── Mint Color Scales ─────────────────────────────── */")
     scale_groups = {
-        "gray": [], "green": [], "blue": [], "red": [], "yellow": [],
-        "orange": [], "violet": [], "purple": [], "cyan": [], "mist": [],
+        "gray": [],
+        "green": [],
+        "blue": [],
+        "red": [],
+        "yellow": [],
+        "orange": [],
+        "violet": [],
+        "purple": [],
+        "cyan": [],
+        "mist": [],
     }
     for key, val in palette["mint"].items():
         prefix = key.rsplit("-", 1)[0] if "-" in key else key
