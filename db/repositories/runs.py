@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.expression import ColumnElement
 
-from db.tables import Run
+from db.tables import Run, RunCreatedResource, RunResourceFailure, RunStagedItem
 from models.run_list import RunDrawerRow, RunListRow
 
 
@@ -124,7 +124,6 @@ async def finalize_run(
     resources_created_count: int | None = None,
     resources_staged_count: int | None = None,
     resources_failed_count: int | None = None,
-    manifest_json: str | None = None,
 ) -> None:
     values: dict[str, Any] = {"status": status, "completed_at": completed_at}
     if resources_created_count is not None:
@@ -133,21 +132,29 @@ async def finalize_run(
         values["resources_staged_count"] = resources_staged_count
     if resources_failed_count is not None:
         values["resources_failed_count"] = resources_failed_count
-    if manifest_json is not None:
-        values["manifest_json"] = manifest_json
     await session.execute(update(Run).where(Run.run_id == run_id).values(**values))
 
 
-async def fetch_manifest_json(
-    session: AsyncSession,
-    run_id: str,
-    ctx: RunAccessContext,
-) -> str | None:
-    """Canonical manifest body on the run row if *ctx* may read this run."""
-    row = await get_run_row_for_access(session, run_id, ctx)
-    if row is None or not row.manifest_json:
-        return None
-    return row.manifest_json
+async def sync_artifact_counts_from_tables(session: AsyncSession, run_id: str) -> None:
+    """Recompute denormalized counters from normalized artifact tables."""
+    nc = await session.scalar(
+        select(func.count()).select_from(RunCreatedResource).where(RunCreatedResource.run_id == run_id)
+    )
+    ns = await session.scalar(
+        select(func.count()).select_from(RunStagedItem).where(RunStagedItem.run_id == run_id)
+    )
+    nf = await session.scalar(
+        select(func.count()).select_from(RunResourceFailure).where(RunResourceFailure.run_id == run_id)
+    )
+    await session.execute(
+        update(Run)
+        .where(Run.run_id == run_id)
+        .values(
+            resources_created_count=int(nc or 0),
+            resources_staged_count=int(ns or 0),
+            resources_failed_count=int(nf or 0),
+        )
+    )
 
 
 async def fetch_run_drawer_row(
@@ -280,7 +287,8 @@ async def backfill_upsert_run(
     resources_created_count: int = 0,
     resources_staged_count: int = 0,
     resources_failed_count: int = 0,
-    manifest_json: str | None = None,
+    config_json: str | None = None,
+    run_extras_json: str | None = None,
 ) -> None:
     """Insert or replace run metadata from disk manifest (historical import)."""
     set_: dict[str, Any] = {
@@ -295,8 +303,10 @@ async def backfill_upsert_run(
         "resources_staged_count": resources_staged_count,
         "resources_failed_count": resources_failed_count,
     }
-    if manifest_json is not None:
-        set_["manifest_json"] = manifest_json
+    if config_json is not None:
+        set_["config_json"] = config_json
+    if run_extras_json is not None:
+        set_["run_extras_json"] = run_extras_json
     stmt = (
         sqlite_insert(Run)
         .values(
@@ -311,7 +321,8 @@ async def backfill_upsert_run(
             resources_created_count=resources_created_count,
             resources_staged_count=resources_staged_count,
             resources_failed_count=resources_failed_count,
-            manifest_json=manifest_json,
+            config_json=config_json,
+            run_extras_json=run_extras_json,
         )
         .on_conflict_do_update(
             index_elements=["run_id"],

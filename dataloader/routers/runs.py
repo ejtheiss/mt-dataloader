@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import APIRouter, HTTPException, Query, Request
 from loguru import logger
 
-from dataloader.engine import manifest_json_run_id
 from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep
-from dataloader.run_access import load_run_manifest_for_reader, user_to_ctx
+from dataloader.run_access import user_to_ctx
+from db.repositories import run_artifacts
 from dataloader.runs_pagination import (
     RunsSeekCursorError,
     decode_runs_seek_cursor,
@@ -17,7 +15,7 @@ from dataloader.runs_pagination import (
 )
 from dataloader.view_models import runs_list_fragment_context
 from db.repositories import runs as runs_repo
-from models import RunListJsonResponse, RunListRow, RunManifest
+from models import RunListJsonResponse, RunListRow
 
 router = APIRouter(tags=["runs"])
 HTML_RUNS_HARD_CAP = 500
@@ -155,67 +153,29 @@ async def list_runs(
             mt_org_id=mt_org_id,
         )
 
-    runs_dir = Path(settings.runs_dir)
-    rows: list[RunListRow] = []
-    db_list_ok = False
     factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Runs list requires the application database.",
+        )
     ctx = user_to_ctx(current_user)
-
-    if factory is not None:
-        try:
-            async with factory() as session:
-                q = await runs_repo.query_run_rows_for_api(
-                    session,
-                    ctx,
-                    status=status,
-                    mt_org_id=mt_org_id,
-                    sort=sort,
-                    sort_dir=dir,
-                    limit=HTML_RUNS_HARD_CAP,
-                    offset=0,
-                )
-                rows = q.rows
-            db_list_ok = True
-        except Exception as exc:
-            logger.warning("db query_run_rows_for_api failed, using disk-only listing: {}", exc)
-
-    if not db_list_ok and runs_dir.exists():
-        if current_user.is_admin:
-            for idx, path in enumerate(sorted(runs_dir.glob("*.json"), reverse=True), start=1):
-                if idx > HTML_RUNS_HARD_CAP:
-                    break
-                if manifest_json_run_id(path.name) is None:
-                    continue
-                try:
-                    m = RunManifest.load(path)
-                except Exception as e:
-                    logger.bind(path=str(path), error=str(e)).warning("Failed to load manifest")
-                    continue
-                rows.append(RunListRow.from_manifest(m))
-        else:
-            logger.warning(
-                "DB unavailable — user role sees empty runs list (disk glob disabled for isolation)"
+    try:
+        async with factory() as session:
+            q = await runs_repo.query_run_rows_for_api(
+                session,
+                ctx,
+                status=status,
+                mt_org_id=mt_org_id,
+                sort=sort,
+                sort_dir=dir,
+                limit=HTML_RUNS_HARD_CAP,
+                offset=0,
             )
-
-    if not db_list_ok:
-        if status:
-            rows = [r for r in rows if r.status == status]
-
-        if mt_org_id and mt_org_id.strip():
-            oid = mt_org_id.strip()
-            rows = [r for r in rows if r.mt_org_id == oid]
-
-        sort_keys = {
-            "run_id": lambda r: r.run_id,
-            "status": lambda r: r.status,
-            "resources": lambda r: r.resource_count,
-            "staged": lambda r: r.staged_count,
-            "failed": lambda r: r.failed_count,
-        }
-        if sort and sort in sort_keys:
-            rows.sort(key=sort_keys[sort], reverse=(dir == "desc"))
-        else:
-            rows.sort(key=lambda r: r.started_at, reverse=True)
+            rows = q.rows
+    except Exception as exc:
+        logger.warning("db query_run_rows_for_api failed: {}", exc)
+        raise HTTPException(status_code=503, detail="Database error") from exc
 
     return templates.TemplateResponse(
         request,
@@ -311,13 +271,19 @@ async def resource_drawer_in_run(
     ref: str = "",
 ):
     """Return drawer partial for a single resource within a run."""
-    manifest = await load_run_manifest_for_reader(request, settings, run_id, current_user)
-    if manifest is None:
-        raise HTTPException(status_code=404, detail="Run not found")
-    entry = next((e for e in manifest.resources_created if e.typed_ref == ref), None)
-    if not entry:
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    try:
+        async with factory() as session:
+            item = await run_artifacts.fetch_created_resource_row(
+                session, run_id, ref, user_to_ctx(current_user)
+            )
+    except Exception as exc:
+        logger.warning("resource drawer DB lookup failed: {}", exc)
+        raise HTTPException(status_code=503, detail="Database error") from exc
+    if item is None:
         raise HTTPException(status_code=404, detail="Resource not found")
-    item = entry
     return templates.TemplateResponse(
         request,
         "partials/resource_drawer.html",

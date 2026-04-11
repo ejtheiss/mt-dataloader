@@ -17,7 +17,7 @@
     </div>
     <div class="key-value-table-row">
         <div class="row-label">Batch</div>
-        <div class="row-value"><span class="badge badge--default">B{{ item.batch }}</span></div>
+        <div class="row-value"><span class="badge badge--default">{% if item.batch >= 0 %}B{{ item.batch }}{% else %}Fired{% endif %}</span></div>
     </div>
     <div class="key-value-table-row">
         <div class="row-label">Cleanup</div>

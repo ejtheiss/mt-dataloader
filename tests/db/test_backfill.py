@@ -85,7 +85,7 @@ async def test_backfill_inserts_run_and_correlation_when_missing(
             stats = await backfill_missing_runs_from_disk(s, runs_dir, default_user_id=1)
             await s.commit()
         assert stats["runs_backfilled"] == 1
-        assert stats["correlations_upserted"] == 1
+        assert stats["artifact_rows"] >= 1
 
         async with factory() as s:
             ids = await runs_repo.list_run_ids_by_started_desc(s)
@@ -133,7 +133,7 @@ async def test_backfill_skips_when_run_row_exists(
             stats = await backfill_missing_runs_from_disk(s, runs_dir, default_user_id=1)
             await s.commit()
         assert stats["runs_backfilled"] == 0
-        assert stats["correlations_upserted"] == 0
+        assert stats["artifact_rows"] == 0
     finally:
         await engine.dispose()
 

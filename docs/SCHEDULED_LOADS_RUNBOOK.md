@@ -6,7 +6,7 @@ The web UI is the primary path: **Setup** → validate → **Execute** (SSE stre
 
 - **Config JSON** (or a saved loader draft in the DB if you use drafts).
 - **Modern Treasury** sandbox (or prod) API key and organization id — treat as secrets in CI.
-- **Artifact location**: after a run, manifests are written to `runs/<run_id>.json` (override with `DATALOADER_RUNS_DIR`).
+- **Artifact location**: run outcomes and config snapshots are persisted in **SQLite** (`DATALOADER_DATA_DIR` / `dataloader.sqlite`). See [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md). Optional disk files under `runs/` are not authoritative.
 
 ## Headless / CI
 

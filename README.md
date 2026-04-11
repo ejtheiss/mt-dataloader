@@ -73,7 +73,7 @@ cd mt-dataloader
 make docker-update
 ```
 
-`make docker-update` runs `git pull` then `docker compose build`, then `docker compose down && docker compose up -d`. Your `runs/` and `logs/` mounts are **unchanged** — run history and UI-persisted settings under `runs/` are kept.
+`make docker-update` runs `git pull` then `docker compose build`, then `docker compose down && docker compose up -d`. Your **`data/`** (SQLite) and **`logs/`** mounts are **unchanged** — run history lives in `dataloader.sqlite` under `DATALOADER_DATA_DIR` (see [`docs/RUN_STATE_STORAGE.md`](docs/RUN_STATE_STORAGE.md)). The `runs/` directory may still hold tunnel or local files but is **not** the run-history source of truth.
 
 **Step by step** (same outcome without the combined target):
 
@@ -106,7 +106,9 @@ make run
 |------|------------------|
 | **MT credentials** | Enter in the web UI when you run a flow. Stored for that session; you can skip `.env` entirely. |
 | **`.env`** | Optional. Copy `.env.example` -> `.env` only if you want the server to pre-fill defaults (e.g. key/org so you don't type them each time). |
-| **Runs / logs** | Written under `runs/` and `logs/` (created automatically). Override with `DATALOADER_RUNS_DIR` if you care. |
+| **Run history / DB** | **`DATALOADER_DATA_DIR`** (default `data/`) holds **`dataloader.sqlite`** — authoritative runs, artifacts, webhooks, drafts. See [`docs/RUN_STATE_STORAGE.md`](docs/RUN_STATE_STORAGE.md). |
+| **Logs** | Under `logs/` (created automatically). |
+| **`runs/`** | Optional directory for tunnel/local files; **not** where executed run outcomes are stored. |
 
 Other knobs (`DATALOADER_LOG_LEVEL`, `DATALOADER_MAX_CONCURRENT_REQUESTS`, etc.) are optional; see `.env.example` or `AppSettings` in `models/settings.py`.
 
@@ -364,7 +366,7 @@ flow_compiler/       Funds Flow DSL compiler (no imports from dataloader — pla
 ### Application wiring
 
 - **ASGI:** `uvicorn dataloader.main:app` (root `main.py` may re-export `app`).
-- **SQLite (Plan 0):** `DATALOADER_DATA_DIR` (default `data/`) holds `dataloader.sqlite`; lifespan runs `alembic upgrade head` then opens an async SQLAlchemy engine. CI runs `alembic upgrade head` before `pytest`.
+- **SQLite (Plan 0):** `DATALOADER_DATA_DIR` (default `data/`) holds `dataloader.sqlite` — **sole authority** for run list/detail, staged payloads, webhook correlation hydration, and loader drafts. Lifespan runs `alembic upgrade head` then opens an async SQLAlchemy engine. CI runs `alembic upgrade head` before `pytest`. Storage layout: [`docs/RUN_STATE_STORAGE.md`](docs/RUN_STATE_STORAGE.md).
 - **Factory + lifespan:** `dataloader/main.py` — settings, logging, static, templates, router includes, tunnel manager.
 - **HTTP:** `dataloader/routers/`; **webhooks:** `dataloader/webhooks/`.
 - **DAG + SDK:** `dataloader/engine/`, `dataloader/handlers/`; **staged fire allowlist:** `dataloader/staged_fire.py` (`FIREABLE_TYPES`).
@@ -374,7 +376,7 @@ flow_compiler/       Funds Flow DSL compiler (no imports from dataloader — pla
 
 ```
 db/                  SQLAlchemy ORM + Alembic (`tables`, `database`, `repositories/*`) — no imports from `dataloader`
-                     (e.g. `runs`, `webhooks`, `loader_drafts`)
+                     (e.g. `runs`, `run_artifacts`, `webhooks`, `loader_drafts`)
 models/              Pydantic config schemas
   config.py          DataLoaderConfig (root schema)
   resources.py       MT resource models (Layers 0-6)
@@ -382,7 +384,7 @@ models/              Pydantic config schemas
   steps.py           Typed step models (discriminated union)
   flow_dsl.py        FundsFlowConfig, ActorFrame, GenerationRecipeV1
   settings.py        AppSettings (env config)
-  runtime.py         Runtime models (HandlerResult, RunManifest)
+  runtime.py         Runtime models (HandlerResult, RunManifest for tests/legacy JSON)
 
 flow_compiler/       Funds Flow DSL compiler (see docs/FLOW_COMPILER_CORE_MODULES.md)
   core.py            compile_flows(); re-exports emit + actors; thin orchestration
@@ -411,7 +413,7 @@ flow_compiler/seeds/ Seed catalog (YAML + Faker standard; used by flow_compiler.
 
 Makefile             setup, run, tunnel, validate shortcuts
 runs/, logs/         Runtime (gitignored)
-tests/               Pytest suite (718 tests)
+tests/               Pytest suite (829 tests)
 ```
 
 A local **`plan/`** directory (roadmaps, design notes) is **gitignored** and is not part of the published repository.
@@ -434,6 +436,6 @@ python -m pytest tests/ -x -q      # stop on first failure
 
 ## Scope
 
-**In:** Sandbox resource creation from JSON, `$ref` DAG, SSE UI, run manifests + idempotency, metadata passthrough, webhook receiver + correlation, staged resources with live-fire UI, Funds Flows DSL (compiler, Mermaid rendering, generation pipeline, scenario builder), per-actor identity seeding, edge case pre-selection, org discovery + reconciliation, compile-time preview with display names and T-account layout.
+**In:** Sandbox resource creation from JSON, `$ref` DAG, SSE UI, DB-backed run state + idempotency, metadata passthrough, webhook receiver + correlation, staged resources with live-fire UI, Funds Flows DSL (compiler, Mermaid rendering, generation pipeline, scenario builder), per-actor identity seeding, edge case pre-selection, org discovery + reconciliation, compile-time preview with display names and T-account layout.
 
 **Out:** Embedded LLM, production attach-to-arbitrary-org mode, full CLI.

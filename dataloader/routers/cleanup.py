@@ -19,9 +19,10 @@ from dataloader.engine import RefRegistry
 from dataloader.handlers import DELETABILITY
 from dataloader.helpers import error_html, error_response
 from dataloader.routers.deps import CurrentAppUserDep, SettingsDep, TemplatesDep
-from dataloader.run_access import load_run_manifest_for_reader
+from dataloader.run_access import user_to_ctx
 from dataloader.session import SessionState, sessions
 from dataloader.sse_helpers import sse_error_response
+from db.repositories import run_artifacts
 from models import DataLoaderConfig
 
 router = APIRouter(tags=["cleanup"])
@@ -38,9 +39,22 @@ async def cleanup_page(
     org_id: str = Form(...),
 ):
     """Return cleanup page with pre-rendered rows and SSE container."""
-    manifest = await load_run_manifest_for_reader(request, settings, run_id, current_user)
-    if manifest is None:
-        return error_response("Not Found", f"Run '{run_id}' not found", 404)
+    factory = getattr(request.app.state, "async_session_factory", None)
+    if factory is None:
+        return error_response("Service Unavailable", "Database required for cleanup.", 503)
+    ctx = user_to_ctx(current_user)
+    try:
+        async with factory() as session:
+            from db.repositories import runs as runs_repo
+
+            row = await runs_repo.get_run_row_for_access(session, run_id, ctx)
+            if row is None:
+                return error_response("Not Found", f"Run '{run_id}' not found", 404)
+            resources = await run_artifacts.fetch_cleanup_created_rows(session, run_id, ctx)
+    except Exception as exc:
+        logger.bind(run_id=run_id).warning("cleanup load failed: {}", exc)
+        return error_response("Error", "Could not load run resources.", 503)
+
     token = f"cleanup-{secrets.token_urlsafe(16)}"
     sessions[token] = SessionState(
         session_token=token,
@@ -50,17 +64,17 @@ async def cleanup_page(
         registry=RefRegistry(),
         batches=[],
         config_json_text="{}",
-        cleanup_manifest=manifest,
+        cleanup_resources=tuple(resources),
+        cleanup_run_id=run_id,
     )
 
-    reversed_resources = list(reversed(manifest.resources_created))
     return templates.TemplateResponse(
         request,
         "cleanup.html",
         {
             "cleanup_token": token,
             "run_id": run_id,
-            "resources": reversed_resources,
+            "resources": resources,
             "deletability": DELETABILITY,
         },
     )
@@ -77,31 +91,29 @@ async def cleanup_stream(token: str, templates: TemplatesDep):
             detail="Cleanup session not found.",
         )
 
-    manifest = session.cleanup_manifest
-    if manifest is None:
+    resources = session.cleanup_resources
+    if resources is None:
         return sse_error_response(
             error_html=error_html,
             title="Session Error",
-            detail="Cleanup manifest missing from session.",
+            detail="Cleanup resources missing from session.",
         )
+
+    rid = session.cleanup_run_id or ""
 
     async def cleanup_generator():
         async with AsyncModernTreasury(
             api_key=session.api_key, organization_id=session.org_id
         ) as client:
-            reversed_resources = list(reversed(manifest.resources_created))
-
             try:
-                for entry in reversed_resources:
+                for entry in resources:
                     action, status = await _cleanup_one(client, entry)
                     html = templates.get_template("partials/cleanup_row.html").render(
                         entry=entry, action=action, status=status
                     )
                     yield ServerSentEvent(data=html, event="cleanup_progress")
 
-                html = templates.get_template("partials/cleanup_complete.html").render(
-                    run_id=manifest.run_id
-                )
+                html = templates.get_template("partials/cleanup_complete.html").render(run_id=rid)
                 yield ServerSentEvent(data=html, event="cleanup_complete")
             except asyncio.CancelledError:
                 pass

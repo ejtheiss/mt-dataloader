@@ -15,6 +15,7 @@ from db.database import (
 from db.repositories import runs as runs_repo
 from db.repositories.runs import RunAccessContext
 from db.tables import User
+from models.run_list import RunDrawerRow
 
 
 @pytest.fixture
@@ -73,7 +74,7 @@ async def test_list_run_rows_for_api_reflects_counts(
 
 
 @pytest.mark.asyncio
-async def test_fetch_manifest_json_roundtrip(
+async def test_fetch_run_drawer_row_matches_list_row(
     tmp_path: Path,
     repo_root: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -83,33 +84,54 @@ async def test_fetch_manifest_json_roundtrip(
     sync_url, async_url = build_sqlite_file_urls(sqlite_path)
     run_alembic_upgrade(repo_root, sync_url)
     engine, factory = create_async_engine_and_sessionmaker(async_url)
-    payload = '{"run_id":"x","config_hash":"h","started_at":"2026-01-01T00:00:00+00:00","status":"completed","resources_created":[],"resources_failed":[],"resources_staged":[]}'
     try:
         async with factory() as s:
             await runs_repo.ensure_run(
                 s,
-                run_id="x",
+                run_id="draw1",
                 user_id=1,
-                mt_org_id=None,
+                mt_org_id="org_z",
                 mt_org_label=None,
-                config_hash="h",
-                started_at="2026-01-01T00:00:00+00:00",
+                config_hash="abc123def456",
+                started_at="2026-04-10T00:00:00+00:00",
             )
             await s.commit()
         async with factory() as s:
             await runs_repo.finalize_run(
                 s,
-                run_id="x",
+                run_id="draw1",
                 status="completed",
-                completed_at="2026-01-01T01:00:00+00:00",
-                manifest_json=payload,
+                completed_at="2026-04-10T01:00:00+00:00",
+                resources_created_count=2,
+                resources_staged_count=1,
+                resources_failed_count=0,
             )
             await s.commit()
         async with factory() as s:
-            got = await runs_repo.fetch_manifest_json(
-                s, "x", RunAccessContext(user_id=1, is_admin=True)
+            drawer = await runs_repo.fetch_run_drawer_row(
+                s, "draw1", RunAccessContext(user_id=1, is_admin=True)
             )
-        assert got == payload
+            listed = await runs_repo.list_run_rows_for_api(
+                s, RunAccessContext(user_id=1, is_admin=True)
+            )
+        assert drawer == RunDrawerRow(
+            run_id="draw1",
+            status="completed",
+            started_at="2026-04-10T00:00:00+00:00",
+            resource_count=2,
+            staged_count=1,
+            failed_count=0,
+            mt_org_id="org_z",
+            completed_at="2026-04-10T01:00:00+00:00",
+            config_hash="abc123def456",
+        )
+        assert len(listed) == 1
+        lr = listed[0]
+        assert lr.run_id == drawer.run_id
+        assert lr.status == drawer.status
+        assert lr.resource_count == drawer.resource_count
+        assert lr.staged_count == drawer.staged_count
+        assert lr.failed_count == drawer.failed_count
     finally:
         await engine.dispose()
 
@@ -181,7 +203,7 @@ async def test_list_run_rows_scoped_to_user(
 
 
 @pytest.mark.asyncio
-async def test_fetch_manifest_json_denied_for_other_user(
+async def test_fetch_run_drawer_row_denied_for_other_user(
     tmp_path: Path,
     repo_root: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -191,12 +213,11 @@ async def test_fetch_manifest_json_denied_for_other_user(
     sync_url, async_url = build_sqlite_file_urls(sqlite_path)
     run_alembic_upgrade(repo_root, sync_url)
     engine, factory = create_async_engine_and_sessionmaker(async_url)
-    payload = '{"run_id":"x","config_hash":"h","started_at":"2026-01-01T00:00:00+00:00","status":"completed","resources_created":[],"resources_failed":[],"resources_staged":[]}'
     try:
         async with factory() as s:
             await runs_repo.ensure_run(
                 s,
-                run_id="x",
+                run_id="priv",
                 user_id=1,
                 mt_org_id=None,
                 mt_org_label=None,
@@ -205,17 +226,8 @@ async def test_fetch_manifest_json_denied_for_other_user(
             )
             await s.commit()
         async with factory() as s:
-            await runs_repo.finalize_run(
-                s,
-                run_id="x",
-                status="completed",
-                completed_at="2026-01-01T01:00:00+00:00",
-                manifest_json=payload,
-            )
-            await s.commit()
-        async with factory() as s:
-            got = await runs_repo.fetch_manifest_json(
-                s, "x", RunAccessContext(user_id=2, is_admin=False)
+            got = await runs_repo.fetch_run_drawer_row(
+                s, "priv", RunAccessContext(user_id=2, is_admin=False)
             )
         assert got is None
     finally:

@@ -1,56 +1,37 @@
-"""Run manifest read paths with ``admin`` / ``user`` visibility (Plan 0)."""
+"""Run read paths with ``admin`` / ``user`` visibility (Plan 0) — DB-only."""
 
 from __future__ import annotations
-
-from pathlib import Path
 
 from fastapi import Request
 from loguru import logger
 
-from dataloader.engine import resolve_manifest_path
 from db.repositories import runs as runs_repo
+from db.repositories.run_artifacts import fetch_run_detail_view
 from db.repositories.runs import RunAccessContext
-from models import AppSettings, CurrentAppUser, RunManifest
+from models import AppSettings, CurrentAppUser, RunDetailView
 
 
 def user_to_ctx(user: CurrentAppUser) -> RunAccessContext:
     return RunAccessContext(user_id=user.id, is_admin=user.is_admin)
 
 
-async def load_run_manifest_for_reader(
+async def get_run_detail_view(
     request: Request,
     settings: AppSettings,
     run_id: str,
     user: CurrentAppUser,
-) -> RunManifest | None:
-    """DB manifest first, then disk — only if *user* may read this run (404 semantics)."""
+) -> RunDetailView | None:
+    """Assemble run detail DTO from SQLite when *user* may read this run."""
+    del settings  # DB-only; kept for call-site compatibility
     ctx = user_to_ctx(user)
-    runs_dir = Path(settings.runs_dir)
     factory = getattr(request.app.state, "async_session_factory", None)
-    row = None
-    if factory is not None:
-        try:
-            async with factory() as session:
-                row = await runs_repo.get_run_row_for_access(session, run_id, ctx)
-        except Exception as exc:
-            logger.bind(run_id=run_id).warning("db run access check failed: {}", exc)
-
-    if factory is not None and row is not None and row.manifest_json:
-        try:
-            return RunManifest.model_validate_json(row.manifest_json)
-        except Exception as exc:
-            logger.bind(run_id=run_id).warning("db manifest parse failed, trying disk: {}", exc)
-
-    if not ctx.is_admin and row is None:
-        return None
-
-    path = resolve_manifest_path(runs_dir, run_id)
-    if path is None or not path.exists():
+    if factory is None:
         return None
     try:
-        return RunManifest.load(path)
+        async with factory() as session:
+            return await fetch_run_detail_view(session, run_id, ctx)
     except Exception as exc:
-        logger.bind(path=str(path), error=str(exc)).warning("Failed to load manifest")
+        logger.bind(run_id=run_id).warning("db run detail failed: {}", exc)
         return None
 
 
@@ -60,27 +41,16 @@ async def run_is_readable(
     run_id: str,
     user: CurrentAppUser,
 ) -> bool:
-    """Cheap ownership / visibility check without full manifest parse when possible."""
+    """Ownership / visibility using ``runs`` row only (no disk)."""
+    del settings
     ctx = user_to_ctx(user)
-    runs_dir = Path(settings.runs_dir)
     factory = getattr(request.app.state, "async_session_factory", None)
-    row = None
-    if factory is not None:
-        try:
-            async with factory() as session:
-                row = await runs_repo.get_run_row_for_access(session, run_id, ctx)
-        except Exception as exc:
-            logger.bind(run_id=run_id).warning("db run access check failed: {}", exc)
-
-    if ctx.is_admin:
-        if row is not None:
-            return True
-        path = resolve_manifest_path(runs_dir, run_id)
-        return path is not None and path.exists()
-
-    if row is None:
+    if factory is None:
         return False
-    if row.manifest_json:
-        return True
-    path = resolve_manifest_path(runs_dir, run_id)
-    return path is not None and path.exists()
+    try:
+        async with factory() as session:
+            row = await runs_repo.get_run_row_for_access(session, run_id, ctx)
+    except Exception as exc:
+        logger.bind(run_id=run_id).warning("db run access check failed: {}", exc)
+        return False
+    return row is not None

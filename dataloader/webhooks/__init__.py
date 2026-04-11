@@ -12,7 +12,7 @@ from dataloader.staged_fire import FIREABLE_TYPES
 
 from .correlation_state import (
     correlation_index_size,
-    ensure_run_indexed,
+    ensure_run_indexed_from_rows,
     index_resource,
     rebuild_correlation_index,
     register_run_org,
@@ -25,7 +25,7 @@ __all__ = [
     "FIREABLE_TYPES",
     "correlation_index_size",
     "enrich_webhooks_run_org",
-    "ensure_run_indexed",
+    "ensure_run_indexed_from_rows",
     "index_resource",
     "rebuild_correlation_index",
     "register_run_org",

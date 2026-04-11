@@ -1,7 +1,8 @@
-"""Startup backfill: disk manifests → SQLite, then hydrate webhook correlation from DB."""
+"""Startup backfill: disk manifests → SQLite artifacts, then hydrate webhook correlation."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +15,8 @@ from dataloader.webhooks.correlation_state import (
     correlation_index_size,
     replace_runtime_correlation_state,
 )
-from db.repositories import correlation as correlation_repo
-from db.repositories import runs as runs_repo
+from db.repositories import run_artifacts, runs as runs_repo
+from db.repositories.run_artifacts import fetch_correlation_index_rows
 from db.repositories import webhooks as webhooks_repo
 from models import RunManifest
 
@@ -26,12 +27,9 @@ async def backfill_missing_runs_from_disk(
     *,
     default_user_id: int,
 ) -> dict[str, int]:
-    """Upsert ``runs`` + ``resource_correlation`` for manifests with no ``runs`` row yet.
-
-    Idempotent: skips ``run_id`` values already present in ``runs``.
-    """
+    """Upsert ``runs`` + normalized artifacts for manifests with no ``runs`` row yet."""
     rdir = Path(runs_dir)
-    stats = {"runs_backfilled": 0, "correlations_upserted": 0}
+    stats = {"runs_backfilled": 0, "artifact_rows": 0}
     existing = await runs_repo.list_run_id_set(session)
 
     for run_id in list_manifest_ids(rdir):
@@ -47,50 +45,97 @@ async def backfill_missing_runs_from_disk(
             logger.bind(run_id=run_id, path=str(path)).warning("backfill: load failed: {}", exc)
             continue
 
+        cfg_path = rdir / f"{run_id}_config.json"
+        cfg_text: str | None = None
+        if cfg_path.is_file():
+            try:
+                cfg_text = cfg_path.read_text(encoding="utf-8")
+            except OSError:
+                cfg_text = None
+
+        extras: dict[str, Any] = {}
+        for k in ("generation_recipe", "compile_id", "seed_version"):
+            v = getattr(manifest, k, None)
+            if v is not None:
+                extras[k] = v
+        extras_json = json.dumps(extras) if extras else None
+
         await runs_repo.backfill_upsert_run(
             session,
             run_id=manifest.run_id,
             user_id=default_user_id,
             mt_org_id=manifest.mt_org_id,
             mt_org_label=manifest.mt_org_label,
-            status=manifest.status,
+            status=str(manifest.status),
             config_hash=manifest.config_hash or None,
             started_at=manifest.started_at,
             completed_at=manifest.completed_at,
             resources_created_count=len(manifest.resources_created),
-            resources_staged_count=len(manifest.resources_staged)
-            if manifest.resources_staged
-            else 0,
-            resources_failed_count=len(manifest.resources_failed)
-            if manifest.resources_failed
-            else 0,
-            manifest_json=manifest.model_dump_json(),
+            resources_staged_count=len(manifest.resources_staged) if manifest.resources_staged else 0,
+            resources_failed_count=len(manifest.resources_failed) if manifest.resources_failed else 0,
+            config_json=cfg_text,
+            run_extras_json=extras_json,
         )
         stats["runs_backfilled"] += 1
 
         for entry in manifest.resources_created:
-            await correlation_repo.upsert_correlation(
+            if not entry.created_id or entry.created_id == "SKIPPED":
+                continue
+            await run_artifacts.insert_created_resource_row(
                 session,
-                created_id=entry.created_id,
                 run_id=manifest.run_id,
+                batch=entry.batch,
+                resource_type=entry.resource_type,
                 typed_ref=entry.typed_ref,
+                created_id=entry.created_id,
+                created_at=entry.created_at,
+                deletable=entry.deletable,
+                child_refs=dict(entry.child_refs),
+                cleanup_status=entry.cleanup_status,
             )
-            stats["correlations_upserted"] += 1
-            for child_key, child_id in entry.child_refs.items():
-                await correlation_repo.upsert_correlation(
-                    session,
-                    created_id=child_id,
-                    run_id=manifest.run_id,
-                    typed_ref=f"{entry.typed_ref}.{child_key}",
-                )
-                stats["correlations_upserted"] += 1
+            stats["artifact_rows"] += 1
+
+        for fe in manifest.resources_failed:
+            await run_artifacts.insert_failure_row(
+                session,
+                run_id=manifest.run_id,
+                typed_ref=fe.typed_ref,
+                error=fe.error,
+                failed_at=fe.failed_at,
+                error_type=fe.error_type,
+                http_status=fe.http_status,
+                error_cause=fe.error_cause,
+            )
+            stats["artifact_rows"] += 1
+
+        staged_path = rdir / f"{run_id}_staged.json"
+        staged_payloads: dict[str, Any] = {}
+        if staged_path.is_file():
+            try:
+                raw = json.loads(staged_path.read_text(encoding="utf-8"))
+                if isinstance(raw, dict):
+                    staged_payloads = raw
+            except (json.JSONDecodeError, OSError, TypeError):
+                pass
+
+        for se in manifest.resources_staged or []:
+            payload = staged_payloads.get(se.typed_ref, {})
+            await run_artifacts.upsert_staged_item(
+                session,
+                run_id=manifest.run_id,
+                typed_ref=se.typed_ref,
+                resource_type=se.resource_type,
+                staged_at=se.staged_at,
+                payload_json=json.dumps(payload),
+            )
+            stats["artifact_rows"] += 1
 
     return stats
 
 
 async def load_runtime_correlation_from_db(session: AsyncSession) -> None:
-    """Fill process-local webhook maps from ``resource_correlation`` + ``runs``."""
-    cor_rows = await correlation_repo.fetch_correlation_rows(session)
+    """Fill process-local webhook maps from ``run_created_resources`` + ``runs``."""
+    cor_rows = await fetch_correlation_index_rows(session)
     org_rows = await runs_repo.fetch_run_mt_org_rows(session)
     replace_runtime_correlation_state(cor_rows, org_rows)
 
@@ -110,11 +155,11 @@ async def bootstrap_webhook_correlation(
         )
         await session.commit()
 
-    if stats["runs_backfilled"] or stats["correlations_upserted"]:
+    if stats["runs_backfilled"] or stats["artifact_rows"]:
         logger.info(
-            "DB backfill from manifests: {} new run row(s), {} correlation row(s) written",
+            "DB backfill from manifests: {} new run row(s), {} artifact row(s) written",
             stats["runs_backfilled"],
-            stats["correlations_upserted"],
+            stats["artifact_rows"],
         )
 
     async with session_factory() as session:

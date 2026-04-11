@@ -25,10 +25,12 @@ from .run_meta import (
     manifest_json_run_id,
     resolve_manifest_path,
 )
+from .execution_summary import ExecutionResultSummary
 from .runner import ExecutionPhaseError, execute
 
 __all__ = [
     "ExecutionPhaseError",
+    "ExecutionResultSummary",
     "RefRegistry",
     "extract_ref_dependencies",
     "resolve_refs",
