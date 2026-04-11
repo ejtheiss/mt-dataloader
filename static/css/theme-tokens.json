@@ -290,9 +290,13 @@
   },
 
   "turbogrid": {
-    "--background-default":                { "dark": "mt.off-black" },
+    "--app-background":                    { "dark": "mt.off-black" },
+    "--background-default":                { "dark": "mt.gray-4" },
     "--background-light":                  { "dark": "mt.gray-4" },
     "--background-dark":                   { "dark": "mt.black" },
+    "--surface-success":                   { "dark": "mt.green-4" },
+    "--surface-critical":                  { "dark": "mt.orange-4" },
+    "--surface-info":                      { "dark": "mt.gold-4" },
     "--button-background-default":         { "dark": "mt.gray-4" },
     "--button-background-default-hover":   { "dark": "mt.gray-3" },
     "--button-background-default-pressed": { "dark": "mt.gray-2" },
