@@ -254,6 +254,71 @@ async def test_fetch_run_detail_view_select_budget(
 
 
 @pytest.mark.asyncio
+async def test_fetch_cleanup_created_rows_select_budget(
+    tmp_path: Path,
+    repo_root: Path,
+) -> None:
+    """G3: cleanup POST path loads created rows with bounded SELECT count."""
+    sqlite_path = tmp_path / "dataloader.sqlite"
+    sync_url, async_url = build_sqlite_file_urls(sqlite_path)
+    run_alembic_upgrade(repo_root, sync_url)
+    engine, factory = create_async_engine_and_sessionmaker(async_url)
+    run_id = "inv-cleanup-budget-1"
+    ctx = RunAccessContext(user_id=1, is_admin=False)
+
+    select_stmts: list[str] = []
+
+    def _count_select(
+        conn: object,
+        cursor: object,
+        statement: str | object,
+        parameters: object,
+        context: object,
+        executemany: bool,
+    ) -> None:
+        if isinstance(statement, str):
+            head = statement.strip().split("--", 1)[0].strip().lower()
+            if head.startswith("select") or head.startswith("with "):
+                select_stmts.append(statement)
+
+    sync = engine.sync_engine
+    event.listen(sync, "before_cursor_execute", _count_select, propagate=True)
+    try:
+        async with factory() as s:
+            await runs_repo.ensure_run(
+                s,
+                run_id=run_id,
+                user_id=1,
+                mt_org_id=None,
+                mt_org_label=None,
+                config_hash="h",
+                started_at="2026-01-01T00:00:00+00:00",
+            )
+            await run_artifacts.insert_created_resource_row(
+                s,
+                run_id=run_id,
+                batch=0,
+                resource_type="ledger",
+                typed_ref="ledgers.a",
+                created_id="la_1",
+                created_at="2026-01-01T00:00:01+00:00",
+                deletable=True,
+                child_refs={},
+            )
+            await s.commit()
+
+        select_stmts.clear()
+        async with factory() as s:
+            rows = await run_artifacts.fetch_cleanup_created_rows(s, run_id, ctx)
+        assert len(rows) == 1
+        assert rows[0].typed_ref == "ledgers.a"
+        assert len(select_stmts) <= 8, f"too many SELECTs ({len(select_stmts)}): {select_stmts[:5]!r} ..."
+    finally:
+        event.remove(sync, "before_cursor_execute", _count_select)
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_access_scoping_non_owner_sees_no_artifacts(
     tmp_path: Path,
     repo_root: Path,

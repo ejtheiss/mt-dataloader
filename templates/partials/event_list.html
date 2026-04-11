@@ -24,7 +24,7 @@
     - Pagination row (when many runs)
 
   Parameters:
-    manifests         — list of run manifest dicts from server
+    run_rows          — list of run list row dicts (same shape as legacy manifest cards; DB-backed list uses ``RunListRow``-compatible fields)
     show_pagination   — bool, show pagination (default: true if > 20 runs)
     page              — current page number
     page_size         — items per page
@@ -95,8 +95,8 @@
 
   {# Source: IndexTable.tsx Tbody — data rows #}
   <div class="mt-index-table-body" role="rowgroup" id="runs-list">
-    {% if manifests %}
-      {% for m in manifests %}
+    {% if run_rows %}
+      {% for m in run_rows %}
       {% include "partials/event_row.html" %}
       {% endfor %}
     {% else %}
@@ -111,8 +111,8 @@
 
 {# --- Pagination --- #}
 {# Source: PaginationRow.tsx — page size dropdown, prev/next, range display #}
-{% if show_pagination is defined and show_pagination and manifests | length > 0 %}
-{% set total_items = total | default(manifests | length) %}
+{% if show_pagination is defined and show_pagination and run_rows | length > 0 %}
+{% set total_items = total | default(run_rows | length) %}
 {% set current_page = page | default(1) %}
 {% set items_per_page = page_size | default(20) %}
 {% include "partials/pagination.html" %}

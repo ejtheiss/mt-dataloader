@@ -31,6 +31,15 @@ Aligned with plan **§ Derisk execution gates / G4** and **§ Remaining research
 
 Context7 hydration pointers for Alembic / SQLAlchemy / FastAPI / sse-starlette / pytest are recorded in [`RUN_STATE_STORAGE.md`](RUN_STATE_STORAGE.md) § Context7 MCP hydration.
 
+### Plan § “Remaining research checkpoints” → outcomes
+
+| Checkpoint | Resolution |
+|------------|------------|
+| Webhook index derive vs dedicated table | **Derive at startup** (G4 #3); dedicated `webhook_resource_index` rejected for v1 unless measured need. |
+| Denormalized counts vs `run_stats` view | **Denormalized columns + sync** (G4 #1); SQL view rejected for v1 unless drift observed. |
+| Cleanup SSE snapshot vs stream-from-DB | **Snapshot at POST** (G4 #2). |
+| Migration backfill inside Alembic vs CLI-only | **D1 — in-revision backfill** (G4 #4); optional CLI split documented as future if deploy paths require it. |
+
 ## G2 — Migration rehearsal (pre-merge / deploy)
 
 Step-by-step checklist: **[`MIGRATION_REHEARSAL_RUNBOOK.md`](MIGRATION_REHEARSAL_RUNBOOK.md)**.
@@ -55,7 +64,7 @@ Capture on representative hardware with a warm DB (adjust numbers after first me
 | Cleanup POST + first SSE row | &lt; 300 ms to first event after MT client connect | Single DB read for created rows (already ordered) |
 | Runs list (HTML cap) | &lt; 400 ms p95 | Indexed SQL list query |
 
-**Query ceiling (CI):** `tests/db/test_run_state_invariants.py::test_fetch_run_detail_view_select_budget` asserts a low **SELECT** count for `fetch_run_detail_view` (guards accidental N+1 or duplicate staged loads).
+**Query ceiling (CI):** `tests/db/test_run_state_invariants.py` asserts low **SELECT** counts for `fetch_run_detail_view` (`test_fetch_run_detail_view_select_budget`) and `fetch_cleanup_created_rows` (`test_fetch_cleanup_created_rows_select_budget`), guarding accidental N+1 or duplicate loads on run detail and cleanup POST paths.
 
 Record actual wall-clock numbers in release notes or a pinned benchmark run when profiling.
 
