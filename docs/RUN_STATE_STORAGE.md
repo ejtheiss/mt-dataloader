@@ -97,6 +97,8 @@ Hydration was run **after** the DB-only cutover using the **user-context7** MCP:
 
 See `**[DB_ONLY_RUN_STATE_SOLVABILITY.md](DB_ONLY_RUN_STATE_SOLVABILITY.md)`** for the risk/solvability matrix, migration rehearsal steps (G2), performance budget template (G3), and mapper-boundary review checklist.
 
+For **CSS tokens, `data-theme`, and dark-mode semantics**, see **[`VISUAL_LAYER.md`](VISUAL_LAYER.md)**.
+
 ---
 
 ## Cutover status (this branch)

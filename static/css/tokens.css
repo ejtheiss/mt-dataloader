@@ -9,6 +9,17 @@
  * emits a different custom-property schema (`--color-*`); do not overwrite this
  * file wholesale until the generator is updated to match these names or a mapper
  * is added. Use script output for diffing against Mint only.
+ *
+ * ---------------------------------------------------------------------------
+ * Checklist — new UI should use semantics (see docs/VISUAL_LAYER.md)
+ * ---------------------------------------------------------------------------
+ * Surfaces:     --background-default, --background-light, --app-background
+ * Text:         --text-default, --text-muted, --text-disabled, --text-critical
+ * Borders:      --border-default, --border-muted, --border-strong
+ * Actions:      --action-primary, --primary-interactive (+ hover/pressed)
+ * Chrome text:  --text-breadcrumb*, --text-page-subtitle
+ * Badges:       --badge-*-bg / --badge-*-text pairs defined below
+ * ---------------------------------------------------------------------------
  */
 
 :root {
@@ -211,6 +222,31 @@
   /* Shadows */
   --shadow-select-bar: 0 1px 0px 0 rgba(0, 0, 0, 0.05);
   --shadow-popover:    0px 2px 10px 0px rgba(0, 0, 0, 0.1);
+
+  /* Navigation / breadcrumbs (semantic — theme-dark.css overrides) */
+  --text-breadcrumb: var(--text-muted);
+  --text-breadcrumb-current: var(--text-default);
+  --text-breadcrumb-separator: var(--gray-400);
+  --text-page-subtitle: var(--text-muted);
+  --text-empty-state-icon: var(--gray-400);
+
+  /* Badge surfaces (paired bg + text for light/dark flips) */
+  --badge-neutral-bg: var(--gray-50);
+  --badge-neutral-text: var(--gray-700);
+  --badge-success-bg: var(--green-100);
+  --badge-success-text: var(--green-800);
+  --badge-critical-bg: var(--red-100);
+  --badge-critical-text: var(--red-800);
+  --badge-warning-bg: var(--yellow-100);
+  --badge-warning-text: var(--yellow-800);
+  --badge-warm-bg: var(--orange-100);
+  --badge-warm-text: var(--orange-800);
+  --badge-cool-bg: var(--blue-100);
+  --badge-cool-text: var(--blue-800);
+  --badge-info-bg: var(--violet-100);
+  --badge-info-text: var(--violet-700);
+  --badge-purple-bg: var(--purple-100);
+  --badge-purple-text: var(--purple-800);
 
   /* Typography */
   --font-sans: "inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

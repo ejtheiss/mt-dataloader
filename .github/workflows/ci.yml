@@ -47,6 +47,9 @@ jobs:
       - name: Ruff format (check only)
         run: ruff format --check .
 
+      - name: CSS literal guard (strict chrome files)
+        run: python scripts/check_css_literals.py
+
       - name: Import linter (layer contracts)
         run: lint-imports
 

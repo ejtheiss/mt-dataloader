@@ -76,11 +76,14 @@
   }
 
   function _detectTheme() {
+    var dt = document.documentElement.getAttribute("data-theme");
+    if (dt === "dark") return "vs-dark";
+    if (dt === "light") return "vs";
     var bg = getComputedStyle(document.documentElement)
       .getPropertyValue("--bg")
       .trim();
     if (!bg) return "vs";
-    // Simple heuristic: dark backgrounds start with #0-#4 or rgb < 80
+    // Fallback heuristic when data-theme absent: dark backgrounds #00–#4f
     if (bg.startsWith("#")) {
       var hex = bg.replace("#", "");
       if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
@@ -89,6 +92,14 @@
     }
     return "vs";
   }
+
+  window.addEventListener("dataloader-theme-changed", function () {
+    if (typeof window.monaco === "undefined" || !window.monaco.editor) return;
+    var t = _detectTheme();
+    window.monaco.editor.getEditors().forEach(function (ed) {
+      ed.updateOptions({ theme: t });
+    });
+  });
 
   var _modelCounter = 0;
 

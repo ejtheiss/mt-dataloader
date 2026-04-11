@@ -1,6 +1,11 @@
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+{# Pinned patch (Plan 08): reproducible renderer; bump intentionally after testing. #}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.14.0/dist/mermaid.min.js"></script>
 <script>
-mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+(function () {
+    var dt = document.documentElement.getAttribute('data-theme') || 'light';
+    var mermaidTheme = dt === 'dark' ? 'dark' : 'neutral';
+    mermaid.initialize({ startOnLoad: false, theme: mermaidTheme, securityLevel: 'loose' });
+})();
 
 function renderMermaidAccordion(details) {
     var container = details.querySelector('.mermaid-render');

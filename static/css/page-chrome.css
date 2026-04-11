@@ -14,10 +14,10 @@
 /* --- Page Header Container --- */
 /* Source: Page.tsx lines 77-88 — PageHeaderContainer */
 .page-header-container {
-  background: var(--background-default, #fff);
+  background: var(--background-default);
   padding: 16px 16px 0 24px;                /* pt-4 pr-4 pl-6 */
-  color: var(--text-default, #303030);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.09);  /* border-alpha-black-100 */
+  color: var(--text-default);
+  border-bottom: 1px solid var(--alpha-black-100);
 }
 
 .page-header-container--sticky {
@@ -48,26 +48,26 @@
 .breadcrumb-item {
   display: flex;
   align-items: center;
-  color: #6B695D;                            /* text-gray-500 */
+  color: var(--text-breadcrumb);
   font-size: 0.875rem;                       /* text-sm */
 }
 
 .breadcrumb-item a {
-  color: #6B695D;                            /* text-gray-500 */
+  color: var(--text-breadcrumb);
   text-decoration: none;
 }
 
 .breadcrumb-item a:hover {
-  color: var(--blue-500);                    /* text-blue-500 on hover */
+  color: var(--primary-interactive-hover);
 }
 
 .breadcrumb-item:last-child {
-  color: var(--gray-800);                            /* text-gray-800 — current page */
+  color: var(--text-breadcrumb-current);
 }
 
 .breadcrumb-separator {
   margin: 0 4px;                             /* mx-1 */
-  color: #ADAC9F;                            /* text-gray-400 */
+  color: var(--text-breadcrumb-separator);
 }
 
 /* --- Page Header Body (title + subtitle + tabs area) --- */
@@ -134,7 +134,7 @@
   flex-wrap: wrap;
   padding-bottom: 16px;                      /* pb-4 */
   font-size: 0.75rem;                        /* text-xs */
-  color: #6B695D;                            /* text-gray-500 */
+  color: var(--text-page-subtitle);
 }
 
 /* --- Page Body --- */
@@ -164,51 +164,51 @@
 }
 
 .badge--default {
-  background: #F5F5F0;                       /* bg-gray-50 */
-  color: #504E43;                            /* text-gray-700 */
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-text);
 }
 
 .badge--success {
-  background: #DCFCE7;                       /* bg-green-100 */
-  color: #166534;                            /* text-green-800 */
+  background: var(--badge-success-bg);
+  color: var(--badge-success-text);
 }
 
 .badge--critical {
-  background: #FEE2E2;                       /* bg-red-100 */
-  color: #991B1B;                            /* text-red-800 */
+  background: var(--badge-critical-bg);
+  color: var(--badge-critical-text);
 }
 
 .badge--warning {
-  background: #FEF9C3;                       /* bg-yellow-100 */
-  color: #854D0E;                            /* text-yellow-800 */
+  background: var(--badge-warning-bg);
+  color: var(--badge-warning-text);
 }
 
 .badge--warm {
-  background: #FFEDD5;                       /* bg-orange-100 */
-  color: #9A3412;                            /* text-orange-800 */
+  background: var(--badge-warm-bg);
+  color: var(--badge-warm-text);
 }
 
 .badge--cool {
-  background: #DBEAFE;                       /* bg-blue-100 */
-  color: #1E40AF;                            /* text-blue-800 */
+  background: var(--badge-cool-bg);
+  color: var(--badge-cool-text);
 }
 
 .badge--info {
-  background: #E0E7FF;                       /* bg-indigo-100 */
-  color: #3730A3;                            /* text-indigo-800 */
+  background: var(--badge-info-bg);
+  color: var(--badge-info-text);
 }
 
 .badge--purple,
 .badge--internal {
-  background: #EDE9FE;                       /* bg-purple-100 */
-  color: #6B21A8;                            /* text-purple-800 */
+  background: var(--badge-purple-bg);
+  color: var(--badge-purple-text);
 }
 
 /* --- Card --- */
 /* Source: Card.tsx */
 .card {
-  background: var(--background-default, #fff);
-  border: 1px solid rgba(0, 0, 0, 0.09);    /* border-alpha-black-100 */
+  background: var(--background-default);
+  border: 1px solid var(--alpha-black-100);
   border-radius: 8px;                        /* rounded-lg */
   overflow: hidden;
 }
@@ -219,7 +219,7 @@
 }
 
 .card--clickable:hover {
-  border-color: rgba(0, 0, 0, 0.18);        /* border-alpha-black-200 */
+  border-color: var(--alpha-black-200);
 }
 
 .card-header {
@@ -227,7 +227,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px;                             /* p-4 */
-  border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+  border-bottom: 1px solid var(--alpha-black-100);
 }
 
 .card-heading {
@@ -239,12 +239,12 @@
 .card-title {
   font-size: 0.875rem;                       /* text-sm */
   font-weight: 500;                          /* font-medium */
-  color: var(--gray-800);
+  color: var(--text-default);
 }
 
 .card-description {
   font-size: 0.75rem;                        /* text-xs */
-  color: #6B695D;                            /* text-gray-500 */
+  color: var(--text-breadcrumb);
 }
 
 .card-actions {
@@ -259,7 +259,7 @@
 
 .card-footer {
   padding: 12px 16px;                        /* py-3 px-4 */
-  border-top: 1px solid rgba(0, 0, 0, 0.09);
+  border-top: 1px solid var(--alpha-black-100);
   background: var(--app-background);                       /* bg-gray-25 */
 }
 
@@ -274,14 +274,14 @@
   padding: 48px 24px;                        /* py-12 px-6 */
   gap: 16px;
   min-height: 200px;
-  border: 1px dashed rgba(0, 0, 0, 0.09);   /* dashed border */
+  border: 1px dashed var(--alpha-black-100);   /* dashed border */
   border-radius: 8px;
   background: var(--app-background);                       /* bg-gray-25 */
 }
 
 .empty-state-icon {
   font-size: 2rem;
-  color: #ADAC9F;                            /* text-gray-400 */
+  color: var(--text-empty-state-icon);
 }
 
 .empty-state-header {
@@ -293,13 +293,13 @@
 .empty-state-title {
   font-size: 0.875rem;                       /* text-sm */
   font-weight: 500;                          /* font-medium */
-  color: var(--gray-800);                            /* text-gray-800 */
+  color: var(--text-default);
   margin: 0;
 }
 
 .empty-state-description {
   font-size: 0.75rem;                        /* text-xs */
-  color: #6B695D;                            /* text-gray-500 */
+  color: var(--text-page-subtitle);
   max-width: 40ch;
   margin: 0;
 }
