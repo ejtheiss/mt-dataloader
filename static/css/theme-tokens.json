@@ -178,7 +178,7 @@
     "--type-lifecycle":    { "light": "mint.yellow-500",  "dark": "mt.gold-2" },
     "--type-mutation":     { "light": "mint.gray-500",    "dark": "mt.gray-2" },
 
-    "--sidebar-bg":        { "light": "mint.gray-900",    "dark": "mt.black" },
+    "--sidebar-bg":        { "light": "mint.gray-900",    "dark": null },
     "--sidebar-text":      { "light": "mint.gray-100",    "dark": null },
     "--sidebar-hover":     { "light": "mint.gray-700",    "dark": null },
     "--sidebar-active":    { "light": "mint.mist-800",    "dark": null },

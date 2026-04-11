@@ -58,7 +58,7 @@ This resolves the plan's initial high-level map into concrete choices.
 
 | Role                                  | Resolved MT swatch | Hex       | Notes                                                  |
 | ------------------------------------- | ------------------ | --------- | ------------------------------------------------------ |
-| Left nav / sidebar (darkest)          | Black              | `#151515` | Persistent dark chrome; darkest element in both themes |
+| Left nav / sidebar                    | Gray 900 (Mint)    | `#222222` | Persistent dark chrome; identical in both themes (no dark override) |
 | Content area background               | Off-Black          | `#222220` | Main working surface; visibly lighter than nav         |
 | Base surface (cards/panels)           | Gray 4             | `#30302E` | Elevated containers on content background              |
 | Primary text                          | Off-White          | `#F4F4F2` | Better reading ergonomics than pure white default      |
@@ -237,12 +237,12 @@ Use this as the execution checklist for implementation PRs. Migrate in order.
 
 ## Explicit decisions from this research
 
-- **Left nav is the darkest element** in dark mode (Black `#151515`); content area steps to Off-Black; cards to Gray 4.
+- **Left nav is theme-agnostic** — always Gray 900 (`#222222`) in both modes; content area steps to Off-Black in dark; cards to Gray 4.
 - Use **Off-White**, not White, as default body text in dark.
 - Use **Gray 2** for muted text; reserve Gray 3 for disabled/low-emphasis.
 - Use **Blue 2** as default link/info color in dark surfaces.
 - Keep **Green 3** as primary action fill with **White** label.
-- Dark surface ladder: **Nav (Black) -> Content (Off-Black) -> Cards (Gray 4)**.
+- Dark surface ladder: **Nav (Gray 900, unchanged) -> Content (Off-Black) -> Cards (Gray 4)**.
 - Keep badge semantics as explicit fg/bg pairs (no runtime mixing heuristics).
 
 ## Open questions to confirm in implementation PR
@@ -250,4 +250,3 @@ Use this as the execution checklist for implementation PRs. Migrate in order.
 - ~~Whether any long-form content surfaces should switch to `Gray 4` base for reduced contrast fatigue.~~ **Resolved:** content area uses Off-Black; cards/panels use Gray 4. Nav stays Black as darkest element.
 - Whether focus ring should be Blue 2 globally or context-sensitive (Blue 2 on neutrals, White on chroma fills).
 - Whether we need a dedicated high-contrast mode later (separate from dark).
-

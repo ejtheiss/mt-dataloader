@@ -117,7 +117,6 @@ html[data-theme="dark"] {
   --type-payment: var(--mt-palette-green-2);
   --type-lifecycle: var(--mt-palette-gold-2);
   --type-mutation: var(--mt-palette-gray-2);
-  --sidebar-bg: var(--mt-palette-black);
   --field-success-bg: var(--mt-palette-green-4);
   --field-success-border: var(--mt-palette-green-2);
   --field-success-text: var(--mt-palette-green-1);
