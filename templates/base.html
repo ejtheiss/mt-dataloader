@@ -97,7 +97,8 @@
                         for(var i=0;i<profiles.length;i++){if(profiles[i].id===aid){active=profiles[i];break;}}
                         if(!active&&profiles.length)active=profiles[0];
                         var name=active?active.label:"Add organization";
-                        var sub=active?(active.orgId||"").slice(0,10):"Required for API calls";
+                        var oid=active?active.orgId||"":"";
+                        var sub=active?(oid.length>20?oid.slice(0,10)+"\u2026"+oid.slice(-6):oid):"Required for API calls";
                         root.innerHTML='<div class="org-switcher"><button type="button" class="org-switcher-trigger" aria-expanded="false"><div class="org-switcher-labels"><span class="org-switcher-name">'+name+'</span><span class="org-switcher-sub">'+sub+'</span></div><span class="org-switcher-chevron" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg></span></button></div>';
                     }catch(e){}
                 })();
