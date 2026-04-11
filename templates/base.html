@@ -106,12 +106,14 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <label class="sidebar-theme-label" for="theme-select">Theme</label>
-                <select id="theme-select" class="sidebar-theme-select" aria-label="Color theme preference">
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                    <option value="system">System</option>
-                </select>
+                <fieldset class="theme-pref" aria-label="Color theme">
+                    <input type="radio" id="theme-light" name="dl_theme_pref" value="light">
+                    <label for="theme-light">Light</label>
+                    <input type="radio" id="theme-dark" name="dl_theme_pref" value="dark">
+                    <label for="theme-dark">Dark</label>
+                    <input type="radio" id="theme-system" name="dl_theme_pref" value="system" checked>
+                    <label for="theme-system">System</label>
+                </fieldset>
                 <span class="sidebar-version">v{{ app_version }}</span>
             </div>
         </aside>

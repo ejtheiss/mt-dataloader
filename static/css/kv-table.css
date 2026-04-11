@@ -20,11 +20,11 @@
     CopyableData wrapper for copy button                                        (line 158-166)
     Expandable: "Show X more" / "Show less" toggle                             (line 198-234)
 
-  MT Design Tokens:
-    --color-gray-100: #DEDDD7    (border color for rows)
-    --color-gray-800: #303030    (text color)
-    --color-blue-500: #386FB1    (link color)
-    --color-cyan-25:  (subtable bg)
+  MT Design Tokens (see tokens.css):
+    --color-gray-100    (border color for rows)
+    --color-gray-800    (text color)
+    --color-blue-500    (link color)
+    --color-cyan-25     (subtable bg)
 */
 
 /* ===== Key-Value Table Container — tables.css line 266-272 ===== */
@@ -39,7 +39,7 @@
   font-size: 12px;
   line-height: 22px;
   white-space: pre-wrap;
-  color: var(--gray-800); /* text-gray-800 */
+  color: var(--text-default); /* text-gray-800 */
 }
 
 /* ===== Row — tables.css line 274-276 ===== */
@@ -54,7 +54,7 @@
   grid-auto-flow: column;
   width: 100%;
   gap: 1.5rem; /* gap-6 = 24px */
-  border-bottom: 1px solid var(--gray-100); /* border-gray-100 */
+  border-bottom: 1px solid var(--border-default); /* border-gray-100 */
   padding-top: 1rem; /* py-4 = 16px */
   padding-bottom: 1rem;
 }
@@ -116,7 +116,7 @@
 }
 
 .kv-copy-btn:hover {
-  color: var(--gray-800); /* text-gray-800 */
+  color: var(--text-default); /* text-gray-800 */
   background-color: var(--background-light); /* bg-gray-50 */
 }
 
@@ -126,10 +126,10 @@
   padding: 0.25rem 0.5rem;
   font-size: 12px;
   line-height: 22px;
-  border: 1px solid var(--gray-100); /* border-gray-100 */
+  border: 1px solid var(--border-default); /* border-gray-100 */
   border-radius: 0.25rem;
-  color: var(--gray-800);
-  background: var(--white);
+  color: var(--text-default);
+  background: var(--background-default);
 }
 
 .kv-edit-input:focus {
@@ -190,7 +190,7 @@
   gap: 1rem; /* gap-4 */
   border-radius: 0.375rem; /* rounded-md */
   border: 1px solid var(--alpha-black-100);
-  background-color: var(--white);
+  background-color: var(--background-default);
   padding: 1.5rem; /* p-6 */
 }
 
@@ -219,5 +219,5 @@
   font-weight: 400;
   font-size: 0.75rem;
   word-break: break-all;
-  color: var(--gray-800); /* text-gray-800 */
+  color: var(--text-default); /* text-gray-800 */
 }

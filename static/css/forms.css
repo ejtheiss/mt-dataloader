@@ -27,7 +27,7 @@
   font-size: 1rem;
   font-weight: 500;                          /* font-medium */
   line-height: 1.5;
-  color: var(--gray-800);                            /* text-gray-800 */
+  color: var(--text-default);                            /* text-gray-800 */
   margin-bottom: 8px;
 }
 
@@ -154,7 +154,7 @@
 }
 
 .mt-label:hover {
-  color: var(--gray-800);                            /* hover:text-gray-900 — approximation (MT uses gray-900) */
+  color: var(--text-default);                            /* hover:text-gray-900 — approximation (MT uses gray-900) */
 }
 
 .mt-label label {
@@ -198,9 +198,9 @@
   border: 1px solid var(--border-default);
   padding: 4px 8px;                          /* py-1 px-2 */
   font-size: 0.875rem;                       /* text-sm */
-  color: var(--gray-800);                            /* text-gray-800 */
+  color: var(--text-default);                            /* text-gray-800 */
   outline: none;
-  background: var(--white);
+  background: var(--background-default);
 }
 
 .mt-input::placeholder {
@@ -219,7 +219,7 @@
 
 .mt-input:disabled {
   cursor: not-allowed;
-  border-color: var(--gray-100);              /* border-gray-100 */
+  border-color: var(--border-default);              /* border-gray-100 */
   background: var(--background-light);
 }
 
@@ -287,9 +287,9 @@
   border: 1px solid var(--border-default);
   padding: 8px;
   font-size: 0.875rem;
-  color: var(--gray-800);
+  color: var(--text-default);
   outline: none;
-  background: var(--white);
+  background: var(--background-default);
   resize: vertical;
 }
 
@@ -305,9 +305,9 @@
   border: 1px solid var(--border-default);
   padding: 4px 8px;
   font-size: 0.875rem;
-  color: var(--gray-800);
+  color: var(--text-default);
   outline: none;
-  background: var(--white);
+  background: var(--background-default);
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236B695D' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;

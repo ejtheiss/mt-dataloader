@@ -8,8 +8,8 @@
 html[data-theme="dark"] {
 
   /* ── Semantic tokens ─────────────────────────────── */
-  --app-background: var(--mt-palette-black);
-  --background-default: var(--mt-palette-off-black);
+  --app-background: var(--mt-palette-off-black);
+  --background-default: var(--mt-palette-gray-4);
   --background-light: var(--mt-palette-gray-4);
   --background-dark: var(--mt-palette-black);
   --button-background-default: var(--mt-palette-gray-4);
@@ -83,7 +83,7 @@ html[data-theme="dark"] {
   --badge-purple-text: var(--mt-palette-purple-1);
 
   /* ── Bridges ────────────────────────────────────── */
-  --bg: var(--mt-palette-black);
+  --bg: var(--mt-palette-off-black);
   --surface: var(--mt-palette-off-black);
   --border: var(--mt-palette-gray-3);
   --text: var(--mt-palette-off-white);
@@ -117,6 +117,7 @@ html[data-theme="dark"] {
   --type-payment: var(--mt-palette-green-2);
   --type-lifecycle: var(--mt-palette-gold-2);
   --type-mutation: var(--mt-palette-gray-2);
+  --sidebar-bg: var(--mt-palette-black);
   --field-success-bg: var(--mt-palette-green-4);
   --field-success-border: var(--mt-palette-green-2);
   --field-success-text: var(--mt-palette-green-1);

@@ -76,7 +76,7 @@
   left: 0;
   z-index: 100;
   min-width: 200px;
-  background: var(--white);
+  background: var(--background-default);
   border: 1px solid var(--alpha-black-100);
   border-radius: 6px;
   box-shadow: 0 4px 12px var(--alpha-black-100);
@@ -106,8 +106,8 @@
   border-radius: 4px;
   padding: 0 8px;
   font-size: 0.75rem;
-  color: var(--gray-800);
-  background: var(--white);
+  color: var(--text-default);
+  background: var(--background-default);
   outline: none;
   min-width: 180px;
 }
@@ -180,8 +180,8 @@
 }
 
 .mt-chip-remove:hover {
-  background: var(--gray-100);                      /* hover:bg-gray-100 */
-  color: var(--gray-800);
+  background: var(--border-default);                      /* hover:bg-gray-100 */
+  color: var(--text-default);
 }
 
 /* --- Export Button --- */
@@ -226,7 +226,7 @@
   right: 0;
   z-index: 100;
   min-width: 160px;
-  background: var(--white);
+  background: var(--background-default);
   border: 1px solid var(--alpha-black-100);
   border-radius: 6px;
   box-shadow: 0 4px 12px var(--alpha-black-100);

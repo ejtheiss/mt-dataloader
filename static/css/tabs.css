@@ -10,7 +10,7 @@
       div#tabs
       className: cn("w-full border-alpha-black-50", showBorder && "border-b")
       - w-full: width: 100%
-      - border-alpha-black-50: border-color rgba(0,0,0,0.04) (used with border-b)
+      - border-alpha-black-50: border-color (used with border-b)
       - showBorder=true → adds "border-b"
 
     Tab row (line 144-149):
@@ -30,9 +30,9 @@
       - whitespace-nowrap: white-space: nowrap
       - border-b-3: border-bottom-width: 3px
       - border-transparent: border-color: transparent
-      - text-gray-500: color: #807E72
-      - hover:text-gray-700: hover color: #504E43
-      - Active: border-blue-500 (#386FB1), text-gray-700 (#504E43)
+      - text-gray-500: color (see tokens.css)
+      - hover:text-gray-700: hover color (see tokens.css)
+      - Active: border-blue-500, text-gray-700 (see tokens.css)
 
     Tab button (line 166-175):
       Button[role="tab", buttonType="text", hideFocusOutline]
@@ -40,11 +40,11 @@
       - aria-selected={tab.id === selected}
       - onClick fires tab change
 
-  MT Design Tokens:
-    --color-alpha-black-50: rgba(0, 0, 0, 0.04)
-    --color-gray-500: #807E72
-    --color-gray-700: #504E43
-    --color-blue-500: #386FB1
+  MT Design Tokens (see tokens.css):
+    --color-alpha-black-50
+    --color-gray-500
+    --color-gray-700
+    --color-blue-500
     border-b-3 = border-bottom-width: 3px
 */
 

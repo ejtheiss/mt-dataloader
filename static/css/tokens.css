@@ -274,7 +274,7 @@
   --type-lifecycle: var(--yellow-500);
   --type-mutation: var(--gray-500);
   --sidebar-bg: var(--gray-900);
-  --sidebar-text: var(--gray-200);
+  --sidebar-text: var(--gray-100);
   --sidebar-hover: var(--gray-700);
   --sidebar-active: var(--mist-800);
   --sidebar-width: 220px;

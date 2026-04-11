@@ -79,7 +79,7 @@
 }
 
 .mt-chip-remove:hover {
-  color: var(--gray-800);                            /* text-gray-800 */
+  color: var(--text-default);                            /* text-gray-800 */
 }
 
 .mt-chip-remove svg {

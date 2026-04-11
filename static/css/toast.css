@@ -36,10 +36,10 @@
   justify-content: space-between;
   border-radius: 6px;                    /* rounded */
   border: 1px solid var(--text-default);             /* border-gray-700 */
-  background-color: var(--gray-800);             /* bg-gray-800 */
+  background-color: var(--background-dark);             /* bg-gray-800 */
   font-size: 0.75rem;                    /* text-xs */
   font-weight: 500;                      /* font-medium */
-  color: var(--white);                           /* text-white */
+  color: var(--text-on-primary);                           /* text-white */
   min-width: 300px;
   max-width: 500px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -99,7 +99,7 @@
   height: 100%;
   padding: 4px 12px;                     /* px-3 */
   background: var(--text-default);                   /* bg-gray-700 */
-  color: var(--white);
+  color: var(--text-on-primary);
   border: 0;
   border-radius: 0 6px 6px 0;           /* rounded-bl-none rounded-tl-none */
   font-size: 0.75rem;                    /* text-xs */
@@ -131,8 +131,8 @@
   justify-content: center;
   height: 100%;
   padding: 4px 12px;
-  background: var(--gray-800);                   /* bg-gray-800 (same as toast bg) */
-  color: var(--gray-100);                 /* text-gray-100 */
+  background: var(--background-dark);                   /* bg-gray-800 (same as toast bg) */
+  color: var(--text-on-primary);                 /* text-gray-100 */
   border: 0;
   border-radius: 0 6px 6px 0;
   font-size: 1rem;
@@ -140,7 +140,7 @@
 }
 
 .mt-toast-close-btn:hover {
-  color: var(--white);
+  color: var(--text-on-primary);
 }
 
 /* --- Animations --- */

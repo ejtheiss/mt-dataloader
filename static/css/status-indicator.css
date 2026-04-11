@@ -90,7 +90,7 @@
 /* Dark gray — locked, editable */
 .mt-status-dot--locked,
 .mt-status-dot--editable {
-  background-color: var(--gray-800);                 /* black-300 approximation */
+  background-color: var(--background-dark);                 /* black-300 approximation */
 }
 
 /* MT managed — gray-500 */

@@ -44,33 +44,34 @@ See also `[VISUAL_LAYER.md](VISUAL_LAYER.md)` § *Locked: theme CSS generation*.
 ## Key findings translated to this codebase
 
 1. **Two mappings, not inversion:** dark needs a dedicated semantic remap, not a global invert/filter.
-2. **Dark surfaces need hierarchy:** use a stepped surface ladder (background -> base surface -> elevated surface), not one flat dark color.
-3. **Limit high-chroma accents:** on dark backgrounds, saturated accents should be used sparingly and often shifted to lighter/desaturated tones for legibility.
-4. **Avoid harsh extremes for body text:** prefer off-white defaults over pure white for dense reading surfaces.
-5. **Respect user/system intent:** support `system` and apply before first paint.
-6. **Contrast is enforced by role:** normal text >= 4.5:1, large text >= 3:1, and UI boundaries/focus indicators must be visibly distinct.
+2. **Dark surfaces need hierarchy:** use a stepped surface ladder where **navigation is darkest** and content surfaces step progressively lighter. Material M2 elevation model: "higher elevation = lighter surface" ([M2 dark theme](https://m2.material.io/design/color/dark-theme.html#properties)). Robinson: "use lighter shades of the background color to indicate elevation and depth" — the content area is the primary working surface and must read as "elevated" relative to the persistent nav chrome.
+3. **Left nav is the darkest element.** The sidebar is persistent dark chrome in both themes. In dark mode, all content surfaces must be visibly lighter than the nav to maintain spatial hierarchy. This avoids the "flat dark wall" antipattern where nav and content merge ([NN/g: issues to avoid](https://www.nngroup.com/articles/dark-mode-users-issues/); [Robinson: contrast is different in the dark](https://www.jamesrobinson.io/post/a-guide-to-dark-mode-design)).
+4. **Limit high-chroma accents:** on dark backgrounds, saturated accents should be used sparingly and often shifted to lighter/desaturated tones for legibility.
+5. **Avoid harsh extremes for body text:** prefer off-white defaults over pure white for dense reading surfaces.
+6. **Respect user/system intent:** support `system` and apply before first paint.
+7. **Contrast is enforced by role:** normal text >= 4.5:1, large text >= 3:1, and UI boundaries/focus indicators must be visibly distinct.
 
 ## Resolved starting map (MT palette only)
 
 This resolves the plan's initial high-level map into concrete choices.
 
 
-| Role                                  | Resolved MT swatch | Hex       | Notes                                                 |
-| ------------------------------------- | ------------------ | --------- | ----------------------------------------------------- |
-| App/page background                   | Black              | `#151515` | Deepest base, supports hierarchy above it             |
-| Base surface (cards/panels)           | Off-Black          | `#222220` | Main container surface                                |
-| Elevated surface                      | Gray 4             | `#30302E` | Elevation through lightness step                      |
-| Primary text                          | Off-White          | `#F4F4F2` | Better reading ergonomics than pure white default     |
-| Strong text / on-dark critical labels | White              | `#FFFFFF` | Reserved for high-emphasis + on-accent text           |
-| Secondary text                        | Gray 2             | `#A9A9A7` | Passes AA on dark surfaces                            |
-| Disabled text                         | Gray 3             | `#737371` | Use for disabled/low-emphasis only                    |
-| Borders / separators                  | Gray 3             | `#737371` | Chosen for visible boundary contrast on dark surfaces |
-| Muted decorative lines                | Gray 4             | `#30302E` | Decorative only; not for critical boundaries          |
-| Success accent/content                | Green 2            | `#69B894` | Preferred readable success text/accent on dark        |
-| Primary action fill                   | Green 3 (MT Green) | `#008060` | Brand primary fill, with white label                  |
-| Info/link accent                      | Blue 2             | `#54AEFF` | Readable link/info tone on dark                       |
-| Warning accent                        | Gold 2             | `#D49C66` | Readable warning content on dark                      |
-| Critical accent                       | Orange 2           | `#FF8266` | Readable critical content on dark                     |
+| Role                                  | Resolved MT swatch | Hex       | Notes                                                  |
+| ------------------------------------- | ------------------ | --------- | ------------------------------------------------------ |
+| Left nav / sidebar (darkest)          | Black              | `#151515` | Persistent dark chrome; darkest element in both themes |
+| Content area background               | Off-Black          | `#222220` | Main working surface; visibly lighter than nav         |
+| Base surface (cards/panels)           | Gray 4             | `#30302E` | Elevated containers on content background              |
+| Primary text                          | Off-White          | `#F4F4F2` | Better reading ergonomics than pure white default      |
+| Strong text / on-dark critical labels | White              | `#FFFFFF` | Reserved for high-emphasis + on-accent text            |
+| Secondary text                        | Gray 2             | `#A9A9A7` | Passes AA on dark surfaces                             |
+| Disabled text                         | Gray 3             | `#737371` | Use for disabled/low-emphasis only                     |
+| Borders / separators                  | Gray 3             | `#737371` | Chosen for visible boundary contrast on dark surfaces  |
+| Muted decorative lines                | Gray 4             | `#30302E` | Decorative only; not for critical boundaries           |
+| Success accent/content                | Green 2            | `#69B894` | Preferred readable success text/accent on dark         |
+| Primary action fill                   | Green 3 (MT Green) | `#008060` | Brand primary fill, with white label                   |
+| Info/link accent                      | Blue 2             | `#54AEFF` | Readable link/info tone on dark                        |
+| Warning accent                        | Gold 2             | `#D49C66` | Readable warning content on dark                       |
+| Critical accent                       | Orange 2           | `#FF8266` | Readable critical content on dark                      |
 
 
 ## Semantic token mapping (resolved)
@@ -78,28 +79,28 @@ This resolves the plan's initial high-level map into concrete choices.
 The following mapping is the recommended dark assignment for existing semantics in `static/css/tokens.css`.
 
 
-| Semantic token                  | Dark mapping | MT name    |
-| ------------------------------- | ------------ | ---------- |
-| `--app-background`              | `#151515`    | Black      |
-| `--background-default`          | `#222220`    | Off-Black  |
-| `--background-light`            | `#30302E`    | Gray 4     |
-| `--background-dark`             | `#151515`    | Black      |
-| `--text-default`                | `#F4F4F2`    | Off-White  |
-| `--text-muted`                  | `#A9A9A7`    | Gray 2     |
-| `--text-disabled`               | `#737371`    | Gray 3     |
-| `--text-on-primary`             | `#FFFFFF`    | White      |
-| `--text-success`                | `#69B894`    | Green 2    |
-| `--text-info`                   | `#54AEFF`    | Blue 2     |
-| `--text-critical`               | `#FF8266`    | Orange 2   |
-| `--border-default`              | `#737371`    | Gray 3     |
-| `--border-strong`               | `#A9A9A7`    | Gray 2     |
-| `--border-muted`                | `#30302E`    | Gray 4     |
-| `--action-primary`              | `#008060`    | Green 3    |
-| `--action-primary-hover`        | `#14362B`    | Green 4    |
-| `--action-primary-pressed`      | `#12362E`    | Dark Green |
-| `--primary-interactive`         | `#54AEFF`    | Blue 2     |
-| `--primary-interactive-hover`   | `#0071E3`    | Blue 3     |
-| `--primary-interactive-pressed` | `#1A2B54`    | Blue 4     |
+| Semantic token                  | Dark mapping | MT name                                        |
+| ------------------------------- | ------------ | ---------------------------------------------- |
+| `--app-background`              | `#222220`    | Off-Black (content area; lighter than nav)     |
+| `--background-default`          | `#30302E`    | Gray 4 (cards/panels; elevated above content)  |
+| `--background-light`            | `#30302E`    | Gray 4 (same as default; use for subtle tints) |
+| `--background-dark`             | `#151515`    | Black (deepest; matches nav chrome)            |
+| `--text-default`                | `#F4F4F2`    | Off-White                                      |
+| `--text-muted`                  | `#A9A9A7`    | Gray 2                                         |
+| `--text-disabled`               | `#737371`    | Gray 3                                         |
+| `--text-on-primary`             | `#FFFFFF`    | White                                          |
+| `--text-success`                | `#69B894`    | Green 2                                        |
+| `--text-info`                   | `#54AEFF`    | Blue 2                                         |
+| `--text-critical`               | `#FF8266`    | Orange 2                                       |
+| `--border-default`              | `#737371`    | Gray 3                                         |
+| `--border-strong`               | `#A9A9A7`    | Gray 2                                         |
+| `--border-muted`                | `#30302E`    | Gray 4                                         |
+| `--action-primary`              | `#008060`    | Green 3                                        |
+| `--action-primary-hover`        | `#14362B`    | Green 4                                        |
+| `--action-primary-pressed`      | `#12362E`    | Dark Green                                     |
+| `--primary-interactive`         | `#54AEFF`    | Blue 2                                         |
+| `--primary-interactive-hover`   | `#0071E3`    | Blue 3                                         |
+| `--primary-interactive-pressed` | `#1A2B54`    | Blue 4                                         |
 
 
 ### Badge pair mapping (dark)
@@ -125,11 +126,13 @@ Calculated with WCAG relative luminance formula (no rounding up pass thresholds)
 
 | Pair                   | Ratio   | Status                                                   |
 | ---------------------- | ------- | -------------------------------------------------------- |
-| Off-White on Black     | 16.58:1 | Pass AA/AAA                                              |
-| Off-White on Off-Black | 14.47:1 | Pass AA/AAA                                              |
-| Gray 2 on Off-Black    | 6.77:1  | Pass AA normal text                                      |
-| Gray 3 on Off-Black    | 3.35:1  | Pass large text / UI boundary, not normal body text      |
+| Off-White on Off-Black | 14.47:1 | Pass AA/AAA — primary text on content area               |
+| Off-White on Gray 4    | 12.01:1 | Pass AA/AAA — primary text on cards/panels               |
+| Gray 2 on Off-Black    | 6.77:1  | Pass AA normal text — muted text on content              |
+| Gray 2 on Gray 4       | 5.62:1  | Pass AA normal text — muted text on cards                |
+| Gray 3 on Off-Black    | 3.35:1  | Pass large text / UI boundary only                       |
 | Blue 2 on Off-Black    | 6.74:1  | Pass AA normal text                                      |
+| Blue 2 on Gray 4       | 5.47:1  | Pass AA normal text — links on cards                     |
 | Green 2 on Off-Black   | 6.74:1  | Pass AA normal text                                      |
 | Orange 2 on Off-Black  | 6.55:1  | Pass AA normal text                                      |
 | White on Green 3       | 4.93:1  | Pass AA normal text                                      |
@@ -234,16 +237,17 @@ Use this as the execution checklist for implementation PRs. Migrate in order.
 
 ## Explicit decisions from this research
 
+- **Left nav is the darkest element** in dark mode (Black `#151515`); content area steps to Off-Black; cards to Gray 4.
 - Use **Off-White**, not White, as default body text in dark.
 - Use **Gray 2** for muted text; reserve Gray 3 for disabled/low-emphasis.
 - Use **Blue 2** as default link/info color in dark surfaces.
 - Keep **Green 3** as primary action fill with **White** label.
-- Keep dark hierarchy as **Black -> Off-Black -> Gray 4**.
+- Dark surface ladder: **Nav (Black) -> Content (Off-Black) -> Cards (Gray 4)**.
 - Keep badge semantics as explicit fg/bg pairs (no runtime mixing heuristics).
 
 ## Open questions to confirm in implementation PR
 
-- Whether any long-form content surfaces should switch to `Gray 4` base for reduced contrast fatigue.
+- ~~Whether any long-form content surfaces should switch to `Gray 4` base for reduced contrast fatigue.~~ **Resolved:** content area uses Off-Black; cards/panels use Gray 4. Nav stays Black as darkest element.
 - Whether focus ring should be Blue 2 globally or context-sensitive (Blue 2 on neutrals, White on chroma fills).
 - Whether we need a dedicated high-contrast mode later (separate from dark).
 

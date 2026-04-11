@@ -44,11 +44,11 @@
     DrawerPadding: px-4 py-3                                                    (line 35)
     Drawer content: overflow-y-auto h-full                                      (line 147)
 
-  MT Design Tokens:
-    --color-gray-500: #807E72
-    --color-gray-800: #303030
+  MT Design Tokens (see tokens.css):
+    --color-gray-500
+    --color-gray-800
     z-40 = z-index: 40
-    shadow-lg = 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)
+    shadow-lg (see tokens.css)
 */
 
 /* ===== Overlay — RadixDrawer.tsx line 13-25 ===== */
@@ -90,9 +90,9 @@
   width: 40%; /* w-2/5 */
   height: 100%;
   z-index: 40;
-  background-color: var(--white);
+  background-color: var(--background-default);
   border-left: 1px solid var(--alpha-black-100);
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); /* shadow-lg */
+  box-shadow: var(--shadow-popover); /* shadow-lg */
   outline: none;
   overflow: visible;
   display: flex;
@@ -159,7 +159,7 @@
   width: 2rem;
   height: 2rem;
   padding: 0.25rem;
-  background-color: var(--white); /* bg-white */
+  background-color: var(--background-default); /* bg-white */
   border: none;
   border-radius: 0.25rem;
   cursor: pointer;
@@ -168,7 +168,7 @@
 }
 
 .drawer-action-btn:hover {
-  color: var(--gray-800); /* text-gray-800 */
+  color: var(--text-default); /* text-gray-800 */
   background-color: var(--background-light); /* bg-gray-50 */
 }
 

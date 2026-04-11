@@ -88,16 +88,16 @@ body {
     gap: 8px;
     width: 100%;
     padding: 10px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.14); /* literal: sidebar dark chrome */
     border-radius: 8px;
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 0, 0, 0.25); /* literal: sidebar dark chrome */
     color: var(--white);
     cursor: pointer;
     text-align: left;
     font: inherit;
 }
 .org-switcher-trigger:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.06); /* literal: sidebar dark chrome */
 }
 .org-switcher-labels {
     display: flex;
@@ -134,9 +134,9 @@ body {
     top: calc(100% + 4px);
     z-index: 50;
     background: var(--gray-800);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.12); /* literal: sidebar dark chrome */
     border-radius: 8px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); /* literal: sidebar dark chrome */
     max-height: min(70vh, 420px);
     overflow-y: auto;
 }
@@ -152,7 +152,7 @@ body {
     border-radius: 6px;
 }
 .org-switcher-item--active {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.08); /* literal: sidebar dark chrome */
 }
 .org-switcher-item-btn {
     flex: 1;
@@ -171,7 +171,7 @@ body {
     border-radius: 6px;
 }
 .org-switcher-item-btn:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.06); /* literal: sidebar dark chrome */
 }
 .org-switcher-item-name {
     font-size: 13px;
@@ -195,11 +195,11 @@ body {
 }
 .org-switcher-remove:hover {
     color: var(--white);
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.08); /* literal: sidebar dark chrome */
 }
 .org-switcher-form {
     padding: 10px 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.1); /* literal: sidebar dark chrome */
 }
 .org-switcher-field {
     display: flex;
@@ -225,7 +225,7 @@ body {
 }
 .org-switcher-footer {
     padding: 8px 10px 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.1); /* literal: sidebar dark chrome */
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -322,12 +322,6 @@ body {
 }
 .sidebar-link .nav-icon {
     flex-shrink: 0;
-    opacity: 0.7;
-    transition: opacity 0.15s;
-}
-.sidebar-link:hover .nav-icon,
-.sidebar-link.active .nav-icon {
-    opacity: 1;
 }
 .sidebar-link:hover { background: var(--sidebar-hover); color: var(--white); }
 .sidebar-link.active { background: var(--sidebar-active); color: var(--white); }
@@ -340,22 +334,45 @@ body {
     align-items: center;
     gap: 8px;
 }
-.sidebar-theme-label {
-    font-size: 11px;
-    color: var(--sidebar-text);
+/* Segmented theme control — fieldset + radio labels as pill segments */
+.theme-pref {
+    display: flex;
+    border: none;
+    margin: 0;
+    padding: 0;
+    gap: 0;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.25); /* literal: sidebar dark chrome */
+    overflow: hidden;
 }
-.sidebar-theme-select {
+.theme-pref input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+.theme-pref label {
+    flex: 1;
+    padding: 4px 10px;
     font-size: 11px;
     font-family: inherit;
-    padding: 2px 4px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.14); /* literal: sidebar chrome control border */
-    background: rgba(0, 0, 0, 0.25); /* literal: sidebar chrome control surface */
-    color: var(--white);
+    text-align: center;
+    color: var(--sidebar-text);
     cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    user-select: none;
 }
-.sidebar-theme-select:hover {
-    background: rgba(255, 255, 255, 0.06); /* literal: sidebar chrome hover */
+.theme-pref label:hover {
+    background: rgba(255, 255, 255, 0.06); /* literal: sidebar dark chrome */
+}
+.theme-pref input[type="radio"]:checked + label {
+    background: rgba(255, 255, 255, 0.14); /* literal: sidebar dark chrome */
+    color: var(--white);
+}
+.theme-pref input[type="radio"]:focus-visible + label {
+    outline: 2px solid var(--primary-interactive);
+    outline-offset: -2px;
 }
 #sidebar-org:empty { display: none; }
 .sidebar-version {
@@ -479,14 +496,14 @@ body {
 .resource-row.created .status-indicator  { background: var(--mt-green-50); color: var(--mt-green-700); border-color: var(--green-100); }
 .resource-row.error .status-indicator    { background: var(--mt-red-50); color: var(--red-500); border-color: var(--red-100); }
 .resource-row.waiting .status-indicator  { background: var(--yellow-50); color: var(--status-waiting); border-color: var(--field-warning-border); }
-.resource-row.staged .status-indicator   { background: var(--gray-50); color: var(--gray-600); border-color: var(--gray-100); }
+.resource-row.staged .status-indicator   { background: var(--background-light); color: var(--text-muted); border-color: var(--gray-100); }
 .resource-row.creating .status-indicator { background: var(--mt-green-50); color: var(--mt-green-700); border-color: var(--green-100); }
-.resource-row.pending .status-indicator  { background: var(--gray-50); color: var(--gray-600); border-color: var(--gray-100); }
+.resource-row.pending .status-indicator  { background: var(--background-light); color: var(--text-muted); border-color: var(--gray-100); }
 .cleanup-row.deleted .status-indicator   { background: var(--mt-green-50); color: var(--mt-green-700); border-color: var(--green-100); }
 .cleanup-row.removed .status-indicator   { background: var(--mt-green-50); color: var(--mt-green-700); border-color: var(--green-100); }
 .cleanup-row.archived .status-indicator  { background: var(--purple-50); color: var(--purple-700); border-color: var(--purple-100); }
 .cleanup-row.failed .status-indicator    { background: var(--mt-red-50); color: var(--red-500); border-color: var(--red-100); }
-.cleanup-row.skipped .status-indicator   { background: var(--gray-50); color: var(--gray-600); border-color: var(--gray-100); }
+.cleanup-row.skipped .status-indicator   { background: var(--background-light); color: var(--text-muted); border-color: var(--gray-100); }
 .ref-name { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; font-size: 0.825rem; }
 .resource-display-name {
     font-size: 0.84rem;
@@ -886,11 +903,11 @@ a.doc-link:hover .sandbox-badge {
 .tunnel-label {
     font-size: 13px;
     font-weight: 500;
-    color: var(--gray-700);
+    color: var(--text-default);
 }
 .tunnel-hint {
     font-size: 11px;
-    color: var(--gray-500);
+    color: var(--text-muted);
 }
 .tunnel-hint a {
     color: var(--blue-500);
@@ -909,7 +926,7 @@ a.doc-link:hover .sandbox-badge {
 }
 .tunnel-url-box,
 .tunnel-register-box {
-    background: var(--gray-50);
+    background: var(--background-light);
     border: 1px solid var(--alpha-black-50);
     border-radius: var(--radius);
     padding: 12px 16px;
@@ -919,7 +936,7 @@ a.doc-link:hover .sandbox-badge {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--gray-500);
+    color: var(--text-muted);
     margin-bottom: 6px;
 }
 .tunnel-url-display {
@@ -931,7 +948,7 @@ a.doc-link:hover .sandbox-badge {
 .tunnel-url-display code {
     font-size: 13px;
     padding: 4px 8px;
-    background: var(--white);
+    background: var(--background-default);
     border: 1px solid var(--alpha-black-100);
     border-radius: 4px;
     word-break: break-all;
@@ -968,12 +985,12 @@ a.doc-link:hover .sandbox-badge {
 .tunnel-ngrok-health-banner .tunnel-ngrok-health-title {
     font-weight: 600;
     margin-bottom: 6px;
-    color: var(--gray-900);
+    color: var(--text-default);
 }
 .tunnel-ngrok-health-banner .tunnel-ngrok-health-body {
     font-size: 13px;
     line-height: 1.45;
-    color: var(--gray-700);
+    color: var(--text-default);
     margin-bottom: 10px;
 }
 .tunnel-ngrok-health-actions {
@@ -996,7 +1013,7 @@ a.doc-link:hover .sandbox-badge {
 }
 .tunnel-ngrok-session-table th {
     font-weight: 600;
-    color: var(--gray-600);
+    color: var(--text-muted);
 }
 .tunnel-ngrok-api-err {
     margin: 8px 0 0;
@@ -1011,7 +1028,7 @@ a.doc-link:hover .sandbox-badge {
 .tunnel-instructions summary {
     font-size: 13px;
     font-weight: 500;
-    color: var(--gray-600);
+    color: var(--text-muted);
     cursor: pointer;
 }
 .tunnel-steps {
@@ -1019,7 +1036,7 @@ a.doc-link:hover .sandbox-badge {
     padding-left: 20px;
     font-size: 13px;
     line-height: 1.7;
-    color: var(--gray-600);
+    color: var(--text-muted);
 }
 .tunnel-steps a {
     color: var(--blue-500);
@@ -1047,7 +1064,7 @@ details.tunnel-setup-details > summary {
     align-items: flex-start;
     gap: 12px;
     padding: 14px 16px;
-    background: var(--gray-50);
+    background: var(--background-light);
     border-bottom: 1px solid var(--alpha-black-50);
 }
 details.tunnel-setup-details:not([open]) > summary {
@@ -1060,7 +1077,7 @@ details.tunnel-setup-details > summary::-webkit-details-marker {
     flex-shrink: 0;
     width: 1rem;
     text-align: center;
-    color: var(--gray-500);
+    color: var(--text-muted);
     font-size: 0.75rem;
     line-height: 1.5;
     transition: transform 0.15s;
@@ -1079,11 +1096,11 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 .tunnel-summary-title {
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--gray-800);
+    color: var(--text-default);
 }
 .tunnel-summary-line {
     font-size: 0.75rem;
-    color: var(--gray-500);
+    color: var(--text-muted);
 }
 .tunnel-summary-url {
     display: none;
@@ -1091,10 +1108,10 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
     font-size: 11px;
     word-break: break-all;
     padding: 4px 8px;
-    background: var(--white);
+    background: var(--background-default);
     border: 1px solid var(--alpha-black-100);
     border-radius: 4px;
-    color: var(--gray-700);
+    color: var(--text-default);
 }
 @media (min-width: 640px) {
     .tunnel-summary-url {
@@ -1119,21 +1136,21 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 .tunnel-org-health--ok {
     background: color-mix(in srgb, var(--status-created) 10%, transparent);
     border-color: color-mix(in srgb, var(--status-created) 35%, var(--border));
-    color: var(--gray-800);
+    color: var(--text-default);
 }
 .tunnel-org-health--warn {
     background: color-mix(in srgb, var(--status-warning) 12%, transparent);
     border-color: color-mix(in srgb, var(--status-warning) 40%, var(--border));
-    color: var(--gray-800);
+    color: var(--text-default);
 }
 .tunnel-org-health--muted {
     background: var(--surface-muted);
-    color: var(--gray-600);
+    color: var(--text-muted);
 }
 .tunnel-org-health--err {
     background: color-mix(in srgb, var(--status-critical) 10%, transparent);
     border-color: color-mix(in srgb, var(--status-critical) 30%, var(--border));
-    color: var(--gray-900);
+    color: var(--text-default);
 }
 .tunnel-org-health--in-panel {
     margin-top: 0;

@@ -12,18 +12,18 @@
     Legacy .index-table classes still used in the codebase alongside the newer
     .ui-table-* classes. Included here for completeness.
 
-  MT Design Tokens (from Tailwind config):
-    --color-alpha-black-50:  rgba(0, 0, 0, 0.04)
-    --color-alpha-black-100: rgba(0, 0, 0, 0.09)
-    --color-background-default: #FFFFFF
-    --color-background-light: #FAFAFA   (gray-25)
-    --color-gray-25:  #FAFAFA
-    --color-gray-50:  #F1F0EC
-    --color-gray-100: #DEDDD7
-    --color-gray-500: #807E72
-    --color-gray-600: #6B695D
-    --color-gray-800: #303030
-    --color-blue-500: #386FB1
+  MT Design Tokens (see tokens.css):
+    --color-alpha-black-50
+    --color-alpha-black-100
+    --color-background-default
+    --color-background-light   (gray-25)
+    --color-gray-25
+    --color-gray-50
+    --color-gray-100
+    --color-gray-500
+    --color-gray-600
+    --color-gray-800
+    --color-blue-500
 */
 
 /* ===== TableContainer — table.css line 6-7 ===== */
@@ -36,7 +36,7 @@
   width: 100%;
   justify-content: flex-start;
   border: 1px solid var(--alpha-black-100); /* border-alpha-black-100 */
-  background-color: var(--white);
+  background-color: var(--background-default);
   border-radius: 0.5rem; /* rounded-lg */
 }
 
@@ -85,7 +85,7 @@
   font-size: 0.75rem; /* text-xs = 12px */
   line-height: 1rem;
   border-bottom: 1px solid var(--alpha-black-100);
-  background-color: var(--white); /* bg-background-default */
+  background-color: var(--background-default); /* bg-background-default */
 }
 
 .ui-table-row:last-child {
@@ -185,7 +185,7 @@
 }
 
 .index-table-sort-btn:hover {
-  color: var(--gray-800); /* text-gray-800 */
+  color: var(--text-default); /* text-gray-800 */
 }
 
 /* Sort icon — IndexTable.tsx sortIconName line 758-776 */
@@ -210,7 +210,7 @@
   flex-direction: column;
   border: 1px solid var(--alpha-black-100);
   border-radius: 0.5rem;
-  background-color: var(--white);
+  background-color: var(--background-default);
   overflow: hidden;
 }
 
@@ -245,7 +245,7 @@
   font-size: 0.75rem;
   line-height: 1rem;
   border-bottom: 1px solid var(--alpha-black-100);
-  background-color: var(--white);
+  background-color: var(--background-default);
   cursor: pointer;
   transition: background-color 0.1s ease;
 }
@@ -276,7 +276,7 @@
 
 .mt-row-primary {
   font-weight: 500;
-  color: var(--gray-800);
+  color: var(--text-default);
 }
 
 .mt-row-link {

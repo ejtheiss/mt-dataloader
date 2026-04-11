@@ -18,13 +18,13 @@
     Footer wrapper (line 718):
       div.h-fit.rounded-b-lg.border.border-t-0.border-alpha-black-100.bg-white.p-s
 
-  MT Design Tokens:
+  MT Design Tokens (see tokens.css):
     --spacing-s: 0.75rem (12px)     (p-s in footer wrapper)
-    --color-alpha-black-100: rgba(0, 0, 0, 0.09)
-    --color-gray-600: #6B695D
-    --color-gray-700: #504E43
-    --color-gray-800: #303030
-    --color-blue-500: #386FB1
+    --color-alpha-black-100
+    --color-gray-600
+    --color-gray-700
+    --color-gray-800
+    --color-blue-500
 */
 
 /* ===== Pagination Footer Wrapper — EntityTableView.tsx line 718 ===== */
@@ -41,7 +41,7 @@
   border-bottom-right-radius: 0.5rem;
   border: 1px solid var(--alpha-black-100); /* border-alpha-black-100 */
   border-top: 0; /* border-t-0 */
-  background-color: var(--white);
+  background-color: var(--background-default);
   padding: 0.75rem; /* p-s = 12px */
 }
 
@@ -77,7 +77,7 @@
 }
 
 .pagination-size-select:hover {
-  color: var(--gray-800); /* text-gray-800 */
+  color: var(--text-default); /* text-gray-800 */
 }
 
 /* ===== Nav Controls — PaginationRow.tsx line 93 ===== */
@@ -112,7 +112,7 @@
 
 .pagination-btn:hover:not([disabled]) {
   background-color: var(--background-light); /* bg-gray-50 */
-  color: var(--gray-800); /* text-gray-800 */
+  color: var(--text-default); /* text-gray-800 */
 }
 
 .pagination-btn[disabled] {

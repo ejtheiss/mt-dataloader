@@ -4,6 +4,7 @@
  * Storage key: "dl_theme" in localStorage (values: "light" | "dark" | "system")
  * DOM contract: html[data-theme="light"|"dark"], html.style.colorScheme
  * Event: "dataloader-theme-changed" on document (detail: { preference, effective })
+ * Control: <fieldset class="theme-pref"> with radio inputs name="dl_theme_pref"
  *
  * The inline boot in <head> handles first-paint to avoid FOUC.
  * This module adds the interactive API, system-preference listener, and event bus.
@@ -14,6 +15,7 @@
 
   var STORAGE_KEY = "dl_theme";
   var EVENT_NAME = "dataloader-theme-changed";
+  var RADIO_NAME = "dl_theme_pref";
   var _systemQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
   function _resolve(pref) {
@@ -27,6 +29,11 @@
     document.documentElement.dataset.theme = effective;
     document.documentElement.style.colorScheme = effective;
     return effective;
+  }
+
+  function _syncRadios(pref) {
+    var radios = document.querySelectorAll('input[name="' + RADIO_NAME + '"]');
+    radios.forEach(function (r) { r.checked = (r.value === pref); });
   }
 
   function _onSystemChange() {
@@ -47,9 +54,7 @@
     document.dispatchEvent(new CustomEvent(EVENT_NAME, {
       detail: { preference: preference, effective: effective }
     }));
-
-    var select = document.getElementById("theme-select");
-    if (select && select.value !== preference) select.value = preference;
+    _syncRadios(preference);
   };
 
   window.getDataloaderTheme = function () {
@@ -62,11 +67,13 @@
   _systemQuery.addEventListener("change", _onSystemChange);
 
   document.addEventListener("DOMContentLoaded", function () {
-    var select = document.getElementById("theme-select");
-    if (!select) return;
-    select.value = localStorage.getItem(STORAGE_KEY) || "system";
-    select.addEventListener("change", function () {
-      window.applyDataloaderTheme(this.value);
+    var pref = localStorage.getItem(STORAGE_KEY) || "system";
+    _syncRadios(pref);
+
+    document.addEventListener("change", function (e) {
+      if (e.target.name === RADIO_NAME) {
+        window.applyDataloaderTheme(e.target.value);
+      }
     });
   });
 })();
