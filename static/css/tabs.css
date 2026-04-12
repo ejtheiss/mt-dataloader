@@ -117,8 +117,14 @@
   line-height: 1.25rem;
 }
 
-.mt-tab__btn:focus {
-  outline: none; /* hideFocusOutline */
+/* WCAG 2.4.7 — keyboard focus visible (Plan 10d); pointer focus stays unringed */
+.mt-tab__btn:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--mt-blue-500));
+  outline-offset: 2px;
+}
+
+.mt-tab__btn:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* Disabled tabs — Tabs.tsx disabled prop (line 168) */
