@@ -1394,6 +1394,60 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
    Fund Flows — adapted from funds_flow_ui_design.md
    ================================================================ */
 
+/* --- Plan 10b: header / JSON editor / scenario builder (semantic tokens) --- */
+.flows-header-action-arrow {
+    margin-left: var(--spacing-xs);
+}
+.flows-json-monaco.monaco-container {
+    /* TODO: no layout token for 480px editor height — see 10b */
+    height: 480px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.accordion-body .actor-field-row {
+    flex-wrap: wrap;
+}
+.accordion-body .actor-field-row .actor-customer-name {
+    flex: 1 1 120px;
+    min-width: 120px;
+}
+.accordion-body .actor-field-row .actor-config-gear {
+    margin-left: auto;
+}
+.scenario-og-meta {
+    color: var(--text-muted);
+    font-size: var(--mt-text-xs);
+}
+.field-row .edge-case-count-input {
+    margin-left: auto;
+}
+.timing-date-input.timing-date-input--hidden {
+    display: none !important;
+}
+.form-row.scenario-variance-global-row {
+    margin-top: var(--spacing-s);
+    /* TODO: no spacing token for 12px gap — see 10b */
+    gap: 12px;
+}
+.form-row.scenario-staging-rule-row {
+    gap: var(--spacing-s);
+    align-items: flex-end;
+}
+.form-row.scenario-staging-rule-row .scenario-staging-count-group {
+    flex: 0 0 80px;
+}
+.form-row.scenario-staging-rule-row .scenario-staging-select-group {
+    flex: 1 1 0;
+    min-width: 0;
+}
+.scenario-staging-add-btn {
+    margin-top: calc(var(--spacing-xs) + var(--spacing-xxs));
+}
+.scenario-staging-hint {
+    display: block;
+    margin-top: var(--spacing-xxs);
+}
 
 /* --- Fund Flow Detail View --- */
 .breadcrumb-link:hover { text-decoration: underline; }
@@ -1401,14 +1455,15 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 
 .flow-toolbar {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: var(--spacing-m);
 }
 
 .flow-columns {
     display: flex;
     overflow-x: auto;
+    /* TODO: no spacing token for 12px gap — see 10b */
     gap: 12px;
-    padding-bottom: 8px;
+    padding-bottom: var(--spacing-s);
 }
 
 .flow-col {
@@ -1670,10 +1725,14 @@ html[data-theme="dark"] .toast-container img[src$=".svg"] {
 [data-variance-mode="locked"] .amount-display { font-style: italic; }
 
 .variance-custom-inputs {
-    display: none; gap: 4px; align-items: center;
+    display: none;
+    gap: var(--spacing-xs);
+    align-items: center;
 }
 .variance-custom-inputs input {
-    width: 56px; padding: 2px 4px; font-size: 0.75rem;
+    width: 3.75rem;
+    padding: var(--spacing-xxs) var(--spacing-xs);
+    font-size: var(--mt-text-xs);
     border: 1px solid var(--border); border-radius: var(--radius);
     background: var(--bg); text-align: center; font-family: ui-monospace, monospace;
 }
@@ -1945,7 +2004,7 @@ html[data-theme="dark"] .toast-container img[src$=".svg"] {
     min-height: 200px;
 }
 .monaco-container .monaco-editor {
-    border-radius: 6px;
+    border-radius: var(--radius-md);
 }
 
 .staging-rule .btn-sm {
