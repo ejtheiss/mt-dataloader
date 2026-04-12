@@ -1,0 +1,89 @@
+/* Plan 10e — Fund Flows config drawer interior (bands) */
+
+.flow-metadata-readonly {
+  margin-top: var(--spacing-m);
+}
+
+.flow-config-drawer {
+  max-width: 100%;
+}
+
+.flow-config-drawer__page-title {
+  font-size: var(--mt-text-lg);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.flow-config-drawer__lede {
+  margin: 0 0 var(--spacing-m);
+}
+
+.flow-config-band {
+  border-top: 1px solid var(--border-default);
+  padding-top: var(--spacing-m);
+  margin-top: var(--spacing-m);
+}
+
+.flow-config-band:first-of-type {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.flow-config-band__title {
+  font-size: var(--mt-text-base);
+  font-weight: 600;
+  margin: 0 0 var(--spacing-s);
+}
+
+.flow-config-dl {
+  margin: var(--spacing-s) 0 0;
+  display: grid;
+  gap: var(--spacing-xs);
+}
+
+.flow-config-dl > div {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: var(--spacing-s);
+  align-items: baseline;
+}
+
+.flow-config-dl dt {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--mt-text-xs);
+}
+
+.flow-config-dl dd {
+  margin: 0;
+}
+
+.flow-config-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--mt-text-sm);
+}
+
+.flow-config-table th,
+.flow-config-table td {
+  text-align: left;
+  padding: var(--spacing-xs) var(--spacing-s);
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.flow-config-list {
+  margin: var(--spacing-xs) 0 var(--spacing-m);
+  padding-left: var(--spacing-m);
+}
+
+.flow-config-metadata-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--background-default);
+  padding-top: var(--spacing-s);
+  margin-top: var(--spacing-m);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--spacing-s);
+}

@@ -44,176 +44,22 @@
 </div>
 {% endif %}
 
-<details class="metadata-panel">
-    <summary>Trace Metadata
-        <span class="info-icon" tabindex="0" role="img" aria-label="How trace metadata works"
-              title="Flow-level trace: the template at trace_metadata[trace_key] (plus any extra trace_metadata keys) is merged onto every step. Keys under each step are step-only and must not duplicate flow keys (duplicates use the flow value). Expand a step and use + Add Key for step-only tags."
-              onclick="event.stopPropagation();">&#9432;</span>
-    </summary>
-    <div class="metadata-panel-body">
-        <div class="metadata-row">
-            <label class="metadata-label">trace_key</label>
-            <input type="text" class="metadata-input" id="meta-trace-key" value="{{ metadata_key }}">
-        </div>
-        <div class="metadata-row">
-            <label class="metadata-label">Primary template (trace_metadata[trace_key])</label>
-            <input type="text" class="metadata-input metadata-tpl-input" id="meta-primary-trace-tpl" value="{{ primary_trace_template }}">
-        </div>
-
-        <div class="metadata-kv-section">
-            <label class="metadata-label">trace_metadata (additional keys)</label>
-            <div id="meta-trace-entries">
-                {% for k, v in trace_metadata_extra.items() %}
-                <div class="metadata-kv-row">
-                    <input type="text" class="metadata-kv-key" value="{{ k }}" placeholder="key">
-                    <input type="text" class="metadata-kv-val{% if '{' in v and '}' in v %} metadata-tpl-input{% endif %}" value="{{ v }}" placeholder="value">
-                    <button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>
-                </div>
-                {% endfor %}
-            </div>
-            <button type="button" class="btn btn-sm btn-outline" onclick="addTraceEntry()">+ Add Entry</button>
-        </div>
-
-        {% if per_step_metadata %}
-        <div class="metadata-steps-section">
-            <label class="metadata-label">Per-Step Metadata</label>
-            {% for sm in per_step_metadata %}
-            {# Open when empty so "+ Add Key" is visible; keep closed when keys exist (summary shows count). #}
-            <details class="metadata-step-detail"{% if not sm.metadata %} open{% endif %}>
-                <summary>
-                    <code>{{ sm.step_id }}</code>
-                    <span class="ledgerable-pill ledgerable-{{ sm.resource_type }}">{{ sm.resource_type }}</span>
-                    <span class="metadata-count">{{ sm.metadata|length }} key{{ 's' if sm.metadata|length != 1 }}</span>
-                </summary>
-                <div class="metadata-step-entries" data-step-id="{{ sm.step_id }}">
-                    {% for k, v in sm.metadata.items() %}
-                    <div class="metadata-kv-row">
-                        <input type="text" class="metadata-kv-key" value="{{ k }}" placeholder="key">
-                        <input type="text" class="metadata-kv-val{% if '{' in v and '}' in v %} metadata-tpl-input{% endif %}" value="{{ v }}" placeholder="value">
-                        <button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>
-                    </div>
-                    {% endfor %}
-                    <button type="button" class="btn btn-sm btn-outline" onclick="addStepMetaEntry(this)">+ Add Key</button>
-                </div>
-            </details>
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        <details class="metadata-var-hint">
-            <summary>Available variables</summary>
-            <div class="metadata-var-list">
-                <code>{instance}</code> — instance number (e.g. 0042)<br>
-                <code>{ref}</code> — flow ref (e.g. marketplace__0042)<br>
-                <code>{business_name}</code> — seeded company name<br>
-                <code>{first_name}</code> — seeded first name<br>
-                <code>{last_name}</code> — seeded last name<br>
-                <code>{industry}</code> — seeded industry<br>
-                <code>{country}</code> — seeded country<br>
-                {% for alias in actor_aliases %}
-                <code>{{ '{' }}{{ alias }}_name{{ '}' }}</code> — {{ alias }} display name<br>
-                {% endfor %}
-            </div>
-        </details>
-
-        <div class="metadata-actions">
-            <button type="button" class="btn btn-primary btn-sm" onclick="saveMetadata()">Save Metadata</button>
-            <span id="meta-save-status" class="metadata-save-status"></span>
-        </div>
-    </div>
-</details>
+<div class="flow-metadata-readonly card">
+  <div class="card-header">
+    <span class="card-title">Trace metadata</span>
+  </div>
+  <div class="card-content">
+    <p class="text-muted small" style="margin-top: 0;">Editing moved to the <strong>Flow config</strong> drawer on the Fund Flows list (Plan 10e).</p>
+    <dl class="flow-config-dl">
+      <div><dt>Trace key</dt><dd><code>{{ metadata_key }}</code></dd></div>
+      <div><dt>Resolved value</dt><dd><code>{{ metadata_value }}</code></dd></div>
+    </dl>
+    <p style="margin-bottom: 0;">
+      <a class="btn btn-sm btn-primary"
+         href="/flows?session_token={{ session_token }}&flow={{ flow_idx }}&panel=config">Edit in Flow config</a>
+    </p>
+  </div>
+</div>
 
 {% include "partials/mermaid_scripts.html" %}
-
-<script>
-function addTraceEntry() {
-    var container = document.getElementById('meta-trace-entries');
-    var row = document.createElement('div');
-    row.className = 'metadata-kv-row';
-    row.innerHTML = '<input type="text" class="metadata-kv-key" placeholder="key">' +
-                    '<input type="text" class="metadata-kv-val" placeholder="value or {variable}">' +
-                    '<button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>';
-    container.appendChild(row);
-    row.querySelector('.metadata-kv-key').focus();
-}
-
-function addStepMetaEntry(btn) {
-    var container = btn.closest('.metadata-step-entries');
-    var row = document.createElement('div');
-    row.className = 'metadata-kv-row';
-    row.innerHTML = '<input type="text" class="metadata-kv-key" placeholder="key">' +
-                    '<input type="text" class="metadata-kv-val" placeholder="value or {variable}">' +
-                    '<button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>';
-    container.insertBefore(row, btn);
-    row.querySelector('.metadata-kv-key').focus();
-}
-
-function collectKV(container) {
-    var result = {};
-    container.querySelectorAll('.metadata-kv-row').forEach(function(row) {
-        var k = row.querySelector('.metadata-kv-key').value.trim();
-        var v = row.querySelector('.metadata-kv-val').value.trim();
-        if (k) result[k] = v;
-    });
-    return result;
-}
-
-function buildTraceMetadataPayload() {
-    var tk = document.getElementById('meta-trace-key').value.trim();
-    var primary = document.getElementById('meta-primary-trace-tpl').value.trim();
-    var rest = collectKV(document.getElementById('meta-trace-entries'));
-    var out = {};
-    Object.keys(rest).forEach(function(k) {
-        if (k !== tk) out[k] = rest[k];
-    });
-    if (tk) out[tk] = primary;
-    return out;
-}
-
-async function saveMetadata() {
-    var body = {
-        trace_key: document.getElementById('meta-trace-key').value.trim(),
-        trace_metadata: buildTraceMetadataPayload(),
-    };
-
-    var stepMeta = {};
-    document.querySelectorAll('.metadata-step-entries').forEach(function(el) {
-        var stepId = el.getAttribute('data-step-id');
-        stepMeta[stepId] = collectKV(el);
-    });
-    if (Object.keys(stepMeta).length > 0) {
-        body.step_metadata = stepMeta;
-    }
-
-    var status = document.getElementById('meta-save-status');
-    status.textContent = 'Saving…';
-    status.className = 'metadata-save-status';
-    try {
-        var resp = await fetch('/api/flows/{{ flow_idx }}/metadata', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Session-Token': '{{ session_token }}' },
-            body: JSON.stringify(body),
-        });
-        var data = await resp.json();
-        if (data.status === 'ok') {
-            status.textContent = 'Saved';
-            status.className = 'metadata-save-status saved';
-            setTimeout(function() { status.textContent = ''; }, 2000);
-        } else {
-            status.textContent = data.error || 'Error';
-            status.className = 'metadata-save-status error';
-        }
-    } catch(e) {
-        status.textContent = 'Network error';
-        status.className = 'metadata-save-status error';
-    }
-}
-
-document.querySelector('.metadata-panel-body').addEventListener('input', function(e) {
-    if (e.target.classList.contains('metadata-kv-val') || e.target.id === 'meta-trace-value-tpl') {
-        var hasBraces = e.target.value.includes('{') && e.target.value.includes('}');
-        e.target.classList.toggle('metadata-tpl-input', hasBraces);
-    }
-});
-</script>
 {% endblock %}

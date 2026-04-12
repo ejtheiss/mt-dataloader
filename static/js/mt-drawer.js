@@ -63,6 +63,15 @@
   /**
    * Copy first heading text from swapped fragment into shell #drawer-title (Plan 10d Preflight §2).
    */
+  function syncDrawerWideFromSwap(contentEl, triggerEl) {
+    var p = panel();
+    if (!p) return;
+    var wide =
+      (triggerEl && triggerEl.getAttribute('data-drawer-wide') === 'true') ||
+      !!(contentEl && contentEl.querySelector('[data-flow-config-drawer="1"]'));
+    p.classList.toggle('drawer-panel--wide', wide);
+  }
+
   function syncDrawerTitleFromContent(contentEl) {
     var title = drawerTitleEl();
     if (!title || !contentEl) return;
@@ -149,6 +158,10 @@
 
     document.body.style.overflow = 'hidden';
 
+    if (row && row.getAttribute('data-drawer-wide') === 'true') {
+      p.classList.add('drawer-panel--wide');
+    }
+
     if (!wasOpen) {
       focusPanelAfterOpen(p);
     }
@@ -166,10 +179,13 @@
     if (!o || !p) return;
 
     if (!_isOpen) {
+      p.classList.remove('drawer-panel--wide');
       document.body.style.overflow = '';
       _drawerUrl = null;
       return;
     }
+
+    p.classList.remove('drawer-panel--wide');
 
     o.classList.remove('drawer-open');
     o.classList.add('drawer-closing');
@@ -287,6 +303,7 @@
     var content = event.detail.target;
     syncDrawerTitleFromContent(content);
     var triggerEl = event.detail.elt;
+    syncDrawerWideFromSwap(content, triggerEl);
     if (!_isOpen) {
       openDrawer(null, triggerEl);
     }

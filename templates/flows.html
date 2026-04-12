@@ -13,6 +13,8 @@
 
 {% block content %}
 
+<button type="button" id="flow-config-deep-link-mount" class="sr-only" tabindex="-1" aria-hidden="true" data-drawer-wide="true" data-url=""></button>
+
 {% if flow_summaries %}
 {% for fs in flow_summaries %}
 <div class="flow-section">
@@ -146,9 +148,14 @@
         return;
     }
 
-    // Plan 05 canonical: ?flow=&panel=config — open scenario builder (replaces open_scale)
+    // Plan 10e: ?flow=&panel=config — open wide config drawer (HTMX + drawer chrome)
     if (flowIdx !== null && panel === 'config') {
-        openScenarioPanel(flowIdx);
+        var token = params.get('session_token') || '';
+        var url = '/api/flows/' + encodeURIComponent(flowIdx) + '/config-drawer?session_token=' + encodeURIComponent(token);
+        var mount = document.getElementById('flow-config-deep-link-mount');
+        if (window.htmx && mount) {
+            htmx.ajax('GET', url, { target: '#drawer-content', swap: 'innerHTML', source: mount });
+        }
         stripParams(['flow', 'panel']);
         return;
     }

@@ -19,7 +19,7 @@ from dataloader.flows_mutation import (
     recompose_and_persist_session,
 )
 from dataloader.helpers import format_validation_errors
-from dataloader.routers.deps import SessionHeaderDep
+from dataloader.routers.deps import OptionalSessionQueryDep, SessionHeaderDep
 from dataloader.routers.flows.helpers import (
     _count_resources,
     _parse_and_compile_recipe,
@@ -29,10 +29,28 @@ from dataloader.routers.flows.helpers import (
 from dataloader.routers.flows.schemas import RecipePatchBody, ScenarioSnapshotRequest
 from dataloader.session import sessions
 from dataloader.session.draft_persist import persist_loader_draft
+from dataloader.view_models.flows_config_drawer import (
+    FlowConfigDrawerContext,
+    build_flow_config_drawer_context,
+)
 from jsonutil import dumps_pretty, loads_str
 from models import GenerationRecipeV1
 
 router = APIRouter()
+
+
+@router.get("/api/flows/{flow_idx}/config", tags=["agent"])
+async def flow_config_drawer_json(flow_idx: int, sess: OptionalSessionQueryDep):
+    """JSON twin of ``GET …/config-drawer`` (Plan 10e — machine clients)."""
+    if not sess:
+        return JSONResponse(content={"error": "Session not found"}, status_code=401)
+    ctx = build_flow_config_drawer_context(sess, flow_idx, sess.session_token)
+    if ctx is None:
+        return JSONResponse(content={"error": "Flow not found"}, status_code=404)
+    keys = set(FlowConfigDrawerContext.model_fields.keys())
+    payload = {k: ctx[k] for k in keys if k in ctx}
+    model = FlowConfigDrawerContext.model_validate(payload)
+    return JSONResponse(content=model.model_dump(mode="json"))
 
 
 @router.post("/api/flows/{flow_idx}/metadata", tags=["agent"])

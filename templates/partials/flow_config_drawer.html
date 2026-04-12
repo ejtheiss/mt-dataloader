@@ -1,0 +1,75 @@
+{# Plan 10e — wide config drawer: Bands 1–5 scaffold. HTMX target: #drawer-content #}
+<div class="flow-config-drawer" data-flow-config-drawer="1">
+  <h1 class="flow-config-drawer__page-title">Flow configuration</h1>
+  <p class="text-muted flow-config-drawer__lede">
+    <code>{{ flow_summary.flow_ref }}</code>
+    {% if flow_summary.pattern_type %}<span aria-hidden="true"> · </span>{{ flow_summary.pattern_type }}{% endif %}
+  </p>
+
+  <section class="flow-config-band" aria-labelledby="flow-cfg-band1-h">
+    <h2 id="flow-cfg-band1-h" class="flow-config-band__title">Band 1 — Identity</h2>
+    <div class="field-row">
+      <div class="form-group">
+        <label for="flow-cfg-display-title">Display title</label>
+        <input id="flow-cfg-display-title" type="text" class="input input-border" maxlength="120"
+               value="{{ display_title or '' }}" placeholder="Short label for cards and nav">
+      </div>
+      <div class="form-group">
+        <label for="flow-cfg-display-summary">Display summary</label>
+        <textarea id="flow-cfg-display-summary" class="input input-border" rows="2" maxlength="500"
+                  placeholder="Optional subtitle (plain text)">{{ display_summary or '' }}</textarea>
+      </div>
+    </div>
+    <dl class="flow-config-dl">
+      <div><dt>Trace value (resolved)</dt><dd><code>{{ metadata_value }}</code></dd></div>
+      <div><dt>Steps</dt><dd>{{ flow_summary.step_count }}</dd></div>
+      <div><dt>Instances (recipe)</dt><dd>{{ instance_count }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="flow-config-band" aria-labelledby="flow-cfg-band2-h">
+    <h2 id="flow-cfg-band2-h" class="flow-config-band__title">Band 2 — Generation &amp; bindings</h2>
+    <p class="text-muted">Actor library bindings (Plan 11a) ship in a follow-up. Per-frame overrides stay in the scenario builder accordion on the list page.</p>
+    {% if actor_frames %}
+    <table class="flow-config-table">
+      <thead><tr><th>Frame</th><th>Type</th><th>Binding</th></tr></thead>
+      <tbody>
+        {% for af in actor_frames %}
+        <tr>
+          <td><code>{{ af.alias }}</code></td>
+          <td>{{ af.frame_type | replace('_', ' ') | title }}</td>
+          <td><span class="text-muted">—</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </section>
+
+  <section class="flow-config-band" aria-labelledby="flow-cfg-band3-h">
+    <h2 id="flow-cfg-band3-h" class="flow-config-band__title">Band 3 — Money movement</h2>
+    <p class="text-muted">On hold (Plan 10e). Per-step variance and timing stay in the scenario builder on the Fund Flows list.</p>
+  </section>
+
+  <section class="flow-config-band" aria-labelledby="flow-cfg-band4-h">
+    <h2 id="flow-cfg-band4-h" class="flow-config-band__title">Band 4 — Staging &amp; timing</h2>
+    {% if staging_rules %}
+    <p><strong>Staging rules</strong> ({{ staging_rules|length }}):</p>
+    <ul class="flow-config-list">
+      {% for r in staging_rules %}
+      <li>{{ r.get('count', 0) }} × {{ r.get('selection', '') }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted">No staging rules in stored recipe.</p>
+    {% endif %}
+    {% if timing %}
+    <dl class="flow-config-dl">
+      {% if timing.instance_spread_days %}<div><dt>Instance spread (days)</dt><dd>{{ timing.instance_spread_days }}</dd></div>{% endif %}
+      {% if timing.start_date %}<div><dt>Anchor date</dt><dd>{{ timing.start_date }}</dd></div>{% endif %}
+    </dl>
+    {% endif %}
+  </section>
+
+  {% include "partials/flow_config_drawer_band5.html" %}
+</div>

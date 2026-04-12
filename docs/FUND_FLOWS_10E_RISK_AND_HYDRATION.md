@@ -76,18 +76,19 @@ This document **manages 10e risks** called out in `plan/.../10e_config_drawer_ba
 
 ---
 
-## Where to implement 10e (file map)
+## Where it landed (branch `feat/plan-10e-config-drawer`)
 
-| Deliverable | Primary files |
-|-------------|----------------|
-| `GET …/config-drawer` | `dataloader/routers/flows/partials.py` (or `api.py` if you prefer routing symmetry) |
-| Typed context | **New** `dataloader/view_models/flows_config_drawer.py` — `FlowConfigDrawerContext` + `build_flow_config_drawer_context` |
-| Template | **New** `templates/partials/flow_config_drawer.html` (+ optional `flow_config_band_*.html`) |
-| Wide drawer | `static/css/drawer.css` (`.drawer-panel--wide`), `static/js/mt-drawer.js` (`data-drawer-wide` on trigger) |
-| Deep link `?flow=&panel=config` | `templates/flows.html` + small JS block |
-| Case card “Flow config” | `templates/partials/case_card.html` + `flows.html` wiring |
-| Detail read-only strip | `templates/flows_view.html` + `page.py` context |
-| Band 1 titles | **Reuse** `get_funds_flow_display_fields_for_display_row` |
+| Deliverable | Files |
+|-------------|--------|
+| `GET /api/flows/{i}/config-drawer` | `dataloader/routers/flows/partials.py` → `partials/flow_config_drawer.html` |
+| `GET /api/flows/{i}/config` (JSON) | `dataloader/routers/flows/api.py` |
+| Typed context | `dataloader/view_models/flows_config_drawer.py` |
+| List row summary reuse | `dataloader/routers/flows/flow_list_row.py` + `page.py` |
+| Wide drawer | `static/css/drawer.css`, `static/js/mt-drawer.js`, `static/css/flow-config.css`, `base.html` |
+| Deep link `?flow=&panel=config` | `templates/flows.html` (opens drawer via HTMX) |
+| Case card “Flow config” | `templates/partials/case_card.html` |
+| Detail read-only strip | `templates/flows_view.html` |
+| Band 1 titles | `get_funds_flow_display_fields_for_display_row` via `flow_summary_dict_at_index` |
 
 ---
 

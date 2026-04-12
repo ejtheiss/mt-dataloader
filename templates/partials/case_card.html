@@ -57,7 +57,15 @@
     {% if card_url is defined and card_url %}
     <a class="case-card-nav-item" href="{{ card_url }}#diagram">Diagram</a>
     {% endif %}
-    <button type="button" class="case-card-nav-item case-card-nav-item--pending" disabled title="Planned: config drawer (Plan 10e)">Flow config</button>
+    <button type="button"
+            class="case-card-nav-item"
+            data-drawer-wide="true"
+            data-url="{{ card_url }}"
+            hx-get="/api/flows/{{ case.index }}/config-drawer?session_token={{ session_token }}"
+            hx-target="#drawer-content"
+            hx-swap="innerHTML"
+            hx-push-url="false"
+            onclick="handleRowClick(event, this)">Flow config</button>
   </nav>
 
   <div class="card-content case-card-content">

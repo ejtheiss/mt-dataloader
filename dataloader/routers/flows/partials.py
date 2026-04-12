@@ -14,10 +14,34 @@ from dataloader.loader_validation import try_parse_pydantic_obj
 from dataloader.routers.deps import OptionalSessionQueryDep, SessionHeaderDep, TemplatesDep
 from dataloader.routers.flows.helpers import _display_flow_session_sources, _recipe_flow_ref
 from dataloader.routers.flows.schemas import ActorConfigSaveBody
+from dataloader.view_models.flows_config_drawer import build_flow_config_drawer_context
 from flow_compiler import compute_flow_status, flow_account_deltas
 from models import SOURCE_BADGE, GenerationRecipeV1
 
 router = APIRouter()
+
+
+@router.get("/api/flows/{flow_idx}/config-drawer", include_in_schema=False)
+async def flow_config_drawer(
+    request: Request,
+    flow_idx: int,
+    templates: TemplatesDep,
+    sess: OptionalSessionQueryDep,
+):
+    """Plan 10e — wide HTMX partial for flow configuration (bands scaffold)."""
+    if not sess:
+        return HTMLResponse("<p>Session expired</p>", status_code=404)
+
+    session_token = sess.session_token
+    ctx = build_flow_config_drawer_context(sess, flow_idx, session_token)
+    if ctx is None:
+        return HTMLResponse("<p>Flow not found</p>", status_code=404)
+
+    return templates.TemplateResponse(
+        request,
+        "partials/flow_config_drawer.html",
+        ctx,
+    )
 
 
 @router.get("/api/flows/{flow_idx}/drawer", include_in_schema=False)

@@ -1,0 +1,188 @@
+  <section class="flow-config-band" aria-labelledby="flow-cfg-band5-h">
+    <h2 id="flow-cfg-band5-h" class="flow-config-band__title">Band 5 — Trace metadata</h2>
+    <p class="text-muted small">Saves to <code>POST /api/flows/{{ flow_idx }}/metadata</code> (same contract as the detail page editor).</p>
+
+    <div class="metadata-panel-body flow-config-metadata-body">
+        <div class="metadata-row">
+            <label class="metadata-label" for="flow-cfg-meta-trace-key">trace_key</label>
+            <input type="text" class="metadata-input" id="flow-cfg-meta-trace-key" value="{{ metadata_key }}">
+        </div>
+        <div class="metadata-row">
+            <label class="metadata-label" for="flow-cfg-meta-primary-trace-tpl">Primary template (trace_metadata[trace_key])</label>
+            <input type="text" class="metadata-input metadata-tpl-input" id="flow-cfg-meta-primary-trace-tpl" value="{{ primary_trace_template }}">
+        </div>
+
+        <div class="metadata-kv-section">
+            <label class="metadata-label">trace_metadata (additional keys)</label>
+            <div id="flow-cfg-meta-trace-entries">
+                {% for k, v in trace_metadata_extra.items() %}
+                <div class="metadata-kv-row">
+                    <input type="text" class="metadata-kv-key" value="{{ k }}" placeholder="key">
+                    <input type="text" class="metadata-kv-val{% if '{' in v and '}' in v %} metadata-tpl-input{% endif %}" value="{{ v }}" placeholder="value">
+                    <button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" onclick="flowCfgAddTraceEntry()">+ Add Entry</button>
+        </div>
+
+        {% if per_step_metadata %}
+        <div class="metadata-steps-section">
+            <label class="metadata-label">Per-Step Metadata</label>
+            {% for sm in per_step_metadata %}
+            <details class="metadata-step-detail"{% if not sm.metadata %} open{% endif %}>
+                <summary>
+                    <code>{{ sm.step_id }}</code>
+                    <span class="ledgerable-pill ledgerable-{{ sm.resource_type }}">{{ sm.resource_type }}</span>
+                    <span class="metadata-count">{{ sm.metadata|length }} key{{ 's' if sm.metadata|length != 1 }}</span>
+                </summary>
+                <div class="metadata-step-entries" data-step-id="{{ sm.step_id }}">
+                    {% for k, v in sm.metadata.items() %}
+                    <div class="metadata-kv-row">
+                        <input type="text" class="metadata-kv-key" value="{{ k }}" placeholder="key">
+                        <input type="text" class="metadata-kv-val{% if '{' in v and '}' in v %} metadata-tpl-input{% endif %}" value="{{ v }}" placeholder="value">
+                        <button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>
+                    </div>
+                    {% endfor %}
+                    <button type="button" class="btn btn-sm btn-outline" onclick="flowCfgAddStepMetaEntry(this)">+ Add Key</button>
+                </div>
+            </details>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <details class="metadata-var-hint">
+            <summary>Available variables</summary>
+            <div class="metadata-var-list">
+                <code>{instance}</code> — instance number<br>
+                <code>{ref}</code> — flow ref<br>
+                <code>{business_name}</code> — seeded company name<br>
+                {% for alias in actor_aliases %}
+                <code>{{ '{' }}{{ alias }}_name{{ '}' }}</code> — {{ alias }} display name<br>
+                {% endfor %}
+            </div>
+        </details>
+
+        <div class="metadata-actions flow-config-metadata-actions">
+            <button type="button" class="btn btn-primary btn-sm" onclick="flowCfgSaveMetadata({{ flow_idx }})">Save</button>
+            <span id="flow-cfg-meta-save-status" class="metadata-save-status"></span>
+        </div>
+    </div>
+  </section>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-flow-config-drawer="1"]');
+  if (!root) return;
+  var body = root.querySelector('.flow-config-metadata-body');
+  if (!body) return;
+  body.addEventListener('input', function(e) {
+    if (e.target.classList.contains('metadata-kv-val')) {
+      var hasBraces = e.target.value.includes('{') && e.target.value.includes('}');
+      e.target.classList.toggle('metadata-tpl-input', hasBraces);
+    }
+  });
+})();
+
+function flowCfgAddTraceEntry() {
+  var container = document.getElementById('flow-cfg-meta-trace-entries');
+  if (!container) return;
+  var row = document.createElement('div');
+  row.className = 'metadata-kv-row';
+  row.innerHTML = '<input type="text" class="metadata-kv-key" placeholder="key">' +
+                  '<input type="text" class="metadata-kv-val" placeholder="value or {variable}">' +
+                  '<button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>';
+  container.appendChild(row);
+  row.querySelector('.metadata-kv-key').focus();
+}
+
+function flowCfgAddStepMetaEntry(btn) {
+  var container = btn.closest('.metadata-step-entries');
+  if (!container) return;
+  var row = document.createElement('div');
+  row.className = 'metadata-kv-row';
+  row.innerHTML = '<input type="text" class="metadata-kv-key" placeholder="key">' +
+                  '<input type="text" class="metadata-kv-val" placeholder="value or {variable}">' +
+                  '<button type="button" class="btn-icon btn-icon-remove" onclick="this.parentElement.remove()" title="Remove">×</button>';
+  container.insertBefore(row, btn);
+  row.querySelector('.metadata-kv-key').focus();
+}
+
+function flowCfgCollectKV(container) {
+  var result = {};
+  container.querySelectorAll('.metadata-kv-row').forEach(function(row) {
+    var k = row.querySelector('.metadata-kv-key');
+    var v = row.querySelector('.metadata-kv-val');
+    if (!k || !v) return;
+    var ks = k.value.trim();
+    if (ks) result[ks] = v.value.trim();
+  });
+  return result;
+}
+
+function flowCfgBuildTraceMetadataPayload() {
+  var tkEl = document.getElementById('flow-cfg-meta-trace-key');
+  var prEl = document.getElementById('flow-cfg-meta-primary-trace-tpl');
+  var ent = document.getElementById('flow-cfg-meta-trace-entries');
+  if (!tkEl || !prEl || !ent) return {};
+  var tk = tkEl.value.trim();
+  var primary = prEl.value.trim();
+  var rest = flowCfgCollectKV(ent);
+  var out = {};
+  Object.keys(rest).forEach(function(k) {
+    if (k !== tk) out[k] = rest[k];
+  });
+  if (tk) out[tk] = primary;
+  return out;
+}
+
+async function flowCfgSaveMetadata(flowIdx) {
+  var token = {{ session_token | tojson }};
+  var body = {
+    trace_key: document.getElementById('flow-cfg-meta-trace-key').value.trim(),
+    trace_metadata: flowCfgBuildTraceMetadataPayload(),
+  };
+  var dt = document.getElementById('flow-cfg-display-title');
+  var ds = document.getElementById('flow-cfg-display-summary');
+  if (dt) body.display_title = dt.value.trim() || null;
+  if (ds) body.display_summary = ds.value.trim() || null;
+
+  var stepMeta = {};
+  document.querySelectorAll('[data-flow-config-drawer="1"] .metadata-step-entries').forEach(function(el) {
+    var stepId = el.getAttribute('data-step-id');
+    if (stepId) stepMeta[stepId] = flowCfgCollectKV(el);
+  });
+  if (Object.keys(stepMeta).length > 0) {
+    body.step_metadata = stepMeta;
+  }
+
+  var status = document.getElementById('flow-cfg-meta-save-status');
+  if (status) {
+    status.textContent = 'Saving…';
+    status.className = 'metadata-save-status';
+  }
+  try {
+    var resp = await fetch('/api/flows/' + flowIdx + '/metadata', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
+      body: JSON.stringify(body),
+    });
+    var data = await resp.json();
+    if (status) {
+      if (data.status === 'ok') {
+        status.textContent = 'Saved';
+        status.className = 'metadata-save-status saved';
+        setTimeout(function() { status.textContent = ''; }, 2000);
+      } else {
+        status.textContent = data.error || 'Error';
+        status.className = 'metadata-save-status error';
+      }
+    }
+  } catch (e) {
+    if (status) {
+      status.textContent = 'Network error';
+      status.className = 'metadata-save-status error';
+    }
+  }
+}
+</script>

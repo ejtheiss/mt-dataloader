@@ -205,3 +205,14 @@
   white-space: nowrap;
   border-width: 0;
 }
+
+/* Plan 10e — wide config drawer (toggle via .drawer-panel--wide on #drawer-panel) */
+.drawer-panel.drawer-panel--wide {
+  width: min(96vw, 72rem);
+}
+
+@media (max-width: 768px) {
+  .drawer-panel.drawer-panel--wide {
+    width: 100%;
+  }
+}
