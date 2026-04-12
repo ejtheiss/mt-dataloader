@@ -141,7 +141,7 @@ object easy to copy:
 | `examples/tradeify.json`         | **Ledger-heavy brokerage PSP.** Per-user `instance_resources` (LE + CP + IA + LAs + category memberships), USDG reserve/rewards ledger, NinjaTrader direct actor with EAs, three optional groups (ACH cashout, wire funding, staged return). |
 | `examples/lending_platform.json` | **Multi-flow lending:** deposit, disbursement, repayment with principal, investor distribution, and servicing on ledger + ACH. |
 
-**Operator list copy (optional):** On each `funds_flows[]` object you may set `display_title` (max 120) and `display_summary` (max 500) for the Fund Flows UI case cards. Omit both when the trace template is enough; they are not used by the compiler.
+**Operator list copy (`display_title`, `display_summary`) — required in your output:** On **every** `funds_flows[]` object you generate, you **must** include **`display_title`** (max 120 characters) and **`display_summary`** (max 500). Use human-facing copy (what shows on Fund Flows list cards), not raw trace templates alone. **`display_title`** is the primary card title; **`display_summary`** is one short line of context (who moves what / rail / outcome). They are **not** used by the compiler. **Normative for LLM/agents:** treat both as **mandatory** fields in configs you author. **`GET /api/schema`** still allows omission so hand-edited or legacy JSON validates; that does **not** relax this rule for generated output.
 
 ---
 
@@ -151,6 +151,9 @@ object easy to copy:
   `payment_orders` / `incoming_payment_details` without `**funds_flows`**.
    Every PO, IPD, EP, LT, return, and reversal must appear as a **step** (or
    optional-group step) under `funds_flows`.
+1a. **`display_title` + `display_summary` on every flow** -- Each `funds_flows[]`
+   entry you output **must** include both string fields (length limits above).
+   Do not skip them because the schema marks them optional.
 2. **Self-bootstrap when demo needs it** -- Include `**connections`** and
   `internal_accounts` the config actually uses. **Default:** **one** connection,
    `entity_id: "modern_treasury"`, clear `ref` + nickname. Use that **same**
@@ -225,7 +228,9 @@ object easy to copy:
 `ledger_transactions`, `returns`, `reversals`, or `transition_ledger_transactions`.
 Every money-moving demo —
 including the smallest "hello world" — needs a non-empty `**funds_flows`**
-array with at least one flow and steps (see `psp_minimal.json`).
+array with at least one flow and steps (see `psp_minimal.json`). Each of those
+flows **must** include **`display_title`** and **`display_summary`** in JSON you
+generate (operator list cards — see **Generation rules** § 1a).
 
 **Verification and archive — authoring vs compile:** `verify_external_account`,
 `complete_verification`, and `archive_resource` are **authored only** inside
@@ -258,6 +263,8 @@ default.
     {
       "ref": "marketplace_deposit",
       "pattern_type": "deposit_settle",
+      "display_title": "Buyer deposit to settle",
+      "display_summary": "ACH in from buyer bank to platform ops, then ledger settle and fee.",
       "trace_key": "deal_id",
       "trace_value_template": "deal-{ref}-{instance}",
       "actors": {

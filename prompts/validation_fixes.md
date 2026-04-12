@@ -42,9 +42,10 @@ Check the schema for typos or unknown fields. Common causes:
 
 - **`funds_flows[].display_title` / `display_summary`:** These are **valid** on each
   flow object (operator UI only; `GET /api/schema` lists them under `FundsFlowConfig`).
-  If validate-json still reports them as `extra_forbidden`, the server is running an
-  **older build** of the app whose `FundsFlowConfig` predates Plan 10c — redeploy or
-  reinstall from the current repo so `models.flow_dsl.FundsFlowConfig` includes both fields.
+  **Prompt contract:** LLM-generated configs should **always** include both fields even
+  though the schema allows omission. If validate-json still reports them as `extra_forbidden`,
+  the server is running an **older build** whose `FundsFlowConfig` predates Plan 10c —
+  redeploy/restart so `models.flow_dsl.FundsFlowConfig` includes both fields.
 
 - **Lifecycle rows you pasted at the root (`payment_orders`, `verify_external_accounts`,
   etc.):** Prefer **authoring** money movement and verification as **`funds_flows`**
