@@ -39,6 +39,62 @@ def _recipe_flow_ref(emitted_flow_ref: str) -> str:
     return emitted_flow_ref
 
 
+def get_funds_flow_display_fields_for_display_row(
+    session: Any,
+    display_idx: int,
+    expanded_row: Any | None,
+) -> tuple[str | None, str | None]:
+    """Resolve **display_title** / **display_summary** for one Fund Flows **list row**.
+
+    **Canonical source:** ``funds_flows[edit_idx]`` in ``working_config_json`` (same row
+    ``POST /api/flows/{flow_idx}/metadata`` mutates via
+    ``resolve_working_funds_flow_index_for_metadata``). This keeps the list in sync after
+    metadata saves without requiring a re-compile.
+
+    **Fallback:** when working JSON is missing, invalid, or keys are absent, use attributes
+    on the compiled **expanded** / pattern row (legacy / pre-persist display only).
+    """
+    text = (session.working_config_json or session.config_json_text or "").strip()
+    if text:
+        try:
+            edit_idx = resolve_working_funds_flow_index_for_metadata(session, display_idx)
+            config_dict = loads_str(text)
+            flows = config_dict.get("funds_flows") or []
+            if isinstance(flows, list) and 0 <= edit_idx < len(flows):
+                row = flows[edit_idx]
+                if isinstance(row, dict):
+                    raw_t = row.get("display_title")
+                    raw_s = row.get("display_summary")
+
+                    def _norm(v: Any) -> str | None:
+                        if v is None:
+                            return None
+                        if isinstance(v, str):
+                            s = v.strip()
+                            return s or None
+                        return None
+
+                    t, s = _norm(raw_t), _norm(raw_s)
+                    if t is not None or s is not None:
+                        return (t, s)
+        except (ValueError, TypeError, KeyError):
+            pass
+
+    if expanded_row is not None:
+        t2 = getattr(expanded_row, "display_title", None)
+        s2 = getattr(expanded_row, "display_summary", None)
+        if isinstance(t2, str):
+            t2 = t2.strip() or None
+        elif t2 is not None and not isinstance(t2, str):
+            t2 = None
+        if isinstance(s2, str):
+            s2 = s2.strip() or None
+        elif s2 is not None and not isinstance(s2, str):
+            s2 = None
+        return (t2, s2)
+    return (None, None)
+
+
 def resolve_working_funds_flow_index_for_metadata(session: Any, display_idx: int) -> int:
     """Map Fund Flows **list row index** to ``working_config_json['funds_flows']`` index (Plan 10c).
 

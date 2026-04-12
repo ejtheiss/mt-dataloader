@@ -6,7 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from dataloader.routers.flows.helpers import resolve_working_funds_flow_index_for_metadata
+from dataloader.routers.flows.helpers import (
+    get_funds_flow_display_fields_for_display_row,
+    resolve_working_funds_flow_index_for_metadata,
+)
 
 
 def _session(
@@ -112,3 +115,52 @@ def test_resolve_no_matching_flow_raises():
     )
     with pytest.raises(ValueError, match="No funds_flows entry"):
         resolve_working_funds_flow_index_for_metadata(sess, 0)
+
+
+def test_display_fields_prefer_working_json_over_expanded():
+    """List row titles follow ``working_config_json`` so POST /metadata edits show without re-compile."""
+    expanded = SimpleNamespace(
+        display_title="From IR",
+        display_summary="IR summary",
+    )
+    sess = _session(
+        working_json=(
+            '{"funds_flows": [{"ref": "p", "display_title": " Authoritative ", '
+            '"display_summary": "  Summary text  "}]}'
+        ),
+        recipes={"any": True},
+        flow_ir=[1],
+        expanded_flows=[SimpleNamespace(ref="p__0000")],
+    )
+    t, s = get_funds_flow_display_fields_for_display_row(sess, 0, expanded)
+    assert t == "Authoritative"
+    assert s == "Summary text"
+
+
+def test_display_fields_fallback_when_json_keys_absent():
+    sess = _session(
+        working_json='{"funds_flows": [{"ref": "p"}]}',
+        recipes={"any": True},
+        flow_ir=[1],
+        expanded_flows=[SimpleNamespace(ref="p__0000", display_title="Compiled")],
+    )
+    t, s = get_funds_flow_display_fields_for_display_row(sess, 0, sess.expanded_flows[0])
+    assert t == "Compiled"
+    assert s is None
+
+
+def test_display_fields_same_pattern_two_rows_share_working_row():
+    sess = _session(
+        working_json=(
+            '{"funds_flows": [{"ref": "p", "display_title": "One pattern title"}]}'
+        ),
+        recipes={"any": True},
+        flow_ir=[1, 2],
+        expanded_flows=[
+            SimpleNamespace(ref="p__0000", display_title="Stale0"),
+            SimpleNamespace(ref="p__0001", display_title="Stale1"),
+        ],
+    )
+    t0, _ = get_funds_flow_display_fields_for_display_row(sess, 0, sess.expanded_flows[0])
+    t1, _ = get_funds_flow_display_fields_for_display_row(sess, 1, sess.expanded_flows[1])
+    assert t0 == t1 == "One pattern title"

@@ -15,6 +15,7 @@ from dataloader.routers.flows.helpers import (
     _display_flow_session_sources,
     _recipe_flow_ref,
     _step_variance_ui_fields,
+    get_funds_flow_display_fields_for_display_row,
 )
 from flow_compiler import compile_diagnostics, compute_flow_status, flow_account_deltas
 from models import SOURCE_BADGE
@@ -127,12 +128,10 @@ async def flows_page(
             amounts = [a["amount"] for a in amount_steps]
             amount_range = {"min": min(amounts), "max": max(amounts)} if amounts else None
 
-            display_title: str | None = None
-            display_summary: str | None = None
-            if i < len(display_expanded):
-                fc_meta = display_expanded[i]
-                display_title = getattr(fc_meta, "display_title", None)
-                display_summary = getattr(fc_meta, "display_summary", None)
+            fc_meta = display_expanded[i] if i < len(display_expanded) else None
+            display_title, display_summary = get_funds_flow_display_fields_for_display_row(
+                sess, i, fc_meta
+            )
 
             flow_summaries.append(
                 {
