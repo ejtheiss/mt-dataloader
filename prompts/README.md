@@ -50,3 +50,6 @@ envelope: `ok`, `phase`, `errors[].code`) + the files under `examples/`.
 | `tradeify.json` | Ledger-heavy brokerage: categories, per-user `instance_resources`, USDG |
 | `staged_demo.json` | Every money step has `staged: true`; default authoring omits `staged` and uses run **UI** |
 | `psp_minimal.json` | Minimal book-transfer-only config |
+| `lending_platform.json` | Multi-flow lending: deposit, disbursement, repayment with ledger + ACH |
+
+Optional per-flow **`display_title`** / **`display_summary`** (Fund Flows list cards) appear in the JSON examples; they are UI-only and do not affect compilation.

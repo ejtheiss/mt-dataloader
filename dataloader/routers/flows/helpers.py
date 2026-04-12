@@ -12,6 +12,7 @@ from dataloader.helpers import format_validation_errors
 from dataloader.loader_validation import try_parse_pydantic_json_bytes
 from dataloader.session import sessions
 from flow_compiler import GenerationResult, generate_from_recipe
+from jsonutil import loads_str
 from models import DataLoaderConfig, GenerationRecipeV1
 from org import reconcile_config, sync_connection_entities_from_reconciliation
 
@@ -36,6 +37,49 @@ def _recipe_flow_ref(emitted_flow_ref: str) -> str:
     if len(parts) == 2 and parts[1].isdigit():
         return parts[0]
     return emitted_flow_ref
+
+
+def resolve_working_funds_flow_index_for_metadata(session: Any, display_idx: int) -> int:
+    """Map Fund Flows **list row index** to ``working_config_json['funds_flows']`` index (Plan 10c).
+
+    When ``expanded_flows`` is populated, resolve via pattern ref so scaled-instance
+    rows edit the correct pattern row. When it is empty (e.g. tests / pre-compile),
+    fall back to direct indexing into ``funds_flows``.
+    """
+    text = (session.working_config_json or session.config_json_text or "").strip()
+    if not text:
+        raise ValueError("Session has no working config JSON")
+    try:
+        config_dict = loads_str(text)
+    except (TypeError, ValueError) as e:
+        raise ValueError("Invalid working config JSON") from e
+    flows = config_dict.get("funds_flows") or []
+    if not isinstance(flows, list):
+        flows = []
+
+    _, expanded = _display_flow_session_sources(session)
+    if expanded and 0 <= display_idx < len(expanded):
+        fc = expanded[display_idx]
+        instance_ref = getattr(fc, "ref", None)
+        if not instance_ref:
+            raise ValueError(f"expanded_flows[{display_idx}] has no ref")
+        pattern_ref = _recipe_flow_ref(str(instance_ref))
+        for i, entry in enumerate(flows):
+            if isinstance(entry, dict) and entry.get("ref") == pattern_ref:
+                return i
+        for i, entry in enumerate(flows):
+            if isinstance(entry, dict) and entry.get("ref") == instance_ref:
+                return i
+        raise ValueError(
+            f"No funds_flows entry for pattern_ref={pattern_ref!r} or ref={instance_ref!r}"
+        )
+
+    if 0 <= display_idx < len(flows):
+        return display_idx
+    raise ValueError(
+        f"display_idx {display_idx} out of range (expanded len={len(expanded)}, "
+        f"funds_flows len={len(flows)})"
+    )
 
 
 def _display_flow_session_sources(session: Any) -> tuple[list, list]:

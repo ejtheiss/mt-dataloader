@@ -5,23 +5,22 @@
   Primary action: View detail only (no in-card Preview — use page header Execution plan).
 
   Parameters:
-    case              — flow summary dict (see routers/flows.py flow_summaries)
+    case              — flow summary dict (see routers/flows/page.py flow_summaries)
     card_url          — full page detail href
-    drawer_url        — optional drawer HTMX URL (card body remains clickable)
+    drawer_url        — optional (deprecated for list cards; explicit actions only)
     session_token     — session token (for includes that need it)
 #}
 
 {% set _status = case.status | default("pending") %}
 {% set _acct_n = case.account_deltas | length if case.account_deltas else 0 %}
+{% set primary_title = case.display_title if case.display_title else case.trace_value %}
 
-<div class="card card--clickable case-card"
-     {% if card_url is defined and card_url %}data-url="{{ card_url }}"{% endif %}
-     {% if drawer_url is defined and drawer_url %}data-drawer-url="{{ drawer_url }}"{% endif %}>
+<div class="card case-card">
 
   <div class="card-header case-card-header">
     <div class="case-card-header-main">
       <div class="case-card-title-row">
-        <span class="card-title case-card-title-text">{{ case.trace_value }}</span>
+        <span class="card-title case-card-title-text">{{ primary_title }}</span>
         <span class="badge badge--{{ 'success' if _status == 'ready' else ('critical' if _status == 'error' else 'default') }}">
           {{ _status }}
         </span>
@@ -29,6 +28,9 @@
         <span class="badge badge--warning">{{ case.og_count }} edge case{{ 's' if case.og_count != 1 else '' }}</span>
         {% endif %}
       </div>
+      {% if case.display_summary %}
+      <div class="case-card-display-summary">{{ case.display_summary }}</div>
+      {% endif %}
       {% if case.pattern_type or case.flow_ref or _acct_n %}
       <div class="case-card-subline">
         {% if case.pattern_type %}<span>{{ case.pattern_type }}</span>{% endif %}
@@ -49,6 +51,14 @@
     </div>
     {% endif %}
   </div>
+
+  <nav class="case-card-section-nav" aria-label="Flow sections">
+    <span class="case-card-nav-item case-card-nav-item--current" aria-current="page">Overview</span>
+    {% if card_url is defined and card_url %}
+    <a class="case-card-nav-item" href="{{ card_url }}#diagram">Diagram</a>
+    {% endif %}
+    <button type="button" class="case-card-nav-item case-card-nav-item--pending" disabled title="Planned: config drawer (Plan 10e)">Flow config</button>
+  </nav>
 
   <div class="card-content case-card-content">
 

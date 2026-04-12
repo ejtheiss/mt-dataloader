@@ -127,6 +127,13 @@ async def flows_page(
             amounts = [a["amount"] for a in amount_steps]
             amount_range = {"min": min(amounts), "max": max(amounts)} if amounts else None
 
+            display_title: str | None = None
+            display_summary: str | None = None
+            if i < len(display_expanded):
+                fc_meta = display_expanded[i]
+                display_title = getattr(fc_meta, "display_title", None)
+                display_summary = getattr(fc_meta, "display_summary", None)
+
             flow_summaries.append(
                 {
                     "index": i,
@@ -135,6 +142,8 @@ async def flows_page(
                     "pattern_type": ir.pattern_type,
                     "trace_key": ir.trace_key,
                     "trace_value": ir.trace_value,
+                    "display_title": display_title,
+                    "display_summary": display_summary,
                     "step_count": len(ir.steps),
                     "og_count": og_count,
                     "amount_range": amount_range,

@@ -34,6 +34,8 @@
     {
       "ref": "marketplace_retry_purchase",
       "pattern_type": "marketplace_settlement",
+      "display_title": "Marketplace purchase (retry)",
+      "display_summary": "Two buyers, one seller, platform fee: ACH deposit, book settle, payout, with NSF return optional group.",
       "trace_key": "listing_id",
       "trace_value_template": "BOAT-{ref}-{instance}",
       "actors": {

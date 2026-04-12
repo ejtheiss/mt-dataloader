@@ -163,6 +163,8 @@
     {
       "ref": "user_lifecycle",
       "pattern_type": "rewards_wallet",
+      "display_title": "User rewards & wallet lifecycle",
+      "display_summary": "ACH on-ramp, reward ledger seed, USD→USDG conversion, optional ACH cashout and NinjaTrader wire paths.",
       "trace_key": "user_id",
       "trace_value_template": "USR-{instance}",
       "actors": {

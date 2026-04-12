@@ -28,6 +28,8 @@
     {
       "ref": "staged_marketplace",
       "pattern_type": "marketplace_settlement",
+      "display_title": "Staged marketplace settlement",
+      "display_summary": "Buyer and seller with instance resources; money steps use staged: true for Fire-in-run UX.",
       "trace_key": "order_id",
       "trace_value_template": "ORD-{ref}-{instance}",
       "actors": {

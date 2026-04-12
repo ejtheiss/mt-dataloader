@@ -139,9 +139,9 @@ object easy to copy:
 | `examples/stablecoin_ramp.json`  | **Fiat↔stablecoin on/off-ramp.** One `modern_treasury` connection, USD + USDC internal accounts, IPD/PO steps only (no ledger), mutually exclusive payout alternatives (ACH/RTP/Wire via `exclusion_group` + `position: "replace"`).         |
 | `examples/staged_demo.json`      | All money steps use `staged: true` in JSON. Default authoring omits `staged`; use run **UI** for live-fire unless you need this shape.                                                                                                       |
 | `examples/tradeify.json`         | **Ledger-heavy brokerage PSP.** Per-user `instance_resources` (LE + CP + IA + LAs + category memberships), USDG reserve/rewards ledger, NinjaTrader direct actor with EAs, three optional groups (ACH cashout, wire funding, staged return). |
+| `examples/lending_platform.json` | **Multi-flow lending:** deposit, disbursement, repayment with principal, investor distribution, and servicing on ledger + ACH. |
 
-
-
+**Operator list copy (optional):** On each `funds_flows[]` object you may set `display_title` (max 120) and `display_summary` (max 500) for the Fund Flows UI case cards. Omit both when the trace template is enough; they are not used by the compiler.
 
 ---
 

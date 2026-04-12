@@ -33,6 +33,59 @@
   color: var(--text-default);
 }
 
+.case-card-display-summary {
+  margin-top: 6px;
+  font-size: var(--mt-text-xs);
+  line-height: 1.45;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.case-card-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-s) var(--spacing-m);
+  border-top: 1px solid var(--border-muted);
+  border-bottom: 1px solid var(--border-muted);
+  background: color-mix(in srgb, var(--app-background) 92%, transparent);
+}
+
+.case-card-nav-item {
+  font-size: var(--mt-text-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+a.case-card-nav-item:hover {
+  color: var(--text-default);
+  border-color: var(--border-muted);
+  background: var(--background-default);
+}
+
+.case-card-nav-item--current {
+  color: var(--text-default);
+  font-weight: 600;
+  border-color: var(--border-muted);
+  background: var(--background-default);
+}
+
+.case-card-nav-item--pending {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .case-card-subline {
   /* TODO: no token for 6px — see 10b */
   margin-top: 6px;

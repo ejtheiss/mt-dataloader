@@ -64,6 +64,8 @@
     {
       "ref": "customer_deposit",
       "pattern_type": "deposit",
+      "display_title": "Investor funding deposit",
+      "display_summary": "ACH from investor bank to platform ops; books cash vs deposits payable on the main ledger.",
       "trace_key": "deposit_id",
       "trace_value_template": "DEP-{instance}",
       "actors": {
@@ -149,6 +151,8 @@
     {
       "ref": "loan_disbursement",
       "pattern_type": "disbursement",
+      "display_title": "Loan disbursement",
+      "display_summary": "Book transfer to beneficiary wallet with loan principal recorded against beneficiary position.",
       "trace_key": "loan_id",
       "trace_value_template": "LOAN-{instance}",
       "actors": {
@@ -272,6 +276,8 @@
     {
       "ref": "loan_repayment",
       "pattern_type": "repayment",
+      "display_title": "Loan repayment & distribution",
+      "display_summary": "ACH pull from beneficiary; apply principal, accrue investor payable, recognize servicing, distribute to investor.",
       "trace_key": "repayment_id",
       "trace_value_template": "REPAY-{instance}",
       "actors": {

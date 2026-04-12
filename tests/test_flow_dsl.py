@@ -147,3 +147,41 @@ def test_generation_recipe_legacy_staging_promoted():
         {"flow_ref": "f", "instances": 5, "seed": 1, "staged_count": 2, "staged_selection": "all"}
     )
     assert any(sr.count == 2 for sr in r.staging_rules)
+
+
+def test_funds_flow_display_fields_optional():
+    fc = FundsFlowConfig(ref="r", pattern_type="p", steps=[_payment_order_step()])
+    assert fc.display_title is None
+    assert fc.display_summary is None
+
+
+def test_funds_flow_display_fields_strip_whitespace():
+    fc = FundsFlowConfig(
+        ref="r",
+        pattern_type="p",
+        steps=[_payment_order_step()],
+        display_title="  Hi  ",
+        display_summary="   ",
+    )
+    assert fc.display_title == "Hi"
+    assert fc.display_summary is None
+
+
+def test_funds_flow_display_title_max_length():
+    with pytest.raises(ValidationError):
+        FundsFlowConfig(
+            ref="r",
+            pattern_type="p",
+            steps=[_payment_order_step()],
+            display_title="x" * 121,
+        )
+
+
+def test_funds_flow_display_summary_max_length():
+    with pytest.raises(ValidationError):
+        FundsFlowConfig(
+            ref="r",
+            pattern_type="p",
+            steps=[_payment_order_step()],
+            display_summary="y" * 501,
+        )

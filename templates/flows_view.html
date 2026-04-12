@@ -36,10 +36,12 @@
 </div>
 
 {% if mermaid_text %}
+<div id="diagram">
     {% set mermaid_id = "detail" %}
     {% set mermaid_diagram = mermaid_text %}
     {% set mermaid_label = "" %}
     {% include "partials/mermaid_accordion.html" %}
+</div>
 {% endif %}
 
 <details class="metadata-panel">
