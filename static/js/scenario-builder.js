@@ -21,6 +21,39 @@
 (function () {
   'use strict';
 
+  /** @type {WeakMap<Element, AbortController>} */
+  var scenarioBuilderAbortByContainer = new WeakMap();
+
+  /**
+   * Tear down scenario-builder and actor-config drawer roots under `#drawer-content`
+   * before HTMX replaces innerHTML (Plan 10d). Idempotent.
+   */
+  function destroyScenarioBuilder(drawerContent) {
+    if (!drawerContent) return;
+    drawerContent.querySelectorAll('[data-scenario-initialized="1"]').forEach(function (el) {
+      var ac = scenarioBuilderAbortByContainer.get(el);
+      if (ac) {
+        try {
+          ac.abort();
+        } catch (e) { /* ignore */ }
+        scenarioBuilderAbortByContainer.delete(el);
+      }
+      el.removeAttribute('data-scenario-initialized');
+    });
+    drawerContent.querySelectorAll('[data-flow-actor-config="1"]').forEach(function (el) {
+      if (el.__actorDrawerAbort) {
+        try {
+          el.__actorDrawerAbort.abort();
+        } catch (e) { /* ignore */ }
+        delete el.__actorDrawerAbort;
+      }
+    });
+    drawerContent.scrollTop = 0;
+    drawerContent.querySelectorAll('details[open]').forEach(function (d) {
+      d.removeAttribute('open');
+    });
+  }
+
   /**
    * Enable / disable business-only dataset options when entity kind is individual.
    * @param {HTMLElement} rootEl - scope (scenario builder container or actor drawer root)
@@ -51,27 +84,45 @@
   }
 
   function initFlowActorConfigDrawer(container) {
+    if (!container) return;
+    if (container.__actorDrawerAbort) {
+      try {
+        container.__actorDrawerAbort.abort();
+      } catch (e) { /* ignore */ }
+    }
+    var ac = new AbortController();
+    container.__actorDrawerAbort = ac;
+    var sig = ac.signal;
+
     container.querySelectorAll('.actor-entity-type').forEach(function (sel) {
       runActorDatasetCascade(container, sel);
     });
-    container.addEventListener('change', function (e) {
-      if (e.target.matches('.actor-entity-type')) {
-        runActorDatasetCascade(container, e.target);
-      }
-    });
-    container.addEventListener('click', function (e) {
-      var cancel = e.target.closest('[data-action="actor-config-cancel"]');
-      if (cancel && container.contains(cancel)) {
-        e.preventDefault();
-        if (typeof window.closeDrawer === 'function') window.closeDrawer();
-        return;
-      }
-      var save = e.target.closest('[data-action="actor-config-save"]');
-      if (save && container.contains(save)) {
-        e.preventDefault();
-        void saveFlowActorConfig(container).catch(function () {});
-      }
-    });
+    container.addEventListener(
+      'change',
+      function (e) {
+        if (e.target.matches('.actor-entity-type')) {
+          runActorDatasetCascade(container, e.target);
+        }
+      },
+      { signal: sig }
+    );
+    container.addEventListener(
+      'click',
+      function (e) {
+        var cancel = e.target.closest('[data-action="actor-config-cancel"]');
+        if (cancel && container.contains(cancel)) {
+          e.preventDefault();
+          if (typeof window.closeDrawer === 'function') window.closeDrawer();
+          return;
+        }
+        var save = e.target.closest('[data-action="actor-config-save"]');
+        if (save && container.contains(save)) {
+          e.preventDefault();
+          void saveFlowActorConfig(container).catch(function () {});
+        }
+      },
+      { signal: sig }
+    );
   }
 
   async function saveFlowActorConfig(container) {
@@ -175,6 +226,9 @@
     if (container.getAttribute('data-scenario-initialized') === '1') {
       return;
     }
+    var ac = new AbortController();
+    scenarioBuilderAbortByContainer.set(container, ac);
+    var sig = ac.signal;
     container.setAttribute('data-scenario-initialized', '1');
 
     var idx = config.idx;
@@ -276,7 +330,7 @@
     }
 
     var instancesInput = field('instances');
-    if (instancesInput) instancesInput.addEventListener('input', syncEdgeMax);
+    if (instancesInput) instancesInput.addEventListener('input', syncEdgeMax, { signal: sig });
 
     // ----- Amount variance -----
 
@@ -399,36 +453,56 @@
     (function initTimingPills() {
       qAll('.timing-date-btn').forEach(function (btn) {
         var dateInput = btn.nextElementSibling;
-        btn.addEventListener('click', function () {
-          if (dateInput.classList.contains('timing-date-input--hidden')) {
-            dateInput.classList.remove('timing-date-input--hidden');
-            dateInput.showPicker && dateInput.showPicker();
-          } else {
-            dateInput.classList.add('timing-date-input--hidden');
-          }
-        });
-        dateInput.addEventListener('change', function () {
-          if (this.value) {
-            var pill = btn.previousElementSibling;
-            pill.textContent = 'T0';
-            pill.title = 'Base: ' + this.value;
-          }
-        });
+        btn.addEventListener(
+          'click',
+          function () {
+            if (dateInput.classList.contains('timing-date-input--hidden')) {
+              dateInput.classList.remove('timing-date-input--hidden');
+              dateInput.showPicker && dateInput.showPicker();
+            } else {
+              dateInput.classList.add('timing-date-input--hidden');
+            }
+          },
+          { signal: sig }
+        );
+        dateInput.addEventListener(
+          'change',
+          function () {
+            if (this.value) {
+              var pill = btn.previousElementSibling;
+              pill.textContent = 'T0';
+              pill.title = 'Base: ' + this.value;
+            }
+          },
+          { signal: sig }
+        );
       });
       qAll('.timing-pill-offset').forEach(function (pill) {
         var input = pill.nextElementSibling;
-        pill.addEventListener('click', function () {
-          if (input.style.display === 'none' || input.style.display === '') {
-            input.style.display = 'inline-block';
-            input.focus();
-          }
-        });
-        input.addEventListener('change', function () {
-          pill.textContent = 'T+' + (parseInt(this.value) || 0);
-        });
-        input.addEventListener('blur', function () {
-          this.style.display = '';
-        });
+        pill.addEventListener(
+          'click',
+          function () {
+            if (input.style.display === 'none' || input.style.display === '') {
+              input.style.display = 'inline-block';
+              input.focus();
+            }
+          },
+          { signal: sig }
+        );
+        input.addEventListener(
+          'change',
+          function () {
+            pill.textContent = 'T+' + (parseInt(this.value) || 0);
+          },
+          { signal: sig }
+        );
+        input.addEventListener(
+          'blur',
+          function () {
+            this.style.display = '';
+          },
+          { signal: sig }
+        );
       });
     })();
 
@@ -634,52 +708,68 @@
 
     // ----- Central event delegation -----
 
-    container.addEventListener('click', function (e) {
-      var actionEl = e.target.closest('[data-action]');
-      if (!actionEl || !container.contains(actionEl)) return;
-      var action = actionEl.getAttribute('data-action');
-      if (action === 'apply') {
+    container.addEventListener(
+      'click',
+      function (e) {
+        var actionEl = e.target.closest('[data-action]');
+        if (!actionEl || !container.contains(actionEl)) return;
+        var action = actionEl.getAttribute('data-action');
+        if (action === 'apply') {
+          e.preventDefault();
+          e.stopPropagation();
+          void genApply().catch(function (err) {
+            showApplyMessage(
+              '<div class="alert alert--critical"><p>Apply failed: ' +
+                (err && err.message ? err.message : String(err)) +
+                '</p></div>',
+              true
+            );
+          });
+          return;
+        }
+        switch (action) {
+          case 'add-staging-rule': addStagingRule(); break;
+          case 'remove-staging-rule': actionEl.closest('.staging-rule').remove(); break;
+        }
+      },
+      { signal: sig }
+    );
+
+    container.addEventListener(
+      'click',
+      function (e) {
+        var btn = e.target.closest('.variance-lock-btn');
+        if (!btn || !container.contains(btn)) return;
         e.preventDefault();
         e.stopPropagation();
-        void genApply().catch(function (err) {
-          showApplyMessage(
-            '<div class="alert alert--critical"><p>Apply failed: ' +
-              (err && err.message ? err.message : String(err)) +
-              '</p></div>',
-            true
-          );
-        });
-        return;
-      }
-      switch (action) {
-        case 'add-staging-rule': addStagingRule(); break;
-        case 'remove-staging-rule': actionEl.closest('.staging-rule').remove(); break;
-      }
-    });
+        handleVarianceLock(btn);
+      },
+      { signal: sig }
+    );
 
-    container.addEventListener('click', function (e) {
-      var btn = e.target.closest('.variance-lock-btn');
-      if (!btn || !container.contains(btn)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      handleVarianceLock(btn);
-    });
+    container.addEventListener(
+      'change',
+      function (e) {
+        if (e.target.matches('.actor-entity-type')) {
+          runActorDatasetCascade(container, e.target);
+        }
+      },
+      { signal: sig }
+    );
 
-    container.addEventListener('change', function (e) {
-      if (e.target.matches('.actor-entity-type')) {
-        runActorDatasetCascade(container, e.target);
-      }
-    });
-
-    container.addEventListener('input', function (e) {
-      if (e.target.matches('[data-field="variance-min"], [data-field="variance-max"]')) {
-        updateAmountRanges();
-      }
-      if (e.target.matches('.variance-custom-min, .variance-custom-max')) {
-        var row = e.target.closest('.amount-step-item');
-        renderRowAmount(row, getGlobalVariance());
-      }
-    });
+    container.addEventListener(
+      'input',
+      function (e) {
+        if (e.target.matches('[data-field="variance-min"], [data-field="variance-max"]')) {
+          updateAmountRanges();
+        }
+        if (e.target.matches('.variance-custom-min, .variance-custom-max')) {
+          var row = e.target.closest('.amount-step-item');
+          renderRowAmount(row, getGlobalVariance());
+        }
+      },
+      { signal: sig }
+    );
 
     // ----- Restore recipe into form (template + server snapshot) -----
 
@@ -790,6 +880,7 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken },
       body: JSON.stringify({ flow_ref: flowRef }),
+      signal: sig,
     })
       .then(function (resp) {
         if (!resp.ok) return null;
@@ -803,10 +894,14 @@
           runActorDatasetCascade(container, sel);
         });
       })
-      .catch(function () { /* offline / stale session — keep template state */ });
+      .catch(function (err) {
+        if (err && err.name === 'AbortError') return;
+        /* offline / stale session — keep template state */
+      });
   }
 
   window.initScenarioBuilder = initScenarioBuilder;
+  window.destroyScenarioBuilder = destroyScenarioBuilder;
   window.runActorDatasetCascade = runActorDatasetCascade;
   window.initFlowActorConfigDrawer = initFlowActorConfigDrawer;
 })();

@@ -73,7 +73,11 @@
      style="display: none;"></div>
 
 {# Panel — RadixDrawer.tsx line 29-50: fixed right-0 w-2/5 z-40 bg-white shadow-lg border-l #}
-<div class="drawer-panel" id="drawer-panel" style="display: none;">
+{# Plan 10d: role + aria-labelledby on shell; aria-modal toggled in mt-drawer.js when open #}
+<div class="drawer-panel" id="drawer-panel" style="display: none;"
+     role="dialog"
+     aria-labelledby="drawer-title"
+     tabindex="-1">
 
   {# DrawerActions strip — DrawerActions.tsx line 60-83 #}
   {# On desktop (>= mint-md): absolute positioned left of panel, vertical column #}
@@ -111,6 +115,9 @@
     </button>
 
   </div>
+
+  {# Accessible dialog name — text synced from first h1/h2 in #drawer-content after each HTMX swap (10d) #}
+  <h2 id="drawer-title" class="drawer-title">Details</h2>
 
   {# Content area — Drawer.tsx DrawerPadding (line 35): px-4 py-3 #}
   <div class="drawer-content" id="drawer-content">
