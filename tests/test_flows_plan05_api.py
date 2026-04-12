@@ -7,9 +7,19 @@ from unittest.mock import AsyncMock, patch
 from starlette.testclient import TestClient
 
 from dataloader.main import app
+from dataloader.routers.setup._helpers import session_has_funds_flows_list
 from dataloader.session import sessions
 from flow_compiler import GenerationResult
 from tests.test_flow_actor_config import _actor_flow_session
+
+
+def test_session_has_funds_flows_list_pattern_only_with_recipes():
+    """Revalidate redirect must match /flows: pattern IR counts before instance IR exists."""
+    _, sess = _actor_flow_session()
+    assert sess.flow_ir is None
+    assert sess.pattern_flow_ir
+    assert sess.generation_recipes
+    assert session_has_funds_flows_list(sess) is True
 
 
 def test_scenario_snapshot_all_recipes():
@@ -68,7 +78,7 @@ def test_recipe_patch_merge_seed():
     )
     try:
         with patch(
-            "dataloader.routers.flows.recompose_and_persist_session",
+            "dataloader.routers.flows.api.recompose_and_persist_session",
             AsyncMock(return_value=gen),
         ):
             client = TestClient(app)

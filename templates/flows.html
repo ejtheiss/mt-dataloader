@@ -42,17 +42,14 @@
 
 <details class="json-editor-panel">
     <summary>View / Edit JSON Config</summary>
-    <p class="text-muted small mb-2">
-        This buffer is the <strong>executable</strong> load (same as <code>session.config</code> after validate / apply).
-        Flow <em>patterns</em> live in <code>authoring_config_json</code> until you re-validate; use <strong>Re-validate</strong> to apply edits here.
-    </p>
+    <p class="text-muted small mb-2">Re-validate to apply.</p>
     <form id="revalidate-form"
           hx-post="/api/revalidate"
-          hx-target="#content"
-          hx-swap="innerHTML"
+          hx-swap="none"
           hx-indicator="#revalidate-spinner-flows"
           hx-disabled-elt="button[type=submit]">
         <input type="hidden" name="session_token" value="{{ session_token }}">
+        <input type="hidden" name="htmx_return" value="flows">
         <div id="flows-json-container" class="monaco-container" style="height: 480px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;"></div>
         <input type="hidden" id="flows-json-editor" name="config_json" value="">
         <div id="flows-json-status" class="json-parse-status"></div>

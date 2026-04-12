@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from dataloader.routers.flows import _display_flow_session_sources, _recipe_flow_ref
+from dataloader.routers.flows.helpers import _display_flow_session_sources, _recipe_flow_ref
 
 
 @pytest.mark.parametrize(
