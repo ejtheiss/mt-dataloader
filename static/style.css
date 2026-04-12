@@ -1399,8 +1399,8 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
     margin-left: var(--spacing-xs);
 }
 .flows-json-monaco.monaco-container {
-    /* TODO: no layout token for 480px editor height — see 10b */
-    height: 480px;
+    /* 15 × --spacing-l (32px) = 480px — Fund Flows JSON editor shell */
+    height: calc(15 * var(--spacing-l));
     border: 1px solid var(--border-default);
     border-radius: var(--radius-md);
     overflow: hidden;
@@ -1427,8 +1427,7 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 }
 .form-row.scenario-variance-global-row {
     margin-top: var(--spacing-s);
-    /* TODO: no spacing token for 12px gap — see 10b */
-    gap: 12px;
+    gap: var(--mt-spacing-3);
 }
 .form-row.scenario-staging-rule-row {
     gap: var(--spacing-s);
@@ -1461,8 +1460,7 @@ details.tunnel-setup-details[open] .tunnel-summary-chevron {
 .flow-columns {
     display: flex;
     overflow-x: auto;
-    /* TODO: no spacing token for 12px gap — see 10b */
-    gap: 12px;
+    gap: var(--mt-spacing-3);
     padding-bottom: var(--spacing-s);
 }
 

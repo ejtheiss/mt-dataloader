@@ -10,8 +10,7 @@
 .case-card-header {
   flex-wrap: wrap;
   align-items: flex-start;
-  /* TODO: no spacing token for 12px — see 10b */
-  gap: 12px;
+  gap: var(--mt-spacing-3);
 }
 
 .case-card-header-main {
@@ -34,7 +33,8 @@
 }
 
 .case-card-display-summary {
-  margin-top: 6px;
+  /* (4px + 8px) / 2 — tight subline offset without a dedicated 6px token */
+  margin-top: calc((var(--spacing-xs) + var(--spacing-s)) / 2);
   font-size: var(--mt-text-xs);
   line-height: 1.45;
   color: var(--text-muted);
@@ -87,8 +87,7 @@ a.case-card-nav-item:hover {
 }
 
 .case-card-subline {
-  /* TODO: no token for 6px — see 10b */
-  margin-top: 6px;
+  margin-top: calc((var(--spacing-xs) + var(--spacing-s)) / 2);
   font-size: var(--mt-text-xs);
   line-height: 1.4;
   color: var(--text-muted);
