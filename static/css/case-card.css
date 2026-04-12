@@ -10,6 +10,7 @@
 .case-card-header {
   flex-wrap: wrap;
   align-items: flex-start;
+  /* TODO: no spacing token for 12px — see 10b */
   gap: 12px;
 }
 
@@ -22,7 +23,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-s);
 }
 
 .case-card-title-text {
@@ -33,14 +34,15 @@
 }
 
 .case-card-subline {
+  /* TODO: no token for 6px — see 10b */
   margin-top: 6px;
-  font-size: 0.75rem;
+  font-size: var(--mt-text-xs);
   line-height: 1.4;
   color: var(--text-muted);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .case-card-subline-sep {
@@ -58,20 +60,20 @@
 }
 
 .case-card-detail-arrow {
-  margin-left: 2px;
+  margin-left: var(--spacing-xxs);
 }
 
 /* --- Meta strip (replaces chip row) --- */
 .case-card-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--spacing-m);
 }
 
 .case-card-meta-strip {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  gap: var(--spacing-s);
 }
 
 @media (min-width: 900px) {
@@ -82,9 +84,9 @@
 
 .case-card-meta-stat {
   border: 1px solid var(--border-muted);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--app-background) 85%, transparent);
-  padding: 8px 10px;
+  padding: var(--spacing-s) 10px;
 }
 
 .case-card-meta-stat-label {
@@ -96,7 +98,7 @@
 }
 
 .case-card-meta-stat-value {
-  margin-top: 4px;
+  margin-top: var(--spacing-xs);
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-default);
@@ -109,7 +111,7 @@
 /* --- Participants + balances split --- */
 .case-card-split {
   display: grid;
-  gap: 16px;
+  gap: var(--spacing-m);
 }
 
 @media (min-width: 1024px) {
@@ -123,21 +125,21 @@
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-default);
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-s);
 }
 
 .case-card-table-wrap {
   overflow: hidden;
   border: 1px solid var(--border-muted);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--background-default);
 }
 
 .case-card-table-head,
 .case-card-table-row {
   display: grid;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--spacing-s);
+  padding: var(--spacing-s) 12px;
   font-size: 0.8125rem;
 }
 
@@ -170,7 +172,7 @@
 
 .case-card-balance-grid {
   display: grid;
-  gap: 8px;
+  gap: var(--spacing-s);
 }
 
 @media (min-width: 640px) {
@@ -181,7 +183,7 @@
 
 .case-card-balance-card {
   border: 1px solid var(--border-muted);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--background-default);
   padding: 10px 12px;
 }
@@ -192,7 +194,7 @@
 }
 
 .case-card-balance-value {
-  margin-top: 4px;
+  margin-top: var(--spacing-xs);
   font-size: 0.8125rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -206,7 +208,7 @@
   flex-direction: column;
   margin: 12px 0 0;
   padding: 0;
-  font-size: 0.75rem;                          /* text-xs */
+  font-size: var(--mt-text-xs);
   line-height: 22px;
   color: var(--text-default);
 }
@@ -214,8 +216,8 @@
 .case-card-summary-row {
   display: grid;
   grid-template-columns: 140px 1fr;
-  gap: 16px;                                   /* spacing-m */
-  padding: 8px 0;                              /* py-2 */
+  gap: var(--spacing-m);
+  padding: var(--spacing-s) 0;
   border-bottom: 1px solid var(--border-muted);
 }
 

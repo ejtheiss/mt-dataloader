@@ -24,7 +24,7 @@
         <div class="field-section">
             <div class="field-section-label">Actors</div>
             {% for actor in fs.actors %}
-            <div class="field-row actor-field-row" data-frame="{{ actor.frame_name }}" data-frame-type="{{ actor.frame_type }}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+            <div class="field-row actor-field-row" data-frame="{{ actor.frame_name }}" data-frame-type="{{ actor.frame_type }}">
                 <code>{{ actor.frame_name }}</code>
                 <span class="chip chip--muted">{{ actor.alias }}</span>
                 {% for st in actor.slot_types %}<span class="badge badge--cool">{{ st }}</span>{% endfor %}
@@ -32,8 +32,7 @@
                 <input type="text" class="actor-customer-name input input-border"
                        data-frame="{{ actor.frame_name }}"
                        value="{{ actor.customer_name }}"
-                       placeholder="Customer name"
-                       style="flex: 1; min-width: 120px;">
+                       placeholder="Customer name">
                 {% else %}
                 <select class="actor-entity-type input input-border"
                         data-frame="{{ actor.frame_name }}">
@@ -65,7 +64,6 @@
                 {% endif %}
                 <button type="button"
                         class="btn btn-sm btn-ghost actor-config-gear"
-                        style="margin-left: auto;"
                         hx-get="/api/flows/{{ flow_idx }}/actor-config?session_token={{ session_token }}&frame={{ actor.frame_name }}"
                         hx-target="#drawer-content"
                         hx-swap="innerHTML"
@@ -84,12 +82,11 @@
             {% for og in fs.optional_groups %}
             <div class="field-row">
                 <span class="badge badge--warning">{{ og.label }}</span>
-                <span style="color: var(--mt-gray-500); font-size: 0.78rem;">{{ og.step_count }} step{{ 's' if og.step_count != 1 else '' }} ({{ og.step_types|join(', ') }})</span>
+                <span class="scenario-og-meta">{{ og.step_count }} step{{ 's' if og.step_count != 1 else '' }} ({{ og.step_types|join(', ') }})</span>
                 <input type="number" class="edge-case-count-input"
                        data-label="{{ og.label }}"
                        value="0" min="0" max="5000" step="1"
-                       title="Number of instances with this edge case"
-                       style="width: 64px; margin-left: auto;">
+                       title="Number of instances with this edge case">
             </div>
             {% endfor %}
         </div>
@@ -121,20 +118,20 @@
                     <button type="button" class="timing-date-btn" title="Set base date">
                         <img src="/static/icons/ui/calendar.svg" width="14" height="14" alt="" aria-hidden="true">
                     </button>
-                    <input type="date" class="timing-date-input" style="display:none;">
+                    <input type="date" class="timing-date-input timing-date-input--hidden">
                     {% else %}
                     <span class="timing-pill timing-pill-offset" title="Click to edit day offset">T+{{ loop.index0 }}</span>
                     <input type="number" class="timing-offset-input" value="{{ loop.index0 }}" min="0" max="365" step="1">
                     {% endif %}
-                    <span class="variance-custom-inputs" style="display: {% if vm == 'custom' %}inline-flex{% else %}none{% endif %}; gap: 4px; align-items: center;">
-                        <input type="number" class="variance-custom-min" min="-100" max="0" step="0.5" placeholder="min %" style="width:60px;" value="{{ as.variance_custom_min | default(0) }}">
-                        <input type="number" class="variance-custom-max" min="0" max="100" step="0.5" placeholder="max %" style="width:60px;" value="{{ as.variance_custom_max | default(0) }}">
+                    <span class="variance-custom-inputs">
+                        <input type="number" class="variance-custom-min" min="-100" max="0" step="0.5" placeholder="min %" value="{{ as.variance_custom_min | default(0) }}">
+                        <input type="number" class="variance-custom-max" min="0" max="100" step="0.5" placeholder="max %" value="{{ as.variance_custom_max | default(0) }}">
                     </span>
                     <span class="amount-display">${{ '{:,.2f}'.format(as.amount / 100) }}</span>
                 </div>
                 {% endfor %}
             </div>
-            <div class="form-row" style="margin-top: 8px; gap: 12px;">
+            <div class="form-row scenario-variance-global-row">
                 <div class="form-group">
                     <label title="How much amounts can decrease from base. E.g. -10 means amounts can drop to 90% of base.">Min %</label>
                     <input type="number" data-field="variance-min" class="input input-border" value="0" min="-100" max="0" step="0.5">
@@ -152,12 +149,12 @@
         <div class="field-section">
             <div class="field-section-label">Staging</div>
             <div data-field="staging-rules">
-                <div class="staging-rule form-row" style="gap: 8px; align-items: flex-end;">
-                    <div class="form-group" style="flex: 0 0 80px;">
+                <div class="staging-rule form-row scenario-staging-rule-row">
+                    <div class="form-group scenario-staging-count-group">
                         <label title="How many instances from this pool to hold for manual fire.">Count</label>
                         <input type="number" class="staging-count input input-border" value="0" min="0">
                     </div>
-                    <div class="form-group" style="flex: 1;">
+                    <div class="form-group scenario-staging-select-group">
                         <label title="Which instances to stage — happy path, all, or a specific edge case group.">Stage from</label>
                         <select class="staging-selection input input-border">
                             <option value="happy_path">Happy path</option>
@@ -169,8 +166,8 @@
                     </div>
                 </div>
             </div>
-            <button type="button" class="btn btn-sm btn-outline" style="margin-top: 6px;" data-action="add-staging-rule">+ Add condition</button>
-            <span class="field-hint" style="margin-top: 2px;">Each rule stages instances independently; results are combined</span>
+            <button type="button" class="btn btn-sm btn-outline scenario-staging-add-btn" data-action="add-staging-rule">+ Add condition</button>
+            <span class="field-hint scenario-staging-hint">Each rule stages instances independently; results are combined</span>
         </div>
 
         <div class="field-section">

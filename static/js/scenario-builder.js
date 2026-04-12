@@ -400,11 +400,11 @@
       qAll('.timing-date-btn').forEach(function (btn) {
         var dateInput = btn.nextElementSibling;
         btn.addEventListener('click', function () {
-          if (dateInput.style.display === 'none') {
-            dateInput.style.display = '';
+          if (dateInput.classList.contains('timing-date-input--hidden')) {
+            dateInput.classList.remove('timing-date-input--hidden');
             dateInput.showPicker && dateInput.showPicker();
           } else {
-            dateInput.style.display = 'none';
+            dateInput.classList.add('timing-date-input--hidden');
           }
         });
         dateInput.addEventListener('change', function () {
@@ -751,7 +751,7 @@
           var t0Input = q('.timing-date-input');
           if (t0Input) {
             t0Input.value = t.start_date;
-            t0Input.style.display = '';
+            t0Input.classList.remove('timing-date-input--hidden');
             var pill = t0Input.previousElementSibling && t0Input.previousElementSibling.previousElementSibling;
             if (pill && pill.classList.contains('timing-pill-t0')) pill.title = 'Base: ' + t.start_date;
           }
