@@ -57,6 +57,7 @@ def register_htmx_validate(router: APIRouter) -> None:
         old_session: SessionFormDep,
         config_json: str = Form(...),
         reconcile_overrides: str | None = Form(None),
+        htmx_return: str | None = Form(None),
     ):
         """Re-validate edited JSON using credentials from an existing session."""
         if not old_session:
@@ -76,4 +77,6 @@ def register_htmx_validate(router: APIRouter) -> None:
         if isinstance(result, LoaderValidationFailure):
             return pipeline_error_response(result)
 
-        return render_preview_or_redirect(request, result.session, templates)
+        return render_preview_or_redirect(
+            request, result.session, templates, htmx_return=htmx_return
+        )

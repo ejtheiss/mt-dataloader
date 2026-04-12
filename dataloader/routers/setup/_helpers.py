@@ -83,13 +83,38 @@ def pipeline_error_response(outcome: LoaderValidationFailure) -> HTMLResponse:
     return error_response(title, detail)
 
 
+def session_has_funds_flows_list(session: SessionState) -> bool:
+    """True when GET /flows would show a non-empty list (matches flows router display logic).
+
+    After validate, ``pattern_flow_ir`` may be populated while instance ``flow_ir`` is still
+    empty until the operator runs scenario generation. The old ``if session.flow_ir`` check
+    incorrectly sent those sessions to the resource preview when re-validating from Fund Flows.
+    """
+    pattern_ir = session.pattern_flow_ir or []
+    flow_ir = session.flow_ir or []
+    recipes = getattr(session, "generation_recipes", None) or {}
+    if recipes and flow_ir:
+        display_ir = flow_ir
+    else:
+        display_ir = pattern_ir or flow_ir
+    return bool(display_ir)
+
+
 def render_preview_or_redirect(
     request: Request,
     session: SessionState,
     templates,
+    *,
+    htmx_return: str | None = None,
 ) -> HTMLResponse:
-    """Return an HX-Redirect to /flows or render the preview page."""
-    if session.flow_ir:
+    """Return an HX-Redirect to /flows or render the preview page.
+
+    ``htmx_return=flows`` (hidden field from ``templates/flows.html``) forces redirect to
+    Fund Flows even when the list is empty, so JSON edits never swap preview HTML into
+    ``#content`` from that surface.
+    """
+    go_flows = (htmx_return == "flows") or session_has_funds_flows_list(session)
+    if go_flows:
         resp = HTMLResponse(content="", status_code=200)
         resp.headers["HX-Redirect"] = f"/flows?session_token={session.session_token}"
         return resp
