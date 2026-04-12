@@ -127,7 +127,6 @@ def test_h_http_schema_includes_funds_flow_display_properties() -> None:
 def test_h_app_module_loaded_models_still_expose_display_fields() -> None:
     """H-G: same interpreter after `dataloader.main` import (uvicorn-like), fields remain."""
     import dataloader.main  # noqa: F401 — ensure app import graph exercised
-
     from models.flow_dsl import FundsFlowConfig as F2
 
     assert "display_title" in F2.model_fields
