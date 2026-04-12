@@ -440,7 +440,7 @@ A payment order moves money. This is the most common resource in demos.
 - `direction: debit` — `receiving_account_id` is the source being debited
 - `amount` is in cents (e.g. 10000 = $100.00)
 - `type: book` = internal transfer between two internal accounts. Always `direction: credit`.
-- Inline `ledger_transaction` can be attached for double-entry accounting
+- **Double-entry on the same PO:** in **`funds_flows`**, put **`ledger_entries`** on the **`payment_order`** step and set **`ledger_inline: true`** so the compiler emits MT’s nested **`ledger_transaction`** on **`payment_orders[]`** (same request as [create payment order](https://docs.moderntreasury.com/platform/reference/create-payment-order)). Same idea for **IPD** / **EP** steps. If **`ledger_inline`** is **false** or omitted, entries still compile, but as **separate** **`ledger_transactions[]`** with **`ledgerable_id`** — not embedded. Prefer **`ledger_inline: true`** whenever ledgering is **owned by** that payment object unless you need a standalone **`ledger_transaction`** step.
 
 Payment orders cannot be deleted.
 
@@ -536,7 +536,7 @@ configs unless the customer asked for ledgering.
 | Create a ledger                 | `ledgers`                                      | `name`, `description`                                               |
 | Create a ledger account         | `ledger_accounts`                              | `name`, `ledger_id`, `normal_balance` (credit or debit), `currency` |
 | Standalone ledger transaction   | `ledger_transactions`                          | `ledger_entries[]` (at least one debit + one credit, must balance)  |
-| Inline ledger transaction on PO | `ledger_transaction` field on `payment_orders` | Same `ledger_entries` structure                                     |
+| Inline ledger transaction on PO | `ledger_transaction` field on `payment_orders` (from DSL: **`ledger_entries` + `ledger_inline: true`** on the PO step) | Same `ledger_entries` structure as standalone LTs                                     |
 
 
 When a PO includes an inline `ledger_transaction`, the created ledger

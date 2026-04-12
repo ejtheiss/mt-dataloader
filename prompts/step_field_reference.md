@@ -60,6 +60,15 @@ simulation API does not take that field on the saved IPD object the same way).
 
 **Do not** use `external_account_id` on `verify_external_account` or `complete_verification` steps — the loader IR uses `**external_account_ref`** only; extra fields are rejected.
 
+## `ledger_entries` + `ledger_inline` on PO / IPD / EP
+
+`payment_order`, `incoming_payment_detail`, and `expected_payment` steps may include **`ledger_entries`** (balanced) plus optional **`ledger_status`**.
+
+- **`ledger_inline: true`** — compiler emits MT’s nested **`ledger_transaction`** on the **same** payment resource (create PO / IPD / EP **with** ledger in one API shape). **Prefer this** whenever the ledgering is tied to that payment’s lifecycle.
+- **`ledger_inline: false`** or omitted — compiler emits **separate** **`ledger_transactions[]`** rows with **`ledgerable_id`** pointing at the payment. Use when you intentionally want a standalone LT resource (or legacy patterns); not the embedded create-PO field.
+
+Use a **`ledger_transaction`** **step** (not inline fields on the payment) when the LT needs its **own** `depends_on` ordering, multiple LTs for one payment, or an explicit **`$ref:ledger_transaction.*`** in the story.
+
 ## Canonical examples (verification steps)
 
 ```json
