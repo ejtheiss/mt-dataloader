@@ -151,9 +151,7 @@ def test_display_fields_fallback_when_json_keys_absent():
 
 def test_display_fields_same_pattern_two_rows_share_working_row():
     sess = _session(
-        working_json=(
-            '{"funds_flows": [{"ref": "p", "display_title": "One pattern title"}]}'
-        ),
+        working_json=('{"funds_flows": [{"ref": "p", "display_title": "One pattern title"}]}'),
         recipes={"any": True},
         flow_ir=[1, 2],
         expanded_flows=[
