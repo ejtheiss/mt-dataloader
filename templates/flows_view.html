@@ -17,22 +17,8 @@
 {% endblock %}
 
 {% block page_tabs %}
-{% if available_views %}
-<div class="mt-tabs">
-    <div class="mt-tabs__row">
-        {% for v in available_views %}
-        <div class="mt-tab {% if v == default_view %}mt-tab--active{% endif %}">
-            <button class="mt-tab__btn"
-                    hx-get="/api/flows/{{ flow_idx }}/view/{{ v }}?session_token={{ session_token }}"
-                    hx-target="#view-content"
-                    hx-swap="innerHTML"
-                    onclick="setActiveTab(this)">
-                {{ v|capitalize }}
-            </button>
-        </div>
-        {% endfor %}
-    </div>
-</div>
+{% if tabs %}
+{% include "partials/mt_tabs.html" %}
 {% endif %}
 {% endblock %}
 

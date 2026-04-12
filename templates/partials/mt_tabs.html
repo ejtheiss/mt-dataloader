@@ -47,7 +47,7 @@
     {% set active_tab = "overview" %}
     {% set tab_target = "#tab-content" %}
     {% set show_border = true %}
-    {% include "partials/tabs.html" %}
+    {% include "partials/mt_tabs.html" %}
 
     <div id="tab-content">
       ...current tab content...
@@ -60,7 +60,7 @@
     ] %}
     {% set active_tab = request.args.get('tab', 'overview') %}
     {% set show_border = true %}
-    {% include "partials/tabs.html" %}
+    {% include "partials/mt_tabs.html" %}
 #}
 
 {# Tabs container — Tabs.tsx line 138-140 #}

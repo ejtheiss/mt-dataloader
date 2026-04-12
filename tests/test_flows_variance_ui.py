@@ -1,6 +1,6 @@
 """Unit tests for Fund Flows scenario-builder variance row context (server-side)."""
 
-from dataloader.routers.flows import _step_variance_ui_fields
+from dataloader.routers.flows.helpers import _step_variance_ui_fields
 
 
 def test_variance_ui_absent_step_follows_global():
