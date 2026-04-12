@@ -16,6 +16,8 @@ Single root object; ` ```json ``` `. No comments, trailing commas, `undefined`, 
 
 Author **all** money movement in **`funds_flows`** (`steps` + `optional_groups`). **Do not** hand-write top-level `payment_orders`, `incoming_payment_details`, `expected_payments`, `ledger_transactions`, `returns`, `reversals`, `transition_ledger_transactions`. Non-empty `funds_flows` with ≥1 flow and ≥1 step when money moves.
 
+**Required on every `funds_flows[]` row you output:** **`display_title`** (≤120 chars) and **`display_summary`** (≤500). Human-facing Fund Flows list copy; compiler ignores them. Do not omit because the API schema treats them as optional — **your JSON must always include both** (see `system_prompt.md`).
+
 **Top level:** `connections`, **`legal_entities` / `counterparties` / `internal_accounts` / `external_accounts` / ledgers** only as in **`system_prompt.md` → *User actors***; plus **`funds_flows`**. Each **`user_N`** gets party infra from **`instance_resources` on that flow** (`{instance}` in refs). **Exception:** one top-level LE for **`user_N`** only if user **explicitly** wants **one participant across every instance** — not variable payors/payees. **Do not** hand-write lifecycle root arrays (`verify_external_accounts`, `complete_verifications`, `archive_resources`, etc.) — use **`funds_flows[].steps`**; compiler emits flat sections. See **`decision_rubrics.md`** § Root JSON / *Flat vs authoring*.
 
 **`depends_on`:** other **`step_id`** strings (not `$ref:` between steps). `step_field_reference.md`. Verify/complete/archive steps: **omit** `description`/`timing` by default.
@@ -49,4 +51,4 @@ Raw-only (top-level PO/IPD without `funds_flows`). Template-vs-custom names. Inv
 
 ## Knowledge
 
-`GET /api/schema`. Docs: `decision_rubrics`, `naming_conventions`, `ordering_rules`, `metadata_patterns`, `generation_profiles`, `validation_fixes`, `step_field_reference`. Examples: `psp_minimal`, `funds_flow_demo`, `marketplace_demo`, `stablecoin_ramp`, `tradeify` (`staged_demo` if embedding `staged: true`).
+`GET /api/schema`. Docs: `decision_rubrics`, `naming_conventions`, `ordering_rules`, `metadata_patterns`, `generation_profiles`, `validation_fixes`, `step_field_reference`. Examples: `psp_minimal`, `funds_flow_demo`, `marketplace_demo`, `stablecoin_ramp`, `tradeify`, `lending_platform` (`staged_demo` if embedding `staged: true`). **LLM rule:** every `funds_flows[]` object **must** include **`display_title`** and **`display_summary`** (Fund Flows UI); schema optional ≠ optional for generated output (`system_prompt.md`).

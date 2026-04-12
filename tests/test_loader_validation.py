@@ -9,6 +9,7 @@ from dataloader.loader_validation import (
     LoaderValidationFailure,
     loader_validation_failure_htmx_parts,
     loader_validation_failure_to_envelope,
+    parse_loader_config_bytes,
     parse_loader_config_json_text,
     require_pydantic_obj,
     run_headless_validate_json,
@@ -19,6 +20,7 @@ from models import DataLoaderConfig, GenerationRecipeV1
 from models.loader_setup_json import LoaderSetupErrorItem
 
 _MINIMAL = Path(__file__).resolve().parent.parent / "examples" / "psp_minimal.json"
+_EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
 
 
 @pytest.fixture
@@ -51,6 +53,17 @@ def test_parse_loader_config_json_text_roundtrip(psp_minimal_bytes: bytes):
     assert pr.error is None
     assert pr.config is not None
     assert pr.config.connections  # minimal fixture has connections
+
+
+def test_examples_json_parse_includes_funds_flow_display_fields():
+    """Plan 10c: ``FundsFlowConfig`` must accept ``display_title`` / ``display_summary`` (examples use them)."""
+    paths = sorted(_EXAMPLES_DIR.glob("*.json"))
+    assert paths, f"no examples under {_EXAMPLES_DIR}"
+    for path in paths:
+        pr = parse_loader_config_bytes(path.read_bytes())
+        assert pr.body_invalid is None, path.name
+        assert pr.error is None, f"{path.name}: {pr.error}"
+        assert pr.config is not None
 
 
 def test_try_parse_pydantic_json_bytes_invalid():

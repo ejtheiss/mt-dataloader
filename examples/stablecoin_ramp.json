@@ -46,6 +46,8 @@
     {
       "ref": "usdc_onramp",
       "pattern_type": "fiat_to_stablecoin",
+      "display_title": "USDC on-ramp",
+      "display_summary": "Customer ACH into platform USD, then internal moves toward USDC; optional ACH/RTP/Wire payout branches.",
       "trace_key": "onramp_id",
       "trace_value_template": "ONRAMP-{instance}",
       "actors": {

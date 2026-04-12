@@ -50,3 +50,6 @@ envelope: `ok`, `phase`, `errors[].code`) + the files under `examples/`.
 | `tradeify.json` | Ledger-heavy brokerage: categories, per-user `instance_resources`, USDG |
 | `staged_demo.json` | Every money step has `staged: true`; default authoring omits `staged` and uses run **UI** |
 | `psp_minimal.json` | Minimal book-transfer-only config |
+| `lending_platform.json` | Multi-flow lending: deposit, disbursement, repayment with ledger + ACH |
+
+**LLM / agent authoring:** treat per-flow **`display_title`** and **`display_summary`** as **required** on every `funds_flows[]` entry (see `system_prompt.md`). They are UI-only and do not affect compilation; **`GET /api/schema`** may still list them as optional for legacy hand-edited JSON. Repo **examples/** include both on each flow for copy-paste.

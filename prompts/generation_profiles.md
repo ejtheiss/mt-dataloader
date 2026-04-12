@@ -12,7 +12,9 @@ Field-level rules: `GET /api/schema`, `naming_conventions.md`, `system_prompt.md
 2. **List static/bootstrap sections** you need (`connections`, `internal_accounts`,
    `legal_entities`, `counterparties`, ledgers, etc.) plus **`funds_flows`**.
    Default **one** `modern_treasury` connection even when IAs use both USD and
-   USDC (`stablecoin_ramp.json`).
+   USDC (`stablecoin_ramp.json`). On **every** `funds_flows[]` row you will emit,
+   plan **`display_title`** and **`display_summary`** (required for LLM output per
+   `system_prompt.md` — not optional in generated JSON).
 3. **Pick a structural template** from **Funds Flow examples only** — mirror
    shape from `examples/psp_minimal.json` (smallest flow), `examples/marketplace_demo.json`
    (PSP marketplace), or `examples/funds_flow_demo.json` (ledger lifecycle).

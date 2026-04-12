@@ -287,7 +287,10 @@ See `examples/staged_demo.json` for a working example and `prompts/decision_rubr
 | `examples/psp_minimal.json` | Smallest useful **book** transfer between two internal accounts. Two direct actors, one step. |
 | `examples/stablecoin_ramp.json` | Fiat↔stablecoin on/off-ramp: one `modern_treasury` connection, USD + USDC internal accounts, IPD/PO steps only (no ledger), and mutually exclusive payout alternatives (ACH/RTP/Wire via `exclusion_group` with `position: "replace"`). |
 | `examples/staged_demo.json` | Marketplace with `staged: true` on all money-movement steps. Infrastructure creates normally; staged items get "Fire" buttons. |
+| `examples/lending_platform.json` | **Multi-flow lending:** investor deposit, loan disbursement to beneficiary, repayment with investor distribution and servicing income (ledger + ACH). |
 | `examples/tradeify.json` | **Ledger-heavy brokerage PSP.** Rewards wallet with USDG conversion, chart-of-accounts categories, per-user instance resources (LE + CP + IA + 2 LAs + category memberships), NinjaTrader direct actor with CP + EAs, three optional groups (ACH cashout, wire funding, staged return). |
+
+Each `funds_flows` entry may omit **`display_title`** / **`display_summary`** in hand-edited JSON (schema optional). **LLM/agent-authored configs** should include **both** on every flow (see `prompts/system_prompt.md`); they are Fund Flows list-card copy only and do not affect compilation.
 
 Validate examples locally:
 
@@ -407,7 +410,7 @@ org/                 Org discovery + reconciliation
 templates/           HTMX + Jinja2 UI
   partials/          Reusable fragments (mermaid, scenario_builder, resource_row, etc.)
 static/              CSS
-examples/            6 example configs (marketplace, stablecoin, tradeify, staged, psp, funds_flow)
+examples/            7 example configs; each flow includes display_title / display_summary (LLM template + Fund Flows UI)
 prompts/             LLM prompt kit (system_prompt, decision_rubrics, ChatGPT instructions)
 flow_compiler/seeds/ Seed catalog (YAML + Faker standard; used by flow_compiler.seed_loader)
 

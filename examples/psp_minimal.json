@@ -26,6 +26,8 @@
     {
       "ref": "internal_transfer",
       "pattern_type": "book_transfer",
+      "display_title": "Internal book transfer",
+      "display_summary": "Smallest useful example: one book payment_order between two direct actors' internal wallets.",
       "trace_key": "transfer_id",
       "trace_value_template": "xfer-{ref}-{instance}",
       "actors": {

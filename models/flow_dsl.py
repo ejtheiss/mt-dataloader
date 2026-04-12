@@ -6,7 +6,7 @@ import string
 from datetime import date
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Timing configuration (Step 9: Seasoning & Date Configuration)
@@ -295,6 +295,26 @@ class FundsFlowConfig(BaseModel):
             "substitution from seed profiles."
         ),
     )
+    display_title: str | None = Field(
+        default=None,
+        max_length=120,
+        description="Operator-visible title; does not affect compilation.",
+    )
+    display_summary: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Short operator-visible summary; does not affect compilation.",
+    )
+
+    @field_validator("display_title", "display_summary", mode="before")
+    @classmethod
+    def _strip_display_fields(cls, v: Any) -> Any:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            s = v.strip()
+            return s or None
+        return v
 
     @model_validator(mode="before")
     @classmethod

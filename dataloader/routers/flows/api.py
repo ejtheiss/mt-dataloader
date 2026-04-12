@@ -24,6 +24,7 @@ from dataloader.routers.flows.helpers import (
     _count_resources,
     _parse_and_compile_recipe,
     _parse_recipe,
+    resolve_working_funds_flow_index_for_metadata,
 )
 from dataloader.routers.flows.schemas import RecipePatchBody, ScenarioSnapshotRequest
 from dataloader.session import sessions
@@ -59,10 +60,18 @@ async def update_flow_metadata(
         config_dict = hdr_sess.config.model_dump()
 
     flows = config_dict.get("funds_flows", [])
-    if flow_idx < 0 or flow_idx >= len(flows):
+    try:
+        edit_idx = resolve_working_funds_flow_index_for_metadata(hdr_sess, flow_idx)
+    except ValueError as exc:
+        return JSONResponse(
+            content={"error": "Invalid flow index", "detail": str(exc)},
+            status_code=400,
+        )
+
+    if edit_idx < 0 or edit_idx >= len(flows):
         return JSONResponse(content={"error": "Invalid flow index"}, status_code=400)
 
-    flow = flows[flow_idx]
+    flow = flows[edit_idx]
     if trace_key is not None:
         flow["trace_key"] = trace_key
     if trace_metadata is not None:
@@ -102,12 +111,54 @@ async def update_flow_metadata(
                 internal = {k: v for k, v in existing.items() if str(k).startswith("_flow_")}
                 step_by_id[step_id]["metadata"] = {**internal, **cleaned}
 
+    if "display_title" in body:
+        raw_dt = body["display_title"]
+        if raw_dt is None:
+            flow["display_title"] = None
+        elif isinstance(raw_dt, str):
+            s = raw_dt.strip()
+            if len(s) > 120:
+                return JSONResponse(
+                    content={"error": "display_title exceeds 120 characters"},
+                    status_code=422,
+                )
+            flow["display_title"] = s or None
+        else:
+            return JSONResponse(
+                content={"error": "display_title must be a string or null"},
+                status_code=422,
+            )
+
+    if "display_summary" in body:
+        raw_ds = body["display_summary"]
+        if raw_ds is None:
+            flow["display_summary"] = None
+        elif isinstance(raw_ds, str):
+            s2 = raw_ds.strip()
+            if len(s2) > 500:
+                return JSONResponse(
+                    content={"error": "display_summary exceeds 500 characters"},
+                    status_code=422,
+                )
+            flow["display_summary"] = s2 or None
+        else:
+            return JSONResponse(
+                content={"error": "display_summary must be a string or null"},
+                status_code=422,
+            )
+
     updated_json = dumps_pretty(config_dict)
     hdr_sess.working_config_json = updated_json
 
     await persist_loader_draft(request, hdr_sess)
 
-    return {"status": "ok", "flow_idx": flow_idx}
+    return {
+        "status": "ok",
+        "flow_idx": flow_idx,
+        "edit_index": edit_idx,
+        "display_title": flow.get("display_title"),
+        "display_summary": flow.get("display_summary"),
+    }
 
 
 @router.post("/api/flows/generate-preview", tags=["agent"])

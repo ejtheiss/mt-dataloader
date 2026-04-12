@@ -48,6 +48,8 @@
     {
       "ref": "simple_deposit",
       "pattern_type": "deposit_settle",
+      "display_title": "Demo deposit & settle",
+      "display_summary": "ACH deposit with ledger settlement and optional return path for Fund Flows UI demos.",
       "trace_key": "deal_id",
       "trace_value_template": "deal-{ref}-{instance}",
       "actors": {
