@@ -361,7 +361,7 @@ Put **`instance_resources` on the same flow object** as the `actors` that refere
 
 | `type`                          | Resource created | Notes                                                                                                                                                                         |
 | ------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `payment_order`                 | PO               | Set `payment_type` (`ach`, `wire`, `rtp`, `book`) and `direction`                                                                                                             |
+| `payment_order`                 | PO               | Set `payment_type` (`ach`, `wire`, `rtp`, `book`) and `direction`. If the flow books ledger legs **with** this PO in MT, add `ledger_entries` and set **`ledger_inline: true`** (embedded LT on create — see **§ Ledger entries on payment steps**). |
 | `incoming_payment_detail`       | IPD              | Sandbox inbound simulation; set `payment_type` and `direction`                                                                                                                |
 | `expected_payment`              | EP               | Reconciliation matcher; needs `reconciliation_rule_variables`                                                                                                                 |
 | `ledger_transaction`            | LT               | Standalone double-entry; requires `ledger_entries[]`                                                                                                                          |
@@ -414,6 +414,16 @@ usually means an **older build** without that strip pass.
 - **Inline counterparty `accounts[]` vs standalone `external_accounts[]`:** Different schemas. `**sandbox_behavior`** (and `sandbox_return_code`) are valid only on **inline** counterparty **bank** accounts, not on `**external_accounts[]`** rows. **Stablecoin wallet** inline accounts use `**wallet_account_number_type`** or explicit `**account_details**` (network `**account_number_type**`, no ABA routing) — never `**sandbox_behavior**` on the same row. See `**decision_rubrics.md**` § *Stablecoin wallet accounts*. Do not copy fields from one shape to the other unless both schemas allow them.
 - **Stable `$ref:` for flow bank slots:** For `**funds_flows**` per-instance banks, **prefer** `**instance_resources.external_accounts[]**` and **`slots.bank` → `$ref:external_account.<key_with_{instance}>`** when the config may be **round-tripped, reused, or reconciled** with the org — **`$ref:counterparty.<key>.account[0]`** assumes the first inline account is always present the same way after restore. **Keep inline `accounts[]`** when you need **`sandbox_behavior`** or wallet-only helpers. Details: **`decision_rubrics.md`** § *External Accounts*.
 
+### Ledger entries on payment steps (PO / IPD / EP)
+
+**Modern Treasury:** [Create payment order](https://docs.moderntreasury.com/platform/reference/create-payment-order) accepts an optional **`ledger_transaction`** object so the ledger transaction is created **atomically** with the PO and **tracks PO status**.
+
+**DSL → compiler:**
+
+- Put **`ledger_entries`** (balanced debits/credits) on the **same** step as the PO, IPD, or EP when those entries are the accounting for that payment.
+- Set **`ledger_inline: true`** so the emitter puts a nested **`ledger_transaction`** on the compiled **`payment_orders[]` / `incoming_payment_details[]` / `expected_payments[]`** row (MT embedded create). **Default `ledger_inline` is `false`:** with **`ledger_inline: false`** or omitted, the compiler still creates **`ledger_transactions[]`**, but as **separate** resources linked via **`ledgerable_id`** / **`ledgerable_type`** — valid, but **not** the embedded create payload.
+- Use a standalone **`ledger_transaction`** **step** when the LT must be its **own** graph node: different **`depends_on`** than the payment, multiple LTs per payment, or you need a top-level **`$ref:ledger_transaction.<ref>`** (e.g. some flows reference it explicitly). **`transition_ledger_transaction`** can target **`$ref:payment_order.<ref>.ledger_transaction`** when the depended-on step used **`ledger_inline: true`** (see `prompts/naming_conventions.md`).
+
 ### `optional_groups` — lifecycle variants
 
 Each group has a `label` and one or more `steps`. Groups model edge cases
@@ -437,7 +447,7 @@ Each group has a `label` and one or more `steps`. Groups model edge cases
 3. Use `optional_groups` for lifecycle variants (returns, reversals, NSF, alternative payout methods)
 4. Do NOT emit expanded resource arrays — the compiler handles expansion
 5. Step `type` is the resource type; use `payment_type` for the method (ach/wire/rtp/book)
-6. Include `ledger_entries` on steps that need double-entry bookkeeping
+6. **Ledger with payments:** when `ledger_entries` belong to a **`payment_order`**, **`incoming_payment_detail`**, or **`expected_payment`** step and should be created **with** that MT object, set **`ledger_inline: true`** (embedded `ledger_transaction`). Prefer that over a separate **`ledger_transaction`** step unless you need standalone LT semantics — see **§ Ledger entries on payment steps** above.
 7. Use `depends_on` for ordering between steps (references step_id, not $ref:)
 8. **Every `user_N` actor** must follow **User actors (mandatory JSON)** above: `instance_resources` on that flow + `{instance}` in `entity_ref` and party slots for **variable** parties; a **fixed** top-level LE is allowed **only** for **one reused participant across every copy** (explicit user intent)
 9. Use `{placeholder}` in descriptions, names, and `trace_value_template` where the story should show distinct text per copy

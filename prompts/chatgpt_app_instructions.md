@@ -22,6 +22,8 @@ Author **all** money movement in **`funds_flows`** (`steps` + `optional_groups`)
 
 **`depends_on`:** other **`step_id`** strings (not `$ref:` between steps). `step_field_reference.md`. Verify/complete/archive steps: **omit** `description`/`timing` by default.
 
+**PO / IPD / EP + ledger:** when a payment step needs **`ledger_entries`**, set **`ledger_inline: true`** so MT gets an embedded **`ledger_transaction`** on create (unless you intentionally want separate **`ledger_transactions[]`** rows — `step_field_reference.md` § *ledger_inline*).
+
 **DSL sketch:** **`user_N`:** `frame_type: "user"`, **`entity_ref` + `slots` → `$ref:` with `{instance}`**, **`instance_resources` on that flow** (except explicit reused-participant case — **`system_prompt.md`**). **`direct_N`:** `frame_type: "direct"`, literal **`customer_name`**, static top-level `$ref:`. Steps: `@actor:frame.slot`. `trace_key` + `trace_value_template`. `optional_groups`: `position`, `insert_after`, `exclusion_group`. **Scaling / two businesses:** **`{user_1_business_name}`** / **`{user_2_business_name}`** — not bare **`{business_name}`** on both — **`metadata_patterns.md`** § *Multi-user_N*. Consistent actor keys across flows.
 
 ## Generation rules
