@@ -57,6 +57,14 @@ class FlowConfigDrawerContext(BaseModel):
     actor_aliases: list[str] = Field(default_factory=list)
     config_version: str = Field(description="SHA-256 prefix of working JSON (10h prep)")
     seed_datasets: list[Any] = Field(default_factory=list)
+    staging_options: list[dict[str, str]] = Field(
+        default_factory=list,
+        description="Value/label pairs for staging rule selection (same semantics as scenario builder).",
+    )
+    actor_binding_for_flow: dict[str, str] = Field(
+        default_factory=dict,
+        description="Frame name → library_actor_id for this flow's pattern_ref.",
+    )
 
 
 def build_flow_config_drawer_context(
@@ -100,6 +108,17 @@ def build_flow_config_drawer_context(
 
     aliases = list(flow_config.actors.keys()) if flow_config else []
 
+    staging_options: list[dict[str, str]] = [
+        {"value": "happy_path", "label": "Happy path"},
+        {"value": "all", "label": "All instances"},
+    ]
+    for og in summary.get("optional_groups") or []:
+        lab = og.get("label") if isinstance(og, dict) else getattr(og, "label", None)
+        if isinstance(lab, str) and lab.strip():
+            staging_options.append({"value": lab, "label": lab})
+
+    abind = dict((getattr(sess, "actor_bindings", None) or {}).get(recipe_key, {}) or {})
+
     timing = None
     staging_rules = None
     if recipe_raw:
@@ -129,6 +148,8 @@ def build_flow_config_drawer_context(
         actor_aliases=aliases,
         config_version=_working_config_version_token(sess),
         seed_datasets=seed_datasets_for_flows_ui(),
+        staging_options=staging_options,
+        actor_binding_for_flow=abind,
     )
 
     base = ctx.model_dump()

@@ -14,6 +14,23 @@ from models import DataLoaderConfig, GenerationRecipeV1
 def _make_actor_flow_config() -> dict:
     """Same shape as tests.test_seed_datasets._make_actor_flow_config."""
     return {
+        "ledgers": [{"ref": "main", "name": "Main Ledger"}],
+        "ledger_accounts": [
+            {
+                "ref": "cash",
+                "ledger_id": "$ref:ledger.main",
+                "name": "Cash",
+                "normal_balance": "debit",
+                "currency": "USD",
+            },
+            {
+                "ref": "rev",
+                "ledger_id": "$ref:ledger.main",
+                "name": "Revenue",
+                "normal_balance": "credit",
+                "currency": "USD",
+            },
+        ],
         "funds_flows": [
             {
                 "ref": "actor_test",

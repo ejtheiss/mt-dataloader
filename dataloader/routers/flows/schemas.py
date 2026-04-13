@@ -22,6 +22,17 @@ class RecipePatchBody(BaseModel):
     patch: dict[str, Any] = Field(default_factory=dict)
 
 
+class ActorBindingsPatchBody(BaseModel):
+    """Plan 11a / 10e Band 2 — merge per-frame library ids for one flow's recipe key."""
+
+    model_config = {"extra": "forbid"}
+
+    frame_to_library_id: dict[str, str] = Field(
+        default_factory=dict,
+        description="Frame name → library_actor_id; empty string removes binding for that frame.",
+    )
+
+
 class ActorConfigSaveBody(BaseModel):
     model_config = {"extra": "forbid"}
 

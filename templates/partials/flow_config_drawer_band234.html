@@ -1,0 +1,150 @@
+{# Plan 10e — Bands 2–4: bindings, money movement, staging & timing (interactive). #}
+{% set rules = staging_rules if staging_rules is not none else [] %}
+{% set amt_steps = flow_summary.amount_steps if flow_summary.amount_steps else [] %}
+{% set t0 = (timing.start_date if timing and timing.get('start_date') else '') %}
+{% set spread_days = (timing.instance_spread_days if timing and timing.get('instance_spread_days') is not none else 0) %}
+{% set soff = (timing.step_offsets if timing and timing.get('step_offsets') else {}) %}
+{% set gmin = (recipe.amount_variance_min_pct if recipe and recipe.get('amount_variance_min_pct') is not none else 0) %}
+{% set gmax = (recipe.amount_variance_max_pct if recipe and recipe.get('amount_variance_max_pct') is not none else 0) %}
+
+  <section class="flow-config-band" aria-labelledby="flow-cfg-band2-h">
+    <h2 id="flow-cfg-band2-h" class="flow-config-band__title">Band 2 — Generation &amp; bindings</h2>
+    <p class="text-muted small">Bind each pattern frame to a row in the shared actor library (Plan 11a). Use “Pattern / recipe only” to clear a binding.</p>
+    {% if actor_frames %}
+    <table class="flow-config-table">
+      <thead><tr><th>Frame</th><th>Type</th><th>Library actor</th></tr></thead>
+      <tbody>
+        {% for af in actor_frames %}
+        <tr>
+          <td><code>{{ af.alias }}</code></td>
+          <td>{{ af.frame_type | replace('_', ' ') | title }}</td>
+          <td>
+            <select class="input input-border flow-cfg-binding-select" data-frame="{{ af.alias }}" aria-label="Binding for {{ af.alias }}">
+              <option value="">Pattern / recipe only</option>
+              {% for lib in actor_library %}
+              <option value="{{ lib.get('library_actor_id', '') }}"{% if actor_binding_for_flow.get(af.alias) == lib.get('library_actor_id') %} selected{% endif %}>{{ lib.get('label') or lib.get('library_actor_id') }}</option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="field-row flow-config-band-actions">
+      <button type="button" class="btn btn-primary btn-sm" data-flow-cfg-save-bindings>Save bindings</button>
+      <span class="metadata-save-status" data-flow-cfg-bindings-status></span>
+    </div>
+    {% else %}
+    <p class="text-muted">No actor frames in this flow pattern.</p>
+    {% endif %}
+  </section>
+
+  <section class="flow-config-band" aria-labelledby="flow-cfg-band3-h">
+    <h2 id="flow-cfg-band3-h" class="flow-config-band__title">Band 3 — Money movement</h2>
+    <p class="text-muted small">Amount variance (global and per step when steps exist). Uses <code>POST /api/flows/recipe-patch</code> with staging &amp; spread (Band 4).</p>
+    {% if amt_steps %}
+    <div class="flow-cfg-amount-list" role="group" aria-label="Money movement steps">
+      <div class="flow-cfg-amount-header">
+        <span></span><span>Step</span><span>Type</span><span>Schedule</span><span class="flow-cfg-amount-head-var">Variance</span><span class="flow-cfg-amount-head-amt">Amount</span>
+      </div>
+      {% for as in amt_steps %}
+      {% set vm = as.variance_mode | default('global') %}
+      {% set sid = as.step_id %}
+      {% set row_off = soff.get(sid, loop.index0) if soff is mapping else loop.index0 %}
+      <div class="flow-cfg-amount-row" data-flow-cfg-amount-row data-step-id="{{ sid }}"
+           data-base-amount="{{ as.amount }}" data-variance-mode="{{ vm }}">
+        <button type="button" class="flow-cfg-variance-lock-btn btn btn-sm btn-ghost" aria-label="Variance mode"
+                data-icon-global="/static/icons/ui/lock-open.svg"
+                data-icon-locked="/static/icons/ui/lock.svg"
+                data-icon-custom="/static/icons/ui/edit.svg">
+          <img class="flow-cfg-variance-lock-icon" width="16" height="16" alt=""
+               src="{% if vm == 'locked' %}/static/icons/ui/lock.svg{% elif vm == 'custom' %}/static/icons/ui/edit.svg{% else %}/static/icons/ui/lock-open.svg{% endif %}">
+        </button>
+        <code class="flow-cfg-step-id">{{ sid }}</code>
+        <span class="badge badge--cool">{{ as.type }}</span>
+        {% if loop.first %}
+        <span class="flow-cfg-timing-pill flow-cfg-timing-pill--t0" title="Anchor date">T0</span>
+        <button type="button" class="btn btn-sm btn-ghost flow-cfg-date-btn" aria-label="Pick anchor date">
+          <img src="/static/icons/ui/calendar.svg" width="14" height="14" alt="">
+        </button>
+        <input type="date" class="input input-border flow-cfg-timing-start-date{% if not t0 %} flow-cfg-sr-only{% endif %}" value="{{ t0 }}">
+        {% else %}
+        <span class="flow-cfg-timing-pill flow-cfg-timing-pill--off" title="Business-day offset">T+{{ row_off }}</span>
+        <input type="number" class="input input-border flow-cfg-timing-offset" value="{{ row_off }}" min="0" max="365" step="1" aria-label="Offset days for {{ sid }}">
+        {% endif %}
+        <span class="flow-cfg-var-custom">
+          <input type="number" class="input input-border flow-cfg-var-custom-min" min="-100" max="0" step="0.5" value="{{ as.variance_custom_min | default(0) }}">
+          <input type="number" class="input input-border flow-cfg-var-custom-max" min="0" max="100" step="0.5" value="{{ as.variance_custom_max | default(0) }}">
+        </span>
+        <span class="flow-cfg-amount-display" data-cents="{{ as.amount }}"></span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No amount steps in this pattern (per-step schedule / row variance N/A).</p>
+    {% endif %}
+    <div class="field-row flow-cfg-variance-global">
+      <div class="form-group">
+        <label for="flow-cfg-vmin">Min %</label>
+        <input id="flow-cfg-vmin" type="number" class="input input-border" data-flow-cfg-variance-min value="{{ gmin }}" min="-100" max="0" step="0.5">
+      </div>
+      <div class="form-group">
+        <label for="flow-cfg-vmax">Max %</label>
+        <input id="flow-cfg-vmax" type="number" class="input input-border" data-flow-cfg-variance-max value="{{ gmax }}" min="0" max="100" step="0.5">
+      </div>
+    </div>
+  </section>
+
+  <section class="flow-config-band" aria-labelledby="flow-cfg-band4-h">
+    <h2 id="flow-cfg-band4-h" class="flow-config-band__title">Band 4 — Staging &amp; timing</h2>
+    <p class="text-muted small">Staging pools and instance spread. Saved with Band 3 via <strong>Apply recipe (bands 3–4)</strong> below.</p>
+    <div data-flow-cfg-staging-rules>
+      {% if rules|length == 0 %}
+      <div class="field-row flow-cfg-staging-row" data-flow-cfg-staging-row>
+        <div class="form-group">
+          <label>Count</label>
+          <input type="number" class="input input-border flow-cfg-staging-count" value="0" min="0">
+        </div>
+        <div class="form-group">
+          <label>Stage from</label>
+          <select class="input input-border flow-cfg-staging-select">
+            {% for opt in staging_options %}
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline flow-cfg-staging-remove" aria-label="Remove rule" style="visibility:hidden">×</button>
+      </div>
+      {% else %}
+      {% for r in rules %}
+      <div class="field-row flow-cfg-staging-row" data-flow-cfg-staging-row>
+        <div class="form-group">
+          <label>Count</label>
+          <input type="number" class="input input-border flow-cfg-staging-count" value="{{ r.get('count', 0) }}" min="0">
+        </div>
+        <div class="form-group">
+          <label>Stage from</label>
+          <select class="input input-border flow-cfg-staging-select">
+            {% for opt in staging_options %}
+            <option value="{{ opt.value }}"{% if r.get('selection') == opt.value %} selected{% endif %}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline flow-cfg-staging-remove" aria-label="Remove rule">×</button>
+      </div>
+      {% endfor %}
+      {% endif %}
+    </div>
+    <button type="button" class="btn btn-sm btn-outline" data-flow-cfg-staging-add>+ Add staging rule</button>
+    <div class="field-row" style="margin-top:var(--spacing-m)">
+      <div class="form-group">
+        <label for="flow-cfg-spread">Spread instances over (days)</label>
+        <input id="flow-cfg-spread" type="number" class="input input-border" data-flow-cfg-timing-spread value="{{ spread_days }}" min="0" max="365" step="1">
+      </div>
+    </div>
+  </section>
+
+  <div class="field-row flow-config-band-actions flow-cfg-recipe-actions">
+    <button type="button" class="btn btn-primary btn-sm" data-flow-cfg-apply-recipe>Apply recipe (bands 3–4)</button>
+    <span class="metadata-save-status" data-flow-cfg-recipe-status></span>
+  </div>

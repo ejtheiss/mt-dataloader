@@ -28,6 +28,8 @@ def test_config_drawer_get_ok():
         assert 'data-flow-config-drawer="1"' in r.text
         assert "Band 1" in r.text
         assert "Band 5" in r.text
+        assert "Save bindings" in r.text
+        assert "Apply recipe (bands 3–4)" in r.text
     finally:
         sessions.pop(token, None)
 
@@ -53,3 +55,21 @@ def test_config_drawer_not_found():
     client = TestClient(app)
     r = client.get("/api/flows/99/config-drawer?session_token=nope")
     assert r.status_code == 404
+
+
+def test_actor_bindings_post_ok() -> None:
+    token, sess = _session_for_config_drawer()
+    sessions[token] = sess
+    try:
+        client = TestClient(app)
+        r = client.post(
+            "/api/flows/0/actor-bindings",
+            headers={"X-Session-Token": token},
+            json={"frame_to_library_id": {"buyer": "lib_test_buyer"}},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data.get("status") == "ok"
+        assert sess.actor_bindings.get("actor_test", {}).get("buyer") == "lib_test_buyer"
+    finally:
+        sessions.pop(token, None)

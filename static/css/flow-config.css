@@ -87,3 +87,82 @@
   align-items: center;
   gap: var(--spacing-s);
 }
+
+.flow-config-band-actions {
+  margin-top: var(--spacing-m);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-s);
+}
+
+.flow-cfg-recipe-actions {
+  margin-top: var(--spacing-m);
+  padding-top: var(--spacing-s);
+  border-top: 1px solid var(--border-default);
+}
+
+.flow-cfg-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.flow-cfg-amount-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-m);
+}
+
+.flow-cfg-amount-header,
+.flow-cfg-amount-row {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(4rem, 1fr) auto minmax(6rem, 1.2fr) minmax(7rem, 1fr) minmax(5rem, 1fr);
+  gap: var(--spacing-xs);
+  align-items: center;
+  min-height: 44px;
+}
+
+.flow-cfg-amount-header {
+  font-size: var(--mt-text-xs);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.flow-cfg-var-custom {
+  display: none;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+
+.flow-cfg-var-custom-min,
+.flow-cfg-var-custom-max {
+  width: 4rem;
+}
+
+.flow-cfg-timing-offset {
+  width: 3.5rem;
+}
+
+.flow-cfg-staging-row {
+  align-items: flex-end;
+  gap: var(--spacing-s);
+}
+
+@media (max-width: 768px) {
+  .flow-cfg-amount-header,
+  .flow-cfg-amount-row {
+    grid-template-columns: 2rem 1fr;
+    grid-auto-rows: auto;
+  }
+  .flow-cfg-amount-head-var,
+  .flow-cfg-amount-head-amt {
+    display: none;
+  }
+}

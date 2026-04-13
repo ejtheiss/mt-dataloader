@@ -2,7 +2,7 @@
 
 This document closes the gap between the **first 10e implementation slice** (drawer shell, Band 1/5, read-only Band 4, placeholder Band 2/3) and the **subplan end state** described in the parent Fund Flows UI plan. It lives under `docs/` so implementers are not blocked on private `plan/` copies.
 
-**Status (2026-04-11):** Band **3** is fully specified below (ready to implement). Bands **4** (interactive) and **2** (binding UX) are backlog checklists. **11a Phase 0** is done in code — see [`FUND_FLOWS_11A_PHASE0.md`](FUND_FLOWS_11A_PHASE0.md); it does **not** replace Band 2 UI work, but it **does** remove the excuse that `LoaderDraft` could not hold library + bindings.
+**Status (2026-04-11):** Bands **3** and **4** are **interactive in the config drawer** (shared **Apply recipe (bands 3–4)** → `recipe-patch`). Band **2** has **Save bindings** + library dropdowns in the drawer (`POST /api/flows/{i}/actor-bindings`). The **Actors registry** band on `/flows` (11a Phase 1) and contrast / `config_version` hardening remain. **11a Phase 0** data path: `[FUND_FLOWS_11A_PHASE0.md](FUND_FLOWS_11A_PHASE0.md)`.
 
 ---
 
@@ -11,20 +11,20 @@ This document closes the gap between the **first 10e implementation slice** (dra
 The subplan text lists **five bands** and success criteria that read like a single release. In practice the work was split so the drawer could ship without blocking on **11a UI** (Actors registry + binding dropdowns), **UX research** (dense money-movement matrix), or a large **scenario-builder extraction**. The slice table in `plan/.../10e_config_drawer_bands.md` documents that split; this file turns the remainder into **actionable specs and PR-sized work**.
 
 
-| Area              | First slice                                   | Done since first slice                                                                 | Still to build                                                                                      |
-| ----------------- | --------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Band 5 + Band 1 | Done in drawer                                | —                                                                                      | Hardening, contrast, `config_version` on writes (10h)                                                |
-| Band 2          | Placeholder table                             | **11a Phase 0:** `LoaderDraft` / session `actor_library` + `actor_bindings`, hydrate + materialize + sync before compose; drawer context exposes them ([`FUND_FLOWS_11A_PHASE0.md`](FUND_FLOWS_11A_PHASE0.md)) | **11a Phase 1–2 + 10e:** Actors registry on `/flows`, per-flow binding **dropdown + save** calling a bindings API and `recompose` |
-| Band 4          | Read-only `staging_rules` + `timing` summary  | —                                                                                      | Interactive staging + **instance spread** (checklist below)                                         |
-| Band 3          | Placeholder                                   | —                                                                                      | **§ Band 3** below — implement after Band 4 or in parallel once row layout is agreed                  |
+| Area            | First slice                                  | Done since first slice                                                                                                                                                                                         | Still to build                                                                                                                    |
+| --------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Band 5 + Band 1 | Done in drawer                               | —                                                                                                                                                                                                              | Hardening, contrast, `config_version` on writes (10h)                                                                             |
+| Band 2          | Placeholder table                            | **11a Phase 0** + **drawer:** binding dropdown + `POST …/actor-bindings` + `recompose` (`[FUND_FLOWS_11A_PHASE0.md](FUND_FLOWS_11A_PHASE0.md)`)                                                                  | **11a Phase 1:** always-visible **Actors** registry CRUD on `/flows` (full identity forms)                                            |
+| Band 4          | Read-only summary                            | **Drawer:** staging rows + instance spread + shared Apply with Band 3 (`flow_config_drawer_band234.html`, `recipe-patch`)                                                                                    | Optional: `spread_pattern` / `spread_jitter`, `step_delay_overrides`; trim duplicate scenario-accordion copy when confident          |
+| Band 3          | Placeholder                                  | **Drawer:** variance matrix + T0 / T+N + shared Apply (`static/js/flow-config-drawer.js`)                                                                                                                      | **10f** calendar digest; edge cases around clearing `step_variance` keys (same as scenario builder merge semantics)                    |
 
 
 ---
 
 ## 11a coordination (Phase 0 vs Band 2 / Band 3)
 
-- **Phase 0 (landed):** Persistence and projection — library rows, per-recipe bindings, legacy ids, materialize into `actor_overrides`, refresh `legacy:…` rows from recipe so scenario builder and compose stay consistent ([`FUND_FLOWS_11A_PHASE0.md`](FUND_FLOWS_11A_PHASE0.md)).
-- **Still 11a + 10e:** Operator-visible **Actors** band (CRUD library) and **Band 2** pickers that **mutate `actor_bindings`** (not only `actor_overrides` via scenario builder) and persist the draft. None of that is required to ship **Band 3** or **Band 4** interactive.
+- **Phase 0 (landed):** Persistence and projection — library rows, per-recipe bindings, legacy ids, materialize into `actor_overrides`, refresh `legacy:…` rows from recipe so scenario builder and compose stay consistent (`[FUND_FLOWS_11A_PHASE0.md](FUND_FLOWS_11A_PHASE0.md)`).
+- **Still 11a:** Operator-visible **Actors** registry on `/flows` (CRUD library rows). **Band 2** in the drawer already **mutates `actor_bindings`** and recomposes; registry remains the place for full identity editing per parent plan.
 - **Band 3** has **no** dependency on 11a; it only touches `recipe-patch` / variance / `timing` keys already owned by the scenario builder today.
 
 ---
@@ -36,10 +36,10 @@ The subplan text lists **five bands** and success criteria that read like a sing
 **Recommended drawer split (10e):**
 
 
-| Band                     | Owns (recipe / UI)                                                                                                                                                                                                                                                    | Does not own                                                                                                                        |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Band                     | Owns (recipe / UI)                                                                                                                                                                                                                                                    | Does not own                                                                                                                               |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | **3 — Money movement**   | `amount_variance_min_pct`, `amount_variance_max_pct`, `step_variance` (per `step_id`: omit key = global, `{}` = locked, `{min_pct,max_pct}` = custom), **per-step** `timing.step_offsets`, **anchor** `timing.start_date` when edited from the first amount row (T0). | `staging_rules`, `staged_*` legacy fields, `timing.instance_spread_days` / `spread_pattern` / `spread_jitter_days` (those are **Band 4**). |
-| **4 — Staging & timing** | `staging_rules`, instance spread fields on `RecipeTimingConfig`, and any **flow-level** delay defaults that the product wants surfaced here vs JSON-only (`step_delay_overrides` / pattern `flow_timing` — see open point below).                                     | Per-step amount variance toggles (Band 3).                                                                                          |
+| **4 — Staging & timing** | `staging_rules`, instance spread fields on `RecipeTimingConfig`, and any **flow-level** delay defaults that the product wants surfaced here vs JSON-only (`step_delay_overrides` / pattern `flow_timing` — see open point below).                                     | Per-step amount variance toggles (Band 3).                                                                                                 |
 
 
 **Rationale:** Matches the existing accordion sections, minimizes duplicate controls, and aligns with `10_fund_flows_ui.md` (“Staging, timing & money-movement calendar”) where **10f** can later add a **derived** calendar that reads both bands.
@@ -64,11 +64,11 @@ Operators can configure **scaled amount variance** and **business-day offsets fr
 1. **Section header:** “Band 3 — Money movement” (existing); replace placeholder copy when implemented.
 2. **Matrix header row:** Step | Type | Variance control | Schedule (T0 / T+N) | Amount (read-only, formatted as today).
 3. **Variance (same state machine as `scenario-builder.js`):**
-   - Three modes per row: **global** (open lock), **locked** (closed lock, `step_variance[step_id] = {}`), **custom** (pencil, min/max % inputs).
-   - Global min/max `%` row below the matrix (maps to `amount_variance_min_pct` / `amount_variance_max_pct`).
+  - Three modes per row: **global** (open lock), **locked** (closed lock, `step_variance[step_id] = {}`), **custom** (pencil, min/max % inputs).
+  - Global min/max `%` row below the matrix (maps to `amount_variance_min_pct` / `amount_variance_max_pct`).
 4. **Schedule:**
-   - First amount step: **T0** pill + date button + hidden `<input type="date">` → `timing.start_date` (ISO date string in patch).
-   - Later steps: **T+N** pill + numeric offset → `timing.step_offsets[step_id]`; default offset equals row index when absent (same as JS: only send overrides when `val !== defaultVal`).
+  - First amount step: **T0** pill + date button + hidden `<input type="date">` → `timing.start_date` (ISO date string in patch).
+  - Later steps: **T+N** pill + numeric offset → `timing.step_offsets[step_id]`; default offset equals row index when absent (same as JS: only send overrides when `val !== defaultVal`).
 5. **Empty state:** If `amount_steps` is empty, show short copy: “No amount steps in this pattern” (no Apply).
 6. **Accessibility:** Lock / custom control meets 44×44px tap target (`10e` drawer contract); pills and inputs have `title` / `aria-label` matching current scenario builder intent.
 
@@ -114,7 +114,7 @@ Operators can configure **scaled amount variance** and **business-day offsets fr
 
 ## Band 2 — What Phase 0 changed vs what remains
 
-**Done (11a Phase 0):** Typed **`LibraryActorEntry`**, **`LoaderDraft.actor_library` / `actor_bindings`**, **`SessionState`** mirrors, draft merge + **`legacy:{recipe}:{frame}`** hydration, **`sync_legacy_library_rows_from_recipes`** + **`materialize_actor_bindings_to_generation_recipes`** before compose, and **`FlowConfigDrawerContext`** exposes **`actor_library`** + **`actor_bindings`** for JSON/HTML consumers ([`FUND_FLOWS_11A_PHASE0.md`](FUND_FLOWS_11A_PHASE0.md)).
+**Done (11a Phase 0):** Typed `**LibraryActorEntry`**, `**LoaderDraft.actor_library` / `actor_bindings`**, `**SessionState**` mirrors, draft merge + `**legacy:{recipe}:{frame}**` hydration, `**sync_legacy_library_rows_from_recipes**` + `**materialize_actor_bindings_to_generation_recipes**` before compose, and `**FlowConfigDrawerContext**` exposes `**actor_library**` + `**actor_bindings**` for JSON/HTML consumers (`[FUND_FLOWS_11A_PHASE0.md](FUND_FLOWS_11A_PHASE0.md)`).
 
 **Remaining (10e + 11a Phases 1–2):** Always-visible **Actors registry** on `GET /flows`; **Band 2** binding matrix with **dropdown** bound to `actor_bindings`, explicit save/recompose, and copy that points operators to the registry for full identity editing (per parent plan). Do **not** block Band 3/4 on this.
 
@@ -123,16 +123,16 @@ Operators can configure **scaled amount variance** and **business-day offsets fr
 ## File / API index
 
 
-| Artifact                                        | Role                                                                                 |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `templates/partials/scenario_builder.html`      | Current UX reference for Bands 3+4 fields                                            |
-| `static/js/scenario-builder.js`                 | `buildRecipe`, variance, timing, staging serialization                               |
-| `models/flow_dsl.py`                            | `GenerationRecipeV1`, `RecipeTimingConfig`, `StagingRule`                            |
-| `dataloader/routers/flows/api.py`               | `recipe-patch`, `recipe-to-working-config`                                           |
-| `dataloader/routers/flows/helpers.py`           | `_step_variance_ui_fields`                                                           |
-| `dataloader/view_models/flows_config_drawer.py` | Drawer context; **`actor_library` / `actor_bindings`** on session (11a P0); `amount_steps` on `flow_summary` |
-| `dataloader/actor_library_runtime.py`         | Plan **11a** hydrate / sync / materialize (see [`FUND_FLOWS_11A_PHASE0.md`](FUND_FLOWS_11A_PHASE0.md)) |
-| `models/loader_draft.py` / `models/actor_library.py` | **11a** draft + `LibraryActorEntry` shapes                                      |
+| Artifact                                             | Role                                                                                                         |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `templates/partials/scenario_builder.html`           | Current UX reference for Bands 3+4 fields                                                                    |
+| `static/js/scenario-builder.js`                      | `buildRecipe`, variance, timing, staging serialization                                                       |
+| `models/flow_dsl.py`                                 | `GenerationRecipeV1`, `RecipeTimingConfig`, `StagingRule`                                                    |
+| `dataloader/routers/flows/api.py`                    | `recipe-patch`, `recipe-to-working-config`                                                                   |
+| `dataloader/routers/flows/helpers.py`                | `_step_variance_ui_fields`                                                                                   |
+| `dataloader/view_models/flows_config_drawer.py`      | Drawer context; `**actor_library` / `actor_bindings`** on session (11a P0); `amount_steps` on `flow_summary` |
+| `dataloader/actor_library_runtime.py`                | Plan **11a** hydrate / sync / materialize (see `[FUND_FLOWS_11A_PHASE0.md](FUND_FLOWS_11A_PHASE0.md)`)       |
+| `models/loader_draft.py` / `models/actor_library.py` | **11a** draft + `LibraryActorEntry` shapes                                                                   |
 
 
 ---
@@ -141,3 +141,4 @@ Operators can configure **scaled amount variance** and **business-day offsets fr
 
 - **2026-04-11:** Initial Band 3 spec + completion backlog (addresses “plan only 50% done” by making deferred bands PR-sized and testable).
 - **2026-04-11:** Marked document **complete** for Band 3 spec purposes; folded in **11a Phase 0** (data path only); split Band 2 “done vs remaining”; fixed `staged_*` table cell; expanded file index and coordination section.
+- **2026-04-11:** Bands **2–4** interactive drawer shipped; status + summary table updated to match implementation.

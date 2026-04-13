@@ -21,13 +21,18 @@ from dataloader.flows_mutation import (
 )
 from dataloader.helpers import format_validation_errors
 from dataloader.routers.deps import OptionalSessionQueryDep, SessionHeaderDep
+from dataloader.routers.flows.flow_list_row import flow_summary_dict_at_index
 from dataloader.routers.flows.helpers import (
     _count_resources,
     _parse_and_compile_recipe,
     _parse_recipe,
     resolve_working_funds_flow_index_for_metadata,
 )
-from dataloader.routers.flows.schemas import RecipePatchBody, ScenarioSnapshotRequest
+from dataloader.routers.flows.schemas import (
+    ActorBindingsPatchBody,
+    RecipePatchBody,
+    ScenarioSnapshotRequest,
+)
 from dataloader.session import sessions
 from dataloader.session.draft_persist import persist_loader_draft
 from dataloader.view_models.flows_config_drawer import (
@@ -177,6 +182,56 @@ async def update_flow_metadata(
         "edit_index": edit_idx,
         "display_title": flow.get("display_title"),
         "display_summary": flow.get("display_summary"),
+    }
+
+
+@router.post("/api/flows/{flow_idx}/actor-bindings", tags=["agent"])
+async def update_flow_actor_bindings(
+    request: Request,
+    flow_idx: int,
+    hdr_sess: SessionHeaderDep,
+):
+    """Plan 11a / 10e Band 2 — merge frame → library_actor_id for this row's recipe key, then recompose."""
+    if not hdr_sess:
+        return JSONResponse(
+            content={"error": "Session not found"},
+            status_code=401,
+        )
+    summary = flow_summary_dict_at_index(hdr_sess, flow_idx)
+    if summary is None:
+        return JSONResponse(content={"error": "Flow not found"}, status_code=404)
+
+    try:
+        raw = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse(content={"error": "Invalid JSON"}, status_code=400)
+    try:
+        body = ActorBindingsPatchBody.model_validate(raw)
+    except ValidationError as exc:
+        return JSONResponse(
+            content={"error": "Invalid body", "detail": format_validation_errors(exc)},
+            status_code=422,
+        )
+
+    rk = str(summary["recipe_flow_ref"])
+    cur = dict((getattr(hdr_sess, "actor_bindings", None) or {}).get(rk) or {})
+    for frame, lid in body.frame_to_library_id.items():
+        fk = str(frame)
+        if lid is None or lid == "":
+            cur.pop(fk, None)
+        else:
+            cur[fk] = str(lid)
+    if not getattr(hdr_sess, "actor_bindings", None):
+        hdr_sess.actor_bindings = {}
+    hdr_sess.actor_bindings[rk] = cur
+
+    composed = await recompose_and_persist_session(request, hdr_sess)
+    if isinstance(composed, JSONResponse):
+        return composed
+    return {
+        "status": "ok",
+        "flow_idx": flow_idx,
+        "pattern_ref": rk,
     }
 
 
