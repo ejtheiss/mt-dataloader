@@ -42,6 +42,18 @@ This document **manages 10e risks** called out in `plan/.../10e_config_drawer_ba
 
 **Mitigation:** Ship Band 2 as **read-only or placeholder** until 11a; no `LoaderDraft` mutation from 10e without coordinated migration (`loader_draft_from_session` / tests per parent plan).
 
+**Canonical plan pointers:** `plan/.../10e_config_drawer_bands.md` — band table row **2**, § **Actor config surface**, Research preflight **§2**; `plan/.../11a_shared_actor_library_flow_bindings.md` — binding matrix, registry, materialization.
+
+---
+
+## Band 4 — read-only slice vs full “migrate” (10e)
+
+**Local plan** row **4** says *Migrate from scenario builder* (interactive staging / spread / anchor in the drawer). The **first implementation slice** on `feat/plan-10e-config-drawer` only shows a **read-only** summary from the stored recipe; **editing** still happens in the **scenario builder accordion** on `/flows`.
+
+**Deferred?** **Interactive Band 4 is remaining 10e work** (further PRs on the same subplan), not handed off to 11a. **11a** only strips **actor** controls from Band 4 concepts (see 11a § staging UI); **timing + staging rules** remain **10e** once migrated.
+
+**Update the plan doc:** `plan/.../10e_config_drawer_bands.md` § **Implementation slices (multi-PR)** — added so this split is explicit in the private plan tree.
+
 ---
 
 ## Risk: Band 3 (money movement)
@@ -89,6 +101,14 @@ This document **manages 10e risks** called out in `plan/.../10e_config_drawer_ba
 | Case card “Flow config” | `templates/partials/case_card.html` |
 | Detail read-only strip | `templates/flows_view.html` |
 | Band 1 titles | `get_funds_flow_display_fields_for_display_row` via `flow_summary_dict_at_index` |
+
+### Follow-up (same plans, later PRs)
+
+| Item | Owner doc | Notes |
+|------|-----------|--------|
+| Band 2 binding dropdown + persist | **10e** + **11a** | After `LoaderDraft` / library exists per 11a. |
+| Band 4 interactive staging/timing + recipe save | **10e** | Move controls from `scenario_builder.html` pattern; not 11a except “no actor rows in Band 4”. |
+| Band 3 matrix | **10e** or **10e-ii** | Explicit ON HOLD until research. |
 
 ---
 
