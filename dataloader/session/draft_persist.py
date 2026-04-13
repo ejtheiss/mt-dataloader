@@ -7,12 +7,14 @@ from datetime import datetime, timezone
 from fastapi import Request
 from loguru import logger
 
+from dataloader.actor_library_runtime import ensure_actor_library_hydrated_from_legacy
 from dataloader.engine import all_resources, dry_run, typed_ref_for
 from dataloader.helpers import build_preview
 from dataloader.routers.deps import get_current_app_user
 from dataloader.session import SessionState
 from db.repositories import loader_drafts as drafts_repo
 from db.repositories.runs import RunAccessContext
+from models.actor_library import LibraryActorEntry
 from models.loader_draft import LoaderDraft
 
 
@@ -28,6 +30,10 @@ def loader_draft_from_session(session: SessionState) -> LoaderDraft:
         authoring_config_json=session.authoring_config_json,
         working_config_json=session.working_config_json,
         generation_recipes={k: dict(v) for k, v in session.generation_recipes.items()},
+        actor_library=[
+            LibraryActorEntry.model_validate(dict(x)) for x in (session.actor_library or [])
+        ],
+        actor_bindings={k: dict(v) for k, v in (session.actor_bindings or {}).items()},
         mermaid_diagrams=list(session.mermaid_diagrams or []),
         source_file_path=session.source_file_path,
         flow_diagnostics=list(session.flow_diagnostics) if session.flow_diagnostics else None,
@@ -45,6 +51,11 @@ def merge_loader_draft_into_session(session: SessionState, draft: LoaderDraft) -
     """
     if draft.generation_recipes:
         session.generation_recipes = {k: dict(v) for k, v in draft.generation_recipes.items()}
+    session.actor_library = [
+        e.model_dump(exclude_none=True) for e in (draft.actor_library or [])
+    ]
+    session.actor_bindings = {k: dict(v) for k, v in (draft.actor_bindings or {}).items()}
+    ensure_actor_library_hydrated_from_legacy(session)
     if draft.working_config_json and draft.working_config_json.strip():
         session.working_config_json = draft.working_config_json
     if draft.source_file_path:

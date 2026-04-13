@@ -70,6 +70,10 @@ class SessionState:
     #: Used for ``generate_from_recipe`` / ``_compose_all_recipes`` base lookup.
     authoring_config_json: str | None = None
     generation_recipes: dict[str, dict] = field(default_factory=dict)
+    #: Plan 11a — library rows as JSON-like dicts (mirrors ``LibraryActorEntry``).
+    actor_library: list[dict] = field(default_factory=list)
+    #: recipe_flow_ref → frame_name → library_actor_id
+    actor_bindings: dict[str, dict[str, str]] = field(default_factory=dict)
     working_config_json: str | None = None
     mermaid_diagrams: list[str] | None = None
     view_data_cache: list | None = None

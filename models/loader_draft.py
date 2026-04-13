@@ -26,6 +26,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from models.actor_library import LibraryActorEntry
 from models.config import DataLoaderConfig
 
 
@@ -49,6 +50,10 @@ class LoaderDraft(BaseModel):
     skip_refs: list[str] = Field(default_factory=list)
     update_refs: dict[str, str] = Field(default_factory=dict)
     payload_overrides: list[str] = Field(default_factory=list)
+    #: Plan 11a — shared actor definitions (session-scoped, draft-persisted).
+    actor_library: list[LibraryActorEntry] = Field(default_factory=list)
+    #: recipe_flow_ref (pattern key) → frame_name → library_actor_id
+    actor_bindings: dict[str, dict[str, str]] = Field(default_factory=dict)
 
     @field_validator("config_json_text")
     @classmethod

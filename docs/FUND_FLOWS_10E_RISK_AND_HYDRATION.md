@@ -42,7 +42,7 @@ This document **manages 10e risks** called out in `plan/.../10e_config_drawer_ba
 
 **Mitigation:** Ship Band 2 as **read-only or placeholder** until 11a; no `LoaderDraft` mutation from 10e without coordinated migration (`loader_draft_from_session` / tests per parent plan).
 
-**Canonical plan pointers:** `plan/.../10e_config_drawer_bands.md` — band table row **2**, § **Actor config surface**, Research preflight **§2**; `plan/.../11a_shared_actor_library_flow_bindings.md` — binding matrix, registry, materialization.
+**Canonical plan pointers:** `plan/.../10e_config_drawer_bands.md` — band table row **2**, § **Actor config surface**, Research preflight **§2**; `plan/.../11a_shared_actor_library_flow_bindings.md` — binding matrix, registry, materialization. **Phase 0 data path:** [`FUND_FLOWS_11A_PHASE0.md`](FUND_FLOWS_11A_PHASE0.md) (`LoaderDraft` + hydrate + materialize before compose).
 
 ---
 

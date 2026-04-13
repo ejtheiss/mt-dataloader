@@ -9,6 +9,7 @@ continues to work unchanged after the monolith → package decomposition.
 
 # --- shared types & constants ---
 # --- top-level config ---
+from models.actor_library import LibraryActorEntry
 from models.config import DataLoaderConfig
 from models.current_user import AppUserRole, CurrentAppUser, coerce_app_user_role
 
@@ -262,6 +263,7 @@ __all__ = [
     "AppUserRole",
     "CurrentAppUser",
     "coerce_app_user_role",
+    "LibraryActorEntry",
     "LoaderDraft",
     # Loader setup JSON API v1 (validate-json / config/save)
     "LOADER_SETUP_SCHEMA_VERSION",

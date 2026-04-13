@@ -16,6 +16,7 @@ from dataloader.flows_mutation import (
     default_recipe_dict,
     get_base_config_for_generation,
     merge_recipe_dict,
+    prepare_actor_library_for_compose,
     recompose_and_persist_session,
 )
 from dataloader.helpers import format_validation_errors
@@ -337,6 +338,7 @@ async def generate_execute(request: Request):
 
     session.generation_recipes[recipe.flow_ref] = recipe.model_dump()
 
+    prepare_actor_library_for_compose(session)
     base = get_base_config_for_generation(session)
     try:
         gen = compose_all_recipes(base, session.generation_recipes)

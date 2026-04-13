@@ -21,6 +21,17 @@ from models import DataLoaderConfig, GenerationRecipeV1
 from org import reconcile_config, sync_connection_entities_from_reconciliation
 
 
+def prepare_actor_library_for_compose(session: Any) -> None:
+    """Plan 11a — hydrate library from legacy shapes, then project bindings into recipes."""
+    from dataloader.actor_library_runtime import (
+        ensure_actor_library_hydrated_from_legacy,
+        materialize_actor_bindings_to_generation_recipes,
+    )
+
+    ensure_actor_library_hydrated_from_legacy(session)
+    materialize_actor_bindings_to_generation_recipes(session)
+
+
 def get_base_config_for_generation(session: Any) -> DataLoaderConfig:
     """Config with ``funds_flows`` intact for recipe ``flow_ref`` pattern lookup.
 
@@ -167,6 +178,7 @@ async def recompose_and_persist_session(
     Returns ``JSONResponse`` on generation failure; otherwise the
     ``GenerationResult`` that was applied.
     """
+    prepare_actor_library_for_compose(session)
     base = get_base_config_for_generation(session)
     try:
         gen = compose_all_recipes(base, session.generation_recipes)

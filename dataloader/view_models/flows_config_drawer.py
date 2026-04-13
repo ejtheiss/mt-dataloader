@@ -39,9 +39,13 @@ class FlowConfigDrawerContext(BaseModel):
     instance_count: int = 0
     recipe: dict[str, Any] | None = None
     actor_frames: list[dict[str, Any]] = Field(default_factory=list)
-    actor_bindings: dict[str, Any] = Field(
+    actor_bindings: dict[str, dict[str, str]] = Field(
         default_factory=dict,
-        description="Placeholder until Plan 11a library ids exist",
+        description="recipe_flow_ref → frame_name → library_actor_id (Plan 11a)",
+    )
+    actor_library: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Plan 11a library rows (same shape as session)",
     )
     timing: dict[str, Any] | None = None
     staging_rules: list[Any] | None = None
@@ -113,7 +117,8 @@ def build_flow_config_drawer_context(
         instance_count=inst,
         recipe=recipe_raw,
         actor_frames=list(summary.get("actor_frames") or []),
-        actor_bindings={},
+        actor_bindings=dict(getattr(sess, "actor_bindings", None) or {}),
+        actor_library=list(getattr(sess, "actor_library", None) or []),
         timing=timing if isinstance(timing, dict) else None,
         staging_rules=staging_rules if isinstance(staging_rules, list) else None,
         trace_key=str(tk) if tk else None,
