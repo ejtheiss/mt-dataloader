@@ -58,7 +58,9 @@ This document **manages 10e risks** called out in `plan/.../10e_config_drawer_ba
 
 ## Risk: Band 3 (money movement)
 
-**Status:** **Explicitly on hold** in 10e — heading + placeholder only. No implementation risk for v1.
+**Status:** **Specified for implementation** — see **[`FUND_FLOWS_10E_BAND3_AND_COMPLETION.md`](FUND_FLOWS_10E_BAND3_AND_COMPLETION.md)** (Band 3 executable spec, merge semantics, acceptance criteria). The first 10e slice kept a **placeholder** only; that was a sequencing choice, not “out of scope.”
+
+**Residual risk (low):** `merge_recipe_dict` already merges `timing` per-key (`dataloader/flows_mutation.py`). Band 3 should still ship with **regression tests** so future refactors do not regress merge behavior.
 
 ---
 
@@ -108,7 +110,7 @@ This document **manages 10e risks** called out in `plan/.../10e_config_drawer_ba
 |------|-----------|--------|
 | Band 2 binding dropdown + persist | **10e** + **11a** | After `LoaderDraft` / library exists per 11a. |
 | Band 4 interactive staging/timing + recipe save | **10e** | Move controls from `scenario_builder.html` pattern; not 11a except “no actor rows in Band 4”. |
-| Band 3 matrix | **10e** or **10e-ii** | Explicit ON HOLD until research. |
+| Band 3 money-movement matrix | **10e** | Spec: **`docs/FUND_FLOWS_10E_BAND3_AND_COMPLETION.md`** — variance + T0/T+N in drawer; optional 10f calendar later. |
 
 ---
 
