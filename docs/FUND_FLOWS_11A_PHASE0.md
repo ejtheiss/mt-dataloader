@@ -19,6 +19,7 @@ This is the **data path** from `plan/.../11a_shared_actor_library_flow_bindings.
 - **Bindings:** `actor_bindings[recipe_flow_ref][frame_name] = library_actor_id` (recipe key matches `generation_recipes` / `_recipe_flow_ref`).
 - **Hydrate:** When both `actor_library` and `actor_bindings` are empty but `generation_recipes` + authoring `funds_flows` exist, synthetic ids `legacy:{recipe_key}:{alias}` are created so old drafts round-trip without losing actor identity.
 - **Materialize:** Before `compose_all_recipes`, bound frames get `actor_overrides` rebuilt from library rows (compiler unchanged).
+- **Sync:** `legacy:…` library rows are refreshed from the current recipe + pattern before materialize so **scenario-builder** edits to `actor_overrides` are not clobbered on the next compose.
 
 ## Next (Phases 1–2 from 11a plan)
 

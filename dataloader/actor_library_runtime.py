@@ -83,6 +83,70 @@ def ensure_actor_library_hydrated_from_legacy(session: Any) -> None:
     session.actor_bindings = bindings
 
 
+def sync_legacy_library_rows_from_recipes(session: Any) -> None:
+    """Keep ``legacy:…`` library rows aligned with live ``actor_overrides`` + pattern.
+
+    Without this, the first hydrate snapshot would win and scenario-builder edits to
+    ``actor_overrides`` would be overwritten on the next compose.
+    """
+    if not session.actor_library:
+        return
+    from dataloader.flows_mutation import get_base_config_for_generation
+
+    try:
+        base = get_base_config_for_generation(session)
+    except (TypeError, ValueError, AttributeError):
+        return
+    flow_by_rk: dict[str, Any] = {}
+    for fc in getattr(base, "funds_flows", None) or []:
+        flow_by_rk[recipe_flow_ref(fc.ref)] = fc
+
+    for row in session.actor_library:
+        if not isinstance(row, dict):
+            continue
+        lid = row.get("library_actor_id")
+        if not isinstance(lid, str) or not lid.startswith("legacy:"):
+            continue
+        parts = lid.split(":", 2)
+        if len(parts) != 3:
+            continue
+        _, rk, alias = parts
+        fc = flow_by_rk.get(rk)
+        if fc is None or alias not in fc.actors:
+            continue
+        frame = fc.actors[alias]
+        recipe_dict = session.generation_recipes.get(rk) or {}
+        overrides = recipe_dict.get("actor_overrides") or {}
+        ov = overrides.get(alias) if isinstance(overrides.get(alias), dict) else {}
+        row["frame_type"] = frame.frame_type
+        ds = ov.get("dataset") if isinstance(ov, dict) else None
+        if ds is None:
+            ds = frame.dataset
+        if ds is not None:
+            row["dataset"] = ds
+        else:
+            row.pop("dataset", None)
+        et = ov.get("entity_type") if isinstance(ov, dict) else None
+        if et is not None:
+            row["entity_type"] = et
+        else:
+            row.pop("entity_type", None)
+        cn = ov.get("customer_name") if isinstance(ov, dict) else None
+        if cn is None:
+            cn = frame.customer_name
+        if cn is not None:
+            row["customer_name"] = cn
+        else:
+            row.pop("customer_name", None)
+        nt = ov.get("name_template") if isinstance(ov, dict) else None
+        if nt is None:
+            nt = frame.name_template
+        if nt is not None:
+            row["name_template"] = nt
+        else:
+            row.pop("name_template", None)
+
+
 def materialize_actor_bindings_to_generation_recipes(session: Any) -> None:
     """Apply ``actor_bindings`` + ``actor_library`` into each recipe's ``actor_overrides``."""
     if not session.actor_bindings:

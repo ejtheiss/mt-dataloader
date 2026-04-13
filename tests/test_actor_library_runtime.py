@@ -90,6 +90,40 @@ def test_loader_draft_round_trips_actor_fields() -> None:
     assert s2.actor_library[0]["library_actor_id"] == "a1"
 
 
+def test_prepare_resyncs_legacy_row_after_recipe_override_edit() -> None:
+    raw = (EXAMPLES_DIR / "funds_flow_demo.json").read_text()
+    cfg = DataLoaderConfig.model_validate_json(raw)
+    rk = recipe_flow_ref(cfg.funds_flows[0].ref)
+    sess = SessionState(
+        session_token="t",
+        api_key="k",
+        org_id="o",
+        config=cfg,
+        config_json_text="{}",
+        registry=RefRegistry(),
+        batches=[],
+        authoring_config_json=raw,
+        generation_recipes={
+            rk: {
+                "version": "v1",
+                "flow_ref": rk,
+                "instances": 2,
+                "seed": 1,
+                "actor_overrides": {},
+            }
+        },
+    )
+    prepare_actor_library_for_compose(sess)
+    lid = f"legacy:{rk}:direct_1"
+    row = next(r for r in sess.actor_library if r["library_actor_id"] == lid)
+    assert row.get("customer_name") == "Demo Customer"
+    sess.generation_recipes[rk].setdefault("actor_overrides", {})
+    sess.generation_recipes[rk]["actor_overrides"]["direct_1"] = {"customer_name": "Edited Co"}
+    prepare_actor_library_for_compose(sess)
+    row2 = next(r for r in sess.actor_library if r["library_actor_id"] == lid)
+    assert row2.get("customer_name") == "Edited Co"
+
+
 def test_prepare_hydrates_from_demo_authoring() -> None:
     raw = (EXAMPLES_DIR / "funds_flow_demo.json").read_text()
     cfg = DataLoaderConfig.model_validate_json(raw)

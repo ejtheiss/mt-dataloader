@@ -26,9 +26,11 @@ def prepare_actor_library_for_compose(session: Any) -> None:
     from dataloader.actor_library_runtime import (
         ensure_actor_library_hydrated_from_legacy,
         materialize_actor_bindings_to_generation_recipes,
+        sync_legacy_library_rows_from_recipes,
     )
 
     ensure_actor_library_hydrated_from_legacy(session)
+    sync_legacy_library_rows_from_recipes(session)
     materialize_actor_bindings_to_generation_recipes(session)
 
 
