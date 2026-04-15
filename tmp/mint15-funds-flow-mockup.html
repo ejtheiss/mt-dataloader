@@ -1,0 +1,3229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fund flows — demonstration (actors and per-pattern scaling)</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #fff;
+      --border: #e5e7eb;
+      --muted: #6b7280;
+      --text: #111827;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --header-bg: #f3f4f6;
+      --chip-po: #dbeafe;
+      --chip-po-b: #3b82f6;
+      --chip-lt: #fef3c7;
+      --chip-lt-b: #d97706;
+      --chip-res: #f3f4f6;
+      --alert-bg: #fffbeb;
+      --alert-b: #f59e0b;
+      --child-bg: #fafafa;
+      --radius: 8px;
+      --radius-pill: 999px;
+      --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.45;
+      color: var(--text);
+      background: var(--bg);
+    }
+    .page {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+    }
+    /* mint12-ish page header */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 16px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-header h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .page-header .back {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+    }
+    .page-header .back:hover { color: var(--text); }
+    .btn-primary {
+      appearance: none;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.875rem;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 500;
+      font-size: 0.875rem;
+      padding: 0.5rem 0.875rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+    }
+    .btn-secondary:hover { background: var(--header-bg); }
+    .btn-sm {
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8125rem;
+    }
+
+    /* Gate: each flow must be confirmed (Configure save or Skip) before preview */
+    .card--gate-pending {
+      box-shadow: inset 3px 0 0 #ea580c;
+    }
+    .card--gate-ready {
+      box-shadow: inset 3px 0 0 #16a34a;
+    }
+
+    /* Configure pattern dialog (opened from card Configure) */
+    /* Wider than default .mock-modal--wide (460px) — full pattern + same mint15 as glance */
+    dialog.mock-modal.mock-modal--flow-config {
+      max-width: min(1240px, 96vw);
+      width: min(1240px, 96vw);
+    }
+    .flow-config-dialog__sub {
+      margin: 4px 0 0;
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+    .seg-toggle {
+      display: inline-flex;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      background: #fff;
+    }
+    .seg-btn {
+      margin: 0;
+      padding: 8px 16px;
+      border: none;
+      background: #fff;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      color: #64748b;
+      border-right: 1px solid var(--border);
+    }
+    .seg-toggle .seg-btn:last-child { border-right: none; }
+    .seg-btn--on {
+      background: #eff6ff;
+      color: var(--primary);
+      font-weight: 600;
+    }
+    .flow-config-custom {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+    .flow-config-custom[hidden] {
+      display: none !important;
+    }
+    .flow-config-section {
+      margin-top: 20px;
+    }
+    .flow-config-section:first-of-type {
+      margin-top: 0;
+    }
+    .flow-config-optin-gate {
+      padding: 2px 0 4px;
+    }
+    .flow-config-optin-gate[hidden] {
+      display: none !important;
+    }
+    .flow-config-optin-body[hidden] {
+      display: none !important;
+    }
+    .flow-config-optin-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .flow-config-optin-head__title {
+      margin: 0;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: #111827;
+    }
+    .flow-config-optin-remove {
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: none;
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--primary);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .flow-config-optin-remove:hover {
+      color: #1d4ed8;
+    }
+    .flow-config-section h4 {
+      margin: 0 0 6px;
+      font-size: 0.9375rem;
+      font-weight: 600;
+    }
+    .flow-config-section .section-lead {
+      margin: 0 0 10px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .flow-config-field {
+      margin-bottom: 14px;
+    }
+    .flow-config-field label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 4px;
+    }
+    .flow-config-field input[type="number"],
+    .flow-config-field input[type="date"] {
+      width: 100%;
+      max-width: 14rem;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-size: 0.875rem;
+    }
+    .flow-config-readout {
+      margin: 8px 0 0;
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+    .flow-config-textarea {
+      width: 100%;
+      max-width: 100%;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      resize: vertical;
+      background: #f9fafb;
+    }
+    .flow-config-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .flow-config-tag {
+      display: inline-block;
+      font-size: 0.625rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748b;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      padding: 3px 7px;
+      border-radius: 4px;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    .icon-btn--sm {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border-radius: 8px;
+    }
+    .icon-btn--sm svg { width: 16px; height: 16px; }
+    .actor-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+      gap: 10px;
+    }
+    .actor-mini {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      font-size: 0.8125rem;
+      font-weight: 600;
+    }
+    .actor-mini--out {
+      opacity: 0.36;
+      background: #f4f4f5;
+      filter: grayscale(0.25);
+    }
+    .actor-mini .sub {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .density-presets {
+      display: inline-flex;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      background: #fff;
+    }
+    .density-presets label {
+      margin: 0;
+      cursor: pointer;
+    }
+    .density-presets input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .density-presets span {
+      display: block;
+      padding: 8px 14px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      border-right: 1px solid var(--border);
+      background: #fff;
+      color: #374151;
+    }
+    .density-presets label:last-child span { border-right: none; }
+    .density-presets input:checked + span {
+      background: #eff6ff;
+      color: var(--primary);
+      font-weight: 600;
+    }
+    .density-presets input:focus-visible + span {
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
+    }
+    .density-readout {
+      margin: 10px 0 8px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      font-size: 0.8125rem;
+      color: #334155;
+      line-height: 1.45;
+    }
+    .density-readout strong { color: #0f172a; }
+    .spark-wrap {
+      margin-top: 4px;
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 36px;
+      padding: 4px 6px 0;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      max-width: 280px;
+    }
+    .spark-wrap[data-density="light"] .spark-bar:nth-child(n+4) { opacity: 0.2; height: 20% !important; }
+    .spark-wrap[data-density="typical"] .spark-bar { opacity: 0.85; }
+    .spark-wrap[data-density="busy"] .spark-bar { opacity: 1; }
+    /* Synthetic layout presets (Configure modal) */
+    .spark-wrap[data-layout="clustered"] .spark-bar:nth-child(-n+4) { opacity: 1; height: 72% !important; }
+    .spark-wrap[data-layout="clustered"] .spark-bar:nth-child(n+5) { opacity: 0.22; height: 22% !important; }
+    .spark-wrap[data-layout="bulk"] .spark-bar:nth-child(-n+3) { opacity: 1; height: 78% !important; }
+    .spark-wrap[data-layout="bulk"] .spark-bar:nth-child(n+4) { opacity: 0.35; height: 35% !important; }
+    .spark-wrap[data-layout="distributed"] .spark-bar { opacity: 0.88; }
+    .spark-wrap[data-layout="custom"] .spark-bar { opacity: 0.45; height: 48% !important; }
+    .spark-bar {
+      flex: 1;
+      min-width: 4px;
+      max-width: 10px;
+      background: #93c5fd;
+      border-radius: 2px 2px 0 0;
+      align-self: flex-end;
+    }
+    .recipe-stale {
+      font-size: 0.75rem;
+      color: #b45309;
+      background: #fffbeb;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #fcd34d;
+    }
+    .flow-config-custom .mint15 {
+      font-size: 0.8125rem;
+    }
+    .flow-config-custom .mint15 th,
+    .flow-config-custom .mint15 td {
+      padding: 6px 8px;
+    }
+
+    /* mint3-style digest / warning Alert (placeholder — compare to Storybook Alert) */
+    .digest-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 20px;
+      padding: 14px 16px 14px 14px;
+      border: 1px solid #fcd34d;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
+      box-shadow: 0 1px 2px rgba(180, 83, 9, 0.06);
+      border-left: 4px solid #f59e0b;
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      color: #78350f;
+    }
+    .digest-alert__icon {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #b45309;
+    }
+    .digest-alert__icon svg {
+      width: 20px;
+      height: 20px;
+    }
+    .digest-alert__body {
+      flex: 1;
+      min-width: 0;
+    }
+    .digest-alert__title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .digest-alert__title {
+      margin: 0;
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #92400e;
+    }
+    .digest-alert__dismiss {
+      flex-shrink: 0;
+      padding: 2px 8px;
+      margin: -2px -4px 0 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #b45309;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .digest-alert__dismiss:hover {
+      background: rgba(180, 83, 9, 0.08);
+      text-decoration: none;
+    }
+    .digest-alert__text {
+      margin: 0;
+      color: #78350f;
+    }
+    .digest-alert__text strong {
+      font-weight: 600;
+      color: #92400e;
+    }
+    .digest-alert__actions {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .digest-alert__link {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #b45309;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(180, 83, 9, 0.35);
+    }
+    .digest-alert__link:hover {
+      color: #92400e;
+      border-bottom-color: #92400e;
+    }
+    .digest-alert__meta {
+      margin: 8px 0 0;
+      font-size: 0.6875rem;
+      color: #a16207;
+      letter-spacing: 0.02em;
+    }
+
+    /* Session-scope actor strip (inside bounded session panel with connection + org) */
+    .global-actors-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 8px 2px;
+    }
+    .global-actors {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 12px;
+      overflow-x: auto;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #eef0f3;
+      scrollbar-width: thin;
+    }
+    .actor-tile {
+      flex: 0 0 auto;
+      width: 248px;
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+      padding: 12px 12px 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      font: inherit;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .actor-tile:hover { border-color: #cbd5e1; }
+    .actor-tile--outside-pattern {
+      opacity: 0.42;
+      filter: grayscale(0.12);
+      background: #f4f4f5;
+    }
+    .actor-tile--outside-pattern .flow-members,
+    .actor-tile--outside-pattern .member-label {
+      opacity: 0.85;
+    }
+    .res-table tr.res-muted th,
+    .res-table tr.res-muted td {
+      color: #9ca3af;
+    }
+    .res-table tr.res-muted .res-chip {
+      opacity: 0.88;
+    }
+    .res-table tr.res-nested th {
+      padding-left: 1.25rem;
+      font-weight: 600;
+      font-size: 0.625rem;
+    }
+    .res-table tr.res-nested td:first-of-type {
+      padding-left: 0.5rem;
+    }
+    .res-table tr.res-nested td {
+      font-size: 0.8125rem;
+      color: #4b5563;
+    }
+    .res-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+      justify-content: flex-start;
+      max-width: 14rem;
+    }
+    .res-chip {
+      display: inline-block;
+      font-size: 0.625rem;
+      font-weight: 600;
+      line-height: 1.25;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      color: #475569;
+      white-space: nowrap;
+    }
+    .res-chip--currency {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #047857;
+    }
+    .res-chip--normal {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1e40af;
+    }
+    .res-chip--acct-type {
+      background: #faf5ff;
+      border-color: #e9d5ff;
+      color: #6b21a8;
+    }
+    .res-details-empty {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+    .page > .configure-context-banner {
+      margin-top: 12px;
+    }
+    .configure-context-banner {
+      padding: 12px 14px 14px;
+      margin: 0 0 16px;
+      border-radius: 10px;
+      border: 1px solid #c7d2fe;
+      background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%);
+      font-size: 0.8125rem;
+    }
+    .configure-context-banner__label {
+      font-weight: 700;
+      font-size: 0.625rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #4338ca;
+      margin-right: 4px;
+      flex-shrink: 0;
+    }
+    .session-scope {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .session-scope__summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 8px 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(67, 56, 202, 0.18);
+    }
+    .session-scope__facts {
+      flex: 1 1 220px;
+      min-width: 0;
+    }
+    .session-scope__line {
+      margin: 0 0 6px;
+      font-size: 0.8125rem;
+      line-height: 1.45;
+      color: #1e1b4b;
+    }
+    .session-scope__line:last-of-type {
+      margin-bottom: 0;
+    }
+    .session-scope__k {
+      display: inline-block;
+      min-width: 9.25rem;
+      margin-right: 6px;
+      font-weight: 600;
+      font-size: 0.625rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #4338ca;
+      vertical-align: baseline;
+    }
+    .session-scope__note {
+      width: 100%;
+      margin: 8px 0 0;
+      padding: 0;
+      font-size: 0.6875rem;
+      color: #64748b;
+      line-height: 1.45;
+    }
+    .session-scope__actors {
+      padding-top: 12px;
+    }
+    .session-scope .global-actors-label {
+      margin-bottom: 8px;
+    }
+    .session-scope .global-actors {
+      margin-bottom: 0;
+      margin-top: 0;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      background: rgba(255, 255, 255, 0.72);
+    }
+    .flow-config-fieldset {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px 16px;
+      margin: 0 0 16px;
+      background: #fafafa;
+    }
+    .flow-config-fieldset legend {
+      padding: 0 6px;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .instances-sync {
+      display: grid;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    @media (min-width: 520px) {
+      .instances-sync {
+        grid-template-columns: 1fr auto;
+        align-items: end;
+      }
+    }
+    .instances-sync output {
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--primary);
+      min-width: 2.5rem;
+    }
+    .instances-sync input[type="range"] {
+      width: 100%;
+      max-width: 22rem;
+    }
+    .card-foot__primary-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+    .card-foot__skip:disabled {
+      opacity: 0.72;
+      cursor: default;
+    }
+    /* Row 1: entity + dataset icons (role / seed) + name */
+    .actor-tile__top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      min-width: 0;
+    }
+    .actor-tile__icons {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .actor-tile__name {
+      font-weight: 600;
+      font-size: 0.875rem;
+      line-height: 1.25;
+      min-width: 0;
+      flex: 1;
+    }
+    /* Mirrors templates/partials/flow_actor_config.html: entity kind + seed dataset tier */
+    .actor-seed-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      color: #475569;
+      flex-shrink: 0;
+    }
+    .actor-seed-icon svg {
+      width: 14px;
+      height: 14px;
+    }
+    .actor-seed-icon--business {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+    }
+    .actor-seed-icon--individual {
+      background: #faf5ff;
+      border-color: #e9d5ff;
+      color: #7e22ce;
+    }
+    .actor-seed-icon--tier-general {
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      color: #334155;
+    }
+    .actor-seed-icon--tier-industry {
+      background: #fffbeb;
+      border-color: #fde68a;
+      color: #b45309;
+    }
+    .actor-seed-icon--tier-curated {
+      background: #fdf2f8;
+      border-color: #fbcfe8;
+      color: #be185d;
+    }
+    .actor-kind {
+      flex-shrink: 0;
+      font-size: 0.625rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .actor-kind--platform {
+      background: #e0e7ff;
+      color: #3730a3;
+      border-color: #a5b4fc;
+    }
+    .actor-kind--direct {
+      background: #dcfce7;
+      color: #14532d;
+      border-color: #86efac;
+    }
+    .actor-kind--byob {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fcd34d;
+    }
+    /* Implementation level on actor cards: platform & direct share hue, different shade/saturation; BYOB distinct */
+    .actor-implementation {
+      align-self: flex-start;
+      font-size: 0.625rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      border: 1px solid transparent;
+    }
+    .actor-implementation--platform {
+      background: #e2e8f0;
+      color: #64748b;
+      border-color: #cbd5e1;
+    }
+    .actor-implementation--direct {
+      background: #94a3b8;
+      color: #f8fafc;
+      border-color: #64748b;
+    }
+    .actor-implementation--byob {
+      background: #ede9fe;
+      color: #5b21b6;
+      border-color: #c4b5fd;
+    }
+    .actor-tile .member-label {
+      margin-top: 2px;
+    }
+    .actor-tile__actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid #f3f4f6;
+    }
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: #4b5563;
+      cursor: pointer;
+    }
+    .icon-btn:hover {
+      background: var(--header-bg);
+      color: var(--text);
+      border-color: #cbd5e1;
+    }
+    .icon-btn svg { width: 16px; height: 16px; }
+    .icon-btn--primary {
+      border-color: #bfdbfe;
+      background: #eff6ff;
+      color: var(--primary);
+    }
+    .icon-btn--primary:hover {
+      background: #dbeafe;
+      border-color: #93c5fd;
+    }
+    .member-label {
+      display: block;
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .flow-members {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .flow-chip {
+      font-size: 0.6875rem;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      background: var(--header-bg);
+      border: 1px solid var(--border);
+      color: #374151;
+      font-weight: 500;
+    }
+
+    /* mint7 card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .card-head {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-head .title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .card-head .title-row h2 {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .card-head h2 {
+      margin: 0;
+      font-size: 1.0625rem;
+      font-weight: 600;
+    }
+    .card-head .title-row .badge {
+      flex-shrink: 0;
+    }
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.55rem;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border);
+      background: #ecfdf5;
+      color: #047857;
+      white-space: nowrap;
+    }
+    .badge.draft {
+      background: #fff7ed;
+      color: #c2410c;
+      border-color: #fed7aa;
+    }
+    .meta {
+      margin-top: 6px;
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+
+    /* BFF-style validation toast (422-ish) when Next is used while any flow is still Draft */
+    .validation-toast {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 3000;
+      max-width: min(440px, calc(100vw - 36px));
+      padding: 14px 16px 16px;
+      border-radius: 10px;
+      border: 1px solid #fecaca;
+      background: #fef2f2;
+      color: #7f1d1d;
+      font-size: 0.8125rem;
+      line-height: 1.45;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.14);
+    }
+    .validation-toast[hidden] {
+      display: none !important;
+    }
+    .validation-toast__title {
+      margin: 0 0 6px;
+      font-weight: 700;
+      font-size: 0.875rem;
+    }
+    .validation-toast__summary {
+      margin: 0 0 10px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #450a0a;
+      line-height: 1.45;
+    }
+    .validation-toast__json {
+      margin: 0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #fecaca;
+      font-size: 0.6875rem;
+      line-height: 1.4;
+      overflow-x: auto;
+      color: #450a0a;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-top: 1px solid var(--border);
+    }
+    table.mint15 {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      min-width: 640px;
+    }
+    table.mint15 thead th {
+      text-align: left;
+      font-weight: 600;
+      color: #374151;
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      white-space: nowrap;
+    }
+    table.mint15 thead th .sort {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: default;
+    }
+    table.mint15 thead th svg {
+      width: 12px;
+      height: 12px;
+      opacity: 0.45;
+    }
+    table.mint15 tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    table.mint15 tbody tr:last-child td { border-bottom: none; }
+    table.mint15 tbody tr.row-child td {
+      background: var(--child-bg);
+      font-size: 0.8125rem;
+    }
+    table.mint15 tbody tr.row-child td:first-child {
+      padding-left: 28px;
+      box-shadow: inset 3px 0 0 #d1d5db;
+    }
+    .tree {
+      display: inline-block;
+      width: 1.25rem;
+      color: var(--muted);
+      font-family: monospace;
+      margin-right: 4px;
+    }
+
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 0.75rem;
+      border: 1px solid transparent;
+    }
+    .tag-chip.po { background: var(--chip-po); color: #1e40af; border-color: var(--chip-po-b); }
+    .tag-chip.lt { background: var(--chip-lt); color: #92400e; border-color: var(--chip-lt-b); }
+    .tag-chip.st { background: #ede9fe; color: #5b21b6; border-color: #8b5cf6; }
+    .tag-chip.res {
+      background: var(--chip-res);
+      color: #4b5563;
+      border-color: var(--border);
+      font-weight: 500;
+    }
+
+    .link-pill {
+      display: inline-flex;
+      align-items: center;
+      max-width: 200px;
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-pill);
+      background: #fff;
+      font-size: 0.8125rem;
+      cursor: pointer;
+      text-decoration: none;
+      color: var(--primary);
+    }
+    .link-pill:hover { border-color: var(--primary); background: #eff6ff; }
+    .link-pill .dim { color: var(--muted); font-weight: 400; }
+    .actor-link-group {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      max-width: 100%;
+    }
+
+    .amt { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+    .date { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    /* Configure money movements: literal amount/date from input JSON + rule chips */
+    .mint15 td.mm-cfg-split {
+      white-space: normal;
+      vertical-align: top;
+    }
+    .mm-cfg-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      align-items: flex-start;
+    }
+    .mm-cfg-stack--amt {
+      align-items: flex-end;
+      text-align: right;
+    }
+    .mm-cfg-value {
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+    }
+    .mm-cfg-chip {
+      display: inline-block;
+      max-width: 13.5rem;
+      font-size: 0.625rem;
+      font-weight: 600;
+      line-height: 1.25;
+      padding: 2px 7px;
+      border-radius: 999px;
+      letter-spacing: 0.01em;
+    }
+    .mm-cfg-chip--var {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      color: #92400e;
+    }
+    .mm-cfg-chip--var-muted {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+    }
+    .mm-cfg-chip--when {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
+    .mm-cfg-chip--when-muted {
+      background: #f5f3ff;
+      border: 1px solid #ddd6fe;
+      color: #5b21b6;
+    }
+    .mm-cfg-offset-token {
+      font-size: 0.6875rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #64748b;
+      line-height: 1.35;
+    }
+    .parallel { color: var(--muted); font-size: 0.75rem; }
+
+    .card-foot {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 12px 18px;
+      border-top: 1px solid var(--border);
+      background: #fafafa;
+    }
+    .card-foot__glance-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .card-foot__configure {
+      margin-left: 0;
+    }
+    .taccount-page {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      flex-direction: column;
+      background: #f8fafc;
+      box-shadow: 0 0 0 1px var(--border);
+    }
+    .taccount-page[hidden] {
+      display: none !important;
+    }
+    .taccount-page:not([hidden]) {
+      display: flex;
+    }
+    .taccount-page__bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 18px;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+    }
+    .taccount-page__bar h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .taccount-page__body {
+      flex: 1;
+      overflow: auto;
+      padding: 20px 18px;
+    }
+    .taccount-page__placeholder {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 28px 24px;
+      background: #fff;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      color: #475569;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+    }
+    .mermaid-modal__diagram {
+      margin: 12px 0 0;
+      padding: 16px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      color: #334155;
+      overflow: auto;
+      max-height: min(52vh, 420px);
+    }
+    .advanced {
+      margin-top: 8px;
+      padding: 12px 16px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+
+    /* modal */
+    dialog.mock-modal {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0;
+      max-width: 400px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,.25);
+    }
+    dialog.mock-modal--wide:not(.mock-modal--flow-config) { max-width: 460px; }
+    dialog.mock-modal--mermaid { max-width: min(720px, 96vw); }
+    dialog.mock-modal--json-step {
+      max-width: min(720px, 94vw);
+      width: min(720px, 94vw);
+    }
+    .mm-json-row {
+      cursor: pointer;
+    }
+    .mm-json-row:hover {
+      background: rgba(59, 130, 246, 0.07);
+    }
+    tr.row-child.mm-json-row--embedded {
+      cursor: help;
+    }
+    tr.row-child.mm-json-row--embedded:hover {
+      background: rgba(100, 116, 139, 0.08);
+    }
+    .mm-json-pre {
+      margin: 12px 0 0;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 0.6875rem;
+      line-height: 1.45;
+      overflow: auto;
+      max-height: min(52vh, 400px);
+      border: 1px solid #334155;
+    }
+    .mm-json-pre[hidden] {
+      display: none !important;
+    }
+    .mm-json-embedded-msg {
+      margin: 10px 0 0;
+      font-size: 0.8125rem;
+      color: #334155;
+      line-height: 1.5;
+    }
+    .mm-json-embedded-msg[hidden] {
+      display: none !important;
+    }
+    .mm-preview-json-note {
+      margin: 0 0 10px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .mm-json-product-chrome {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px dashed #93c5fd;
+      background: #eff6ff;
+      font-size: 0.75rem;
+      color: #1e3a5f;
+      line-height: 1.45;
+    }
+    .mm-json-product-chrome[hidden] {
+      display: none !important;
+    }
+    .mm-json-product-chrome__title {
+      margin: 0 0 6px;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #1d4ed8;
+    }
+    .mm-json-product-chrome__list {
+      margin: 0 0 10px;
+      padding-left: 1.15rem;
+    }
+    .mm-json-product-chrome__list li {
+      margin-bottom: 4px;
+    }
+    .mm-json-product-chrome__stub-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .mm-json-product-chrome__stub-actions .btn-sm {
+      opacity: 0.85;
+      cursor: not-allowed;
+    }
+    .mm-json-mock-readonly {
+      margin: 6px 0 0;
+      font-size: 0.6875rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+    .mm-json-mock-readonly[hidden] {
+      display: none !important;
+    }
+    .res-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      margin-top: 8px;
+    }
+    .res-table thead th {
+      text-align: left;
+      font-weight: 700;
+      padding: 0 10px 8px 0;
+      vertical-align: bottom;
+      color: #6b7280;
+      font-size: 0.6875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .res-table thead th:last-child {
+      padding-right: 0;
+    }
+    .res-table tbody th {
+      text-align: left;
+      font-weight: 700;
+      width: 7.5rem;
+      min-width: 6.5rem;
+      padding: 8px 10px 8px 0;
+      vertical-align: top;
+      color: #6b7280;
+      font-size: 0.6875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .res-table tbody td {
+      padding: 8px 10px 8px 0;
+      border-bottom: 1px solid #f3f4f6;
+      color: #111827;
+      vertical-align: top;
+    }
+    .res-table tbody td:last-child {
+      padding-right: 0;
+      width: 38%;
+    }
+    .res-table tr:last-child td,
+    .res-table tr:last-child th { border-bottom: none; }
+    #actorResourcesModal.mock-modal--wide {
+      max-width: min(580px, 96vw);
+      width: min(580px, 96vw);
+    }
+    .res-note { font-size: 0.75rem; color: var(--muted); margin-top: 10px; }
+    dialog.mock-modal::backdrop { background: rgba(0,0,0,.35); }
+    .modal-inner { padding: 18px; }
+    .modal-inner h3 { margin: 0 0 4px; font-size: 1rem; }
+    .modal-inner .membership {
+      margin: 0 0 8px;
+      font-size: 0.8125rem;
+      color: #374151;
+    }
+    .modal-inner .role { margin: 0 0 16px; font-size: 0.8125rem; color: var(--muted); }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; color: #374151; }
+    .field-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .field-row label { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="page-header">
+      <div>
+        <a class="back" href="#">← Journey</a>
+        <h1>Fund flows</h1>
+      </div>
+      <button type="button" class="btn-primary" id="fundFlowsNextBtn" title="Continue to preview — blocked by BFF validation if any flow is still Draft">Next · preview</button>
+    </header>
+
+    <div class="configure-context-banner session-scope" role="region" aria-label="Session scope: connection, target organization, and actors">
+      <div class="session-scope__summary">
+        <span class="configure-context-banner__label">Session</span>
+        <div class="session-scope__facts">
+          <p class="session-scope__line"><span class="session-scope__k">Connection</span> <span class="session-scope__v">Production simulation <span class="dim">· sim_conn_9f</span></span></p>
+          <p class="session-scope__line"><span class="session-scope__k">Target organization</span> <span class="session-scope__v">Acme Platform Division <span class="dim">· org_7k2…</span></span></p>
+        </div>
+      </div>
+      <div class="session-scope__actors">
+        <p class="global-actors-label">
+          Actors in this session
+        </p>
+        <section class="global-actors" aria-label="Session actors">
+      <div class="actor-tile" data-actor-id="acme">
+        <div class="actor-tile__top">
+          <span class="actor-tile__icons" aria-hidden="true"></span>
+          <span class="actor-tile__name">Acme Corp</span>
+        </div>
+        <span class="actor-implementation actor-implementation--direct" title="Implementation: direct (from input definition)">Direct</span>
+        <span class="member-label">Used in</span>
+        <div class="flow-members">
+          <span class="flow-chip">First quarter bonus</span>
+          <span class="flow-chip">Payroll sweep</span>
+        </div>
+        <div class="actor-tile__actions">
+          <button type="button" class="icon-btn" data-details="acme" title="Resources under this actor (ledger, inbound, external, counterparty, legal entity)" aria-label="Actor resources">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </button>
+          <button type="button" class="icon-btn icon-btn--primary" data-open="acme" data-flows="First quarter bonus distribution, Weekly payroll sweep" data-kind="Direct" title="Sample data and dataset configuration" aria-label="Configure sample data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="actor-tile" data-actor-id="partner">
+        <div class="actor-tile__top">
+          <span class="actor-tile__icons" aria-hidden="true"></span>
+          <span class="actor-tile__name">Partner Bank</span>
+        </div>
+        <span class="actor-implementation actor-implementation--platform" title="Implementation: platform (from input definition)">Platform</span>
+        <span class="member-label">Used in</span>
+        <div class="flow-members"><span class="flow-chip">First quarter bonus</span></div>
+        <div class="actor-tile__actions">
+          <button type="button" class="icon-btn" data-details="partner" title="Resources under this actor" aria-label="Actor resources">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </button>
+          <button type="button" class="icon-btn icon-btn--primary" data-open="partner" data-flows="First quarter bonus distribution" data-kind="Platform" title="Sample data and dataset configuration" aria-label="Configure sample data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="actor-tile" data-actor-id="ops">
+        <div class="actor-tile__top">
+          <span class="actor-tile__icons" aria-hidden="true"></span>
+          <span class="actor-tile__name">Ops</span>
+        </div>
+        <span class="actor-implementation actor-implementation--byob" title="Bring your own bank — from input definition">BYOB</span>
+        <span class="member-label">Used in</span>
+        <div class="flow-members"><span class="flow-chip">First quarter bonus</span></div>
+        <div class="actor-tile__actions">
+          <button type="button" class="icon-btn" data-details="ops" title="Resources under this actor" aria-label="Actor resources">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </button>
+          <button type="button" class="icon-btn icon-btn--primary" data-open="ops" data-flows="First quarter bonus distribution" data-kind="Bring your own bank" title="Sample data and dataset configuration" aria-label="Configure sample data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="actor-tile" data-actor-id="e1">
+        <div class="actor-tile__top">
+          <span class="actor-tile__icons" aria-hidden="true"></span>
+          <span class="actor-tile__name">Employer Co</span>
+        </div>
+        <span class="actor-implementation actor-implementation--direct" title="Implementation: direct (from input definition)">Direct</span>
+        <span class="member-label">Used in</span>
+        <div class="flow-members"><span class="flow-chip">Payroll sweep</span></div>
+        <div class="actor-tile__actions">
+          <button type="button" class="icon-btn" data-details="e1" title="Resources under this actor" aria-label="Actor resources">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </button>
+          <button type="button" class="icon-btn icon-btn--primary" data-open="e1" data-flows="Weekly payroll sweep" data-kind="Direct" title="Sample data and dataset configuration" aria-label="Configure sample data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="actor-tile" data-actor-id="e2">
+        <div class="actor-tile__top">
+          <span class="actor-tile__icons" aria-hidden="true"></span>
+          <span class="actor-tile__name">Clearing</span>
+        </div>
+        <span class="actor-implementation actor-implementation--platform" title="Implementation: platform (from input definition)">Platform</span>
+        <span class="member-label">Used in</span>
+        <div class="flow-members"><span class="flow-chip dim">—</span></div>
+        <div class="actor-tile__actions">
+          <button type="button" class="icon-btn" data-details="e2" title="Resources under this actor" aria-label="Actor resources">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </button>
+          <button type="button" class="icon-btn icon-btn--primary" data-open="e2" data-flows="" data-kind="Platform" title="Sample data and dataset configuration" aria-label="Configure sample data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+      </div>
+    </div>
+
+    <div class="digest-alert" role="status" aria-live="polite" aria-labelledby="digest-title">
+      <div class="digest-alert__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+      </div>
+      <div class="digest-alert__body">
+        <div class="digest-alert__title-row">
+          <h2 class="digest-alert__title" id="digest-title">Digest</h2>
+          <button type="button" class="digest-alert__dismiss" title="Dismiss (example)">Dismiss</button>
+        </div>
+        <p class="digest-alert__text">
+          <strong>Future-dated movement</strong> on <strong>Outbound to partner</strong> (settlement, external account): effective date
+          <strong>2026-05-02</strong> is after the flow anchor. Review timing before execute.
+        </p>
+        <div class="digest-alert__actions">
+          <a class="digest-alert__link" href="#">Open step in Configure</a>
+          <span style="color:#a16207;font-size:0.75rem">·</span>
+          <a class="digest-alert__link" href="#">Show on diagram</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 1 -->
+    <article id="flow-card-q1" class="card card--gate-pending" data-flow-pattern="q1" aria-labelledby="c1-title">
+      <div class="card-head">
+        <div class="title-row">
+          <h2 id="c1-title">First quarter bonus distribution</h2>
+          <span class="badge draft" id="gateBadgeQ1" title="Draft — use Configure (Save) or Skip to mark Ready">Draft</span>
+        </div>
+        <p class="meta">Pattern reference 7a2 · saved 2 minutes ago</p>
+      </div>
+
+      <div class="table-wrap">
+        <table class="mint15" aria-label="Money movements">
+          <thead>
+            <tr>
+              <th><span class="sort">Type <svg viewBox="0 0 12 12"><path d="M3 4l3 3 3-3" fill="none" stroke="currentColor"/><path d="M3 8l3-3 3 3" fill="none" stroke="currentColor"/></svg></span></th>
+              <th><span class="sort">Step <svg viewBox="0 0 12 12"><path d="M3 4l3 3 3-3" fill="none" stroke="currentColor"/><path d="M3 8l3-3 3 3" fill="none" stroke="currentColor"/></svg></span></th>
+              <th><span class="sort">Actor <svg viewBox="0 0 12 12"><path d="M3 4l3 3 3-3" fill="none" stroke="currentColor"/><path d="M3 8l3-3 3 3" fill="none" stroke="currentColor"/></svg></span></th>
+              <th><span class="sort">Event date <svg viewBox="0 0 12 12"><path d="M3 4l3 3 3-3" fill="none" stroke="currentColor"/><path d="M3 8l3-3 3 3" fill="none" stroke="currentColor"/></svg></span></th>
+              <th style="text-align:right"><span class="sort">Amount <svg viewBox="0 0 12 12"><path d="M3 4l3 3 3-3" fill="none" stroke="currentColor"/><path d="M3 8l3-3 3 3" fill="none" stroke="currentColor"/></svg></span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag-chip po" title="Movement type and primary money transfer surface (no separate resource column)"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="M5 8h6" stroke="currentColor"/></svg> Payment order</span></td>
+              <td title="Short step label at a glance; full step identifier in Configure">Bonus payment order to operations</td>
+              <td><a href="#" class="link-pill" data-open="acme" data-kind="Direct" data-flows="First quarter bonus distribution, Weekly payroll sweep">Acme Inc <span class="dim">…7a2</span></a></td>
+              <td class="date">2026-04-14</td>
+              <td class="amt">$250,000.00</td>
+            </tr>
+            <tr class="row-child">
+              <td colspan="2"><span class="tree">└</span><span class="tag-chip lt"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="M5 8h6" stroke="currentColor"/></svg> Ledger transaction</span> <span class="dim">under “Bonus payment order to operations”</span></td>
+              <td><a href="#" class="link-pill" data-open="acme" data-kind="Direct" data-flows="First quarter bonus distribution, Weekly payroll sweep">Acme Inc <span class="dim">…7a2</span></a></td>
+              <td class="date">2026-04-14</td>
+              <td class="amt">$250,000.00</td>
+            </tr>
+            <tr>
+              <td><span class="tag-chip st"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="M5 8h6" stroke="currentColor"/></svg> Transfer · internal</span></td>
+              <td>Internal settle pair</td>
+              <td><span class="actor-link-group">
+                <a href="#" class="link-pill" data-open="acme" data-kind="Direct" data-flows="First quarter bonus distribution">Acme Inc <span class="dim">…7a2</span></a>
+                <a href="#" class="link-pill" data-open="partner" data-kind="Platform" data-flows="First quarter bonus distribution">Partner Bank <span class="dim">…</span></a>
+              </span></td>
+              <td class="date">2026-04-15</td>
+              <td class="amt">$100,000 – $120,000</td>
+            </tr>
+            <tr>
+              <td><span class="tag-chip po"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="M5 8h6" stroke="currentColor"/></svg> Settlement · external account</span></td>
+              <td>Outbound to partner <span class="parallel">‖ Internal settle pair</span></td>
+              <td><a href="#" class="link-pill" data-open="partner" data-kind="Platform" data-flows="First quarter bonus distribution">Partner Bank <span class="dim">…</span></a></td>
+              <td class="date">2026-04-16</td>
+              <td class="amt">$250,000.00</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="card-foot">
+        <div class="card-foot__glance-actions">
+          <button type="button" class="btn-secondary" data-open-mermaid="q1">Flow diagram</button>
+          <button type="button" class="btn-secondary" data-open-taccount="q1">Transaction accounts</button>
+        </div>
+        <div class="card-foot__primary-actions">
+          <button type="button" class="btn-secondary card-foot__skip" data-skip-pattern="q1" title="Accept default scaling for this pattern">Skip</button>
+          <button type="button" class="btn-primary card-foot__configure" data-open-flow-config="q1">Configure</button>
+        </div>
+      </footer>
+    </article>
+
+    <!-- Card 2 (shorter) -->
+    <article id="flow-card-payroll" class="card card--gate-pending" data-flow-pattern="payroll">
+      <div class="card-head">
+        <div class="title-row">
+          <h2>Weekly payroll sweep</h2>
+          <span class="badge draft" id="gateBadgePayroll" title="Draft — use Configure (Save) or Skip to mark Ready">Draft</span>
+        </div>
+        <p class="meta">Pattern reference 9c1 · not saved</p>
+      </div>
+      <div class="table-wrap">
+        <table class="mint15" aria-label="Money movements (short example)">
+          <thead>
+            <tr>
+              <th>Type</th><th>Step</th><th>Actor</th><th>Event date</th><th style="text-align:right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag-chip po"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="M5 8h6" stroke="currentColor"/></svg> Payment order</span></td>
+              <td>Payroll pull to employer</td>
+              <td><a class="link-pill" href="#" data-open="e1" data-kind="Direct" data-flows="Weekly payroll sweep">Employer Co <span class="dim">…</span></a></td>
+              <td class="date">2026-04-12</td>
+              <td class="amt">$48,200.00</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="card-foot">
+        <div class="card-foot__glance-actions">
+          <button type="button" class="btn-secondary" data-open-mermaid="payroll">Flow diagram</button>
+          <button type="button" class="btn-secondary" data-open-taccount="payroll">Transaction accounts</button>
+        </div>
+        <div class="card-foot__primary-actions">
+          <button type="button" class="btn-secondary card-foot__skip" data-skip-pattern="payroll" title="Accept default scaling for this pattern">Skip</button>
+          <button type="button" class="btn-primary card-foot__configure" data-open-flow-config="payroll">Configure</button>
+        </div>
+      </footer>
+    </article>
+
+    <div class="advanced">Advanced ▸ Session structured data <span class="dim">(global save — example only)</span></div>
+  </div>
+
+  <div id="fundFlowsValidationToast" class="validation-toast" role="alert" aria-live="assertive" aria-atomic="true" hidden>
+    <p class="validation-toast__title">422 · Request validation failed</p>
+    <p class="validation-toast__summary" id="fundFlowsValidationToastSummary"></p>
+    <pre class="validation-toast__json"><code id="fundFlowsValidationToastCode"></code></pre>
+  </div>
+
+  <dialog class="mock-modal" id="actorFakerModal" aria-labelledby="modalTitle">
+    <div class="modal-inner">
+      <h3 id="modalTitle">Actor</h3>
+      <p class="membership" id="modalMembership">Used in flows: —</p>
+      <p class="role" id="modalRole">—</p>
+      <p class="role" id="modalKindLine" style="margin-top:-8px"><span id="modalKindBadge" class="actor-kind" style="display:inline-block"></span></p>
+      <div class="field">
+        <span class="field-row">
+          <label><input type="radio" name="atype" checked /> Business</label>
+          <label><input type="radio" name="atype" /> Individual</label>
+        </span>
+      </div>
+      <div class="field">
+        <label for="ds-b">Business names dataset</label>
+        <select id="ds-b" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border);">
+          <option>Corporate names · 2024 first quarter</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="ds-i">Individual names dataset</label>
+        <select id="ds-i" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border);">
+          <option>—</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="closeFakerModal">Cancel</button>
+        <button type="button" class="btn-primary">Save</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="mock-modal mock-modal--mermaid" id="mermaidModal" aria-labelledby="mermaidModalTitle">
+    <div class="modal-inner">
+      <h3 id="mermaidModalTitle">Flow diagram</h3>
+      <p class="membership" id="mermaidFlowLine">—</p>
+      <p class="role" style="margin-top:-4px">Numbered steps in the header should match the money movement table step order when wired to the product.</p>
+      <pre class="mermaid-modal__diagram" id="mermaidDiagramBlock" aria-label="Diagram source placeholder">Step 1 · Bonus payment order to operations
+    → Step 2 · Internal settle pair
+    → Step 3 · Outbound to partner
+    (parallel with step 2)</pre>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="closeMermaidModal">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div
+    id="taccountPage"
+    class="taccount-page"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="taccountTitle"
+    aria-hidden="true"
+    hidden
+  >
+    <div class="taccount-page__bar">
+      <h2 id="taccountTitle">Transaction accounts</h2>
+      <button type="button" class="btn-secondary" id="closeTaccountPage">Close</button>
+    </div>
+    <div class="taccount-page__body">
+      <div class="taccount-page__placeholder">
+        <strong>Existing funds flow view</strong> (transaction accounts and flow of funds) ships <strong>unchanged</strong> in version 2 — this page is chrome only. Dedicated route and full page: no Configure rail here; the only exit is <strong>Close</strong> (returns to the funds flow list or prior screen — <code>history.back()</code> in this demonstration when the entry used browser history).
+      </div>
+    </div>
+  </div>
+
+  <dialog class="mock-modal mock-modal--wide" id="actorResourcesModal" aria-labelledby="resTitle">
+    <div class="modal-inner">
+      <h3 id="resTitle">Resources</h3>
+      <p class="membership" id="resMeta">—</p>
+      <table class="res-table" aria-label="Resources under actor">
+        <thead>
+          <tr>
+            <th scope="col">Field</th>
+            <th scope="col">Resource</th>
+            <th scope="col">Details</th>
+          </tr>
+        </thead>
+        <tbody id="resTableBody"></tbody>
+      </table>
+      <p class="res-note">Payment order and ledger transaction lines are not listed here — only ledger account, inbound account, counterparty (with external accounts embedded on the counterparty when present), and legal entity from the input definition (mock data). <strong>Details</strong> shows compact chips: ledger accounts include <strong>currency</strong> and <strong>normal_balance</strong> (e.g. Debit normal / Credit normal); inbound accounts include <strong>currency</strong>; external accounts include <strong>account_number_type</strong> (e.g. blockchain for stablecoins) and <strong>currency</strong>.</p>
+      <div class="modal-actions" style="margin-top:14px">
+        <button type="button" class="btn-secondary" id="closeResModal">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="mock-modal mock-modal--wide" id="syntheticLayoutModal" aria-labelledby="syntheticLayoutTitle">
+    <div class="modal-inner">
+      <h3 id="syntheticLayoutTitle">Synthetic movement layout parameters</h3>
+      <div class="flow-config-field">
+        <label for="synth-base-curve">Base curve (prefilled parameters)</label>
+        <select id="synth-base-curve" style="width:100%;max-width:20rem;padding:8px;border-radius:6px;border:1px solid var(--border);font-size:0.875rem;">
+          <option value="clustered">Clustered</option>
+          <option value="bulk">Bulk</option>
+          <option value="distributed" selected>Distributed</option>
+        </select>
+      </div>
+      <div class="flow-config-field">
+        <label for="synth-param-a">Weight near anchor (0–1)</label>
+        <input id="synth-param-a" type="number" step="0.01" min="0" max="1" value="0.35" style="max-width:14rem;padding:8px;border-radius:6px;border:1px solid var(--border);" />
+      </div>
+      <div class="flow-config-field">
+        <label for="synth-param-b">Minimum spacing (days)</label>
+        <input id="synth-param-b" type="number" min="1" max="90" value="3" style="max-width:14rem;padding:8px;border-radius:6px;border:1px solid var(--border);" />
+      </div>
+      <div class="flow-config-field">
+        <label for="synth-param-c">Maximum synthetic movements in window</label>
+        <input id="synth-param-c" type="number" min="1" max="500" value="48" style="max-width:14rem;padding:8px;border-radius:6px;border:1px solid var(--border);" />
+      </div>
+      <p class="section-lead" id="synthCustomHint" hidden style="color:#b45309">Values no longer match the selected base curve — mode will save as <strong>Custom</strong>.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="closeSyntheticLayoutModal">Cancel</button>
+        <button type="button" class="btn-primary" id="saveSyntheticLayoutModal">Save</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="mock-modal mock-modal--wide mock-modal--flow-config" id="flowConfigureDialog" aria-labelledby="flowConfigureTitle">
+    <div class="modal-inner">
+      <h3 id="flowConfigureTitle">Configure pattern</h3>
+      <p class="flow-config-dialog__sub" id="flowConfigureSubtitle">—</p>
+
+      <div class="flow-config-panel" id="flowConfigPanelQ1" hidden>
+        <div id="flowConfigScalingQ1">
+          <div class="flow-config-section">
+            <h4>Session actors (same tiles as dashboard)</h4>
+            <section class="global-actors flow-config-actors" aria-label="Session actors in Configure">
+              <div class="actor-tile" data-actor-id="acme">
+                <div class="actor-tile__top">
+                  <span class="actor-tile__icons" aria-hidden="true"></span>
+                  <span class="actor-tile__name">Acme Corp</span>
+                </div>
+                <span class="actor-implementation actor-implementation--direct" title="Implementation: direct (from input definition)">Direct</span>
+                <span class="member-label">Used in</span>
+                <div class="flow-members">
+                  <span class="flow-chip">First quarter bonus</span>
+                  <span class="flow-chip">Payroll sweep</span>
+                </div>
+                <div class="actor-tile__actions">
+                  <button type="button" class="icon-btn" data-details="acme" data-resources-context="q1" title="Resources under this actor" aria-label="Actor resources">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  </button>
+                  <button type="button" class="icon-btn icon-btn--primary" data-open="acme" data-flows="First quarter bonus distribution, Weekly payroll sweep" data-kind="Direct" title="Sample data and dataset configuration" aria-label="Configure sample data">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="actor-tile" data-actor-id="partner">
+                <div class="actor-tile__top">
+                  <span class="actor-tile__icons" aria-hidden="true"></span>
+                  <span class="actor-tile__name">Partner Bank</span>
+                </div>
+                <span class="actor-implementation actor-implementation--platform" title="Implementation: platform (from input definition)">Platform</span>
+                <span class="member-label">Used in</span>
+                <div class="flow-members"><span class="flow-chip">First quarter bonus</span></div>
+                <div class="actor-tile__actions">
+                  <button type="button" class="icon-btn" data-details="partner" data-resources-context="q1" title="Resources under this actor" aria-label="Actor resources">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  </button>
+                  <button type="button" class="icon-btn icon-btn--primary" data-open="partner" data-flows="First quarter bonus distribution" data-kind="Platform" title="Sample data and dataset configuration" aria-label="Configure sample data">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="actor-tile" data-actor-id="ops">
+                <div class="actor-tile__top">
+                  <span class="actor-tile__icons" aria-hidden="true"></span>
+                  <span class="actor-tile__name">Ops</span>
+                </div>
+                <span class="actor-implementation actor-implementation--byob" title="Bring your own bank — from input definition">BYOB</span>
+                <span class="member-label">Used in</span>
+                <div class="flow-members"><span class="flow-chip">First quarter bonus</span></div>
+                <div class="actor-tile__actions">
+                  <button type="button" class="icon-btn" data-details="ops" data-resources-context="q1" title="Resources under this actor" aria-label="Actor resources">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  </button>
+                  <button type="button" class="icon-btn icon-btn--primary" data-open="ops" data-flows="First quarter bonus distribution" data-kind="Bring your own bank" title="Sample data and dataset configuration" aria-label="Configure sample data">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="actor-tile actor-tile--outside-pattern" data-actor-id="e1">
+                <div class="actor-tile__top">
+                  <span class="actor-tile__icons" aria-hidden="true"></span>
+                  <span class="actor-tile__name">Employer Co</span>
+                </div>
+                <span class="actor-implementation actor-implementation--direct" title="Implementation: direct (from input definition)">Direct</span>
+                <span class="member-label">Used in</span>
+                <div class="flow-members"><span class="flow-chip">Payroll sweep</span></div>
+                <div class="actor-tile__actions">
+                  <button type="button" class="icon-btn" data-details="e1" data-resources-context="q1" title="Resources under this actor" aria-label="Actor resources">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  </button>
+                  <button type="button" class="icon-btn icon-btn--primary" data-open="e1" data-flows="Weekly payroll sweep" data-kind="Direct" title="Sample data and dataset configuration" aria-label="Configure sample data">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="actor-tile actor-tile--outside-pattern" data-actor-id="e2">
+                <div class="actor-tile__top">
+                  <span class="actor-tile__icons" aria-hidden="true"></span>
+                  <span class="actor-tile__name">Clearing</span>
+                </div>
+                <span class="actor-implementation actor-implementation--platform" title="Implementation: platform (from input definition)">Platform</span>
+                <span class="member-label">Used in</span>
+                <div class="flow-members"><span class="flow-chip dim">—</span></div>
+                <div class="actor-tile__actions">
+                  <button type="button" class="icon-btn" data-details="e2" data-resources-context="q1" title="Resources under this actor" aria-label="Actor resources">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  </button>
+                  <button type="button" class="icon-btn icon-btn--primary" data-open="e2" data-flows="" data-kind="Platform" title="Sample data and dataset configuration" aria-label="Configure sample data">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="flow-config-section" id="flowConfigInstancesQ1">
+            <fieldset class="flow-config-fieldset">
+              <legend>How many synthetic copies to generate</legend>
+              <div class="instances-sync">
+                <div>
+                  <label for="cfg-q1-instances-range" class="flow-config-field" style="margin-bottom:0">
+                    <span style="font-size:0.75rem;font-weight:600;color:#374151">Slider (1–50 in this mock)</span>
+                    <input id="cfg-q1-instances-range" type="range" min="1" max="50" value="10" />
+                  </label>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <output id="cfg-q1-instances-out" for="cfg-q1-instances-range">10</output>
+                  <span class="dim" style="font-size:0.75rem">instances</span>
+                </div>
+              </div>
+              <div class="flow-config-field" style="margin-top:12px;margin-bottom:0">
+                <label for="cfg-q1-instances">Exact number (overrides slider)</label>
+                <input id="cfg-q1-instances" type="number" min="1" max="999" value="10" style="max-width:14rem;padding:8px;border-radius:6px;border:1px solid var(--border);" />
+              </div>
+            </fieldset>
+            <div id="q1OptinScalingGate" class="flow-config-optin-gate" style="margin-top:18px">
+              <p class="mm-preview-json-note">Optional — <strong>lookback</strong> and <strong>anchor date</strong> for this pattern. Defaults apply until you add this block.</p>
+              <button type="button" class="btn-secondary" id="q1OptinScalingAdd">Add lookback &amp; anchor</button>
+            </div>
+            <div id="q1OptinScalingBody" class="flow-config-optin-body" hidden>
+              <div class="flow-config-optin-head">
+                <h4 class="flow-config-optin-head__title">Lookback &amp; anchor</h4>
+                <button type="button" class="flow-config-optin-remove" id="q1OptinScalingRemove">Remove</button>
+              </div>
+              <div class="flow-config-field">
+                <label for="cfg-q1-lookback">Lookback (calendar days before anchor)</label>
+                <input id="cfg-q1-lookback" type="number" min="1" value="90" />
+              </div>
+              <div class="flow-config-field">
+                <label for="cfg-q1-anchor">Anchor date (first money movement)</label>
+                <input id="cfg-q1-anchor" type="date" value="2026-04-14" />
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-config-section">
+            <div id="q1OptinLayoutGate" class="flow-config-optin-gate">
+              <p class="mm-preview-json-note">Configure <strong>synthetic movement density</strong> in the lookback window (curve, weights, spacing). Add when you want to edit layout — otherwise defaults apply.</p>
+              <button type="button" class="btn-secondary" id="q1OptinLayoutAdd">Add synthetic movement layout</button>
+            </div>
+            <div id="q1OptinLayoutBody" class="flow-config-optin-body" hidden>
+              <div class="flow-config-optin-head">
+                <h4 class="flow-config-optin-head__title">Synthetic movement layout in the lookback window</h4>
+                <button type="button" class="flow-config-optin-remove" id="q1OptinLayoutRemove">Remove</button>
+              </div>
+              <p class="density-readout" id="layoutSummaryQ1" role="status"><strong id="layoutSummaryLabelQ1">Distributed</strong> · <span id="layoutSummaryParamsQ1">weight 0.35 · min spacing 3 days · max movements 48</span></p>
+              <div class="spark-wrap" id="layoutSpark-q1" data-layout="distributed" aria-hidden="true">
+                <span class="spark-bar" style="height:35%"></span>
+                <span class="spark-bar" style="height:55%"></span>
+                <span class="spark-bar" style="height:40%"></span>
+                <span class="spark-bar" style="height:70%"></span>
+                <span class="spark-bar" style="height:45%"></span>
+                <span class="spark-bar" style="height:60%"></span>
+                <span class="spark-bar" style="height:50%"></span>
+                <span class="spark-bar" style="height:75%"></span>
+                <span class="spark-bar" style="height:42%"></span>
+                <span class="spark-bar" style="height:68%"></span>
+                <span class="spark-bar" style="height:38%"></span>
+                <span class="spark-bar" style="height:55%"></span>
+              </div>
+              <div class="flow-config-actions">
+                <button type="button" class="btn-secondary" id="openSyntheticLayoutEditorQ1"><span class="flow-config-tag">Modal</span>Edit layout parameters</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-config-section">
+            <div id="q1OptinVarianceGate" class="flow-config-optin-gate">
+              <p class="mm-preview-json-note">Optional <strong>amount variance</strong> rules and <strong>step locks</strong> for this pattern — add when you need to model bounds or sequencing constraints.</p>
+              <button type="button" class="btn-secondary" id="q1OptinVarianceAdd">Add variance &amp; step locks</button>
+            </div>
+            <div id="q1OptinVarianceBody" class="flow-config-optin-body" hidden>
+              <div class="flow-config-optin-head">
+                <h4 class="flow-config-optin-head__title">Amount variance and step locks</h4>
+                <button type="button" class="flow-config-optin-remove" id="q1OptinVarianceRemove">Remove</button>
+              </div>
+              <button type="button" class="btn-secondary" disabled>Not wired in this mock</button>
+            </div>
+          </div>
+
+          <div class="flow-config-section">
+            <h4>Money movements (same columns as card)</h4>
+            <p class="mm-preview-json-note">Pattern rows mirror <strong>funds_flows</strong> step input: amounts and dates are the <strong>literal values in JSON</strong> (cents in file; dollars here). <strong>Chips</strong> carry variance and timing rules (how preview / MT expand them). Click a row for JSON.</p>
+            <div class="table-wrap">
+              <table class="mint15" aria-label="Money movements for this pattern in Configure">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Step</th>
+                    <th>Actor</th>
+                    <th>Event date</th>
+                    <th style="text-align:right">Amount</th>
+                    <th>Offset (input)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="mm-json-row" tabindex="0" role="button" data-mm-json="config:bonus_po" aria-label="View pattern step JSON for this row">
+                    <td><span class="tag-chip po"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="M5 8h6" stroke="currentColor"/></svg> Payment order</span></td>
+                    <td>Bonus payment order to operations</td>
+                    <td><span class="link-pill" style="cursor:default">Acme Inc <span class="dim">…7a2</span></span></td>
+                    <td class="date mm-cfg-split">
+                      <div class="mm-cfg-stack">
+                        <span class="mm-cfg-value">2026-04-14</span>
+                        <span class="mm-cfg-chip mm-cfg-chip--when" title="effective_date in step JSON — preview uses anchor calendar">Anchor date · literal</span>
+                      </div>
+                    </td>
+                    <td class="amt mm-cfg-split">
+                      <div class="mm-cfg-stack mm-cfg-stack--amt">
+                        <span class="mm-cfg-value">$250,000.00</span>
+                        <span class="mm-cfg-chip mm-cfg-chip--var-muted" title="No amount_variance on step">No variance</span>
+                      </div>
+                    </td>
+                    <td class="date mm-cfg-split"><span class="mm-cfg-offset-token" title="Offset fields in pattern input">anchor: 0</span></td>
+                  </tr>
+                  <tr class="row-child mm-json-row--embedded" tabindex="0" role="button" data-mm-json-embedded="1" title="Ledger rows are inline on the payment order above — no separate step" aria-label="Why this row has no separate JSON">
+                    <td colspan="2"><span class="tree">└</span><span class="tag-chip lt"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="M5 8h6" stroke="currentColor"/></svg> Ledger transaction</span> <span class="dim">under first step</span></td>
+                    <td><span class="link-pill" style="cursor:default">Acme Inc <span class="dim">…7a2</span></span></td>
+                    <td class="date mm-cfg-split">
+                      <div class="mm-cfg-stack">
+                        <span class="mm-cfg-value">2026-04-14</span>
+                        <span class="mm-cfg-chip mm-cfg-chip--when-muted" title="Embedded LT follows parent PO effective_at">Same effective as PO</span>
+                      </div>
+                    </td>
+                    <td class="amt mm-cfg-split">
+                      <div class="mm-cfg-stack mm-cfg-stack--amt">
+                        <span class="mm-cfg-value">$250,000.00</span>
+                        <span class="mm-cfg-chip mm-cfg-chip--var-muted" title="Legs sum to PO amount">Balances PO</span>
+                      </div>
+                    </td>
+                    <td class="date mm-cfg-split"><span class="mm-cfg-offset-token">inherits PO</span></td>
+                  </tr>
+                  <tr class="mm-json-row" tabindex="0" role="button" data-mm-json="config:internal_lt" aria-label="View pattern step JSON for this row">
+                    <td><span class="tag-chip st"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="M5 8h6" stroke="currentColor"/></svg> Transfer · internal</span></td>
+                    <td>Internal settle pair</td>
+                    <td><span class="actor-link-group"><span class="link-pill" style="cursor:default">Acme Inc</span><span class="link-pill" style="cursor:default">Partner Bank</span></span></td>
+                    <td class="date mm-cfg-split">
+                      <div class="mm-cfg-stack">
+                        <span class="mm-cfg-value">2026-04-15</span>
+                        <span class="mm-cfg-chip mm-cfg-chip--when" title="Preview / MT: anchor + N business days, NY calendar, skip weekends &amp; Fed holidays">BD+1 · NY · skip hols</span>
+                      </div>
+                    </td>
+                    <td class="amt mm-cfg-split">
+                      <div class="mm-cfg-stack mm-cfg-stack--amt">
+                        <span class="mm-cfg-value">$100,000.00</span>
+                        <span class="mm-cfg-chip mm-cfg-chip--var" title="amount_variance: uniform ±10% on ledger entry totals for preview">±10% uniform</span>
+                      </div>
+                    </td>
+                    <td class="date mm-cfg-split"><span class="mm-cfg-offset-token" title="Structured offset in pattern">event_offset: +1bd</span></td>
+                  </tr>
+                  <tr class="mm-json-row" tabindex="0" role="button" data-mm-json="config:settlement_po" aria-label="View pattern step JSON for this row">
+                    <td><span class="tag-chip po"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"/><path d="M5 8h6" stroke="currentColor"/></svg> Settlement · external account</span></td>
+                    <td>Outbound to partner <span class="parallel">‖ Internal settle pair</span></td>
+                    <td><span class="link-pill" style="cursor:default">Partner Bank <span class="dim">…</span></span></td>
+                    <td class="date mm-cfg-split">
+                      <div class="mm-cfg-stack">
+                        <span class="mm-cfg-value">2026-04-16</span>
+                        <span class="mm-cfg-chip mm-cfg-chip--when" title="Wire rail: T+2 calendar days; may resolve in parallel with referenced step">T+2 calendar · ‖ settle</span>
+                      </div>
+                    </td>
+                    <td class="amt mm-cfg-split">
+                      <div class="mm-cfg-stack mm-cfg-stack--amt">
+                        <span class="mm-cfg-value">$250,000.00</span>
+                        <span class="mm-cfg-chip mm-cfg-chip--var-muted" title="No variance on settlement face amount">No variance</span>
+                      </div>
+                    </td>
+                    <td class="date mm-cfg-split"><span class="mm-cfg-offset-token" title="Parallel gate + calendar offset">+2cd ‖ internal_settle_pair</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="flow-config-section">
+            <h4>Sequence preview</h4>
+            <div id="previewEmptyQ1">
+              <button type="button" class="btn-primary" id="generatePreviewQ1">Generate preview</button>
+            </div>
+            <div id="previewResultQ1" hidden>
+              <div class="flow-config-field">
+                <label for="previewInstanceQ1">Which generated instance to show (1 through 10)</label>
+                <select id="previewInstanceQ1"></select>
+              </div>
+              <div class="flow-config-actions" style="margin-top:10px">
+                <button type="button" class="btn-secondary btn-sm" id="regeneratePreviewQ1">Regenerate preview</button>
+              </div>
+              <p class="recipe-stale" id="recipeStale-q1" hidden title="Inputs changed since last preview — regenerate to update">Preview is out of date</p>
+              <p class="mm-preview-json-note">Preview rows use <strong>resolved sample / faker</strong> fields (IDs and party names) as resources would look after hydration for this instance — not the <code>@actor</code> / <code>{template}</code> form in the pattern table above. Click a row for JSON.</p>
+              <div class="table-wrap" style="margin-top:10px">
+                <table class="mint15" id="previewTableQ1" aria-label="Simulated money movements for selected instance">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Step</th>
+                      <th>Actor</th>
+                      <th>Event date</th>
+                      <th style="text-align:right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody id="previewTableBodyQ1"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-config-panel" id="flowConfigPanelPayroll" hidden>
+        <div id="flowConfigScalingPayroll">
+          <div class="flow-config-section">
+            <h4>Session actors (same tiles as dashboard)</h4>
+            <section class="global-actors flow-config-actors" aria-label="Session actors in Configure">
+              <div class="actor-tile actor-tile--outside-pattern" data-actor-id="acme">
+                <div class="actor-tile__top">
+                  <span class="actor-tile__icons" aria-hidden="true"></span>
+                  <span class="actor-tile__name">Acme Corp</span>
+                </div>
+                <span class="actor-implementation actor-implementation--direct" title="Implementation: direct (from input definition)">Direct</span>
+                <span class="member-label">Used in</span>
+                <div class="flow-members"><span class="flow-chip">First quarter bonus</span></div>
+                <div class="actor-tile__actions">
+                  <button type="button" class="icon-btn" data-details="acme" data-resources-context="payroll" title="Resources under this actor" aria-label="Actor resources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+                  <button type="button" class="icon-btn icon-btn--primary" data-open="acme" data-flows="First quarter bonus distribution, Weekly payroll sweep" data-kind="Direct" title="Sample data and dataset configuration" aria-label="Configure sample data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
+                </div>
+              </div>
+              <div class="actor-tile actor-tile--outside-pattern" data-actor-id="partner">
+                <div class="actor-tile__top">
+                  <span class="actor-tile__icons" aria-hidden="true"></span>
+                  <span class="actor-tile__name">Partner Bank</span>
+                </div>
+                <span class="actor-implementation actor-implementation--platform" title="Implementation: platform (from input definition)">Platform</span>
+                <span class="member-label">Used in</span>
+                <div class="flow-members"><span class="flow-chip">First quarter bonus</span></div>
+                <div class="actor-tile__actions">
+                  <button type="button" class="icon-btn" data-details="partner" data-resources-context="payroll" title="Resources under this actor" aria-label="Actor resources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+                  <button type="button" class="icon-btn icon-btn--primary" data-open="partner" data-flows="First quarter bonus distribution" data-kind="Platform" title="Sample data and dataset configuration" aria-label="Configure sample data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
+                </div>
+              </div>
+              <div class="actor-tile actor-tile--outside-pattern" data-actor-id="ops">
+                <div class="actor-tile__top">
+                  <span class="actor-tile__icons" aria-hidden="true"></span>
+                  <span class="actor-tile__name">Ops</span>
+                </div>
+                <span class="actor-implementation actor-implementation--byob" title="Bring your own bank — from input definition">BYOB</span>
+                <span class="member-label">Used in</span>
+                <div class="flow-members"><span class="flow-chip">First quarter bonus</span></div>
+                <div class="actor-tile__actions">
+                  <button type="button" class="icon-btn" data-details="ops" data-resources-context="payroll" title="Resources under this actor" aria-label="Actor resources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+                  <button type="button" class="icon-btn icon-btn--primary" data-open="ops" data-flows="First quarter bonus distribution" data-kind="Bring your own bank" title="Sample data and dataset configuration" aria-label="Configure sample data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
+                </div>
+              </div>
+              <div class="actor-tile" data-actor-id="e1">
+                <div class="actor-tile__top">
+                  <span class="actor-tile__icons" aria-hidden="true"></span>
+                  <span class="actor-tile__name">Employer Co</span>
+                </div>
+                <span class="actor-implementation actor-implementation--direct" title="Implementation: direct (from input definition)">Direct</span>
+                <span class="member-label">Used in</span>
+                <div class="flow-members"><span class="flow-chip">Payroll sweep</span></div>
+                <div class="actor-tile__actions">
+                  <button type="button" class="icon-btn" data-details="e1" data-resources-context="payroll" title="Resources under this actor" aria-label="Actor resources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+                  <button type="button" class="icon-btn icon-btn--primary" data-open="e1" data-flows="Weekly payroll sweep" data-kind="Direct" title="Sample data and dataset configuration" aria-label="Configure sample data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
+                </div>
+              </div>
+              <div class="actor-tile actor-tile--outside-pattern" data-actor-id="e2">
+                <div class="actor-tile__top">
+                  <span class="actor-tile__icons" aria-hidden="true"></span>
+                  <span class="actor-tile__name">Clearing</span>
+                </div>
+                <span class="actor-implementation actor-implementation--platform" title="Implementation: platform (from input definition)">Platform</span>
+                <span class="member-label">Used in</span>
+                <div class="flow-members"><span class="flow-chip dim">—</span></div>
+                <div class="actor-tile__actions">
+                  <button type="button" class="icon-btn" data-details="e2" data-resources-context="payroll" title="Resources under this actor" aria-label="Actor resources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+                  <button type="button" class="icon-btn icon-btn--primary" data-open="e2" data-flows="" data-kind="Platform" title="Sample data and dataset configuration" aria-label="Configure sample data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+        <button type="button" class="btn-secondary" id="closeFlowConfigureDialog">Cancel</button>
+        <button type="button" class="btn-primary" id="saveFlowConfigureDialog">Save</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="mock-modal mock-modal--json-step" id="movementStepJsonDialog" aria-labelledby="movementStepJsonTitle">
+    <div class="modal-inner">
+      <h3 id="movementStepJsonTitle">Movement JSON</h3>
+      <p id="movementStepJsonSub" class="flow-config-dialog__sub"></p>
+      <div id="movementStepJsonProductChrome" class="mm-json-product-chrome" hidden>
+        <p class="mm-json-product-chrome__title">Design target (not this mock)</p>
+        <ul class="mm-json-product-chrome__list">
+          <li>Step JSON is edited in a <strong>Monaco</strong> JSON editor with validation.</li>
+          <li><strong>Apply</strong> / <strong>save</strong> writes back to the pattern&rsquo;s <strong>input JSON</strong> (the bundle&rsquo;s <code>funds_flows</code> source of truth).</li>
+          <li>After apply, the Configure money movements table (and related readouts) refresh from that saved input.</li>
+        </ul>
+        <div class="mm-json-product-chrome__stub-actions">
+          <button type="button" class="btn-secondary btn-sm" disabled title="Product: discard editor changes">Cancel</button>
+          <button type="button" class="btn-primary btn-sm" disabled title="Product: validate, merge step into input JSON, persist bundle, refresh Configure">Apply & save to input JSON</button>
+        </div>
+      </div>
+      <p id="movementStepJsonEmbedded" class="mm-json-embedded-msg" hidden></p>
+      <p id="movementStepJsonMockReadonly" class="mm-json-mock-readonly" hidden>This mock shows read-only formatted JSON. Product replaces this block with Monaco.</p>
+      <pre id="movementStepJsonPre" class="mm-json-pre"><code id="movementStepJsonCode"></code></pre>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="closeMovementStepJsonDialog">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    (function () {
+      var dlg = document.getElementById("actorFakerModal");
+      var resDlg = document.getElementById("actorResourcesModal");
+      var title = document.getElementById("modalTitle");
+      var role = document.getElementById("modalRole");
+      var membership = document.getElementById("modalMembership");
+      var kindBadge = document.getElementById("modalKindBadge");
+      var kindLine = document.getElementById("modalKindLine");
+      var resTitle = document.getElementById("resTitle");
+      var resMeta = document.getElementById("resMeta");
+      var resBody = document.getElementById("resTableBody");
+
+      var labels = {
+        acme: { name: "Acme Corp", role: "Payer in referenced flows", kind: "Direct" },
+        partner: { name: "Partner Bank", role: "Receiver", kind: "Platform" },
+        ops: { name: "Ops", role: "Approver", kind: "Bring your own bank" },
+        e1: { name: "Employer Co", role: "Employer", kind: "Direct" },
+        e2: { name: "Clearing", role: "Settlement rail", kind: "Platform" }
+      };
+
+      function escHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      var resourcesByActor = {
+        acme: [
+          { k: "Legal entity", v: "Acme legal entity · le_8a2f…" },
+          {
+            k: "Ledger account",
+            v: "Operating · la_ops_primary",
+            chips: [
+              { text: "USD", title: "currency", variant: "currency" },
+              { text: "Debit normal", title: "normal_balance", variant: "normal" }
+            ]
+          },
+          {
+            k: "Inbound account",
+            v: "Inbound sweep · ia_clearing_01",
+            muteIn: { payroll: true },
+            chips: [{ text: "USD", title: "currency", variant: "currency" }]
+          },
+          {
+            k: "Counterparty",
+            v: "Acme counterparty · cp_441b…",
+            children: [
+              {
+                k: "External account (on counterparty)",
+                v: "Stablecoin treasury · ea_treas_88",
+                muteIn: { payroll: true },
+                chips: [
+                  { text: "USDC", title: "currency", variant: "currency" },
+                  { text: "Blockchain", title: "account_number_type (stablecoin)", variant: "acct-type" }
+                ]
+              }
+            ]
+          }
+        ],
+        partner: [
+          { k: "Legal entity", v: "Partner legal entity · le_pb_02" },
+          {
+            k: "Ledger account",
+            v: "Due-from bank account · la_nostro_pb",
+            chips: [
+              { text: "USD", title: "currency", variant: "currency" },
+              { text: "Credit normal", title: "normal_balance", variant: "normal" }
+            ]
+          },
+          { k: "Inbound account", v: "—" },
+          {
+            k: "Counterparty",
+            v: "Partner Bank counterparty · cp_pb_main",
+            children: [
+              {
+                k: "External account (on counterparty)",
+                v: "Wire beneficiary A · ea_wire_01",
+                muteIn: { payroll: true },
+                chips: [
+                  { text: "USD", title: "currency", variant: "currency" },
+                  { text: "IBAN", title: "account_number_type", variant: "acct-type" }
+                ]
+              },
+              {
+                k: "External account (on counterparty)",
+                v: "ACH path · ea_ach_9c",
+                muteIn: { payroll: true },
+                chips: [
+                  { text: "USD", title: "currency", variant: "currency" },
+                  { text: "ACH routing", title: "account_number_type", variant: "acct-type" }
+                ]
+              }
+            ]
+          }
+        ],
+        ops: [
+          { k: "Legal entity", v: "— (bring your own bank: no legal entity attached)" },
+          { k: "Ledger account", v: "—" },
+          {
+            k: "Inbound account",
+            v: "Operations clearing · ia_ops_clr",
+            muteIn: { payroll: true },
+            chips: [{ text: "USD", title: "currency", variant: "currency" }]
+          },
+          { k: "Counterparty", v: "Operations counterparty · cp_ops_01" }
+        ],
+        e1: [
+          { k: "Legal entity", v: "Employer legal entity · le_emp_77" },
+          {
+            k: "Ledger account",
+            v: "Payroll funding · la_pr_fund",
+            chips: [
+              { text: "USD", title: "currency", variant: "currency" },
+              { text: "Debit normal", title: "normal_balance", variant: "normal" }
+            ]
+          },
+          { k: "Inbound account", v: "—", muteIn: { q1: true } },
+          {
+            k: "Counterparty",
+            v: "Employer counterparty · cp_emp",
+            children: [
+              {
+                k: "External account (on counterparty)",
+                v: "Payroll funding bank · ea_pr_01",
+                muteIn: { q1: true },
+                chips: [
+                  { text: "USD", title: "currency", variant: "currency" },
+                  { text: "ACH routing", title: "account_number_type", variant: "acct-type" }
+                ]
+              }
+            ]
+          }
+        ],
+        e2: [
+          { k: "Legal entity", v: "Clearing legal entity · le_clr_02" },
+          {
+            k: "Ledger account",
+            v: "Settlement pool · la_settle",
+            chips: [
+              { text: "USD", title: "currency", variant: "currency" },
+              { text: "Credit normal", title: "normal_balance", variant: "normal" }
+            ]
+          },
+          {
+            k: "Inbound account",
+            v: "Inbound rail buffer · ia_rail_buf",
+            muteIn: { payroll: true },
+            chips: [{ text: "USD", title: "currency", variant: "currency" }]
+          },
+          { k: "Counterparty", v: "Rail counterparty · cp_clr" }
+        ]
+      };
+
+      function resChipClasses(variant) {
+        var base = "res-chip";
+        if (variant === "currency") return base + " res-chip--currency";
+        if (variant === "normal") return base + " res-chip--normal";
+        if (variant === "acct-type") return base + " res-chip--acct-type";
+        return base;
+      }
+
+      function formatResDetailsCell(chips) {
+        if (!chips || !chips.length) {
+          return '<span class="res-details-empty">—</span>';
+        }
+        var parts = ['<div class="res-chip-row">'];
+        chips.forEach(function (ch) {
+          var text = typeof ch === "string" ? ch : ch.text || "";
+          var title = typeof ch === "object" && ch.title ? ch.title : "";
+          var variant = typeof ch === "object" && ch.variant ? ch.variant : "";
+          var cls = resChipClasses(variant);
+          parts.push(
+            '<span class="' +
+              cls +
+              '"' +
+              (title ? ' title="' + escHtml(title) + '"' : "") +
+              ">" +
+              escHtml(text) +
+              "</span>"
+          );
+        });
+        parts.push("</div>");
+        return parts.join("");
+      }
+
+      function buildResourceTableHtml(rows, patternCtx) {
+        if (!rows || !rows.length) {
+          return '<tr><td colspan="3" class="dim res-details-empty">No resource rows in this mock for this actor.</td></tr>';
+        }
+        var parts = [];
+        rows.forEach(function (r) {
+          var mutedTop = patternCtx && r.muteIn && r.muteIn[patternCtx];
+          var clsTop = mutedTop ? "res-muted" : "";
+          var detTop = formatResDetailsCell(r.chips);
+          if (r.children && r.children.length) {
+            parts.push(
+              '<tr class="' +
+                clsTop +
+                '"><th scope="row">' +
+                escHtml(r.k) +
+                '</th><td>' +
+                escHtml(r.v) +
+                "</td><td>" +
+                detTop +
+                "</td></tr>"
+            );
+            r.children.forEach(function (ch) {
+              var mutedChild = patternCtx && ch.muteIn && ch.muteIn[patternCtx];
+              var detCh = formatResDetailsCell(ch.chips);
+              parts.push(
+                '<tr class="res-nested' +
+                  (mutedChild ? " res-muted" : "") +
+                  '"><th scope="row">' +
+                  escHtml(ch.k) +
+                  '</th><td>' +
+                  escHtml(ch.v) +
+                  "</td><td>" +
+                  detCh +
+                  "</td></tr>"
+              );
+            });
+          } else {
+            parts.push(
+              '<tr class="' +
+                clsTop +
+                '"><th scope="row">' +
+                escHtml(r.k) +
+                '</th><td>' +
+                escHtml(r.v) +
+                "</td><td>" +
+                detTop +
+                "</td></tr>"
+            );
+          }
+        });
+        return parts.join("");
+      }
+
+      function setKindBadge(kind) {
+        if (!kind) {
+          kindBadge.textContent = "";
+          kindBadge.className = "actor-kind";
+          kindLine.style.display = "none";
+          return;
+        }
+        kindBadge.textContent = kind;
+        kindBadge.className = "actor-kind";
+        if (kind === "Platform") kindBadge.classList.add("actor-kind--platform");
+        else if (kind === "Bring your own bank") kindBadge.classList.add("actor-kind--byob");
+        else kindBadge.classList.add("actor-kind--direct");
+        kindLine.style.display = "block";
+      }
+
+      function openFakerModal(id, flows, kindFromEl) {
+        var L = labels[id] || { name: "Actor", role: "—", kind: "" };
+        var kind = kindFromEl || L.kind;
+        title.textContent = L.name;
+        role.textContent = L.role;
+        membership.textContent = flows ? "Used in flows: " + flows : "Used in flows: —";
+        setKindBadge(kind || L.kind);
+        if (dlg.showModal) dlg.showModal(); else alert("Sample data configuration: " + L.name);
+      }
+
+      function openResourcesModal(id, patternCtx) {
+        var L = labels[id] || { name: "Actor", kind: "" };
+        var rows = resourcesByActor[id] || [];
+        resTitle.textContent = "Resources · " + L.name;
+        var ctxLine = patternCtx ? " · pattern context: " + patternCtx : "";
+        resMeta.textContent =
+          "Class: " + (L.kind || "—") + ctxLine + " · excludes payment order and ledger transaction lines";
+        resBody.innerHTML = buildResourceTableHtml(rows, patternCtx);
+        if (resDlg.showModal) resDlg.showModal(); else alert("Resources: " + L.name);
+      }
+
+      document.querySelectorAll("[data-open]").forEach(function (el) {
+        el.addEventListener("click", function (e) {
+          e.preventDefault();
+          var id = el.getAttribute("data-open");
+          var flows = el.getAttribute("data-flows");
+          var kind = el.getAttribute("data-kind");
+          openFakerModal(id, flows, kind);
+        });
+      });
+
+      document.querySelectorAll("[data-details]").forEach(function (el) {
+        el.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          openResourcesModal(el.getAttribute("data-details"), el.getAttribute("data-resources-context"));
+        });
+      });
+
+      document.getElementById("closeFakerModal").addEventListener("click", function () { dlg.close(); });
+      document.getElementById("closeResModal").addEventListener("click", function () { resDlg.close(); });
+
+      var mermaidDlg = document.getElementById("mermaidModal");
+      var mermaidFlowLine = document.getElementById("mermaidFlowLine");
+      var flowTitles = { q1: "First quarter bonus distribution", payroll: "Weekly payroll sweep" };
+
+      var flowConfigureDialog = document.getElementById("flowConfigureDialog");
+      var flowConfigureSubtitle = document.getElementById("flowConfigureSubtitle");
+      var panelQ1 = document.getElementById("flowConfigPanelQ1");
+      var panelPayroll = document.getElementById("flowConfigPanelPayroll");
+
+      var movementStepJsonDialog = document.getElementById("movementStepJsonDialog");
+      var movementStepJsonTitle = document.getElementById("movementStepJsonTitle");
+      var movementStepJsonSub = document.getElementById("movementStepJsonSub");
+      var movementStepJsonEmbedded = document.getElementById("movementStepJsonEmbedded");
+      var movementStepJsonPre = document.getElementById("movementStepJsonPre");
+      var movementStepJsonCode = document.getElementById("movementStepJsonCode");
+      var movementStepJsonProductChrome = document.getElementById("movementStepJsonProductChrome");
+      var movementStepJsonMockReadonly = document.getElementById("movementStepJsonMockReadonly");
+
+      /* Shapes aligned with repo: PO + ledger_inline + ledger_entries (examples/tradeify.json, e.g. po_cashout);
+         standalone ledger_transaction step (examples/funds_flow_demo.json settle step);
+         PO without ledger_inline (wire outbound). Inline PO pattern: tests/test_embedded_resources.py _make_flow_with_inline_lt */
+      var mmStepJsonCatalog = {
+        "config:bonus_po": {
+          step_id: "bonus_payment_to_ops",
+          type: "payment_order",
+          payment_type: "ach",
+          direction: "debit",
+          amount: 25000000,
+          originating_account_id: "@actor:employer.operating",
+          receiving_account_id: "@actor:operations.settlement",
+          description: "Bonus payment order to operations for {first_name} {last_name}",
+          ledger_inline: true,
+          ledger_entries: [
+            {
+              amount: 25000000,
+              direction: "debit",
+              ledger_account_id: "@actor:employer.bonus_expense_la"
+            },
+            {
+              amount: 25000000,
+              direction: "credit",
+              ledger_account_id: "@actor:employer.operating_cash_la"
+            }
+          ]
+        },
+        "preview:bonus_po": {
+          object: "payment_order",
+          id: "po_01JFZH4M9KQ2V8Y3R7N2P1T0AB",
+          livemode: false,
+          status: "pending",
+          type: "ach",
+          direction: "debit",
+          amount: 25000000,
+          currency: "USD",
+          description:
+            "Bonus payment order to operations for Jordan A. Kline (faker seed — Q1 preview instance)",
+          originating_account_id: "8c3b9d12-7e41-4a20-9c88-1f2e3d4b5a60",
+          originating_account_name: "Acme Platform Division — operating (7a2)",
+          receiving_account_id: "b2a14c33-5d01-4f8e-b511-9a0c8e7f6d54",
+          receiving_account_name: "Operations — ACH settlement",
+          ledger_transaction: {
+            object: "ledger_transaction",
+            id: "lt_embed_01JFZH4M9KQ2V8Y3R7N2P1T0CD",
+            status: "pending",
+            ledger_entries: [
+              {
+                amount: 25000000,
+                direction: "debit",
+                ledger_account_id: "la_7a2_bonus_exp",
+                _resolved_label: "Bonus expense — employer"
+              },
+              {
+                amount: 25000000,
+                direction: "credit",
+                ledger_account_id: "la_7a2_ops_clearing",
+                _resolved_label: "Operating cash — Acme"
+              }
+            ]
+          },
+          _mock_note:
+            "Inline ledger: same pattern as funds_flows steps with ledger_inline + ledger_entries (examples/tradeify.json). Nested here, not a separate top-level movement."
+        },
+        "config:internal_lt": {
+          step_id: "internal_settle_pair",
+          type: "ledger_transaction",
+          depends_on: ["bonus_payment_to_ops"],
+          description: "Internal settle pair between employer operating and partner nostro",
+          ledger_entries: [
+            {
+              ledger_account_id: "@actor:employer.operating_cash_la",
+              amount: 10000000,
+              direction: "debit"
+            },
+            {
+              ledger_account_id: "@actor:partner.nostro_la",
+              amount: 10000000,
+              direction: "credit"
+            }
+          ]
+        },
+        "preview:internal_lt": {
+          object: "ledger_transaction",
+          id: "lt_01JFZH4N0LR3W9Z4S8O3Q2U1BC",
+          status: "pending",
+          description: "Internal settle pair between employer operating and partner nostro",
+          ledger_entries: [
+            {
+              amount: 10000000,
+              direction: "debit",
+              ledger_account_id: "la_em_acme_ops",
+              _resolved_label: "Operating cash — Acme Inc"
+            },
+            {
+              amount: 10000000,
+              direction: "credit",
+              ledger_account_id: "la_pb_nostro_usd",
+              _resolved_label: "Partner nostro — Partner Bank (···6412)"
+            }
+          ],
+          _mock_note:
+            "Standalone ledger_transaction step (examples/funds_flow_demo.json settle step). Own row JSON; contrast embedded child row under the PO with ledger_inline."
+        },
+        "config:settlement_po": {
+          step_id: "outbound_to_partner",
+          type: "payment_order",
+          payment_type: "wire",
+          direction: "credit",
+          amount: 25000000,
+          originating_account_id: "@actor:employer.operating",
+          receiving_account_id: "@actor:partner.external_settlement",
+          depends_on: ["internal_settle_pair"],
+          description: "Outbound to partner (settlement, external account)"
+        },
+        "preview:settlement_po": {
+          object: "payment_order",
+          id: "po_01JFZH4N0LR3W9Z4S8O3Q2U1DE",
+          livemode: false,
+          status: "processing",
+          type: "wire",
+          direction: "credit",
+          amount: 25000000,
+          currency: "USD",
+          description: "Outbound to partner — wire ref FR-99271 (faker)",
+          originating_account_id: "8c3b9d12-7e41-4a20-9c88-1f2e3d4b5a60",
+          originating_account_name: "Acme Platform Division — operating (7a2)",
+          receiving_account_id: "d441f8aa-1122-4ccd-9eef-0a1b2c3d4e55",
+          receiving_account_name: "Partner Bank — external settlement ···4481",
+          _mock_note:
+            "No ledger_inline on this step: postings would be separate movements when modeled that way (contrast with bonus_po)."
+        }
+      };
+
+      function openMovementStepJsonDialog(ref) {
+        if (!movementStepJsonDialog || !movementStepJsonCode) return;
+        var body = mmStepJsonCatalog[ref];
+        if (!body) return;
+        var colon = ref.indexOf(":");
+        var kind = colon === -1 ? "config" : ref.slice(0, colon);
+        movementStepJsonTitle.textContent =
+          kind === "preview" ? "Preview resource (faker-seeded sample)" : "Pattern step (funds_flows DSL)";
+        movementStepJsonSub.textContent =
+          kind === "preview"
+            ? "Illustrative hydrated JSON: cents preserved; names and IDs reflect actor/faker settings for this mock preview (not a live Modern Treasury response)."
+            : "One step object from the pattern's input definition — compare examples/tradeify.json (payment_order + ledger_inline) and examples/funds_flow_demo.json (ledger_transaction).";
+        movementStepJsonEmbedded.setAttribute("hidden", "");
+        movementStepJsonPre.removeAttribute("hidden");
+        movementStepJsonCode.textContent = JSON.stringify(body, null, 2);
+        if (movementStepJsonProductChrome) {
+          if (kind === "config") movementStepJsonProductChrome.removeAttribute("hidden");
+          else movementStepJsonProductChrome.setAttribute("hidden", "");
+        }
+        if (movementStepJsonMockReadonly) {
+          if (kind === "config") movementStepJsonMockReadonly.removeAttribute("hidden");
+          else movementStepJsonMockReadonly.setAttribute("hidden", "");
+        }
+        if (movementStepJsonDialog.showModal) movementStepJsonDialog.showModal();
+      }
+
+      function openEmbeddedLtExplanation() {
+        if (!movementStepJsonDialog || !movementStepJsonEmbedded) return;
+        movementStepJsonTitle.textContent = "No separate JSON for this row";
+        movementStepJsonSub.textContent =
+          "This child row is only a visual mirror of ledger activity that lives on the payment order step above.";
+        movementStepJsonEmbedded.removeAttribute("hidden");
+        movementStepJsonEmbedded.innerHTML =
+          "When a step uses <code>ledger_inline: true</code> with <code>ledger_entries</code> on the <strong>payment_order</strong> (see <code>examples/tradeify.json</code>, e.g. <code>po_cashout</code>, and <code>tests/test_embedded_resources.py</code> <code>_make_flow_with_inline_lt</code>), those entries do not get a second funds_flows step. A <strong>standalone</strong> <code>type: \"ledger_transaction\"</code> step (see <code>examples/funds_flow_demo.json</code> <code>settle</code>) would have its own row JSON here.";
+        movementStepJsonPre.setAttribute("hidden", "");
+        if (movementStepJsonProductChrome) movementStepJsonProductChrome.setAttribute("hidden", "");
+        if (movementStepJsonMockReadonly) movementStepJsonMockReadonly.setAttribute("hidden", "");
+        if (movementStepJsonDialog.showModal) movementStepJsonDialog.showModal();
+      }
+
+      if (flowConfigureDialog && movementStepJsonDialog) {
+        flowConfigureDialog.addEventListener("click", function (e) {
+          var trEmb = e.target.closest("tr[data-mm-json-embedded]");
+          if (trEmb && flowConfigureDialog.contains(trEmb)) {
+            e.preventDefault();
+            openEmbeddedLtExplanation();
+            return;
+          }
+          var tr = e.target.closest("tr[data-mm-json]");
+          if (!tr || !flowConfigureDialog.contains(tr)) return;
+          e.preventDefault();
+          openMovementStepJsonDialog(tr.getAttribute("data-mm-json"));
+        });
+        flowConfigureDialog.addEventListener("keydown", function (e) {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          var trEmb = e.target.closest("tr[data-mm-json-embedded]");
+          if (trEmb && flowConfigureDialog.contains(trEmb)) {
+            e.preventDefault();
+            openEmbeddedLtExplanation();
+            return;
+          }
+          var tr = e.target.closest("tr[data-mm-json]");
+          if (!tr || !flowConfigureDialog.contains(tr)) return;
+          e.preventDefault();
+          openMovementStepJsonDialog(tr.getAttribute("data-mm-json"));
+        });
+      }
+
+      var closeMovementStepJsonBtn = document.getElementById("closeMovementStepJsonDialog");
+      if (closeMovementStepJsonBtn && movementStepJsonDialog) {
+        closeMovementStepJsonBtn.addEventListener("click", function () {
+          movementStepJsonDialog.close();
+        });
+      }
+
+      var fundFlowGate = { q1: null, payroll: null };
+      var fundFlowsNextBtn = document.getElementById("fundFlowsNextBtn");
+      var fundFlowsValidationToast = document.getElementById("fundFlowsValidationToast");
+      var fundFlowsValidationToastSummary = document.getElementById("fundFlowsValidationToastSummary");
+      var fundFlowsValidationToastCode = document.getElementById("fundFlowsValidationToastCode");
+      var fundFlowsValidationToastTimer = null;
+
+      function patternKeyFromSkipButton(btn) {
+        return btn.getAttribute("data-skip-pattern");
+      }
+
+      function getFlowCard(patternKey) {
+        return document.querySelector('article[data-flow-pattern="' + patternKey + '"]');
+      }
+
+      function showFundFlowsValidationToast(draftPatternKeys) {
+        if (!fundFlowsValidationToast || !fundFlowsValidationToastCode) return;
+        var flowLabel = { q1: "first_quarter_bonus", payroll: "weekly_payroll_sweep" };
+        var titles = draftPatternKeys.map(function (k) {
+          return flowTitles[k] || k;
+        });
+        if (fundFlowsValidationToastSummary) {
+          if (titles.length === 1) {
+            fundFlowsValidationToastSummary.textContent =
+              "Preview blocked — still Draft: " +
+              titles[0] +
+              ". Open Configure on that card and Save, or use Skip.";
+          } else {
+            fundFlowsValidationToastSummary.textContent =
+              "Preview blocked — still Draft (" +
+              titles.length +
+              " flows): " +
+              titles.join("; ") +
+              ". Resolve each on its card (Configure → Save or Skip).";
+          }
+        }
+        var detail = draftPatternKeys.map(function (k) {
+          var slug = flowLabel[k] || k;
+          var display = flowTitles[k] || k;
+          return {
+            type: "value_error",
+            loc: ["body", "funds_flows", slug, "scaling_confirmation"],
+            msg:
+              "Funds flow \"" +
+              display +
+              "\" (" +
+              slug +
+              ") is still Draft: scaling_confirmation must be set (Configure → Save or Skip on the card) before preview.",
+            input: null
+          };
+        });
+        fundFlowsValidationToastCode.textContent = JSON.stringify({ detail: detail }, null, 2);
+        fundFlowsValidationToast.removeAttribute("hidden");
+        if (fundFlowsValidationToastTimer) clearTimeout(fundFlowsValidationToastTimer);
+        fundFlowsValidationToastTimer = setTimeout(function () {
+          fundFlowsValidationToast.setAttribute("hidden", "");
+          fundFlowsValidationToastTimer = null;
+        }, 9000);
+      }
+
+      function updateFundFlowGateUi() {
+        var patterns = ["q1", "payroll"];
+        patterns.forEach(function (key) {
+          var card = getFlowCard(key);
+          var skipBtn = document.querySelector('[data-skip-pattern="' + key + '"]');
+          var badge = document.getElementById(key === "q1" ? "gateBadgeQ1" : "gateBadgePayroll");
+          var resolved = fundFlowGate[key];
+          if (!card) return;
+          if (!resolved) {
+            card.classList.add("card--gate-pending");
+            card.classList.remove("card--gate-ready");
+            if (badge) {
+              badge.textContent = "Draft";
+              badge.className = "badge draft";
+              badge.title =
+                "Draft — use Configure (Save) or Skip to mark Ready";
+            }
+            if (skipBtn) {
+              skipBtn.disabled = false;
+              skipBtn.textContent = "Skip";
+            }
+          } else {
+            card.classList.remove("card--gate-pending");
+            card.classList.add("card--gate-ready");
+            if (badge) {
+              badge.textContent = "Ready";
+              badge.className = "badge";
+              badge.title = "Ready for preview";
+            }
+            if (skipBtn) {
+              skipBtn.disabled = true;
+              skipBtn.textContent = resolved === "skip" ? "Skipped" : "Saved in Configure";
+            }
+          }
+        });
+        if (fundFlowsNextBtn) {
+          fundFlowsNextBtn.title =
+            "Continue to preview — if any flow is still Draft, the BFF returns validation errors (mock toast).";
+        }
+      }
+
+      document.querySelectorAll("[data-skip-pattern]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          if (btn.disabled) return;
+          var key = patternKeyFromSkipButton(btn);
+          if (!key || fundFlowGate[key]) return;
+          fundFlowGate[key] = "skip";
+          updateFundFlowGateUi();
+        });
+      });
+
+      document.querySelectorAll("[data-open-flow-config]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var key = btn.getAttribute("data-open-flow-config");
+          flowConfigureSubtitle.textContent = flowTitles[key] || "Funds flow";
+          panelQ1.hidden = key !== "q1";
+          panelPayroll.hidden = key !== "payroll";
+          if (flowConfigureDialog.showModal) flowConfigureDialog.showModal();
+        });
+      });
+
+      document.getElementById("closeFlowConfigureDialog").addEventListener("click", function () {
+        flowConfigureDialog.close();
+      });
+      document.getElementById("saveFlowConfigureDialog").addEventListener("click", function () {
+        var key = !panelQ1.hidden ? "q1" : !panelPayroll.hidden ? "payroll" : null;
+        if (key) fundFlowGate[key] = "configure";
+        flowConfigureDialog.close();
+        updateFundFlowGateUi();
+      });
+
+      if (fundFlowsNextBtn) {
+        fundFlowsNextBtn.addEventListener("click", function () {
+          var drafts = [];
+          ["q1", "payroll"].forEach(function (k) {
+            if (!fundFlowGate[k]) drafts.push(k);
+          });
+          if (drafts.length) {
+            showFundFlowsValidationToast(drafts);
+            return;
+          }
+          if (fundFlowsValidationToast) fundFlowsValidationToast.setAttribute("hidden", "");
+          alert("Mock: navigate to preview — every funds flow on this page is Ready.");
+        });
+      }
+
+      updateFundFlowGateUi();
+
+      document.querySelectorAll("[data-open-mermaid]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var key = btn.getAttribute("data-open-mermaid");
+          var name = flowTitles[key] || "Funds flow";
+          mermaidFlowLine.textContent = name + " · diagram (modal — version 2)";
+          if (mermaidDlg.showModal) mermaidDlg.showModal();
+        });
+      });
+      document.getElementById("closeMermaidModal").addEventListener("click", function () {
+        mermaidDlg.close();
+      });
+
+      var taccountEl = document.getElementById("taccountPage");
+      var taccountTitle = document.getElementById("taccountTitle");
+      var taccountPushed = false;
+      function hideTaccountOverlay() {
+        taccountEl.setAttribute("hidden", "");
+        taccountEl.setAttribute("aria-hidden", "true");
+        taccountPushed = false;
+      }
+      document.querySelectorAll("[data-open-taccount]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          if (!taccountEl.hasAttribute("hidden")) return;
+          var key = btn.getAttribute("data-open-taccount");
+          var name = flowTitles[key] || "Funds flow";
+          taccountTitle.textContent = "Transaction accounts — " + name;
+          taccountEl.removeAttribute("hidden");
+          taccountEl.setAttribute("aria-hidden", "false");
+          taccountPushed = false;
+          if (history && history.pushState) {
+            history.pushState({ mint15Taccount: key }, "");
+            taccountPushed = true;
+          }
+          document.getElementById("closeTaccountPage").focus();
+        });
+      });
+      document.getElementById("closeTaccountPage").addEventListener("click", function () {
+        if (taccountPushed) {
+          history.back();
+        } else {
+          hideTaccountOverlay();
+        }
+      });
+      window.addEventListener("popstate", function () {
+        if (!taccountEl.hasAttribute("hidden")) {
+          hideTaccountOverlay();
+        }
+      });
+
+      var digest = document.querySelector(".digest-alert");
+      var digestDismiss = document.querySelector(".digest-alert__dismiss");
+      if (digest && digestDismiss) {
+        digestDismiss.addEventListener("click", function () {
+          digest.setAttribute("hidden", "");
+        });
+      }
+
+      function getQ1InstanceCount() {
+        var el = document.getElementById("cfg-q1-instances");
+        var n = el ? parseInt(el.value, 10) : 10;
+        if (isNaN(n) || n < 1) n = 1;
+        return n;
+      }
+
+      function getQ1PreviewCap() {
+        return Math.min(getQ1InstanceCount(), 10);
+      }
+
+      function markPreviewStaleIfVisible() {
+        var result = document.getElementById("previewResultQ1");
+        var stale = document.getElementById("recipeStale-q1");
+        if (!result || !stale || result.hasAttribute("hidden")) return;
+        stale.removeAttribute("hidden");
+      }
+
+      var cfgQ1Range = document.getElementById("cfg-q1-instances-range");
+      var cfgQ1Num = document.getElementById("cfg-q1-instances");
+      var cfgQ1Out = document.getElementById("cfg-q1-instances-out");
+
+      function clampQ1Instances(n) {
+        n = parseInt(n, 10);
+        if (isNaN(n) || n < 1) n = 1;
+        if (n > 50) n = 50;
+        return n;
+      }
+
+      function maybeRefreshPreviewPickerQ1() {
+        var result = document.getElementById("previewResultQ1");
+        if (result && !result.hasAttribute("hidden")) {
+          fillPreviewInstanceSelectQ1();
+        }
+      }
+
+      function setQ1InstancesUi(val) {
+        val = clampQ1Instances(val);
+        if (cfgQ1Range) cfgQ1Range.value = String(val);
+        if (cfgQ1Num) cfgQ1Num.value = String(val);
+        if (cfgQ1Out) cfgQ1Out.textContent = String(val);
+        markPreviewStaleIfVisible();
+        maybeRefreshPreviewPickerQ1();
+      }
+
+      if (cfgQ1Range) {
+        cfgQ1Range.addEventListener("input", function () {
+          setQ1InstancesUi(cfgQ1Range.value);
+        });
+      }
+      if (cfgQ1Num) {
+        cfgQ1Num.addEventListener("input", function () {
+          setQ1InstancesUi(cfgQ1Num.value);
+        });
+      }
+
+      ["cfg-q1-lookback"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.addEventListener("input", function () {
+            markPreviewStaleIfVisible();
+          });
+        }
+      });
+
+      var q1LayoutDefaults = {
+        clustered: { a: 0.72, b: 1, c: 64 },
+        bulk: { a: 0.22, b: 2, c: 42 },
+        distributed: { a: 0.35, b: 3, c: 48 }
+      };
+
+      var q1LayoutCommitted = {
+        baseCurve: "distributed",
+        a: 0.35,
+        b: 3,
+        c: 48
+      };
+
+      var syntheticModal = document.getElementById("syntheticLayoutModal");
+      var synthCurve = document.getElementById("synth-base-curve");
+      var synthA = document.getElementById("synth-param-a");
+      var synthB = document.getElementById("synth-param-b");
+      var synthC = document.getElementById("synth-param-c");
+      var synthCustomHint = document.getElementById("synthCustomHint");
+
+      function layoutParamsMatchCurve(curve, a, b, c) {
+        var d = q1LayoutDefaults[curve];
+        if (!d) return false;
+        return Math.abs(Number(a) - d.a) < 0.0001 && Number(b) === d.b && Number(c) === d.c;
+      }
+
+      function curveLabel(curve) {
+        if (curve === "clustered") return "Clustered";
+        if (curve === "bulk") return "Bulk";
+        if (curve === "distributed") return "Distributed";
+        return curve;
+      }
+
+      function applyDefaultsToSynthFields(curve) {
+        var d = q1LayoutDefaults[curve] || q1LayoutDefaults.distributed;
+        if (synthA) synthA.value = String(d.a);
+        if (synthB) synthB.value = String(d.b);
+        if (synthC) synthC.value = String(d.c);
+      }
+
+      function readSynthFieldsFromDom() {
+        return {
+          curve: synthCurve ? synthCurve.value : "distributed",
+          a: synthA ? parseFloat(synthA.value) : 0.35,
+          b: synthB ? parseInt(synthB.value, 10) : 3,
+          c: synthC ? parseInt(synthC.value, 10) : 48
+        };
+      }
+
+      function updateSynthCustomHint() {
+        if (!synthCustomHint) return;
+        var x = readSynthFieldsFromDom();
+        var drift = !layoutParamsMatchCurve(x.curve, x.a, x.b, x.c);
+        synthCustomHint.hidden = !drift;
+      }
+
+      function syncLayoutSummaryFromCommitted() {
+        var labelEl = document.getElementById("layoutSummaryLabelQ1");
+        var paramsEl = document.getElementById("layoutSummaryParamsQ1");
+        var spark = document.getElementById("layoutSpark-q1");
+        var custom = !layoutParamsMatchCurve(q1LayoutCommitted.baseCurve, q1LayoutCommitted.a, q1LayoutCommitted.b, q1LayoutCommitted.c);
+        if (labelEl) labelEl.textContent = custom ? "Custom" : curveLabel(q1LayoutCommitted.baseCurve);
+        if (paramsEl) {
+          paramsEl.textContent =
+            "weight " +
+            q1LayoutCommitted.a +
+            " · min spacing " +
+            q1LayoutCommitted.b +
+            " days · max movements " +
+            q1LayoutCommitted.c;
+        }
+        if (spark) spark.setAttribute("data-layout", custom ? "custom" : q1LayoutCommitted.baseCurve);
+      }
+
+      function pushCommittedIntoSynthModal() {
+        if (synthCurve) synthCurve.value = q1LayoutCommitted.baseCurve;
+        if (synthA) synthA.value = String(q1LayoutCommitted.a);
+        if (synthB) synthB.value = String(q1LayoutCommitted.b);
+        if (synthC) synthC.value = String(q1LayoutCommitted.c);
+        updateSynthCustomHint();
+      }
+
+      var openSynthBtn = document.getElementById("openSyntheticLayoutEditorQ1");
+      if (openSynthBtn) {
+        openSynthBtn.addEventListener("click", function () {
+          pushCommittedIntoSynthModal();
+          if (syntheticModal && syntheticModal.showModal) syntheticModal.showModal();
+        });
+      }
+
+      if (synthCurve) {
+        synthCurve.addEventListener("change", function () {
+          applyDefaultsToSynthFields(synthCurve.value);
+          updateSynthCustomHint();
+        });
+      }
+      [synthA, synthB, synthC].forEach(function (el) {
+        if (!el) return;
+        el.addEventListener("input", updateSynthCustomHint);
+      });
+
+      var closeSynth = document.getElementById("closeSyntheticLayoutModal");
+      if (closeSynth && syntheticModal) {
+        closeSynth.addEventListener("click", function () {
+          syntheticModal.close();
+        });
+      }
+      var saveSynth = document.getElementById("saveSyntheticLayoutModal");
+      if (saveSynth && syntheticModal) {
+        saveSynth.addEventListener("click", function () {
+          var x = readSynthFieldsFromDom();
+          var d = q1LayoutDefaults[x.curve] || q1LayoutDefaults.distributed;
+          if (isNaN(x.a)) x.a = d.a;
+          if (isNaN(x.b) || x.b < 1) x.b = d.b;
+          if (isNaN(x.c) || x.c < 1) x.c = d.c;
+          q1LayoutCommitted.baseCurve = x.curve;
+          q1LayoutCommitted.a = x.a;
+          q1LayoutCommitted.b = x.b;
+          q1LayoutCommitted.c = x.c;
+          syncLayoutSummaryFromCommitted();
+          markPreviewStaleIfVisible();
+          syntheticModal.close();
+        });
+      }
+
+      function wireQ1ConfigureOptin(gateId, bodyId, addId, removeId) {
+        var gate = document.getElementById(gateId);
+        var body = document.getElementById(bodyId);
+        var addBtn = document.getElementById(addId);
+        var removeBtn = document.getElementById(removeId);
+        if (!gate || !body || !addBtn || !removeBtn) return;
+        addBtn.addEventListener("click", function () {
+          gate.setAttribute("hidden", "");
+          body.removeAttribute("hidden");
+        });
+        removeBtn.addEventListener("click", function () {
+          body.setAttribute("hidden", "");
+          gate.removeAttribute("hidden");
+        });
+      }
+      wireQ1ConfigureOptin("q1OptinScalingGate", "q1OptinScalingBody", "q1OptinScalingAdd", "q1OptinScalingRemove");
+      wireQ1ConfigureOptin("q1OptinLayoutGate", "q1OptinLayoutBody", "q1OptinLayoutAdd", "q1OptinLayoutRemove");
+      wireQ1ConfigureOptin("q1OptinVarianceGate", "q1OptinVarianceBody", "q1OptinVarianceAdd", "q1OptinVarianceRemove");
+
+      syncLayoutSummaryFromCommitted();
+
+      var previewRowHtml =
+        "<tr class=\"mm-json-row\" tabindex=\"0\" role=\"button\" data-mm-json=\"preview:bonus_po\" aria-label=\"View preview resource JSON for this row\"><td><span class=\"tag-chip po\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6\" fill=\"none\" stroke=\"currentColor\"/><path d=\"M5 8h6\" stroke=\"currentColor\"/></svg> Payment order</span></td><td>Bonus payment order to operations</td><td><span class=\"link-pill\" style=\"cursor:default\">Acme Inc <span class=\"dim\">…7a2</span></span></td><td class=\"date\">2026-04-14</td><td class=\"amt\">$250,000.00</td></tr>" +
+        "<tr class=\"row-child mm-json-row--embedded\" tabindex=\"0\" role=\"button\" data-mm-json-embedded=\"1\" title=\"Ledger rows are inline on the payment order above — no separate resource\" aria-label=\"Why this row has no separate JSON\"><td colspan=\"2\"><span class=\"tree\">└</span><span class=\"tag-chip lt\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6\" fill=\"none\" stroke=\"currentColor\"/><path d=\"M5 8h6\" stroke=\"currentColor\"/></svg> Ledger transaction</span> <span class=\"dim\">under first step</span></td><td><span class=\"link-pill\" style=\"cursor:default\">Acme Inc <span class=\"dim\">…7a2</span></span></td><td class=\"date\">2026-04-14</td><td class=\"amt\">$250,000.00</td></tr>" +
+        "<tr class=\"mm-json-row\" tabindex=\"0\" role=\"button\" data-mm-json=\"preview:internal_lt\" aria-label=\"View preview resource JSON for this row\"><td><span class=\"tag-chip st\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6\" fill=\"none\" stroke=\"currentColor\"/><path d=\"M5 8h6\" stroke=\"currentColor\"/></svg> Transfer · internal</span></td><td>Internal settle pair</td><td><span class=\"actor-link-group\"><span class=\"link-pill\" style=\"cursor:default\">Acme Inc</span><span class=\"link-pill\" style=\"cursor:default\">Partner Bank</span></span></td><td class=\"date\">2026-04-15</td><td class=\"amt\">$100,000 – $120,000</td></tr>" +
+        "<tr class=\"mm-json-row\" tabindex=\"0\" role=\"button\" data-mm-json=\"preview:settlement_po\" aria-label=\"View preview resource JSON for this row\"><td><span class=\"tag-chip po\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6\" fill=\"none\" stroke=\"currentColor\"/><path d=\"M5 8h6\" stroke=\"currentColor\"/></svg> Settlement · external account</span></td><td>Outbound to partner <span class=\"parallel\">‖ Internal settle pair</span></td><td><span class=\"link-pill\" style=\"cursor:default\">Partner Bank <span class=\"dim\">…</span></span></td><td class=\"date\">2026-04-16</td><td class=\"amt\">$250,000.00</td></tr>";
+
+      function fillPreviewInstanceSelectQ1() {
+        var sel = document.getElementById("previewInstanceQ1");
+        if (!sel) return;
+        var cap = getQ1PreviewCap();
+        sel.innerHTML = "";
+        for (var i = 1; i <= cap; i++) {
+          var opt = document.createElement("option");
+          opt.value = String(i);
+          opt.textContent = "Instance " + i + " of " + cap + " (preview)";
+          sel.appendChild(opt);
+        }
+      }
+
+      function showPreviewGeneratedQ1() {
+        var empty = document.getElementById("previewEmptyQ1");
+        var result = document.getElementById("previewResultQ1");
+        var body = document.getElementById("previewTableBodyQ1");
+        var stale = document.getElementById("recipeStale-q1");
+        if (empty) empty.setAttribute("hidden", "");
+        if (result) result.removeAttribute("hidden");
+        if (stale) stale.setAttribute("hidden", "");
+        fillPreviewInstanceSelectQ1();
+        if (body) body.innerHTML = previewRowHtml;
+      }
+
+      var genPrev = document.getElementById("generatePreviewQ1");
+      if (genPrev) genPrev.addEventListener("click", showPreviewGeneratedQ1);
+      var regPrev = document.getElementById("regeneratePreviewQ1");
+      if (regPrev) {
+        regPrev.addEventListener("click", function () {
+          fillPreviewInstanceSelectQ1();
+          var body = document.getElementById("previewTableBodyQ1");
+          if (body) body.innerHTML = previewRowHtml;
+          var stale = document.getElementById("recipeStale-q1");
+          if (stale) stale.setAttribute("hidden", "");
+        });
+      }
+
+      var anchorInput = document.getElementById("cfg-q1-anchor");
+      if (anchorInput) {
+        anchorInput.addEventListener("change", markPreviewStaleIfVisible);
+      }
+
+      /* Actor tiles: entity + seed dataset icons (aligns with flow_actor_config entity_type + dataset tiers) */
+      var actorSeedConfig = {
+        acme: { entity: "business", tier: "general" },
+        partner: { entity: "business", tier: "industry" },
+        ops: { entity: "individual", tier: "general" },
+        e1: { entity: "business", tier: "industry" },
+        e2: { entity: "business", tier: "curated" }
+      };
+      var tierTitle = {
+        general: "Seed dataset: standard / general (faker tier in product selects)",
+        industry: "Seed dataset: industry vertical",
+        curated: "Seed dataset: pop culture / curated tier"
+      };
+      var entityTitle = {
+        business: "Entity kind: business",
+        individual: "Entity kind: individual"
+      };
+      var svgEntityBusiness =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="1"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
+      var svgEntityIndividual =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 21v-1a7 7 0 0114 0v1"/></svg>';
+      var svgTierGeneral =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h11"/></svg>';
+      var svgTierIndustry =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20h20"/><path d="M5 20V11l2.5 2V20M11 20V9l3 3v8"/><path d="M17 13h3v7"/></svg>';
+      var svgTierCurated =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l2.8 8.5h9l-7.2 5.5L18 22l-6-4.5L6 22l2.4-6-7.2-5.5h9L12 2z"/></svg>';
+
+      function injectActorSeedRows() {
+        document.querySelectorAll(".actor-tile[data-actor-id]").forEach(function (tile) {
+          var iconsWrap = tile.querySelector(".actor-tile__icons");
+          if (!iconsWrap) return;
+          if (iconsWrap.querySelector(".actor-seed-icon")) return;
+          var id = tile.getAttribute("data-actor-id");
+          var cfg = actorSeedConfig[id];
+          if (!cfg) return;
+          var entSpan = document.createElement("span");
+          entSpan.className =
+            "actor-seed-icon actor-seed-icon--" +
+            (cfg.entity === "individual" ? "individual" : "business");
+          entSpan.setAttribute("title", entityTitle[cfg.entity] || "");
+          entSpan.setAttribute("aria-label", entityTitle[cfg.entity] || "");
+          entSpan.innerHTML = cfg.entity === "individual" ? svgEntityIndividual : svgEntityBusiness;
+          var tierSpan = document.createElement("span");
+          tierSpan.className = "actor-seed-icon actor-seed-icon--tier-" + cfg.tier;
+          tierSpan.setAttribute("title", tierTitle[cfg.tier] || "");
+          tierSpan.setAttribute("aria-label", tierTitle[cfg.tier] || "");
+          tierSpan.innerHTML =
+            cfg.tier === "industry" ? svgTierIndustry : cfg.tier === "curated" ? svgTierCurated : svgTierGeneral;
+          iconsWrap.appendChild(entSpan);
+          iconsWrap.appendChild(tierSpan);
+        });
+      }
+      injectActorSeedRows();
+    })();
+  </script>
+</body>
+</html>
